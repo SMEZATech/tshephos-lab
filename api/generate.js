@@ -15,9 +15,13 @@ const PLATFORM_HINT = {
 
 function buildPrompt({ offer, audience, platform, count, winnerAngle }) {
   const hint = PLATFORM_HINT[platform] || PLATFORM_HINT.Meta;
+  const isGoogle = (platform || "") === "Google";
   const task = winnerAngle
     ? `Produce ${count} NEW variations that riff on this winning angle with fresh hooks: "${winnerAngle}".`
     : `Produce ${count} variations, each using a DISTINCT copywriting framework/angle (e.g. PAS, AIDA, Before-After-Bridge, curiosity gap, bold claim, social proof, pattern interrupt, problem-first).`;
+  const hashtagRule = isGoogle
+    ? `- hashtags: this is Google Search, which does NOT use hashtags. Return an empty array [].`
+    : `- hashtags: return 4-6 specific, relevant hashtags as plain words WITHOUT the "#" symbol and with no spaces (e.g. "SMEFunding", "SmallBusinessSA"). Mix broad and niche tags.`;
   return `OFFER / PRODUCT:
 ${offer}
 
@@ -35,10 +39,11 @@ RULES:
 - body <= 26 words.
 - cta <= 5 words.
 - framework = the named angle used (<= 4 words).
+${hashtagRule}
 - Score each 1-10 (integers) on hook, clarity, urgency. Grade like a tough media buyer — use the full range, do NOT give everything 8s.
 
 Return ONLY minified JSON, no markdown, no commentary, exactly this shape:
-{"variations":[{"framework":"","headline":"","body":"","cta":"","scores":{"hook":0,"clarity":0,"urgency":0}}]}`;
+{"variations":[{"framework":"","headline":"","body":"","cta":"","hashtags":[],"scores":{"hook":0,"clarity":0,"urgency":0}}]}`;
 }
 
 function safeParse(raw) {
@@ -57,6 +62,13 @@ const clampScore = (n) => {
   if (!Number.isFinite(x)) return 5;
   return Math.max(1, Math.min(10, x));
 };
+
+const cleanTags = (arr) =>
+  Array.isArray(arr)
+    ? arr.slice(0, 8)
+        .map((h) => String(h).replace(/^#/, "").replace(/\s+/g, "").slice(0, 30))
+        .filter(Boolean)
+    : [];
 
 // ---- providers ----
 async function callGemini(prompt) {
@@ -86,7 +98,7 @@ async function callClaude(prompt) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model, max_tokens: 1500, system: SYSTEM, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model, max_tokens: 2000, system: SYSTEM, messages: [{ role: "user", content: prompt }] }),
   });
   const data = await r.json();
   if (!r.ok) throw new Error((data && data.error && data.error.message) || "Claude request failed");
@@ -142,6 +154,7 @@ export default async function handler(req, res) {
       headline: String(v.headline || "").slice(0, 160),
       body: String(v.body || "").slice(0, 400),
       cta: String(v.cta || "").slice(0, 40),
+      hashtags: cleanTags(v.hashtags),
       scores: {
         hook: clampScore(v.scores && v.scores.hook),
         clarity: clampScore(v.scores && v.scores.clarity),
