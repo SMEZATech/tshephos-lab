@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- Tshepho's Lab — © 2026 Tshepho Joel. All rights reserved. -->
+<!-- Tshepho's Lab — Copy Lab — © 2026 Tshepho Joel. All rights reserved. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tshepho's Lab — Ad Creative Engine</title>
+<title>Tshepho's Lab — Copy Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -21,77 +21,47 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
-  body{
-    font-family:var(--fb); color:var(--text); background:var(--bg);
-    min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;
-  }
-  .bg{
-    position:fixed; inset:0; z-index:0; pointer-events:none;
+  body{font-family:var(--fb); color:var(--text); background:var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;}
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
     background:
       radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
       radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
-      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);
-  }
-  .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:48px 22px 36px;}
+      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+  .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:26px 22px 36px;}
 
-  /* header */
-  .badge{
-    display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px;
-    font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase;
-    border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);
-  }
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
   @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
-  h1.title{
-    font-family:var(--fd); font-weight:800; font-size:clamp(40px,7.5vw,68px); line-height:.98;
-    letter-spacing:-.02em; margin:18px 0 0;
-  }
+  h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(40px,7.5vw,68px); line-height:.98; letter-spacing:-.02em; margin:18px 0 0;}
   h1.title .accent{color:var(--accent);}
   .sub{color:var(--dim); font-size:16px; max-width:540px; margin:15px 0 0; line-height:1.55;}
 
-  /* console */
-  .console{
-    margin-top:32px; background:linear-gradient(180deg,var(--surface),#11141b);
-    border:1px solid var(--border); border-radius:22px; padding:24px;
-    box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);
-  }
+  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
   .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
-  textarea,input{
-    width:100%; font-family:var(--fb); font-size:15px; color:var(--text);
-    background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px;
-    outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;
-  }
+  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
   textarea::placeholder,input::placeholder{color:#565c68;}
   textarea:focus,input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
   .row{display:flex; gap:18px; margin-top:18px; flex-wrap:wrap;}
   .field{flex:1; min-width:230px;}
   .seg{display:flex; gap:7px; flex-wrap:wrap;}
-  .seg button{
-    font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px;
-    border:1px solid var(--border-2); border-radius:11px; background:#0D0F15; color:var(--dim);
-    cursor:pointer; transition:all .14s;
-  }
+  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
   .seg button:hover{color:var(--text); border-color:var(--accent);}
   .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
 
   .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
-  .btn{
-    display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px;
-    color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer;
-    transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);
-  }
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
   .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(182,255,61,.7);}
   .btn:active:not(:disabled){transform:translateY(1px);}
   .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
   .go-note{font-size:13px; color:var(--dim);}
 
-  /* states */
-  .error{
-    display:flex; gap:11px; align-items:flex-start; margin-top:20px; font-size:14px; line-height:1.5;
-    color:#ffd7d7; background:rgba(255,124,124,.08); border:1px solid rgba(255,124,124,.35);
-    border-radius:14px; padding:14px 16px;
-  }
+  .error{display:flex; gap:11px; align-items:flex-start; margin-top:20px; font-size:14px; line-height:1.5; color:#ffd7d7; background:rgba(255,124,124,.08); border:1px solid rgba(255,124,124,.35); border-radius:14px; padding:14px 16px;}
   .error[hidden]{display:none;}
   .error b{color:#fff; font-weight:700;}
 
@@ -102,56 +72,44 @@
   .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px;}
   @media(max-width:720px){.grid{grid-template-columns:1fr;}}
 
-  .card{
-    background:linear-gradient(180deg,var(--surface),#12151c); border:1px solid var(--border);
-    border-radius:20px; padding:21px; display:flex; flex-direction:column;
-    box-shadow:0 18px 44px -26px rgba(0,0,0,.8); opacity:0; animation:rise .55s cubic-bezier(.2,.7,.2,1) forwards;
-    transition:border-color .2s, transform .2s;
-  }
+  .card{background:linear-gradient(180deg,var(--surface),#12151c); border:1px solid var(--border); border-radius:20px; padding:21px; display:flex; flex-direction:column; box-shadow:0 18px 44px -26px rgba(0,0,0,.8); opacity:0; animation:rise .55s cubic-bezier(.2,.7,.2,1) forwards; transition:border-color .2s, transform .2s;}
   .card:hover{border-color:var(--border-2); transform:translateY(-2px);}
   @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
   .card-top{display:flex; align-items:center; gap:11px; margin-bottom:15px;}
   .rank{font-family:var(--fm); font-weight:700; font-size:13px; color:#565c68;}
-  .fw{
-    font-family:var(--fm); font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
-    color:var(--accent); background:rgba(182,255,61,.1); border:1px solid rgba(182,255,61,.25);
-    padding:4px 9px; border-radius:7px;
-  }
+  .fw{font-family:var(--fm); font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); background:rgba(182,255,61,.1); border:1px solid rgba(182,255,61,.25); padding:4px 9px; border-radius:7px;}
   .overall{margin-left:auto; font-family:var(--fd); font-weight:800; font-size:25px; line-height:1;}
   .overall em{font-style:normal; font-size:12px; font-weight:500; color:var(--dim); margin-left:1px;}
   .overall.good{color:var(--good);} .overall.mid{color:var(--mid);} .overall.low{color:var(--low);}
   .hl{font-family:var(--fb); font-weight:800; font-size:20px; line-height:1.18; letter-spacing:-.01em; margin:0 0 9px;}
-  .body{font-size:14.5px; line-height:1.55; color:var(--dim); margin:0 0 15px; flex:1;}
-  .cta{align-self:flex-start; font-family:var(--fm); font-weight:700; font-size:11.5px; letter-spacing:.02em;
-    border:1px solid var(--accent); color:var(--accent); padding:6px 13px; border-radius:9px;}
+  .body{font-size:14.5px; line-height:1.55; color:var(--dim); margin:0 0 14px;}
+  .cta{align-self:flex-start; font-family:var(--fm); font-weight:700; font-size:11.5px; letter-spacing:.02em; border:1px solid var(--accent); color:var(--accent); padding:6px 13px; border-radius:9px;}
 
-  .scores{margin-top:17px; display:flex; flex-direction:column; gap:9px;}
+  .tags{display:flex; flex-wrap:wrap; gap:6px; margin-top:14px;}
+  .tag{font-family:var(--fm); font-size:11px; font-weight:700; color:#bfe6ff; background:rgba(86,140,255,.1); border:1px solid rgba(86,140,255,.28); padding:3px 8px; border-radius:6px;}
+
+  .scores{margin-top:16px; display:flex; flex-direction:column; gap:9px;}
   .score{display:flex; align-items:center; gap:11px;}
   .score .slbl{font-family:var(--fm); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); width:56px;}
   .bar{flex:1; height:7px; background:rgba(255,255,255,.07); border-radius:100px; overflow:hidden;}
   .bar i{display:block; height:100%; border-radius:100px; transition:width .7s cubic-bezier(.2,.7,.2,1);}
   .sval{font-family:var(--fm); font-weight:700; font-size:12px; width:16px; text-align:right;}
 
-  .actions{display:flex; gap:9px; margin-top:18px; padding-top:16px; border-top:1px solid var(--border);}
-  .mini{
-    display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:11.5px;
-    background:transparent; border:1px solid var(--border-2); color:var(--text); border-radius:9px; padding:8px 12px;
-    cursor:pointer; transition:all .14s;
-  }
+  .actions{display:flex; gap:9px; margin-top:18px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap;}
+  .mini{display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:11.5px; background:transparent; border:1px solid var(--border-2); color:var(--text); border-radius:9px; padding:8px 12px; cursor:pointer; transition:all .14s;}
   .mini:hover:not(:disabled){background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .mini.go-studio{border-color:rgba(182,255,61,.4); color:var(--accent);}
+  .mini.go-studio:hover{background:var(--accent); color:#0A0B0F;}
   .mini:disabled{opacity:.45; cursor:not-allowed;}
   .mini svg{width:13px;height:13px;}
 
-  .skel{height:262px; border-radius:20px; border:1px solid var(--border);
-    background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
+  .skel{height:300px; border-radius:20px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
   @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
-
   .empty{margin-top:32px; border:1px dashed var(--border-2); border-radius:20px; padding:52px 20px; text-align:center; color:var(--dim);}
   .empty svg{width:30px;height:30px;opacity:.6;}
   .empty p{margin:14px 0 0; font-size:15px;}
 
   .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
-  .btn .spinner{border-color:rgba(10,11,15,.35);border-top-color:#0A0B0F;}
   .mini .spinner{border-color:rgba(255,255,255,.25);border-top-color:var(--text);}
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -162,20 +120,25 @@
 <body>
 <div class="bg"></div>
 <main class="wrap">
+  <nav class="topbar">
+    <span class="tab active">✍️ Copy Lab</span>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+  </nav>
+
   <header>
     <span class="badge"><span class="dot"></span> Ad Creative Engine</span>
     <h1 class="title">Tshepho's <span class="accent">Lab</span></h1>
-    <p class="sub">Drop in an offer and get a ranked batch of ad angles — each one written and graded across hook, clarity, and urgency.</p>
+    <p class="sub">Drop in an offer and get a ranked batch of ad angles — each written, graded on hook/clarity/urgency, and ready to design.</p>
   </header>
 
   <section class="console">
     <label class="lbl" for="offer">The offer</label>
-    <textarea id="offer" rows="3" placeholder="e.g. A 7-day at-home mobility program for desk workers with back pain. $39/mo, cancel anytime."></textarea>
+    <textarea id="offer" rows="3" placeholder="e.g. 20% off the SME Funding Summit on 18 June 2026 — early-stage founders, limited seats."></textarea>
 
     <div class="row">
       <div class="field">
         <label class="lbl" for="audience">Target audience <span class="opt">optional</span></label>
-        <input id="audience" placeholder="e.g. 30–50, office workers, low activity" />
+        <input id="audience" placeholder="e.g. SME founders, 25–45, South Africa" />
       </div>
       <div class="field">
         <label class="lbl">Platform</label>
@@ -193,7 +156,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.2L19 10l-5.1 1.8L12 17l-1.9-5.2L5 10l5.1-1.8z"/></svg>
         <span id="genlabel">Generate ad angles</span>
       </button>
-      <span class="go-note">Each run writes and grades 5 fresh angles.</span>
+      <span class="go-note">Hashtags included for every platform except Google.</span>
     </div>
   </section>
 
@@ -209,6 +172,7 @@ const ICON = {
   copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
   wand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>',
+  studio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><circle cx="12" cy="12" r="10"/></svg>',
 };
 const COLORS = { good:'#57E39A', mid:'#FFC857', low:'#FF7C7C' };
 let _id = 0;
@@ -219,9 +183,9 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<'
 const overall = sc => Math.round(((sc.hook+sc.clarity+sc.urgency)/3)*10)/10;
 const tier = v => v>=8 ? 'good' : v>=6 ? 'mid' : 'low';
 const rank = list => [...list].sort((a,b)=> overall(b.scores)-overall(a.scores) || b.scores.hook-a.scores.hook);
+const tagText = v => (v.hashtags && v.hashtags.length) ? '\n\n' + v.hashtags.map(t => '#' + String(t).replace(/^#/,'')).join(' ') : '';
 
-const elOffer=$('#offer'), elAud=$('#audience'), elGen=$('#gen'), elGenLabel=$('#genlabel'),
-      elErr=$('#error'), elRes=$('#results');
+const elOffer=$('#offer'), elAud=$('#audience'), elGen=$('#gen'), elGenLabel=$('#genlabel'), elErr=$('#error'), elRes=$('#results');
 
 elOffer.addEventListener('input', e => { state.offer=e.target.value; syncGen(); });
 elAud.addEventListener('input', e => { state.audience=e.target.value; });
@@ -235,9 +199,7 @@ elGen.addEventListener('click', () => run());
 function syncGen(){ elGen.disabled = !(state.offer.trim().length>2) || state.loading || !!state.moreFor; }
 
 async function callApi(payload){
-  const r = await fetch('/api/generate', {
-    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
-  });
+  const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
   let data;
   try { data = await r.json(); } catch(_) { throw new Error('SETUP'); }
   if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed');
@@ -248,13 +210,14 @@ async function run(winnerAngle){
   state.loading = true; syncGen(); hideErr();
   state.variations = []; render();
   elGenLabel.textContent = 'Writing & scoring…';
-  elGen.querySelector('svg').outerHTML = '<span class="spinner"></span>';
+  const svg = elGen.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner" style="border-color:rgba(10,11,15,.35);border-top-color:#0A0B0F"></span>';
   try{
     const data = await callApi({ offer:state.offer, audience:state.audience, platform:state.platform, count:5, winnerAngle });
     state.variations = rank(data.variations.map(v => ({...v, _id:++_id})));
   }catch(err){ showErr(err.message); }
   finally{
-    state.loading = false; elGenLabel.textContent = state.variations.length ? 'New batch' : 'Generate ad angles';
+    state.loading = false;
+    elGenLabel.textContent = state.variations.length ? 'New batch' : 'Generate ad angles';
     const ic = elGen.querySelector('.spinner'); if(ic) ic.outerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.2L19 10l-5.1 1.8L12 17l-1.9-5.2L5 10l5.1-1.8z"/></svg>';
     syncGen(); render();
   }
@@ -270,11 +233,19 @@ async function moreLikeThis(v){
   finally{ state.moreFor = null; syncGen(); render(); }
 }
 
+function sendToStudio(v){
+  try{
+    sessionStorage.setItem('tl_handoff', JSON.stringify({ headline: v.headline, body: v.body, platform: state.platform }));
+  }catch(e){}
+  window.location.href = 'studio.html';
+}
+
+const warnSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
 function showErr(msg){
   const setup = (msg==='SETUP' || /not set|api key|429|quota|failed to fetch|load failed/i.test(msg));
   elErr.innerHTML = setup
-    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div><b>Not connected yet.</b> Deploy this with your free Gemini API key (see the README), then the engine activates. Locally, run <code>vercel dev</code>.</div>'
-    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div>'+esc(msg)+'</div>';
+    ? warnSvg + '<div><b>Not connected yet.</b> Deploy this with your free Gemini API key (see the README), then the engine activates. Locally, run <code>vercel dev</code>.</div>'
+    : warnSvg + '<div>' + esc(msg) + '</div>';
   elErr.hidden = false;
 }
 function hideErr(){ elErr.hidden = true; }
@@ -285,22 +256,27 @@ function scoreRow(label, val){
 
 function cardHtml(v, i){
   const ov = overall(v.scores), t = tier(ov);
+  const tags = (v.hashtags && v.hashtags.length)
+    ? `<div class="tags">${v.hashtags.map(h => `<span class="tag">#${esc(String(h).replace(/^#/,''))}</span>`).join('')}</div>`
+    : '';
   const moreBtn = state.moreFor===v._id
     ? `<button class="mini" disabled><span class="spinner"></span> Spinning…</button>`
     : `<button class="mini more" data-id="${v._id}" ${state.moreFor?'disabled':''}>${ICON.wand} More like this</button>`;
   return `<article class="card" style="animation-delay:${i*60}ms">
     <div class="card-top">
-      <span class="rank">#${String(i+1).padStart(2,'0')}</span>
+      <span class="rank">#${String(i+1).padStart(2,"0")}</span>
       <span class="fw">${esc(v.framework)}</span>
       <span class="overall ${t}">${ov.toFixed(1)}<em>/10</em></span>
     </div>
     <h3 class="hl">${esc(v.headline)}</h3>
     <p class="body">${esc(v.body)}</p>
     <span class="cta">${esc(v.cta)}</span>
+    ${tags}
     <div class="scores">${scoreRow('Hook',v.scores.hook)}${scoreRow('Clarity',v.scores.clarity)}${scoreRow('Urgency',v.scores.urgency)}</div>
     <div class="actions">
       <button class="mini copy" data-id="${v._id}">${ICON.copy} Copy</button>
       ${moreBtn}
+      <button class="mini go-studio studio" data-id="${v._id}">${ICON.studio} Design in Studio →</button>
     </div>
   </article>`;
 }
@@ -322,14 +298,21 @@ elRes.addEventListener('click', e => {
   const copyBtn = e.target.closest('.copy');
   if(copyBtn){
     const v = state.variations.find(x=>x._id==copyBtn.dataset.id); if(!v) return;
-    navigator.clipboard && navigator.clipboard.writeText(`${v.headline}\n\n${v.body}\n\n${v.cta}`);
+    navigator.clipboard && navigator.clipboard.writeText(`${v.headline}\n\n${v.body}\n\n${v.cta}${tagText(v)}`);
     copyBtn.innerHTML = `${ICON.check} Copied`;
     setTimeout(()=>{ copyBtn.innerHTML = `${ICON.copy} Copy`; }, 1400);
     return;
   }
+  const studioBtn = e.target.closest('.studio');
+  if(studioBtn){
+    const v = state.variations.find(x=>x._id==studioBtn.dataset.id);
+    if(v) sendToStudio(v);
+    return;
+  }
   const moreBtn = e.target.closest('.more');
   if(moreBtn){
-    const v = state.variations.find(x=>x._id==moreBtn.dataset.id); if(v) moreLikeThis(v);
+    const v = state.variations.find(x=>x._id==moreBtn.dataset.id);
+    if(v) moreLikeThis(v);
   }
 });
 
