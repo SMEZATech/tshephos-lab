@@ -70,7 +70,7 @@ async function callGemini(prompt) {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: SYSTEM }] },
       contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.9, maxOutputTokens: 1500, responseMimeType: "application/json" },
+      generationConfig: { temperature: 0.9, maxOutputTokens: 4096, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
     }),
   });
   const data = await r.json();
