@@ -200,8 +200,11 @@ elGen.addEventListener('click', () => run());
 
 function syncGen(){ elGen.disabled = !(state.offer.trim().length>2) || state.loading || !!state.moreFor; }
 
+// App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
+const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
+
 async function callApi(payload){
-  const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify(payload) });
   let data;
   try { data = await r.json(); } catch(_) { throw new Error('SETUP'); }
   if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed');
