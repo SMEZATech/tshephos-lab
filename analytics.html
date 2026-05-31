@@ -136,6 +136,24 @@
   .ls-steps{margin:10px 0 0; padding-left:20px; color:var(--dim); font-size:13px; line-height:1.65;}
   .ls-steps code{background:#0D0F15; border:1px solid var(--border-2); border-radius:5px; padding:1px 5px; font-family:var(--fm); font-size:11px; color:#bfe6ff;}
 
+  .posts{display:flex; flex-direction:column; gap:12px;}
+  .post{background:#0D0F15; border:1px solid var(--border); border-radius:13px; padding:14px 15px;}
+  .post-h{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .post-rank{font-family:var(--fd); font-weight:800; font-size:14px; color:var(--accent);}
+  .post-date{font-family:var(--fm); font-size:11px; color:var(--faint);}
+  .post-link{margin-left:auto; font-family:var(--fm); font-size:11px; color:var(--info); text-decoration:none;}
+  .post-link:hover{text-decoration:underline;}
+  .post-text{margin:0 0 11px; font-size:14px; line-height:1.5; color:var(--text);}
+  .pmets{display:flex; flex-wrap:wrap; gap:8px;}
+  .pmet{font-family:var(--fm); font-size:11px; color:var(--dim); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:7px; padding:4px 9px;}
+  .pmet b{color:var(--text); font-weight:700;}
+  .pb-verdict{font-size:15px; line-height:1.5; color:var(--text); margin:18px 0 14px; padding:13px 15px; background:rgba(182,255,61,.06); border:1px solid var(--border); border-radius:12px;}
+  .pb{margin-top:14px;}
+  .pb-h{font-family:var(--fm); font-size:11px; letter-spacing:.08em; text-transform:uppercase; margin:0 0 8px;}
+  .pb-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px;}
+  .pb-list li{font-size:13.5px; line-height:1.5; color:var(--dim); padding-left:16px; position:relative;}
+  .pb-list li::before{content:'›'; position:absolute; left:0; color:var(--accent); font-weight:700;}
+
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
 </style>
@@ -237,7 +255,7 @@ const METRICS = [
   { key:'posts',      label:'Posts published',  hint:'this period',                    goodUp:null  },
 ];
 
-const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'manual' };
+const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'manual', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'' };
 METRICS.forEach(m => state.metrics[m.key] = { this:'', prev:'' });
 
 const $ = s => document.querySelector(s);
@@ -337,6 +355,7 @@ async function pullLiveDash(){
   const id = sel ? sel.value : '';
   if(!id) throw new Error('Pick a connected channel first.');
   const days = parseInt((document.getElementById('liveDays') || {}).value || '30', 10) || 30;
+  state.liveCtx = { id: id, days: days };
   let r, data;
   try { r = await fetch('/api/postiz?action=analytics&id=' + encodeURIComponent(id) + '&days=' + days); data = await r.json(); }
   catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
@@ -386,7 +405,9 @@ async function callApi(payload){
 }
 
 async function run(){
-  state.loading = true; syncRun(); hideErr(); state.analysis = null; state.dashData = null; render();
+  state.loading = true; syncRun(); hideErr(); state.analysis = null; state.dashData = null;
+  state.topPosts = null; state.bestposts = null; state.topError = '';
+  render();
   elRunLabel.textContent = state.mode === 'live' ? 'Pulling…' : 'Analyzing…';
   const svg = elRun.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner"></span>';
 
@@ -489,6 +510,66 @@ function renderAnalysis(a){
   return html;
 }
 
+async function runTopPosts(){
+  const ctx = state.liveCtx;
+  if(!ctx || !ctx.id) return;
+  state.topLoading = true; state.topError = ''; render();
+  try{
+    let r, data;
+    try { r = await fetch('/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=6'); data = await r.json(); }
+    catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
+    if(!r.ok) throw new Error((data && (data.message || data.error)) || 'Postiz request failed.');
+    const posts = (data && data.topPosts) || [];
+    if(!posts.length) throw new Error('No published posts with analytics in this window yet — give it a few days of data, or widen the look-back.');
+    state.topPosts = posts;
+    // AI playbook across the winners (optional — cards still show if this fails)
+    try{
+      const ai = await callApi({ task:'bestposts', platform:state.platform, goal:state.goal, posts: posts.map(p => ({ content:p.content, metrics:p.metrics, engagement:p.engagement })) });
+      state.bestposts = (ai && ai.bestposts) || null;
+    }catch(e){ state.bestposts = null; state.topError = e.message; }
+  }catch(err){ state.topError = err.message; state.topPosts = null; }
+  finally{ state.topLoading = false; render(); }
+}
+
+function playbookBlock(title, items, color){
+  if(!items || !items.length) return '';
+  return '<div class="pb"><h4 class="pb-h" style="color:' + color + '">' + title + '</h4><ul class="pb-list">' + items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
+}
+
+function topPostsSection(){
+  if(!(state.dashData && state.dashData.live)) return '';
+  let html = '<div class="sec"><h3 class="sec-h">🏆 Top posts</h3>';
+  if(state.topLoading){ return html + '<div class="skel" style="height:160px"></div></div>'; }
+  if(!state.topPosts){
+    html += '<p class="ls-msg" style="margin-bottom:12px;">Pull your recent published posts ranked by engagement, with an AI playbook of what’s working. <span style="color:var(--faint)">Uses a few Postiz calls (≈30/hour limit), so it’s on demand.</span></p>';
+    html += '<button class="mini" id="topBtn" style="padding:10px 16px;">🏆 Find my top posts</button>';
+    if(state.topError) html += '<p class="ls-msg" style="color:var(--low); margin-top:12px;">' + esc(state.topError) + '</p>';
+    return html + '</div>';
+  }
+  html += '<div class="posts">';
+  state.topPosts.forEach((p, i) => {
+    const mets = (p.metrics || []).filter(m => m.value != null).slice(0, 5)
+      .map(m => '<span class="pmet"><b>' + fmt(m.value) + '</b> ' + esc(m.label) + '</span>').join('');
+    const date = p.publishDate ? new Date(p.publishDate).toLocaleDateString() : '';
+    html += '<div class="post"><div class="post-h"><span class="post-rank">#' + (i + 1) + '</span><span class="post-date">' + esc(date) + '</span>'
+      + (p.url ? '<a class="post-link" href="' + esc(p.url) + '" target="_blank" rel="noopener">view ↗</a>' : '')
+      + '</div><p class="post-text">' + esc(p.content || '(no caption)') + '</p>'
+      + '<div class="pmets">' + (mets || '<span class="pmet" style="color:var(--faint)">no per-post metrics returned</span>') + '</div></div>';
+  });
+  html += '</div>';
+  if(state.bestposts){
+    const b = state.bestposts;
+    if(b.verdict) html += '<p class="pb-verdict">' + esc(b.verdict) + '</p>';
+    html += playbookBlock('Patterns in your winners', b.patterns, 'var(--info)');
+    html += playbookBlock('Do more of', b.doMore, 'var(--good)');
+    html += playbookBlock('Do less / fix', b.doLess, 'var(--mid)');
+    html += playbookBlock('Post these next', b.nextPosts, 'var(--accent)');
+  } else if(state.topError){
+    html += '<p class="ls-msg" style="color:var(--low); margin-top:12px;">' + esc(state.topError) + '</p>';
+  }
+  return html + '</div>';
+}
+
 function render(){
   if(state.loading && !state.dashData){ elRes.innerHTML = `<div class="report"><div class="skel"></div></div>`; return; }
   if(!state.dashData){
@@ -504,12 +585,15 @@ function render(){
     <div class="sec" style="margin-top:0"><h3 class="sec-h">Your numbers — ${esc(state.period||'this period')}</h3><div class="kpis">${kpiHtml}</div></div>`;
   if(state.loading){ html += `<div class="sec"><div class="skel" style="height:200px"></div></div>`; }
   else if(state.analysis){ html += renderAnalysis(state.analysis); }
+  html += topPostsSection();
   const trk = state.dashData && state.dashData.live
     ? `Pulled live from your Postiz instance over the selected window. Coverage depends on what each platform's API exposes, so some metrics or networks may be limited.`
     : `These figures are what you entered from each platform's native insights — Volt computes the rates and deltas, the analyst interprets them. Switch to <b>Live (Postiz)</b> for automatic, always-on data.`;
   html += `<p class="trk">${trk}</p></div>`;
   elRes.innerHTML = html;
 }
+
+elRes.addEventListener('click', e => { if(e.target.closest('#topBtn')) runTopPosts(); });
 
 render();
 </script>
