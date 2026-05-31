@@ -180,6 +180,14 @@
                         💬 WhatsApp Channel
                     </button>
                 </div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <button onclick="setCampaign('stat')" id="camp-stat" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        📈 Stat Spotlight
+                    </button>
+                    <button onclick="setCampaign('quote')" id="camp-quote" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        ❝ Quote
+                    </button>
+                </div>
             </div>
 
             <!-- Step 3: Theme Dimensions -->
@@ -254,6 +262,16 @@
                     <input type="text" id="poll-opt-1" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="Yes, definitely" oninput="syncDOM()">
                     <input type="text" id="poll-opt-2" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="No, we need help" oninput="syncDOM()">
                     <input type="text" id="poll-opt-3" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="Not sure yet" oninput="syncDOM()">
+                </div>
+                <div id="stat-controls" class="hidden space-y-2 mt-4">
+                    <label class="text-xs text-slate-400 block mb-1">The big stat / number</label>
+                    <input type="text" id="in-stat" value="73%" class="w-full bg-slate-800 text-white rounded-lg p-3 text-2xl font-black border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
+                    <p class="text-[10px] text-slate-500 leading-snug">Keep it short — a percentage or figure (e.g. &ldquo;73%&rdquo;, &ldquo;3&times;&rdquo;, &ldquo;R2.4bn&rdquo;). The headline above becomes the supporting line.</p>
+                </div>
+                <div id="quote-controls" class="hidden space-y-2 mt-4">
+                    <label class="text-xs text-slate-400 block mb-1">Attribution</label>
+                    <input type="text" id="in-author" value="Thabo M., SME Founder" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
+                    <p class="text-[10px] text-slate-500 leading-snug">The headline above is the quote. Add who said it here (name, role).</p>
                 </div>
                 <div id="image-upload-wrapper">
                     <label class="text-xs text-slate-400 block mb-1">Featured Image</label>
@@ -1120,6 +1138,126 @@ const Layouts = {
             r.drawContain(assets.logo, (W - 320) / 2, H - pad - 110, 320, 70);
             r.ctx.restore();
         }
+    },
+
+    // ----- STAT SPOTLIGHT -----
+    statSpotlight(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.navy);
+        r.radialGlow(W * 0.95, H * 0.08, Math.max(W, H) * 0.85, 'rgba(156,28,31,0.40)', 'rgba(156,28,31,0)');
+
+        const pad = Math.round(W * 0.07);
+        const innerW = W - pad * 2;
+
+        const headerH = 56;
+        if (assets.logo) r.drawContain(assets.logo, pad, pad, 180, headerH);
+        const tagFont = { family: 'Roboto', weight: '700', size: Math.max(16, Math.round(W * 0.018)) };
+        const tagText = String(s.tag || '').toUpperCase();
+        if (tagText) {
+            const tagPad = 24;
+            const tagW = r.textWidth(tagText, tagFont) + tagPad * 2;
+            const tagH = tagFont.size + 24;
+            r.drawTag(tagText, tagFont, tagPad, 12, W - pad - tagW, pad + (headerH - tagH) / 2,
+                { radii: 4, bg: BRAND.red, fg: BRAND.white, borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1 });
+        }
+
+        const footerH = s.showFooter ? 80 : 0;
+        const footerY = H - pad - footerH;
+        const blockTop = pad + headerH + 30;
+        const blockBottom = footerY - 30;
+        const blockH = blockBottom - blockTop;
+
+        const statText = String(s.stat || '').trim() || '—';
+        const ctxText = String(s.title || '').trim();
+
+        const statBoxH = blockH * (ctxText ? 0.62 : 0.88);
+        const statCeil = Math.min(W, H) * 0.42 * (s.userScale || 1) * 1.4;
+        const statFit = r.fitFontSize(statText, { family: 'Oswald', weight: '700' }, innerW, statBoxH, 1.0, { max: statCeil, min: 40 });
+
+        let ctxFit = { size: 0, lines: [], totalH: 0 };
+        if (ctxText) {
+            const ctxBoxH = blockH * 0.34;
+            const ctxCeil = Math.min(W, H) * 0.055 * (s.userScale || 1) * 1.4;
+            ctxFit = r.fitFontSize(ctxText, { family: 'Roboto', weight: '700' }, innerW, ctxBoxH, 1.2, { max: ctxCeil, min: 18 });
+        }
+
+        const gap = ctxText ? 28 : 0;
+        const stackH = statFit.totalH + gap + ctxFit.totalH;
+        let cy = blockTop + (blockH - stackH) / 2;
+
+        r.drawLines(statFit.lines, { family: 'Oswald', weight: '700', size: statFit.size }, pad, cy, innerW,
+            { align: 'center', color: BRAND.white, lineHeight: 1.0, shadow: { color: 'rgba(0,0,0,0.35)', blur: 18, x: 0, y: 6 } });
+        cy += statFit.totalH + gap;
+        if (ctxText) {
+            r.drawLines(ctxFit.lines, { family: 'Roboto', weight: '700', size: ctxFit.size }, pad, cy, innerW,
+                { align: 'center', color: 'rgba(255,255,255,0.92)', lineHeight: 1.2 });
+        }
+
+        if (s.showFooter) {
+            r.rect(pad, footerY, innerW, 4, BRAND.red);
+            r.drawIconPath(ICON.chevronDouble, pad, footerY + 24, 26, BRAND.red, 3);
+            r.drawLines(['READ INSIGHT'], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 260, { color: BRAND.white });
+            const urlText = 'smesouthafrica.co.za';
+            const urlFont = { family: 'Roboto', weight: '700', size: 18 };
+            const urlW = r.textWidth(urlText, urlFont);
+            r.drawIconPath(ICON.globe, W - pad - 26, footerY + 24, 26, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, W - pad - urlW - 36, footerY + 26, urlW, { color: BRAND.white });
+        }
+    },
+
+    // ----- QUOTE / TESTIMONIAL -----
+    quote(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.navy);
+        r.radialGlow(W * 0.05, H * 0.95, Math.max(W, H) * 0.75, 'rgba(156,28,31,0.35)', 'rgba(156,28,31,0)');
+
+        const pad = Math.round(W * 0.08);
+        const innerW = W - pad * 2;
+
+        const headerH = 52;
+        const tagFont = { family: 'Roboto', weight: '700', size: Math.max(16, Math.round(W * 0.018)) };
+        const tagText = String(s.tag || '').toUpperCase();
+        if (tagText) {
+            const tagPad = 24;
+            r.drawTag(tagText, tagFont, tagPad, 12, pad, pad, { radii: 4, bg: BRAND.red, fg: BRAND.white });
+        }
+        if (assets.logo) r.drawContain(assets.logo, W - pad - 170, pad, 170, headerH);
+
+        const qmFont = { family: 'Oswald', weight: '700', size: Math.round(W * 0.18) };
+        r.drawLines(['\u201C'], qmFont, pad - Math.round(W * 0.012), pad + headerH, innerW,
+            { align: 'left', color: BRAND.red, lineHeight: 1 });
+
+        const footerH = s.showFooter ? 70 : 0;
+        const footerY = H - pad - footerH;
+
+        const authorText = String(s.author || '').trim();
+        const authorFont = { family: 'Roboto', weight: '700', size: Math.max(16, Math.round(W * 0.024)) };
+        const authorBlockH = authorText ? authorFont.size + 28 : 0;
+
+        const quoteTop = pad + headerH + Math.round(W * 0.15);
+        const quoteBottom = footerY - authorBlockH - 16;
+        const quoteBoxH = Math.max(60, quoteBottom - quoteTop);
+        const quoteText = String(s.title || '').trim();
+        const qCeil = Math.min(W, H) * 0.085 * (s.userScale || 1) * 1.4;
+        const qFit = r.fitFontSize(quoteText, { family: 'Oswald', weight: '700' }, innerW, quoteBoxH, 1.18, { max: qCeil, min: 22 });
+        const qy = quoteTop + (quoteBoxH - qFit.totalH) / 2;
+        r.drawLines(qFit.lines, { family: 'Oswald', weight: '700', size: qFit.size }, pad, qy, innerW,
+            { align: 'left', color: BRAND.white, lineHeight: 1.18 });
+
+        if (authorText) {
+            const ay = qy + qFit.totalH + 26;
+            r.strokeLine(pad, ay + authorFont.size / 2, pad + 36, ay + authorFont.size / 2, BRAND.red, 3, 'round');
+            r.drawLines([authorText], authorFont, pad + 50, ay, innerW - 50, { align: 'left', color: 'rgba(255,255,255,0.9)' });
+        }
+
+        if (s.showFooter) {
+            r.strokeLine(pad, footerY, W - pad, footerY, 'rgba(255,255,255,0.2)', 1);
+            const urlText = 'smesouthafrica.co.za';
+            const urlFont = { family: 'Roboto', weight: '700', size: 18 };
+            const urlW = r.textWidth(urlText, urlFont);
+            r.drawIconPath(ICON.globe, pad, footerY + 22, 24, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, pad + 34, footerY + 24, urlW, { color: BRAND.white });
+        }
     }
 };
 
@@ -1150,6 +1288,10 @@ function renderSlide(state, slideIdx, assets, scale) {
         Layouts.poll(r, state, assets);
     } else if (state.campaign === 'whatsapp') {
         Layouts.whatsapp(r, state, assets);
+    } else if (state.campaign === 'stat') {
+        Layouts.statSpotlight(r, state, assets);
+    } else if (state.campaign === 'quote') {
+        Layouts.quote(r, state, assets);
     }
 
     return r;
@@ -1674,6 +1816,40 @@ self.onmessage = async (e) => {
               +     (state.showFooter ? '<div class="flex justify-center pb-10 shrink-0"><img src="' + WHITE_LOGO + '" class="h-16 object-contain opacity-90 shrink-0" crossorigin="anonymous"></div>' : '<div class="pb-10"></div>')
               +   '</div>'
               + '</div>';
+        } else if (state.campaign === 'stat') {
+            html = '<div class="relative w-full h-full bg-[#0a2c3d] flex flex-col p-16 overflow-hidden">'
+              +   '<div class="absolute -top-[150px] -right-[150px] w-[700px] h-[700px] bg-sme-red rounded-full opacity-25 blur-[150px] pointer-events-none"></div>'
+              +   '<div class="flex justify-between items-start w-full z-10">'
+              +     '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
+              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md border border-white/15"><span id="render-tag"></span></div>'
+              +   '</div>'
+              +   '<div class="flex-1 flex flex-col items-center justify-center text-center z-10 py-4">'
+              +     '<div id="render-stat" class="font-oswald font-bold text-white leading-none" style="font-size:200px; text-shadow:0 6px 18px rgba(0,0,0,0.35);"></div>'
+              +     '<div id="render-title" class="font-roboto font-bold text-white/90 leading-snug mt-6 max-w-[88%]" style="font-size:42px;"></div>'
+              +   '</div>'
+              +   (state.showFooter
+                    ? '<div class="z-10 border-t-4 border-sme-red pt-6 flex justify-between items-center shrink-0">'
+                      + '<div class="flex items-center gap-3"><svg class="w-6 h-6 text-sme-red shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg><span class="text-white font-oswald font-bold text-2xl tracking-widest uppercase">Read Insight</span></div>'
+                      + '<div class="flex items-center gap-3 text-white"><svg class="w-6 h-6 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg><span class="font-roboto font-bold text-xl tracking-wide">smesouthafrica.co.za</span></div>'
+                      + '</div>'
+                    : '')
+              + '</div>';
+        } else if (state.campaign === 'quote') {
+            html = '<div class="relative w-full h-full bg-[#0a2c3d] flex flex-col p-16 overflow-hidden">'
+              +   '<div class="absolute -bottom-[150px] -left-[150px] w-[650px] h-[650px] bg-sme-red rounded-full opacity-20 blur-[150px] pointer-events-none"></div>'
+              +   '<div class="flex justify-between items-start w-full z-10">'
+              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md"><span id="render-tag"></span></div>'
+              +     '<img src="' + WHITE_LOGO + '" class="h-11 object-contain" crossorigin="anonymous">'
+              +   '</div>'
+              +   '<div class="text-sme-red font-oswald font-bold leading-none z-10" style="font-size:150px; height:80px; overflow:hidden; margin-top:8px;">&ldquo;</div>'
+              +   '<div class="flex-1 flex flex-col justify-center z-10">'
+              +     '<div id="render-title" class="font-oswald font-bold text-white leading-snug" style="font-size:60px;"></div>'
+              +     '<div class="flex items-center gap-3 mt-8"><div class="w-9 h-1 bg-sme-red rounded shrink-0"></div><span id="render-author" class="font-roboto font-bold text-white/90" style="font-size:30px;"></span></div>'
+              +   '</div>'
+              +   (state.showFooter
+                    ? '<div class="z-10 border-t border-white/20 pt-5 flex items-center gap-3 text-white shrink-0"><svg class="w-5 h-5 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg><span class="font-roboto font-bold text-lg tracking-wide">smesouthafrica.co.za</span></div>'
+                    : '')
+              + '</div>';
         }
 
         canvas.innerHTML = html;
@@ -1707,17 +1883,27 @@ self.onmessage = async (e) => {
         if (rTag && tagInput) rTag.innerHTML = sanitizeHTML(tagInput.value);
         if (rTitle) {
             rTitle.innerHTML = titleSource;
-            const baseSize = state.campaign === 'standard'
-                ? FONT_CEILINGS[state.format]
-                : (state.campaign === 'carousel'
-                    ? (state.currentSlide === 0 ? 110 : 80)
-                    : (state.campaign === 'poll' ? 60 : (state.campaign === 'whatsapp' ? 85 : 100)));
+            const baseSize = state.campaign === 'standard' ? FONT_CEILINGS[state.format]
+                : state.campaign === 'carousel' ? (state.currentSlide === 0 ? 110 : 80)
+                : state.campaign === 'poll' ? 60
+                : state.campaign === 'whatsapp' ? 85
+                : state.campaign === 'stat' ? 42
+                : state.campaign === 'quote' ? 64
+                : 100;
             rTitle.style.fontSize = Math.round(baseSize * ((fontInput?.value || 100) / 100)) + 'px';
         }
         if (rImg && currentImageSrc) {
             rImg.style.backgroundImage = "url('" + currentImageSrc + "')";
             rImg.style.backgroundPosition = posX + '% ' + posY + '%';
         }
+
+        const rStat = document.getElementById('render-stat');
+        if (rStat) {
+            rStat.innerHTML = sanitizeHTML(document.getElementById('in-stat')?.value || '');
+            rStat.style.fontSize = Math.round(200 * ((fontInput?.value || 100) / 100)) + 'px';
+        }
+        const rAuthor = document.getElementById('render-author');
+        if (rAuthor) rAuthor.innerHTML = sanitizeHTML(document.getElementById('in-author')?.value || '');
 
         if (state.campaign === 'poll') {
             for (let i = 1; i <= 3; i++) {
@@ -1785,6 +1971,11 @@ self.onmessage = async (e) => {
         const btnDown = document.getElementById('download-text');
         const dimTxt = document.getElementById('preview-dim');
         const inTitle = document.getElementById('in-title');
+        const lblTitle = document.getElementById('lbl-title');
+        // optional control groups default off; the active branch re-enables what it needs
+        tog('stat-controls', false);
+        tog('quote-controls', false);
+        if (lblTitle) lblTitle.innerText = 'Main Headline';
 
         if (campType === 'carousel') {
             tog('theme-controls', false); tog('size-controls', true);
@@ -1802,6 +1993,22 @@ self.onmessage = async (e) => {
             if (btnDown) btnDown.innerText = 'Download Poll Graphic';
             canvas.style.width = '1080px'; canvas.style.height = '1080px';
             if (dimTxt) dimTxt.innerText = '1080 x 1080 (Poll)';
+        } else if (campType === 'stat') {
+            tog('theme-controls', false); tog('size-controls', true);
+            tog('carousel-controls', false); tog('poll-controls', false);
+            tog('stat-controls', true); tog('image-upload-wrapper', false); tog('framing-controls', false);
+            tog('btn-download-zip', false);
+            if (btnDown) btnDown.innerText = 'Download Stat Graphic';
+            if (lblTitle) lblTitle.innerText = 'Supporting line (under the stat)';
+            setFormat(state.format);
+        } else if (campType === 'quote') {
+            tog('theme-controls', false); tog('size-controls', true);
+            tog('carousel-controls', false); tog('poll-controls', false);
+            tog('quote-controls', true); tog('image-upload-wrapper', false); tog('framing-controls', false);
+            tog('btn-download-zip', false);
+            if (btnDown) btnDown.innerText = 'Download Quote Graphic';
+            if (lblTitle) lblTitle.innerText = 'Quote text';
+            setFormat(state.format);
         } else {
             tog('theme-controls', true); tog('size-controls', true);
             tog('carousel-controls', false); tog('poll-controls', false);
@@ -1857,6 +2064,8 @@ self.onmessage = async (e) => {
         const userScale = parseInt(document.getElementById('in-font-size')?.value || '100', 10) / 100;
         const tag = document.getElementById('in-tag')?.value || '';
         const title = inTitle?.value || '';
+        const stat = document.getElementById('in-stat')?.value || '';
+        const author = document.getElementById('in-author')?.value || '';
         const pollOpts = [
             document.getElementById('poll-opt-1')?.value || '',
             document.getElementById('poll-opt-2')?.value || '',
@@ -1871,6 +2080,8 @@ self.onmessage = async (e) => {
             slides: state.slides.slice(),
             title: title,
             tag: tag,
+            stat: stat,
+            author: author,
             pollOpts: pollOpts,
             focalX: focalX,
             focalY: focalY,
@@ -2008,7 +2219,7 @@ self.onmessage = async (e) => {
         if (state.campaign === 'carousel' && ext === 'zip') {
             return 'SME_Carousel_' + stamp + '.zip';
         }
-        const label = ({ standard: 'Graphic', poll: 'Poll', whatsapp: 'WhatsApp' })[state.campaign] || 'Graphic';
+        const label = ({ standard: 'Graphic', poll: 'Poll', whatsapp: 'WhatsApp', stat: 'Stat', quote: 'Quote' })[state.campaign] || 'Graphic';
         return 'SME_' + label + '_' + stamp + '.' + ext;
     }
 
@@ -2035,7 +2246,7 @@ self.onmessage = async (e) => {
     function lookId(rec) { return rec.campaign === 'standard' ? ('standard:' + rec.theme) : rec.campaign; }
     function lookLabel(rec) {
         if (rec.campaign === 'standard') return ({ classic: 'Classic', cinematic: 'Cinematic', modern: 'Modern' }[rec.theme] || 'Standard');
-        return ({ carousel: 'Carousel', poll: 'Poll', whatsapp: 'WhatsApp' }[rec.campaign] || rec.campaign);
+        return ({ carousel: 'Carousel', poll: 'Poll', whatsapp: 'WhatsApp', stat: 'Stat Spotlight', quote: 'Quote' }[rec.campaign] || rec.campaign);
     }
 
     // blob -> small jpeg dataURL (keeps localStorage light)
@@ -2153,7 +2364,9 @@ self.onmessage = async (e) => {
             { id: 'standard:modern',    label: 'Modern',           apply: () => { setCampaign('standard'); setTheme('modern'); } },
             { id: 'carousel',           label: 'a Carousel',       apply: () => setCampaign('carousel') },
             { id: 'poll',               label: 'a Poll',           apply: () => setCampaign('poll') },
-            { id: 'whatsapp',           label: 'a WhatsApp post',  apply: () => setCampaign('whatsapp') }
+            { id: 'whatsapp',           label: 'a WhatsApp post',  apply: () => setCampaign('whatsapp') },
+            { id: 'stat',               label: 'a Stat Spotlight', apply: () => setCampaign('stat') },
+            { id: 'quote',              label: 'a Quote card',     apply: () => setCampaign('quote') }
         ];
         const recentLooks = history.slice(-9).map(lookId);
         let best = null, bestCount = Infinity;
