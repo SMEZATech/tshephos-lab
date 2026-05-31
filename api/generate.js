@@ -128,6 +128,30 @@ REQUIREMENTS:
 - actions: 3 to 5 prioritised, concrete steps, each <= 24 words, ordered by impact.`;
 }
 
+function buildBestPostsPrompt({ platform, postsText, goal }) {
+  const p = platform || "Instagram";
+  return `You are analysing the TOP-PERFORMING ${p} posts for a brand, already ranked by engagement (highest first).
+
+TOP POSTS:
+${postsText || "(none)"}
+
+PRIMARY GOAL:
+${goal || "grow reach and engagement and drive profile actions"}
+
+TASK:
+Act as a senior content strategist. Look ACROSS these winners and find what they share — format, topic, hook style, length, tone, posting pattern — then turn it into a concrete, repeatable playbook. Base everything ONLY on the posts shown; if the signal is thin, say so rather than inventing.
+
+Return ONLY minified JSON, no markdown, no commentary, exactly this shape:
+{"verdict":"","patterns":[""],"doMore":[""],"doLess":[""],"nextPosts":[""]}
+
+REQUIREMENTS:
+- verdict: ONE sentence on what's driving the best posts, <= 24 words.
+- patterns: 2 to 4 specific common threads among the top posts, each <= 20 words.
+- doMore: 2 to 3 concrete things to repeat, each <= 20 words.
+- doLess: 1 to 3 things to stop or fix, each <= 20 words.
+- nextPosts: 2 to 3 ready-to-make post ideas modelled on the winners, each <= 18 words.`;
+}
+
 function safeParse(raw) {
   if (!raw) return null;
   let t = String(raw).trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
@@ -166,19 +190,30 @@ async function callGemini(prompt, opts = {}) {
   if (!key) throw new Error("GEMINI_API_KEY is not set");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: opts.system || SYSTEM }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: opts.temperature != null ? opts.temperature : 0.9, maxOutputTokens: opts.maxTokens || 4096, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
-    }),
+  const payload = JSON.stringify({
+    systemInstruction: { parts: [{ text: opts.system || SYSTEM }] },
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: { temperature: opts.temperature != null ? opts.temperature : 0.9, maxOutputTokens: opts.maxTokens || 4096, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
   });
-  const data = await r.json();
-  if (!r.ok) throw new Error((data && data.error && data.error.message) || "Gemini request failed");
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  return parts.map((p) => p.text || "").join("");
+  let lastErr;
+  // Gemini occasionally returns 503 "overloaded / high demand". Retry a couple of times before surfacing it.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((res) => setTimeout(res, 700 * attempt));
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: payload,
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) {
+      const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+      return parts.map((p) => p.text || "").join("");
+    }
+    const msg = (data && data.error && data.error.message) || ("Gemini request failed (" + r.status + ")");
+    lastErr = new Error(msg);
+    if (!(r.status === 503 || r.status === 429 || /overload|high demand|unavailable|try again/i.test(msg))) break;
+  }
+  throw lastErr || new Error("Gemini request failed");
 }
 
 async function callClaude(prompt, opts = {}) {
@@ -294,6 +329,32 @@ export default async function handler(req, res) {
         actions: strList(an.actions, 6, 260),
       };
       return res.status(200).json({ analytics });
+    }
+
+    // ---- Best-posts playbook ----
+    if (task === "bestposts") {
+      const { platform, posts, goal } = body;
+      const arr = Array.isArray(posts) ? posts : [];
+      if (!arr.length) return res.status(400).json({ error: "No posts to analyse." });
+      const postsText = arr.slice(0, 12).map((p, i) => {
+        const mets = Array.isArray(p.metrics)
+          ? p.metrics.filter((m) => m && m.value != null).map((m) => m.label + " " + m.value).join(", ")
+          : "";
+        return (i + 1) + '. "' + String((p && p.content) || "(no caption)").slice(0, 180) + '" — '
+          + (mets || "no metrics")
+          + (p && p.engagement != null ? (" (engagement " + p.engagement + ")") : "");
+      }).join("\n");
+      const text = await callProvider(buildBestPostsPrompt({ platform, postsText, goal }), { system: SYSTEM_ANALYTICS, temperature: 0.6, maxTokens: 2048 });
+      const bp = safeParse(text);
+      if (!bp) return res.status(502).json({ error: "Model returned an unusable analysis — try again." });
+      const bestposts = {
+        verdict: String(bp.verdict || "").slice(0, 240),
+        patterns: strList(bp.patterns, 4, 200),
+        doMore: strList(bp.doMore, 4, 200),
+        doLess: strList(bp.doLess, 4, 200),
+        nextPosts: strList(bp.nextPosts, 4, 200),
+      };
+      return res.status(200).json({ bestposts });
     }
 
     // ---- Ad copy (default) ----
