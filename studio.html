@@ -4,19 +4,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tshepho's Lab — Studio | Canvas Engine v2</title>
+    <title>Volt — Studio</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        // Volt palette. Chrome accents (red/blue/emerald/purple) are remapped to one electric-lime ramp
+        // so the whole app UI is unified. The SME-branded graphic output uses sme-red/sme-navy/slate/white
+        // and is deliberately left untouched.
+        const _lime = { 200:'#e8ffc2', 300:'#d4ff8f', 400:'#c5ff5e', 500:'#B6FF3D', 600:'#a3ec2b', 700:'#8fd416', 800:'#6f9f12', 900:'#3f4d0a' };
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { sme: { red: '#9c1c1f', navy: '#0a2c3d', black: '#000000', gray: '#f8fafc' } },
-                    fontFamily: { oswald: ['Oswald', 'sans-serif'], roboto: ['Roboto', 'sans-serif'] }
+                    colors: {
+                        sme: { red: '#9c1c1f', navy: '#0a2c3d', black: '#000000', gray: '#f8fafc' },
+                        lab: { bg:'#0A0B0F', surface:'#14171F', surface2:'#1A1E28', border:'#23262E', line:'#2A2E38', text:'#ECEEF3', dim:'#888F9D', faint:'#5B616D', accent:'#B6FF3D', ink:'#0A0B0F' },
+                        red: _lime, blue: _lime, emerald: _lime, purple: _lime, sky: _lime, indigo: _lime, violet: _lime
+                    },
+                    fontFamily: {
+                        oswald: ['Oswald', 'sans-serif'], roboto: ['Roboto', 'sans-serif'],
+                        display: ['Unbounded', 'sans-serif'], sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace']
+                    }
                 }
             }
         }
@@ -25,15 +36,15 @@
     <!-- Note: No html2canvas, no jspdf. JSZip is loaded INSIDE the worker via importScripts. Zero main-thread deps beyond Tailwind. -->
 
     <style>
-        body { background-color: #0f172a; color: #f8fafc; font-family: 'Roboto', sans-serif; }
+        body { background-color: #0A0B0F; color: #ECEEF3; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        ::-webkit-scrollbar-track { background: #0A0B0F; }
+        ::-webkit-scrollbar-thumb { background: #2A2E38; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3a3f4a; }
 
         .preview-bg {
-            background-color: #1e293b;
-            background-image: radial-gradient(#334155 1px, transparent 1px);
+            background-color: #101218;
+            background-image: radial-gradient(#23262E 1px, transparent 1px);
             background-size: 20px 20px;
         }
 
@@ -46,20 +57,30 @@
             transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             overflow: hidden;
             background-color: #ffffff;
-            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
         }
 
-        input[type=range] { accent-color: #ef4444; }
+        input[type=range] { accent-color: #B6FF3D; }
 
         #toast {
-            visibility: hidden; min-width: 250px; background-color: #1e293b; color: #fff; text-align: center;
+            visibility: hidden; min-width: 250px; background-color: #14171F; color: #fff; text-align: center;
             border-radius: 8px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px;
-            transform: translateX(-50%); box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #334155;
+            transform: translateX(-50%); box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #23262E;
             transition: visibility 0.3s, opacity 0.3s ease-in-out; opacity: 0;
         }
         #toast.show { visibility: visible; opacity: 1; }
 
         .disabled-btn { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+
+        /* Suite nav tabs (match Copy Lab) */
+        .nav-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+        .nav-tab {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+            padding: 7px 12px; border-radius: 9px; border: 1px solid #23262E; color: #888F9D;
+            text-decoration: none; transition: all 0.14s; cursor: pointer;
+        }
+        .nav-tab:hover { color: #ECEEF3; border-color: #B6FF3D; }
+        .nav-tab.active { background: #B6FF3D; color: #0A0B0F; border-color: #B6FF3D; }
 
         /* Progress bar */
         #progress-shell {
@@ -68,17 +89,17 @@
         }
         #progress-bar {
             height: 100%; width: 0%;
-            background: linear-gradient(90deg, #9c1c1f, #ef4444);
+            background: linear-gradient(90deg, #6f9f12, #B6FF3D);
             transition: width 0.25s ease-out;
         }
 
         /* Tiny engine badge */
         .engine-badge {
             display: inline-flex; align-items: center; gap: 4px;
-            background: rgba(34,197,94,0.15); color: #4ade80;
+            background: rgba(182,255,61,0.14); color: #B6FF3D;
             padding: 2px 8px; border-radius: 4px;
             font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
-            text-transform: uppercase; border: 1px solid rgba(34,197,94,0.3);
+            text-transform: uppercase; border: 1px solid rgba(182,255,61,0.3);
         }
     </style>
 </head>
@@ -91,12 +112,15 @@
 
         <!-- Header -->
         <div class="p-6 border-b border-slate-800 bg-slate-900/95 sticky top-0 z-20 backdrop-blur-sm">
-            <a href="index.html" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-white uppercase tracking-widest mb-3 transition-colors" title="Back to Copy Lab">&larr; Copy Lab</a>
+            <nav class="nav-tabs">
+                <a class="nav-tab" href="index.html">✍️ Copy</a>
+                <span class="nav-tab active">🎨 Studio</span>
+            </nav>
             <div class="flex items-center justify-between">
-                <h1 class="text-3xl font-black text-white uppercase tracking-tight leading-none">Tshepho's SMM Advisor</h1>
-                <span class="engine-badge"><span class="w-1.5 h-1.5 rounded-full bg-green-400"></span> Ready To Rock</span>
+                <h1 class="text-3xl font-extrabold text-white tracking-tight leading-none" style="font-family:'Unbounded',sans-serif;">Volt<span style="color:#B6FF3D;">.</span></h1>
+                <span class="engine-badge"><span class="w-1.5 h-1.5 rounded-full" style="background:#B6FF3D;"></span> No API key</span>
             </div>
-            <p class="text-xs text-slate-400 mt-1 tracking-widest uppercase font-bold">Studio & Strategy Engine</p>
+            <p class="text-xs text-slate-400 mt-1 tracking-widest uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Design Studio</p>
 
             <div id="advisor-panel" class="mt-4 bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 p-4 rounded-xl shadow-lg">
                 <div class="flex items-center gap-2 mb-2 text-sm font-bold text-blue-300 uppercase tracking-widest">
@@ -109,6 +133,19 @@
 
         <div class="p-6 space-y-8 flex-1">
 
+            <!-- Feed Simulator -->
+            <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 shadow-inner">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style="color:#B6FF3D;">📱 Feed Preview</label>
+                    <span id="variety-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded" style="background:rgba(255,255,255,0.06);color:#888F9D;">—</span>
+                </div>
+                <div class="h-1.5 rounded-full overflow-hidden mb-3" style="background:rgba(255,255,255,0.08)">
+                    <div id="variety-bar" class="h-full rounded-full" style="width:0%;background:#B6FF3D;transition:width .4s ease,background .4s ease"></div>
+                </div>
+                <div id="feed-grid" class="grid grid-cols-3 gap-1.5"></div>
+                <p id="feed-hint" class="text-[10px] text-slate-500 leading-snug mt-3">Your last 9 exports show here as an Instagram-style grid — a quick gut-check on whether your feed looks varied.</p>
+            </div>
+
             <!-- Step 1: Link & Context -->
             <div class="space-y-3 bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 shadow-inner">
                 <label class="text-xs font-bold text-blue-400 uppercase tracking-widest block flex items-center gap-2">
@@ -117,7 +154,7 @@
                 </label>
                 <div class="flex gap-2">
                     <input type="text" id="in-url" placeholder="Paste article link..." class="flex-1 bg-slate-900 text-white rounded-lg p-3 text-sm border border-slate-600 outline-none focus:ring-2 focus:ring-blue-500">
-                    <button onclick="fetchArticleData()" id="btn-fetch" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-sm transition-colors whitespace-nowrap shadow-lg flex items-center justify-center min-w-[100px]">
+                    <button onclick="fetchArticleData()" id="btn-fetch" class="bg-blue-600 hover:bg-blue-500 text-[#0A0B0F] font-bold py-3 px-4 rounded-lg text-sm transition-colors whitespace-nowrap shadow-lg flex items-center justify-center min-w-[100px]">
                         Auto-Fill
                     </button>
                 </div>
@@ -128,7 +165,7 @@
             <div>
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">2. Strategic Format</label>
                 <div class="grid grid-cols-2 gap-2 mb-2">
-                    <button onclick="setCampaign('standard')" id="camp-standard" class="camp-btn bg-sme-red text-white font-bold py-3 px-3 rounded-lg border border-red-500 transition-all text-xs uppercase tracking-wider">
+                    <button onclick="setCampaign('standard')" id="camp-standard" class="camp-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-3 px-3 rounded-lg border border-red-500 transition-all text-xs uppercase tracking-wider">
                         🖼️ Standard
                     </button>
                     <button onclick="setCampaign('carousel')" id="camp-carousel" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
@@ -172,7 +209,7 @@
                     <button onclick="autoSliceFromTitle()" class="text-[10px] font-bold text-blue-300 hover:text-blue-200 uppercase tracking-widest underline decoration-dotted underline-offset-4">↻ Re-slice</button>
                 </div>
                 <div class="grid grid-cols-3 gap-1">
-                    <button onclick="changeSlide(0)" id="sl-0" class="slide-nav py-1.5 rounded bg-red-600 text-white text-xs font-bold">1</button>
+                    <button onclick="changeSlide(0)" id="sl-0" class="slide-nav py-1.5 rounded bg-red-600 text-[#0A0B0F] text-xs font-bold">1</button>
                     <button onclick="changeSlide(1)" id="sl-1" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">2</button>
                     <button onclick="changeSlide(2)" id="sl-2" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">3</button>
                     <button onclick="changeSlide(3)" id="sl-3" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">4</button>
@@ -244,7 +281,7 @@
 
         <!-- Export -->
         <div class="p-6 bg-slate-900 border-t border-slate-800 sticky bottom-0 z-20 shadow-2xl space-y-2">
-            <button onclick="triggerExport()" id="btn-download" class="w-full bg-red-700 hover:bg-red-600 text-white font-black py-4 px-6 rounded-xl text-lg transition-transform active:scale-[0.98] shadow-xl uppercase flex items-center justify-center gap-2 border border-red-500/50 relative overflow-hidden">
+            <button onclick="triggerExport()" id="btn-download" class="w-full bg-[#B6FF3D] hover:bg-[#a3ec2b] text-[#0A0B0F] font-black py-4 px-6 rounded-xl text-lg transition-transform active:scale-[0.98] shadow-xl uppercase flex items-center justify-center gap-2 border border-red-500/50 relative overflow-hidden">
                 <svg id="icon-download" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 <svg id="icon-loading" class="w-6 h-6 animate-spin hidden absolute left-[20%]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span id="download-text">Download HD PNG</span>
@@ -271,7 +308,7 @@
     <main class="flex-1 preview-bg flex flex-col items-center p-8 relative overflow-y-auto overflow-x-hidden">
         <div class="mb-6 text-center shrink-0 bg-slate-900/80 backdrop-blur px-6 py-2 rounded-full border border-slate-700 shadow-lg z-20">
             <h2 class="text-slate-200 font-bold text-sm tracking-[0.2em] uppercase flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Live Preview (DOM)
+                <span class="w-2 h-2 rounded-full animate-pulse" style="background:#B6FF3D;"></span> Live Preview (DOM)
             </h2>
             <p id="preview-dim" class="text-red-400 font-mono text-xs font-bold mt-0.5">1200 x 628</p>
         </div>
@@ -280,34 +317,40 @@
             <div id="export-canvas" class="relative bg-white" style="width: 1200px; height: 628px;"></div>
         </div>
 
-        <!-- Architecture brief -->
+        <!-- How to use -->
         <div class="w-full max-w-[1080px] shrink-0 bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-8 shadow-xl mb-12 z-10">
             <div class="flex items-center gap-3 mb-6 border-b border-slate-700 pb-4">
-                <span class="bg-gradient-to-br from-red-600 to-red-800 text-white p-2 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></span>
-                <h3 class="text-xl font-bold text-white uppercase tracking-wide">Engine Architecture</h3>
+                <span class="p-2 rounded-lg" style="background:#B6FF3D;color:#0A0B0F;"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg></span>
+                <h3 class="text-xl font-bold text-white uppercase tracking-wide" style="font-family:'Unbounded',sans-serif;">How to use the Studio</h3>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-300">
-                <div class="space-y-3">
-                    <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                        <p class="font-bold text-red-400 uppercase text-[10px] tracking-widest mb-1">Native Canvas Renderer</p>
-                        <p class="text-xs leading-relaxed">Custom <code class="bg-slate-800 px-1 rounded text-red-300">CanvasRenderingContext2D</code> engine — exact <code class="bg-slate-800 px-1 rounded text-red-300">measureText()</code>, greedy word wrap with character-level overflow fallback, composite-op tinting, and per-shape DPR scaling for crispness at any resolution.</p>
-                    </div>
-                    <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                        <p class="font-bold text-blue-400 uppercase text-[10px] tracking-widest mb-1">Inline Web Worker</p>
-                        <p class="text-xs leading-relaxed">Worker spawned from <code class="bg-slate-800 px-1 rounded text-blue-300">URL.createObjectURL(new Blob)</code>, runs all 6 slide renders on <code class="bg-slate-800 px-1 rounded text-blue-300">OffscreenCanvas</code>, ZIPs via JSZip, returns one blob. Main thread never blocks.</p>
-                    </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300">
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">1</span>
+                    <div><p class="font-bold text-white mb-1">Add your content</p><p class="text-xs leading-relaxed text-slate-400">Paste an article link into <span class="font-semibold" style="color:#B6FF3D;">Auto-Fill</span> to pull the headline, image and auto-build carousel slides — or just type your own into the fields below.</p></div>
                 </div>
-                <div class="space-y-3">
-                    <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                        <p class="font-bold text-emerald-400 uppercase text-[10px] tracking-widest mb-1">Binary-Search Auto-Fit</p>
-                        <p class="text-xs leading-relaxed">For each headline: <code class="bg-slate-800 px-1 rounded text-emerald-300">fitFontSize(W, H)</code> binary-searches the largest font size where wrapped lines fit both width AND height. ~9 iterations, sub-ms per call.</p>
-                    </div>
-                    <div class="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                        <p class="font-bold text-purple-400 uppercase text-[10px] tracking-widest mb-1">Smart Article Slicer</p>
-                        <p class="text-xs leading-relaxed">Sentence-aware bin-packing across 4 carousel body slides. Lookbehind regex on <code class="bg-slate-800 px-1 rounded text-purple-300">[.!?]</code>, greedy fill, never splits sentences mid-way.</p>
-                    </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">2</span>
+                    <div><p class="font-bold text-white mb-1">Pick the format</p><p class="text-xs leading-relaxed text-slate-400">Choose a post type — <span class="font-semibold" style="color:#B6FF3D;">Standard, Carousel, Poll or WhatsApp</span> — then a size: Landscape (LinkedIn), Square (IG grid) or Portrait (IG feed).</p></div>
                 </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">3</span>
+                    <div><p class="font-bold text-white mb-1">Style &amp; frame</p><p class="text-xs leading-relaxed text-slate-400">Pick a theme (Classic, Cinematic, Modern) and drag the <span class="font-semibold" style="color:#B6FF3D;">Horizontal / Vertical</span> sliders to position your photo. Toggle footer branding any time.</p></div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">4</span>
+                    <div><p class="font-bold text-white mb-1">Polish the text</p><p class="text-xs leading-relaxed text-slate-400">Edit the tag and headline. For carousels, click each slide number to edit it, or hit <span class="font-semibold" style="color:#B6FF3D;">Re-slice</span>. The Typography slider scales text — it always auto-fits, so nothing overflows.</p></div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3 md:col-span-2">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">5</span>
+                    <div><p class="font-bold text-white mb-1">Export</p><p class="text-xs leading-relaxed text-slate-400">Hit <span class="font-semibold" style="color:#B6FF3D;">Download HD PNG</span> for a single image, or <span class="font-semibold" style="color:#B6FF3D;">Export All 6 Slides (ZIP)</span> for a full carousel. No watermark — print-quality at 3× resolution.</p></div>
+                </div>
+            </div>
+
+            <div class="mt-5 pt-5 border-t border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-400">
+                <p>💡 <span class="text-slate-200 font-semibold">Watch the Strategy Proxy &amp; Feed Preview.</span> When your recent posts start to look alike, it'll suggest switching it up so your feed stays fresh.</p>
+                <p>✍️ <span class="text-slate-200 font-semibold">Coming from the Copy tab?</span> Your chosen headline and body load in automatically — just style and export.</p>
+                <p>🎯 <span class="text-slate-200 font-semibold">For carousels, keep slide&nbsp;1 short.</span> It's the hook that stops the scroll — aim for under 8 words.</p>
             </div>
         </div>
     </main>
@@ -1729,11 +1772,11 @@ self.onmessage = async (e) => {
     function setCampaign(campType) {
         state.campaign = campType;
         document.querySelectorAll('.camp-btn').forEach(b => {
-            b.classList.remove('bg-sme-red', 'text-white', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
+            b.classList.remove('bg-[#B6FF3D]', 'text-[#0A0B0F]', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
             b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600');
         });
         const a = document.getElementById('camp-' + campType);
-        if (a) a.classList.add('bg-sme-red', 'text-white', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
+        if (a) a.classList.add('bg-[#B6FF3D]', 'text-[#0A0B0F]', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
 
         const tog = (id, show) => {
             const el = document.getElementById(id);
@@ -1782,8 +1825,8 @@ self.onmessage = async (e) => {
         state.currentSlide = idx;
         if (inTitle) inTitle.value = state.slides[idx] || '';
         document.querySelectorAll('.slide-nav').forEach((b, i) => {
-            if (i === idx) { b.classList.remove('bg-slate-700', 'text-slate-300'); b.classList.add('bg-red-600', 'text-white'); }
-            else { b.classList.remove('bg-red-600', 'text-white'); b.classList.add('bg-slate-700', 'text-slate-300'); }
+            if (i === idx) { b.classList.remove('bg-slate-700', 'text-slate-300'); b.classList.add('bg-red-600', 'text-[#0A0B0F]'); }
+            else { b.classList.remove('bg-red-600', 'text-[#0A0B0F]'); b.classList.add('bg-slate-700', 'text-slate-300'); }
         });
         const btnDown = document.getElementById('download-text');
         if (state.campaign === 'carousel' && btnDown) btnDown.innerText = 'Download Slide ' + (idx + 1);
@@ -1835,12 +1878,12 @@ self.onmessage = async (e) => {
         };
     }
 
-    function postAndWait(worker, payload) {
+    function postAndWait(worker, payload, quiet) {
         return new Promise((resolve, reject) => {
             const onMsg = (ev) => {
                 const m = ev.data;
                 if (m.type === 'progress') {
-                    setProgress(m.percent || 0, m.label || '');
+                    if (!quiet) setProgress(m.percent || 0, m.label || '');
                 } else if (m.type === 'done') {
                     worker.removeEventListener('message', onMsg);
                     worker.removeEventListener('error', onErr);
@@ -1919,6 +1962,7 @@ self.onmessage = async (e) => {
             const result = await postAndWait(worker, payload);
             downloadBlob(result.blob, result.filename);
             showToast('Exported: ' + result.filename, 'success');
+            recordExport();
         } catch (err) {
             console.error('Export failed:', err);
             showToast('Export failed: ' + err.message);
@@ -1947,6 +1991,7 @@ self.onmessage = async (e) => {
             const result = await postAndWait(worker, payload);
             downloadBlob(result.blob, result.filename);
             showToast('Carousel ZIP exported: ' + result.filename, 'success');
+            recordExport();
         } catch (err) {
             console.error('ZIP export failed:', err);
             showToast('Export failed: ' + err.message);
@@ -1970,21 +2015,209 @@ self.onmessage = async (e) => {
     // =============================================================
     // 12. INIT
     // =============================================================
-    function initAdvisor() {
+    // =============================================================
+    // 12a. CONTENT HISTORY + FEED SIMULATOR + VARIETY COACH
+    //      (localStorage only — no backend, no tracking off-device)
+    // =============================================================
+    const HISTORY_KEY  = 'volt_history_v1';
+    const COACH_OFF_KEY = 'volt_coach_off';
+    const COACH_ACK_KEY = 'volt_coach_ack';
+    const HISTORY_CAP  = 24;
+    const FMT_SHORT = { landscape: 'Land', square: 'Square', portrait: 'Port' };
+
+    function loadHistory() {
+        try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') || []; }
+        catch (e) { return []; }
+    }
+    function saveHistory(arr) {
+        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(-HISTORY_CAP))); } catch (e) {}
+    }
+    function lookId(rec) { return rec.campaign === 'standard' ? ('standard:' + rec.theme) : rec.campaign; }
+    function lookLabel(rec) {
+        if (rec.campaign === 'standard') return ({ classic: 'Classic', cinematic: 'Cinematic', modern: 'Modern' }[rec.theme] || 'Standard');
+        return ({ carousel: 'Carousel', poll: 'Poll', whatsapp: 'WhatsApp' }[rec.campaign] || rec.campaign);
+    }
+
+    // blob -> small jpeg dataURL (keeps localStorage light)
+    async function blobToThumb(blob, maxW) {
+        const bmp = await createImageBitmap(blob);
+        const sc = maxW / bmp.width;
+        const w = Math.max(1, Math.round(bmp.width * sc));
+        const h = Math.max(1, Math.round(bmp.height * sc));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+        bmp.close();
+        return c.toDataURL('image/jpeg', 0.72);
+    }
+
+    // Render a small cover thumbnail of the current design, then log it. Never breaks export.
+    async function recordExport() {
+        try {
+            const worker = getWorker();
+            const st = buildStatePayload();
+            const res = await postAndWait(worker, {
+                type: 'render-single', state: st, slideIdx: 0,
+                featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers,
+                scale: 0.5, filename: 'thumb.png'
+            }, true);
+            const thumb = await blobToThumb(res.blob, 240);
+            const rec = {
+                t: Date.now(),
+                campaign: st.campaign,
+                theme: st.theme,
+                format: st.campaign === 'poll' ? 'square' : (st.campaign === 'whatsapp' ? 'portrait' : st.format),
+                title: String(st.title || st.slides[0] || '').slice(0, 60),
+                thumb: thumb
+            };
+            const h = loadHistory(); h.push(rec); saveHistory(h);
+            renderFeed(); updateAdvisor();
+        } catch (e) { /* a thumbnail failure must never affect the actual export */ }
+    }
+
+    function computeVariety(history) {
+        const recent = history.slice(-9);
+        if (recent.length === 0) return { score: 0, distinct: 0, total: 0, label: '—' };
+        const set = new Set(recent.map(lookId));
+        const score = Math.round((set.size / recent.length) * 100);
+        const label = score >= 67 ? 'Varied' : score >= 34 ? 'Okay' : 'Repetitive';
+        return { score, distinct: set.size, total: recent.length, label };
+    }
+    function varietyColor(score) { return score >= 67 ? '#B6FF3D' : score >= 34 ? '#FFC857' : '#FF7C7C'; }
+
+    function renderFeed() {
+        const grid = document.getElementById('feed-grid');
+        const hint = document.getElementById('feed-hint');
+        const badge = document.getElementById('variety-badge');
+        const bar = document.getElementById('variety-bar');
+        if (!grid) return;
+        const history = loadHistory();
+        const recent = history.slice(-9).reverse(); // newest first
+        const v = computeVariety(history);
+
+        if (badge) {
+            badge.textContent = v.total ? (v.score + '% · ' + v.label) : '—';
+            badge.style.color = v.total ? varietyColor(v.score) : '#888F9D';
+        }
+        if (bar) { bar.style.width = (v.total ? v.score : 0) + '%'; bar.style.background = varietyColor(v.score); }
+
+        if (recent.length === 0) {
+            let empty = '';
+            for (let i = 0; i < 9; i++) empty += '<div class="rounded-md border border-dashed border-slate-700" style="aspect-ratio:1/1"></div>';
+            grid.innerHTML = empty;
+            if (hint) hint.textContent = 'Your last 9 exports show here as an Instagram-style grid — a quick gut-check on whether your feed looks varied.';
+            return;
+        }
+
+        let html = '';
+        for (let i = 0; i < 9; i++) {
+            const r = recent[i];
+            if (r) {
+                const cap = lookLabel(r);
+                html += '<div class="relative rounded-md overflow-hidden border border-slate-700" style="aspect-ratio:1/1" title="' + sanitizeHTML(cap + ' · ' + (FMT_SHORT[r.format] || r.format)) + '">'
+                     +    '<img src="' + r.thumb + '" class="w-full h-full object-cover" alt="">'
+                     +    '<span class="absolute bottom-0 left-0 right-0 text-[8px] font-bold text-white px-1 py-0.5 truncate" style="background:rgba(0,0,0,0.55)">' + sanitizeHTML(cap) + '</span>'
+                     +  '</div>';
+            } else {
+                html += '<div class="rounded-md border border-dashed border-slate-700" style="aspect-ratio:1/1"></div>';
+            }
+        }
+        grid.innerHTML = html;
+        if (hint) hint.textContent = v.distinct + ' of your last ' + v.total + ' posts use a different look.';
+    }
+
+    // The coach: returns a nudge {text, cta, apply} or null
+    function getCoachNudge() {
+        if (localStorage.getItem(COACH_OFF_KEY) === '1') return null;
+        const history = loadHistory();
+        if (history.length < 5) return null;
+
+        const window7 = history.slice(-7);
+        const counts = {};
+        window7.forEach(r => { const k = lookId(r); counts[k] = (counts[k] || 0) + 1; });
+        let domKey = null, domCount = 0;
+        Object.keys(counts).forEach(k => { if (counts[k] > domCount) { domCount = counts[k]; domKey = k; } });
+
+        // consecutive same-look from newest
+        let consec = 0; const newest = lookId(history[history.length - 1]);
+        for (let i = history.length - 1; i >= 0; i--) { if (lookId(history[i]) === newest) consec++; else break; }
+
+        if (!(domCount >= 5 || consec >= 5)) return null;
+
+        // re-nag guard: stay quiet until 3 more exports since the last dismiss
+        const ack = parseInt(localStorage.getItem(COACH_ACK_KEY) || '-99', 10);
+        if (history.length - ack < 3) return null;
+
+        const looks = [
+            { id: 'standard:classic',   label: 'Classic',          apply: () => { setCampaign('standard'); setTheme('classic'); } },
+            { id: 'standard:cinematic', label: 'Cinematic',        apply: () => { setCampaign('standard'); setTheme('cinematic'); } },
+            { id: 'standard:modern',    label: 'Modern',           apply: () => { setCampaign('standard'); setTheme('modern'); } },
+            { id: 'carousel',           label: 'a Carousel',       apply: () => setCampaign('carousel') },
+            { id: 'poll',               label: 'a Poll',           apply: () => setCampaign('poll') },
+            { id: 'whatsapp',           label: 'a WhatsApp post',  apply: () => setCampaign('whatsapp') }
+        ];
+        const recentLooks = history.slice(-9).map(lookId);
+        let best = null, bestCount = Infinity;
+        looks.forEach(l => {
+            if (l.id === domKey) return;            // never suggest the look they're overusing
+            const c = recentLooks.filter(x => x === l.id).length;
+            if (c < bestCount) { bestCount = c; best = l; }
+        });
+        if (!best) best = looks.find(l => l.id !== domKey) || looks[0];
+
+        const domLabel = lookLabel({ campaign: domKey.indexOf('standard') === 0 ? 'standard' : domKey, theme: (domKey.split(':')[1] || '') });
+        const n = Math.max(domCount, consec);
+        return {
+            text: n + ' of your recent posts use the <b>' + domLabel + '</b> look. Your feed is going monotone — switch it up to keep people scrolling.',
+            cta: 'Try ' + best.label,
+            apply: best.apply
+        };
+    }
+
+    function ackCoach() {
+        try { localStorage.setItem(COACH_ACK_KEY, String(loadHistory().length)); } catch (e) {}
+        updateAdvisor();
+    }
+    function disableCoach() {
+        try { localStorage.setItem(COACH_OFF_KEY, '1'); } catch (e) {}
+        updateAdvisor();
+    }
+
+    // Strategy Proxy panel: coach nudge takes priority; otherwise the day-of-week tip.
+    function updateAdvisor() {
         const msgEl = document.getElementById('advisor-msg');
         const actEl = document.getElementById('advisor-action');
         if (!msgEl || !actEl) return;
+        const nudge = getCoachNudge();
+        if (nudge) {
+            msgEl.innerHTML = nudge.text;
+            actEl.innerHTML =
+                '<button id="coach-apply" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:#B6FF3D;color:#0A0B0F;">' + sanitizeHTML(nudge.cta) + '</button>'
+              + '<button id="coach-ack" class="text-slate-300 text-[10px] font-bold py-1.5 px-3 rounded uppercase border border-slate-600 hover:bg-slate-700">Got it</button>'
+              + '<button id="coach-off" class="text-slate-500 text-[10px] font-medium py-1.5 px-2 rounded uppercase hover:text-slate-300" title="Turn off variety tips">Mute</button>';
+            const ap = document.getElementById('coach-apply');
+            const ak = document.getElementById('coach-ack');
+            const of = document.getElementById('coach-off');
+            if (ap) ap.onclick = () => { try { nudge.apply(); } catch (e) {} ackCoach(); };
+            if (ak) ak.onclick = ackCoach;
+            if (of) of.onclick = disableCoach;
+            return;
+        }
+        renderDayTip(msgEl, actEl);
+    }
+
+    function renderDayTip(msgEl, actEl) {
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const today = new Date().getDay();
+        const btn = (camp, label) => '<button onclick="setCampaign(\'' + camp + '\')" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:#B6FF3D;color:#0A0B0F;">' + label + '</button>';
         if (today === 2 || today === 4) {
             msgEl.innerHTML = "It's <b>" + days[today] + "</b>. Polls drive mid-week engagement — try the Poll layout today.";
-            actEl.innerHTML = '<button onclick="setCampaign(\'poll\')" class="bg-blue-600 text-white text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:bg-blue-500">Create Poll</button>';
+            actEl.innerHTML = btn('poll', 'Create Poll');
         } else if (today === 1 || today === 3) {
             msgEl.innerHTML = "Happy <b>" + days[today] + "</b>. LinkedIn carousels get 3× more reach today. Build one in 30 seconds.";
-            actEl.innerHTML = '<button onclick="setCampaign(\'carousel\')" class="bg-blue-600 text-white text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:bg-blue-500">Build Carousel</button>';
+            actEl.innerHTML = btn('carousel', 'Build Carousel');
         } else {
             msgEl.innerHTML = 'Weekend playbook: WhatsApp Channels see high open rates. Ship a punchy broadcast.';
-            actEl.innerHTML = '<button onclick="setCampaign(\'whatsapp\')" class="bg-blue-600 text-white text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:bg-blue-500">WhatsApp Mode</button>';
+            actEl.innerHTML = btn('whatsapp', 'WhatsApp Mode');
         }
     }
 
@@ -2039,7 +2272,8 @@ self.onmessage = async (e) => {
                 syncDOM();
             });
         }
-        initAdvisor();
+        renderFeed();
+        updateAdvisor();
         // If Copy Lab handed off an angle, load it; otherwise start on the default Standard view.
         if (!applyCopyLabHandoff()) setCampaign('standard');
         window.addEventListener('resize', resizeWrapper);
