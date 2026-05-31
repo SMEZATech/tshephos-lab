@@ -131,6 +131,11 @@
 
   .trk{margin-top:26px; font-size:12.5px; line-height:1.55; color:var(--faint); border-top:1px solid var(--border); padding-top:16px;}
 
+  .ls-msg{font-size:13.5px; line-height:1.55; color:var(--dim); margin:0;}
+  .ls-setup{border:1px dashed var(--border-2); border-radius:14px; padding:16px; margin-top:4px;}
+  .ls-steps{margin:10px 0 0; padding-left:20px; color:var(--dim); font-size:13px; line-height:1.65;}
+  .ls-steps code{background:#0D0F15; border:1px solid var(--border-2); border-radius:5px; padding:1px 5px; font-family:var(--fm); font-size:11px; color:#bfe6ff;}
+
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
 </style>
@@ -152,7 +157,13 @@
   </header>
 
   <section class="console">
-    <label class="lbl">Platform</label>
+    <label class="lbl">Data source</label>
+    <div class="seg" id="modeSeg">
+      <button class="on" data-m="manual">✍️ Manual entry</button>
+      <button data-m="live">🔌 Live (Postiz)</button>
+    </div>
+
+    <label class="lbl" style="margin-top:18px;">Platform</label>
     <div class="seg" id="seg">
       <button class="on" data-p="Instagram">Instagram</button>
       <button data-p="LinkedIn">LinkedIn</button>
@@ -172,8 +183,21 @@
       </div>
     </div>
 
-    <label class="lbl" style="margin-top:22px;">The numbers <span class="opt">— enter “this period”; add “previous” for trend deltas</span></label>
-    <div class="mgrid" id="metricGrid"></div>
+    <div id="manualBlock">
+      <label class="lbl" style="margin-top:22px;">The numbers <span class="opt">— enter “this period”; add “previous” for trend deltas</span></label>
+      <div class="mgrid" id="metricGrid"></div>
+    </div>
+
+    <div id="liveBlock" style="display:none;">
+      <label class="lbl" style="margin-top:22px;">Connected channel <span class="opt">— pulled live from your Postiz instance</span></label>
+      <div id="liveStatus"></div>
+      <div id="liveControls" class="row" style="display:none; margin-top:0;">
+        <div class="field"><label class="lbl">Channel</label><select id="liveChannel"></select></div>
+        <div class="field"><label class="lbl">Look-back</label>
+          <select id="liveDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+        </div>
+      </div>
+    </div>
 
     <div style="margin-top:18px;">
       <label class="lbl" for="notes">Notes / context <span class="opt">optional — campaigns, posting changes, anything notable</span></label>
@@ -213,7 +237,7 @@ const METRICS = [
   { key:'posts',      label:'Posts published',  hint:'this period',                    goodUp:null  },
 ];
 
-const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null };
+const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'manual' };
 METRICS.forEach(m => state.metrics[m.key] = { this:'', prev:'' });
 
 const $ = s => document.querySelector(s);
@@ -252,8 +276,87 @@ $('#seg').addEventListener('click', e => {
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results');
 
 function hasAnyMetric(){ return METRICS.some(m => num(state.metrics[m.key].this) != null); }
-function syncRun(){ elRun.disabled = state.loading || !hasAnyMetric(); }
+function liveReady(){ const s = document.getElementById('liveChannel'); return !!(s && s.value); }
+function syncRun(){ elRun.disabled = state.loading || (state.mode === 'live' ? !liveReady() : !hasAnyMetric()); }
 elRun.addEventListener('click', () => run());
+
+// ---- Data-source mode (Manual / Live Postiz) ----
+const modeBtns = [...document.querySelectorAll('#modeSeg button')];
+modeBtns.forEach(b => b.addEventListener('click', () => switchMode(b.dataset.m)));
+function switchMode(m){
+  state.mode = m;
+  modeBtns.forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  document.getElementById('manualBlock').style.display = m === 'manual' ? '' : 'none';
+  document.getElementById('liveBlock').style.display   = m === 'live' ? '' : 'none';
+  hideErr();
+  if(m === 'live') fetchChannels(false);
+  syncRun();
+}
+
+let _channelsLoaded = false;
+function refreshBtnHtml(){ return '<button class="mini" id="liveRefresh" style="margin-top:12px;">↻ Retry</button>'; }
+function wireRefresh(){ const b = document.getElementById('liveRefresh'); if(b) b.onclick = () => fetchChannels(true); }
+function postizSetupHtml(){
+  return '<div class="ls-setup"><p class="ls-msg"><b>Postiz isn’t connected yet.</b> To switch this on:</p>'
+    + '<ol class="ls-steps"><li>Self-host Postiz (Docker) and open its dashboard.</li>'
+    + '<li>Connect your social accounts there (OAuth).</li>'
+    + '<li>Generate a Postiz API key.</li>'
+    + '<li>In Vercel → Settings → Environment Variables, add <code>POSTIZ_API_URL</code> and <code>POSTIZ_API_KEY</code>, then redeploy.</li></ol>'
+    + '<p class="ls-msg" style="margin-top:10px;">Until then, use <b>Manual entry</b> — it works today.</p>'
+    + refreshBtnHtml() + '</div>';
+}
+async function fetchChannels(force){
+  const status = document.getElementById('liveStatus');
+  const controls = document.getElementById('liveControls');
+  const sel = document.getElementById('liveChannel');
+  if(_channelsLoaded && !force) return;
+  status.innerHTML = '<p class="ls-msg"><span class="spinner" style="border-color:rgba(182,255,61,.3);border-top-color:#B6FF3D"></span> Loading channels…</p>';
+  controls.style.display = 'none';
+  try{
+    const r = await fetch('/api/postiz?action=channels');
+    let data; try { data = await r.json(); } catch { data = null; }
+    if(!r.ok || (data && data.error === 'NOT_CONFIGURED')){ status.innerHTML = postizSetupHtml(); wireRefresh(); return; }
+    const channels = (data && data.channels) || [];
+    if(!channels.length){
+      status.innerHTML = '<p class="ls-msg">No channels connected in Postiz yet. Connect your accounts in the Postiz dashboard, then retry.</p>' + refreshBtnHtml();
+      wireRefresh(); return;
+    }
+    sel.innerHTML = channels.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.platform ? (' · ' + esc(c.platform)) : '') + '</option>').join('');
+    status.innerHTML = '';
+    controls.style.display = '';
+    _channelsLoaded = true;
+    syncRun();
+  }catch(e){
+    status.innerHTML = '<p class="ls-msg">Couldn’t reach the Postiz proxy. ' + esc(e.message || '') + '</p>' + refreshBtnHtml();
+    wireRefresh();
+  }
+}
+
+async function pullLiveDash(){
+  const sel = document.getElementById('liveChannel');
+  const id = sel ? sel.value : '';
+  if(!id) throw new Error('Pick a connected channel first.');
+  const days = parseInt((document.getElementById('liveDays') || {}).value || '30', 10) || 30;
+  let r, data;
+  try { r = await fetch('/api/postiz?action=analytics&id=' + encodeURIComponent(id) + '&days=' + days); data = await r.json(); }
+  catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
+  if(!r.ok){
+    if(data && data.error === 'NOT_CONFIGURED') throw new Error(data.message || 'Postiz isn’t connected yet.');
+    throw new Error((data && (data.message || data.error)) || 'Postiz request failed.');
+  }
+  const metrics = (data && data.metrics) || [];
+  if(!metrics.length) throw new Error('Postiz returned no analytics for this channel/period yet — some platforms need a few days of data or extra verification.');
+  return dashFromLive(metrics, (data && data.days) || days);
+}
+function dashFromLive(metrics, days){
+  const kpis = metrics.map(m => ({ label:m.label, cur:(m.latest != null ? m.latest : null), delta:(m.percentageChange != null ? m.percentageChange : null), goodUp:true }))
+                      .filter(k => k.cur != null);
+  const lines = metrics.map(m => {
+    const d = (m.percentageChange != null) ? ' (' + (m.percentageChange >= 0 ? '+' : '') + Number(m.percentageChange).toFixed(1) + '% over ' + days + 'd)' : '';
+    return m.label + ': ' + (m.latest != null ? fmt(m.latest) : '—') + d;
+  });
+  return { kpis, rate:null, basis:'', perPost:null, summary: lines.join('\n'), live:true, days };
+}
 
 function buildDash(){
   const m = state.metrics;
@@ -284,21 +387,32 @@ async function callApi(payload){
 
 async function run(){
   state.loading = true; syncRun(); hideErr(); state.analysis = null; state.dashData = null; render();
-  elRunLabel.textContent = 'Analyzing…';
+  elRunLabel.textContent = state.mode === 'live' ? 'Pulling…' : 'Analyzing…';
   const svg = elRun.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner"></span>';
-  const dash = buildDash();
+
+  let dash = null;
   try{
-    const data = await callApi({ task:'analytics', platform:state.platform, period:state.period, summary:dash.summary, notes:state.notes, goal:state.goal });
+    dash = state.mode === 'live' ? await pullLiveDash() : buildDash();
+  }catch(err){
+    showErr(err.message); state.loading = false; restoreRunBtn(); syncRun(); render(); return;
+  }
+
+  try{
+    const period = dash.live ? ('Last ' + dash.days + ' days (live)') : state.period;
+    const data = await callApi({ task:'analytics', platform:state.platform, period:period, summary:dash.summary, notes:state.notes, goal:state.goal });
     if(!data || !data.analytics) throw new Error('No analysis returned — try again.');
     state.analysis = data.analytics;
   }catch(err){ showErr(err.message); state.analysis = null; }
   finally{
     state.dashData = dash;
     state.loading = false;
-    elRunLabel.textContent = 'Re-analyze';
-    const ic = elRun.querySelector('.spinner'); if(ic) ic.outerHTML = ICON.chart;
+    restoreRunBtn();
     syncRun(); render();
   }
+}
+function restoreRunBtn(){
+  elRunLabel.textContent = 'Re-analyze';
+  const ic = elRun.querySelector('.spinner'); if(ic) ic.outerHTML = ICON.chart;
 }
 
 const warnSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
@@ -390,7 +504,10 @@ function render(){
     <div class="sec" style="margin-top:0"><h3 class="sec-h">Your numbers — ${esc(state.period||'this period')}</h3><div class="kpis">${kpiHtml}</div></div>`;
   if(state.loading){ html += `<div class="sec"><div class="skel" style="height:200px"></div></div>`; }
   else if(state.analysis){ html += renderAnalysis(state.analysis); }
-  html += `<p class="trk">These figures are what you entered from each platform's native insights — Volt computes the rates and deltas, the analyst interprets them. For automatic, always-on data, connect a provider (live API) as the next phase.</p></div>`;
+  const trk = state.dashData && state.dashData.live
+    ? `Pulled live from your Postiz instance over the selected window. Coverage depends on what each platform's API exposes, so some metrics or networks may be limited.`
+    : `These figures are what you entered from each platform's native insights — Volt computes the rates and deltas, the analyst interprets them. Switch to <b>Live (Postiz)</b> for automatic, always-on data.`;
+  html += `<p class="trk">${trk}</p></div>`;
   elRes.innerHTML = html;
 }
 
