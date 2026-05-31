@@ -101,6 +101,20 @@
             font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
             text-transform: uppercase; border: 1px solid rgba(182,255,61,0.3);
         }
+
+        /* Brand Kit — the live preview's brand colours come from these vars (the export
+           uses the worker's own BRAND object, fed the same values via the render payload). */
+        :root { --bp: #9c1c1f; --bs: #0a2c3d; }
+        .bg-sme-red    { background-color: var(--bp) !important; }
+        .text-sme-red  { color: var(--bp) !important; }
+        .border-sme-red{ border-color: var(--bp) !important; }
+        .bg-sme-navy   { background-color: var(--bs) !important; }
+        .text-sme-navy { color: var(--bs) !important; }
+
+        /* Brand Kit form fields */
+        .bk-lbl { display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#888F9D; font-weight:700; margin-bottom:4px; }
+        .bk-in  { width:100%; background:#0D0F15; color:#ECEEF3; border:1px solid #2A2E38; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; }
+        .bk-in:focus { border-color:#B6FF3D; }
     </style>
 </head>
 <body class="h-screen flex overflow-hidden">
@@ -121,6 +135,14 @@
                 <span class="engine-badge"><span class="w-1.5 h-1.5 rounded-full" style="background:#B6FF3D;"></span> No API key</span>
             </div>
             <p class="text-xs text-slate-400 mt-1 tracking-widest uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Design Studio</p>
+
+            <button onclick="openBrandKit()" id="brand-chip" class="mt-4 w-full flex items-center justify-between gap-2 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 transition-colors">
+                <span class="flex items-center gap-2 min-w-0">
+                    <span id="brand-chip-swatch" class="w-4 h-4 rounded-sm shrink-0 border border-white/20" style="background:#9c1c1f;"></span>
+                    <span class="text-xs text-slate-300 font-bold truncate">Brand: <span id="brand-chip-name" class="text-white">SME South Africa</span></span>
+                </span>
+                <span class="text-[10px] font-bold uppercase tracking-widest shrink-0" style="color:#B6FF3D;">Manage</span>
+            </button>
 
             <div id="advisor-panel" class="mt-4 bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 p-4 rounded-xl shadow-lg">
                 <div class="flex items-center gap-2 mb-2 text-sm font-bold text-blue-300 uppercase tracking-widest">
@@ -389,6 +411,18 @@
         </div>
     </div>
 
+    <!-- Brand Kit modal -->
+    <div id="brandkit-modal" class="hidden" style="position:fixed;inset:0;z-index:1001;">
+        <div onclick="closeBrandKit()" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);"></div>
+        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:#14171F;border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:#14171F;z-index:2;">
+                <div class="flex items-center gap-2"><span>🎨</span><h3 class="text-lg font-bold text-white" style="font-family:'Unbounded',sans-serif;">Brand Kit</h3></div>
+                <button onclick="closeBrandKit()" class="text-slate-400 hover:text-white text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700">&times;</button>
+            </div>
+            <div id="brandkit-body" class="p-6"></div>
+        </div>
+    </div>
+
 
     <!-- ============================================================ -->
     <!-- INLINE WEB WORKER SOURCE (runs as plain text until spawned)  -->
@@ -399,13 +433,23 @@
 // ============ A. DEPENDENCIES ============
 importScripts('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
 
-const BRAND = {
+let BRAND = {
     red:   '#9c1c1f',
     navy:  '#0a2c3d',
     black: '#000000',
     white: '#ffffff',
-    gray:  '#f8fafc'
+    gray:  '#f8fafc',
+    cta:   'Read Insight',
+    url:   'smesouthafrica.co.za'
 };
+// Apply per-render brand overrides (colours + cta + url); white/black/gray stay structural.
+function applyBrandToWorker(b) {
+    if (!b) return;
+    if (b.primary)   BRAND.red  = b.primary;
+    if (b.secondary) BRAND.navy = b.secondary;
+    if (b.cta)       BRAND.cta  = b.cta;
+    if (b.url)       BRAND.url  = b.url;
+}
 
 // 24x24 SVG path data (Heroicons-style)
 const ICON = {
@@ -806,8 +850,8 @@ const Layouts = {
         if (s.showFooter) {
             r.strokeLine(innerX, footerY, innerX + innerW, footerY, 'rgba(255,255,255,0.25)', 1);
             r.drawIconPath(ICON.chevronDouble, innerX, footerY + 24, 26, BRAND.red, 3);
-            r.drawLines(['READ INSIGHT'], { family: 'Oswald', weight: '700', size: 22 }, innerX + 40, footerY + 22, 240, { color: BRAND.white });
-            const urlText = 'smesouthafrica.co.za';
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 22 }, innerX + 40, footerY + 22, 240, { color: BRAND.white });
+            const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 18 };
             const urlW = r.textWidth(urlText, urlFont);
             r.drawIconPath(ICON.globe, innerX + innerW - 26, footerY + 24, 26, BRAND.white, 2.5);
@@ -849,8 +893,8 @@ const Layouts = {
             const footerY = H - pad - footerH + 24;
             r.strokeLine(pad, footerY, W - pad, footerY, 'rgba(255,255,255,0.25)', 1);
             r.drawIconPath(ICON.chevronDouble, pad, footerY + 24, 26, BRAND.red, 3);
-            r.drawLines(['READ INSIGHT'], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 240, { color: BRAND.white });
-            const urlText = 'smesouthafrica.co.za';
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 240, { color: BRAND.white });
+            const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 18 };
             const urlW = r.textWidth(urlText, urlFont);
             r.drawIconPath(ICON.globe, W - pad - 26, footerY + 24, 26, BRAND.white, 2.5);
@@ -913,8 +957,8 @@ const Layouts = {
             const footerY = innerY + innerH - footerH + 16;
             r.strokeLine(innerX, footerY, innerX + innerW, footerY, '#e2e8f0', 1);
             r.drawIconPath(ICON.chevronDouble, innerX, footerY + 22, 24, BRAND.red, 3);
-            r.drawLines(['READ INSIGHT'], { family: 'Oswald', weight: '700', size: 20 }, innerX + 36, footerY + 20, 240, { color: BRAND.navy });
-            const urlText = 'smesouthafrica.co.za';
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 20 }, innerX + 36, footerY + 20, 240, { color: BRAND.navy });
+            const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 16 };
             const urlW = r.textWidth(urlText, urlFont);
             r.drawIconPath(ICON.globe, innerX + innerW - 24, footerY + 22, 24, BRAND.navy, 2.5);
@@ -1036,7 +1080,7 @@ const Layouts = {
         cursorY += titleSpace + 48;
 
         if (s.showFooter) {
-            const ctaText = 'READ THE INSIGHT';
+            const ctaText = BRAND.cta.toUpperCase();
             const ctaFont = { family: 'Oswald', weight: '700', size: 40 };
             const ctaPad = 60;
             const ctaW = r.textWidth(ctaText, ctaFont) + ctaPad * 2;
@@ -1212,8 +1256,8 @@ const Layouts = {
         if (s.showFooter) {
             r.rect(pad, footerY, innerW, 4, BRAND.red);
             r.drawIconPath(ICON.chevronDouble, pad, footerY + 24, 26, BRAND.red, 3);
-            r.drawLines(['READ INSIGHT'], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 260, { color: BRAND.white });
-            const urlText = 'smesouthafrica.co.za';
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 260, { color: BRAND.white });
+            const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 18 };
             const urlW = r.textWidth(urlText, urlFont);
             r.drawIconPath(ICON.globe, W - pad - 26, footerY + 24, 26, BRAND.white, 2.5);
@@ -1268,7 +1312,7 @@ const Layouts = {
 
         if (s.showFooter) {
             r.strokeLine(pad, footerY, W - pad, footerY, 'rgba(255,255,255,0.2)', 1);
-            const urlText = 'smesouthafrica.co.za';
+            const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 18 };
             const urlW = r.textWidth(urlText, urlFont);
             r.drawIconPath(ICON.globe, pad, footerY + 22, 24, BRAND.white, 2.5);
@@ -1317,6 +1361,7 @@ function renderSlide(state, slideIdx, assets, scale) {
 self.onmessage = async (e) => {
     const msg = e.data;
     try {
+        applyBrandToWorker(msg.brand);
         if (msg.type === 'render-single') {
             self.postMessage({ type: 'progress', percent: 5,  label: 'Loading fonts' });
             await loadFonts(msg.fontBuffers);
@@ -1400,6 +1445,144 @@ self.onmessage = async (e) => {
     const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&display=swap';
     const WHITE_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png';
     const DEFAULT_IMG_URL = 'https://images.unsplash.com/photo-1664575602276-acd073f104c1?auto=format&fit=crop&w=1200&q=80';
+
+    // =============================================================
+    // 1b. BRAND KIT (multi-brand; SME SA is the seeded default)
+    // =============================================================
+    const SME_BRAND = {
+        id: 'sme', name: 'SME South Africa',
+        primary: '#9c1c1f', secondary: '#0a2c3d',
+        tag: 'SME Knowledge HUB', cta: 'Read Insight', url: 'smesouthafrica.co.za',
+        logo: WHITE_LOGO
+    };
+    const BRANDS_KEY = 'volt_brands_v1';
+    const ACTIVE_BRAND_KEY = 'volt_active_brand';
+    let _bkEditing = null;
+
+    function loadBrands() {
+        try { const a = JSON.parse(localStorage.getItem(BRANDS_KEY) || 'null'); if (Array.isArray(a) && a.length) return a; } catch (e) {}
+        return [Object.assign({}, SME_BRAND)];
+    }
+    function saveBrands(a) { try { localStorage.setItem(BRANDS_KEY, JSON.stringify(a)); } catch (e) {} }
+    function getActiveBrandId() { try { return localStorage.getItem(ACTIVE_BRAND_KEY) || 'sme'; } catch (e) { return 'sme'; } }
+    function setActiveBrandId(id) { try { localStorage.setItem(ACTIVE_BRAND_KEY, id); } catch (e) {} }
+    function currentBrand() { const a = loadBrands(); return a.find(b => b.id === getActiveBrandId()) || a[0] || SME_BRAND; }
+    function brandPayload() { const b = currentBrand(); return { primary: b.primary, secondary: b.secondary, cta: b.cta, url: b.url }; }
+
+    function applyBrand() {
+        const b = currentBrand();
+        document.documentElement.style.setProperty('--bp', b.primary);
+        document.documentElement.style.setProperty('--bs', b.secondary);
+        logoBlob = null;                 // invalidate cached export logo so the new one is fetched
+        ensureLogoBlob();
+        const tagEl = document.getElementById('in-tag');
+        if (tagEl) tagEl.value = b.tag;
+        updateBrandChip();
+        renderLayout();
+    }
+    function updateBrandChip() {
+        const b = currentBrand();
+        const sw = document.getElementById('brand-chip-swatch');
+        const nm = document.getElementById('brand-chip-name');
+        if (sw) sw.style.background = b.primary;
+        if (nm) nm.textContent = b.name || 'Brand';
+    }
+    function openBrandKit() { _bkEditing = null; renderBrandKit(); const m = document.getElementById('brandkit-modal'); if (m) m.classList.remove('hidden'); }
+    function closeBrandKit() { const m = document.getElementById('brandkit-modal'); if (m) m.classList.add('hidden'); }
+    function bkNewId() { return 'b' + Date.now().toString(36); }
+
+    function renderBrandKit() {
+        const body = document.getElementById('brandkit-body');
+        if (!body) return;
+        const brands = loadBrands();
+        if (!_bkEditing) _bkEditing = Object.assign({}, currentBrand());
+        const editing = _bkEditing;
+        const isExisting = brands.some(b => b.id === editing.id);
+        const isDefault = editing.id === 'sme';
+
+        let opts = brands.map(b => '<option value="' + b.id + '"' + (b.id === editing.id ? ' selected' : '') + '>' + sanitizeHTML(b.name) + '</option>').join('');
+        opts += '<option value="__new__">➕ New brand…</option>';
+
+        body.innerHTML =
+            '<label class="bk-lbl">Active brand</label>'
+          + '<select id="bk-select" class="w-full bg-slate-900 text-white rounded-lg p-2.5 text-sm border border-slate-600 mb-5">' + opts + '</select>'
+          + '<div class="grid grid-cols-2 gap-3 mb-3">'
+          +   '<div><label class="bk-lbl">Brand name</label><input id="bk-name" class="bk-in" value="' + sanitizeHTML(editing.name || '') + '"></div>'
+          +   '<div><label class="bk-lbl">Default tag</label><input id="bk-tag" class="bk-in" value="' + sanitizeHTML(editing.tag || '') + '"></div>'
+          + '</div>'
+          + '<div class="grid grid-cols-2 gap-3 mb-3">'
+          +   '<div><label class="bk-lbl">CTA text</label><input id="bk-cta" class="bk-in" value="' + sanitizeHTML(editing.cta || '') + '"></div>'
+          +   '<div><label class="bk-lbl">Footer URL</label><input id="bk-url" class="bk-in" value="' + sanitizeHTML(editing.url || '') + '"></div>'
+          + '</div>'
+          + '<div class="grid grid-cols-2 gap-3 mb-4">'
+          +   '<div><label class="bk-lbl">Primary (accent)</label><div class="flex items-center gap-2"><input id="bk-primary" type="color" value="' + (editing.primary || '#9c1c1f') + '" class="w-10 h-9 rounded bg-slate-900 border border-slate-600 cursor-pointer p-0.5"><input id="bk-primary-hex" class="bk-in" value="' + (editing.primary || '#9c1c1f') + '"></div></div>'
+          +   '<div><label class="bk-lbl">Secondary (dark)</label><div class="flex items-center gap-2"><input id="bk-secondary" type="color" value="' + (editing.secondary || '#0a2c3d') + '" class="w-10 h-9 rounded bg-slate-900 border border-slate-600 cursor-pointer p-0.5"><input id="bk-secondary-hex" class="bk-in" value="' + (editing.secondary || '#0a2c3d') + '"></div></div>'
+          + '</div>'
+          + '<div class="mb-5"><label class="bk-lbl">Logo (white / transparent PNG works best)</label>'
+          +   '<div class="flex items-center gap-3">'
+          +     '<div class="w-24 h-12 rounded border border-slate-700 flex items-center justify-center overflow-hidden shrink-0" style="background:' + (editing.secondary || '#0a2c3d') + ';">' + (editing.logo ? '<img src="' + editing.logo + '" class="max-w-full max-h-full object-contain">' : '<span class="text-[10px] text-slate-500">none</span>') + '</div>'
+          +     '<div class="flex-1"><input id="bk-logo-file" type="file" accept="image/*" class="w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer"><p class="text-[10px] text-slate-500 mt-1">Uploads embed in the design (no CORS issues). Keep under ~300&nbsp;KB.</p></div>'
+          +   '</div>'
+          + '</div>'
+          + '<div class="flex items-center gap-2 pt-4 border-t border-slate-700">'
+          +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:#B6FF3D;color:#0A0B0F;">Save &amp; apply</button>'
+          +   (isExisting && !isDefault ? '<button id="bk-delete" class="text-[11px] font-bold py-2 px-3 rounded uppercase border border-red-500/50 text-red-300 hover:bg-red-500/10">Delete</button>' : '')
+          +   '<button onclick="closeBrandKit()" class="ml-auto text-[11px] font-bold py-2 px-4 rounded uppercase border border-slate-600 text-slate-300 hover:bg-slate-700">Done</button>'
+          + '</div>';
+
+        const sel = document.getElementById('bk-select');
+        sel.onchange = function () {
+            if (sel.value === '__new__') {
+                _bkEditing = { id: bkNewId(), name: 'New Brand', primary: '#2563eb', secondary: '#0f172a', tag: 'Knowledge Hub', cta: 'Learn more', url: 'example.com', logo: '' };
+            } else {
+                _bkEditing = Object.assign({}, loadBrands().find(b => b.id === sel.value) || currentBrand());
+            }
+            renderBrandKit();
+        };
+        const bind = (id, key) => { const el = document.getElementById(id); if (el) el.oninput = () => { _bkEditing[key] = el.value; }; };
+        bind('bk-name', 'name'); bind('bk-tag', 'tag'); bind('bk-cta', 'cta'); bind('bk-url', 'url');
+        const pc = document.getElementById('bk-primary'), pch = document.getElementById('bk-primary-hex');
+        const sc2 = document.getElementById('bk-secondary'), sch = document.getElementById('bk-secondary-hex');
+        if (pc) pc.oninput = () => { _bkEditing.primary = pc.value; if (pch) pch.value = pc.value; };
+        if (pch) pch.oninput = () => { _bkEditing.primary = pch.value; if (pc && /^#[0-9a-fA-F]{6}$/.test(pch.value)) pc.value = pch.value; };
+        if (sc2) sc2.oninput = () => { _bkEditing.secondary = sc2.value; if (sch) sch.value = sc2.value; };
+        if (sch) sch.oninput = () => { _bkEditing.secondary = sch.value; if (sc2 && /^#[0-9a-fA-F]{6}$/.test(sch.value)) sc2.value = sch.value; };
+        const lf = document.getElementById('bk-logo-file');
+        if (lf) lf.onchange = (e) => {
+            const f = e.target.files[0]; if (!f) return;
+            if (f.size > 400000) showToast('Logo is ' + Math.round(f.size / 1024) + 'KB — try to keep under ~300KB.');
+            const rd = new FileReader();
+            rd.onload = () => { _bkEditing.logo = rd.result; renderBrandKit(); };
+            rd.readAsDataURL(f);
+        };
+        const sv = document.getElementById('bk-save'); if (sv) sv.onclick = bkSave;
+        const dl = document.getElementById('bk-delete'); if (dl) dl.onclick = bkDelete;
+    }
+
+    function bkSave() {
+        if (!_bkEditing) return;
+        if (!_bkEditing.name || !_bkEditing.name.trim()) { showToast('Give the brand a name first.'); return; }
+        if (!_bkEditing.id) _bkEditing.id = bkNewId();
+        const brands = loadBrands();
+        const i = brands.findIndex(b => b.id === _bkEditing.id);
+        if (i >= 0) brands[i] = _bkEditing; else brands.push(_bkEditing);
+        saveBrands(brands);
+        setActiveBrandId(_bkEditing.id);
+        applyBrand();
+        showToast('Brand applied: ' + _bkEditing.name, 'success');
+        closeBrandKit();
+    }
+    function bkDelete() {
+        if (!_bkEditing || _bkEditing.id === 'sme') return;
+        let brands = loadBrands().filter(b => b.id !== _bkEditing.id);
+        if (!brands.length) brands = [Object.assign({}, SME_BRAND)];
+        saveBrands(brands);
+        if (getActiveBrandId() === _bkEditing.id) setActiveBrandId(brands[0].id);
+        applyBrand();
+        _bkEditing = null;
+        renderBrandKit();
+        showToast('Brand deleted.');
+    }
 
     const canvas  = document.getElementById('export-canvas');
     const wrapper = document.getElementById('canvas-wrapper');
@@ -1517,7 +1700,8 @@ self.onmessage = async (e) => {
     async function ensureLogoBlob() {
         if (logoBlob) return logoBlob;
         try {
-            const r = await fetch(WHITE_LOGO, { mode: 'cors' });
+            const src = currentBrand().logo || WHITE_LOGO;
+            const r = await fetch(src, { mode: 'cors' });
             logoBlob = await r.blob();
         } catch (err) {
             console.warn('Logo fetch failed', err);
@@ -1748,7 +1932,7 @@ self.onmessage = async (e) => {
             } else if (state.theme === 'cinematic') {
                 html = '<div class="relative w-full h-full bg-black overflow-hidden">'
                   +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat opacity-90" style="background-size:cover;"></div>'
-                  +   '<div class="absolute inset-0 bg-gradient-to-t from-[#0a2c3d] via-[#0a2c3d]/80 to-[#0a2c3d]/20 pointer-events-none"></div>'
+                  +   '<div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(to top, var(--bs) 0%, color-mix(in srgb, var(--bs) 80%, transparent) 50%, color-mix(in srgb, var(--bs) 20%, transparent) 100%)"></div>'
                   +   '<div class="absolute inset-0 p-16 flex flex-col justify-between z-10">'
                   +     '<div class="flex justify-between items-start w-full">'
                   +       '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-lg border border-white/20"><span id="render-tag"></span></div>'
@@ -1811,7 +1995,7 @@ self.onmessage = async (e) => {
                   + '</div>';
             }
         } else if (state.campaign === 'poll') {
-            html = '<div class="relative w-full h-full bg-[#0a2c3d] flex flex-col items-center justify-center p-16" style="background: linear-gradient(135deg, #0a2c3d 0%, #111827 100%);">'
+            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col items-center justify-center p-16" style="background: linear-gradient(135deg, var(--bs) 0%, #111827 100%);">'
               +   '<div class="z-10 w-full bg-[#1e293b] border border-slate-600 rounded-[40px] p-16 shadow-2xl text-center flex flex-col items-center">'
               +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-full tracking-widest uppercase text-sm shadow-md mb-8 border border-white/20"><span id="render-tag"></span></div>'
               +     '<h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.15] tracking-tight mb-2" style="font-size:60px; text-shadow:0 4px 10px rgba(0,0,0,0.5);"></h2>'
@@ -1823,9 +2007,9 @@ self.onmessage = async (e) => {
               +   '</div>'
               + '</div>';
         } else if (state.campaign === 'whatsapp') {
-            html = '<div class="relative w-full h-full flex flex-col justify-center bg-[#0a2c3d] overflow-hidden">'
+            html = '<div class="relative w-full h-full flex flex-col justify-center bg-sme-navy overflow-hidden">'
               +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover; background-position:center; opacity:0.35;"></div>'
-              +   '<div class="absolute inset-0" style="background: linear-gradient(to top, rgba(10,44,61,0.95), rgba(10,44,61,0.4));"></div>'
+              +   '<div class="absolute inset-0" style="background: linear-gradient(to top, color-mix(in srgb, var(--bs) 95%, transparent), color-mix(in srgb, var(--bs) 40%, transparent));"></div>'
               +   '<div class="z-10 p-16 w-full flex flex-col h-full justify-between relative">'
               +     '<div class="flex justify-center pt-10"><div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-full tracking-widest uppercase text-lg shadow-md border border-white/20"><span id="render-tag"></span></div></div>'
               +     '<div class="w-full text-center"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.1] tracking-tight" style="font-size:100px; text-shadow:2px 4px 15px rgba(0,0,0,0.9);"></h2></div>'
@@ -1833,7 +2017,7 @@ self.onmessage = async (e) => {
               +   '</div>'
               + '</div>';
         } else if (state.campaign === 'stat') {
-            html = '<div class="relative w-full h-full bg-[#0a2c3d] flex flex-col p-16 overflow-hidden">'
+            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-16 overflow-hidden">'
               +   '<div class="absolute -top-[150px] -right-[150px] w-[700px] h-[700px] bg-sme-red rounded-full opacity-25 blur-[150px] pointer-events-none"></div>'
               +   '<div class="flex justify-between items-start w-full z-10">'
               +     '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
@@ -1851,7 +2035,7 @@ self.onmessage = async (e) => {
                     : '')
               + '</div>';
         } else if (state.campaign === 'quote') {
-            html = '<div class="relative w-full h-full bg-[#0a2c3d] flex flex-col p-16 overflow-hidden">'
+            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-16 overflow-hidden">'
               +   '<div class="absolute -bottom-[150px] -left-[150px] w-[650px] h-[650px] bg-sme-red rounded-full opacity-20 blur-[150px] pointer-events-none"></div>'
               +   '<div class="flex justify-between items-start w-full z-10">'
               +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md"><span id="render-tag"></span></div>'
@@ -1867,6 +2051,13 @@ self.onmessage = async (e) => {
                     : '')
               + '</div>';
         }
+
+        // Brand Kit: swap the seeded SME logo/URL/CTA in the preview for the active brand.
+        // (No-op when SME is active; the export does the same via the worker BRAND payload.)
+        const _b = currentBrand();
+        if (_b.logo && _b.logo !== WHITE_LOGO) html = html.split(WHITE_LOGO).join(_b.logo);
+        if (_b.url && _b.url !== 'smesouthafrica.co.za') html = html.split('smesouthafrica.co.za').join(sanitizeHTML(_b.url));
+        if (_b.cta) html = html.split('Read The Insight').join(sanitizeHTML(_b.cta)).split('Read Insight').join(sanitizeHTML(_b.cta));
 
         canvas.innerHTML = html;
         syncDOM();
@@ -2179,6 +2370,7 @@ self.onmessage = async (e) => {
             const payload = {
                 type: 'render-single',
                 state: buildStatePayload(),
+                brand: brandPayload(),
                 slideIdx: state.campaign === 'carousel' ? state.currentSlide : 0,
                 featuredBlob: currentImageBlob,
                 logoBlob: logoBlob,
@@ -2209,6 +2401,7 @@ self.onmessage = async (e) => {
             const payload = {
                 type: 'render-carousel-zip',
                 state: buildStatePayload(),
+                brand: brandPayload(),
                 featuredBlob: currentImageBlob,
                 logoBlob: logoBlob,
                 fontBuffers: fontBuffers,
@@ -2283,7 +2476,7 @@ self.onmessage = async (e) => {
             const worker = getWorker();
             const st = buildStatePayload();
             const res = await postAndWait(worker, {
-                type: 'render-single', state: st, slideIdx: 0,
+                type: 'render-single', state: st, brand: brandPayload(), slideIdx: 0,
                 featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers,
                 scale: 0.5, filename: 'thumb.png'
             }, true);
@@ -2642,6 +2835,7 @@ self.onmessage = async (e) => {
                 syncDOM();
             });
         }
+        applyBrand();
         renderFeed();
         updateAdvisor();
         // If Copy Lab handed off an angle, load it; otherwise start on the default Standard view.
@@ -2673,6 +2867,8 @@ self.onmessage = async (e) => {
     window.openAudit = openAudit;
     window.closeAudit = closeAudit;
     window.auditTipAction = auditTipAction;
+    window.openBrandKit = openBrandKit;
+    window.closeBrandKit = closeBrandKit;
     </script>
 </body>
 </html>
