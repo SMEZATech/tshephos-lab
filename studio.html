@@ -144,6 +144,7 @@
                 </div>
                 <div id="feed-grid" class="grid grid-cols-3 gap-1.5"></div>
                 <p id="feed-hint" class="text-[10px] text-slate-500 leading-snug mt-3">Your last 9 exports show here as an Instagram-style grid — a quick gut-check on whether your feed looks varied.</p>
+                <button onclick="openAudit()" class="w-full mt-3 text-[11px] font-bold uppercase tracking-widest py-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors" style="color:#B6FF3D;">📊 Full content audit</button>
             </div>
 
             <!-- Step 1: Link & Context -->
@@ -372,6 +373,21 @@
             </div>
         </div>
     </main>
+
+    <!-- Content Scorecard modal -->
+    <div id="audit-modal" class="hidden" style="position:fixed;inset:0;z-index:1000;">
+        <div onclick="closeAudit()" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);"></div>
+        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:#14171F;border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:#14171F;z-index:2;">
+                <div class="flex items-center gap-2">
+                    <span>📊</span>
+                    <h3 class="text-lg font-bold text-white" style="font-family:'Unbounded',sans-serif;">Content Scorecard</h3>
+                </div>
+                <button onclick="closeAudit()" class="text-slate-400 hover:text-white text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700">&times;</button>
+            </div>
+            <div id="audit-body" class="p-6"></div>
+        </div>
+    </div>
 
 
     <!-- ============================================================ -->
@@ -2434,6 +2450,147 @@ self.onmessage = async (e) => {
         }
     }
 
+    // =============================================================
+    // 12b. CONTENT SCORECARD (output audit — no API)
+    // =============================================================
+    let _auditTips = [];
+
+    function loadCopyHistory() {
+        try { return JSON.parse(localStorage.getItem('volt_copy_history_v1') || '[]') || []; }
+        catch (e) { return []; }
+    }
+
+    function computeScorecard() {
+        const out = loadHistory();
+        const copy = loadCopyHistory();
+        const recent = out.slice(-12);
+        const total = recent.length;
+        const metrics = [];
+
+        if (total >= 1) {
+            const looks = new Set(recent.map(lookId));
+            metrics.push({ key: 'variety', label: 'Visual variety', score: Math.round(looks.size / total * 100), detail: looks.size + ' distinct looks in last ' + total });
+
+            const fmts = {}; recent.forEach(r => { fmts[r.format] = (fmts[r.format] || 0) + 1; });
+            const distinctF = Object.keys(fmts).length;
+            const topF = Math.max.apply(null, Object.values(fmts));
+            let fBase = ({ 1: 35, 2: 78, 3: 100 })[distinctF] || 100;
+            if (distinctF > 1 && topF / total > 0.8) fBase -= 15;
+            metrics.push({ key: 'format', label: 'Format balance', score: fBase, detail: distinctF + ' of 3 sizes used' });
+
+            const types = new Set(recent.map(r => r.campaign));
+            const mBase = ({ 1: 30, 2: 55, 3: 75, 4: 90, 5: 100, 6: 100 })[types.size] || 100;
+            metrics.push({ key: 'mix', label: 'Post-type mix', score: mBase, detail: types.size + ' of 6 post types used' });
+        }
+
+        const recentCopy = copy.slice(-12);
+        if (recentCopy.length >= 1) {
+            const avg = recentCopy.reduce((s, c) => s + ((c.hook + c.clarity + c.urgency) / 3), 0) / recentCopy.length;
+            metrics.push({ key: 'hook', label: 'Hook strength (copy)', score: Math.round(avg * 10), detail: avg.toFixed(1) + '/10 on copy you used' });
+        }
+
+        if (total >= 2) {
+            const DAY = 86400000, now = Date.now();
+            const days = new Set(out.filter(r => now - r.t <= 14 * DAY).map(r => Math.floor(r.t / DAY)));
+            const score = Math.max(10, Math.min(100, Math.round(days.size / 6 * 100)));
+            metrics.push({ key: 'cadence', label: 'Creation cadence', score: score, detail: days.size + ' active day' + (days.size === 1 ? '' : 's') + ' in last 14' });
+        }
+
+        const overall = metrics.length ? Math.round(metrics.reduce((s, m) => s + m.score, 0) / metrics.length) : 0;
+        return { metrics, overall, total, copyCount: copy.length };
+    }
+
+    function gradeFor(score) {
+        if (score >= 85) return 'A';
+        if (score >= 70) return 'B';
+        if (score >= 55) return 'C';
+        if (score >= 40) return 'D';
+        return 'F';
+    }
+
+    function scorecardTips(sc) {
+        const m = {}; sc.metrics.forEach(x => m[x.key] = x);
+        const out = loadHistory().slice(-12);
+        const hasCarousel = out.some(r => r.campaign === 'carousel');
+        const tips = [];
+        if (m.variety && m.variety.score < 55) tips.push({ t: 'Your recent posts repeat the same look — rotate themes and templates to keep the feed fresh.' });
+        if (m.format && m.format.score < 60) tips.push({ t: 'You lean on one size. Add Portrait (4:5) — it fills more of the screen in the IG feed.', cta: { label: 'Switch to Portrait', fn: function () { setFormat('portrait'); } } });
+        if (!hasCarousel && sc.total >= 1) tips.push({ t: 'No carousels recently — they pull the most reach on LinkedIn & Instagram.', cta: { label: 'Build a carousel', fn: function () { setCampaign('carousel'); } } });
+        if (m.mix && m.mix.score < 75) tips.push({ t: 'Mostly one post type. A Stat Spotlight or Quote breaks the pattern and feeds different content.', cta: { label: 'Try a Stat Spotlight', fn: function () { setCampaign('stat'); } } });
+        if (m.hook && m.hook.score < 65) tips.push({ t: 'The copy you ship averages ' + (m.hook.score / 10).toFixed(1) + '/10 on hook. Sharpen openings in the Copy tab and use \u201CMore like this\u201D on the top scorer.' });
+        if (!sc.copyCount) tips.push({ t: 'No copy data yet — in the Copy tab, hit \u201CDesign in Studio\u201D or Copy on an angle and your hook score appears here.' });
+        if (m.cadence && m.cadence.score < 50 && sc.total >= 2) tips.push({ t: 'Your posting is bunched up. Spacing exports across the week builds a steadier presence.' });
+        if (tips.length === 0) tips.push({ t: 'Strong, varied output — keep this rhythm going. Your feed is working.' });
+        return tips.slice(0, 4);
+    }
+
+    function renderScorecard() {
+        const body = document.getElementById('audit-body');
+        if (!body) return;
+        const sc = computeScorecard();
+
+        if (sc.total < 3) {
+            body.innerHTML = '<div class="text-center py-8">'
+              + '<div class="text-5xl mb-4">📊</div>'
+              + '<p class="text-white font-bold mb-2">Not enough data yet</p>'
+              + '<p class="text-slate-400 text-sm leading-relaxed">Export a few posts (and use the Copy tab) and your audit unlocks here — visual variety, format balance, post-type mix, hook strength and cadence, each with a prioritised fix.</p>'
+              + '</div>';
+            return;
+        }
+
+        const col = varietyColor(sc.overall);
+        const grade = gradeFor(sc.overall);
+        let html = ''
+          + '<div class="flex items-center gap-4 mb-6">'
+          +   '<div class="shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center" style="background:' + col + '22;border:2px solid ' + col + ';">'
+          +     '<span style="font-family:\'Unbounded\',sans-serif;font-size:34px;font-weight:800;color:' + col + ';">' + grade + '</span>'
+          +   '</div>'
+          +   '<div>'
+          +     '<div class="text-2xl font-extrabold text-white" style="font-family:\'Unbounded\',sans-serif;">' + sc.overall + '<span class="text-slate-500 text-base font-bold">/100</span></div>'
+          +     '<div class="text-xs text-slate-400 mt-1">Based on your last ' + sc.total + ' exports' + (sc.copyCount ? ' + copy you used' : '') + '</div>'
+          +   '</div>'
+          + '</div>';
+
+        html += '<div class="space-y-3 mb-6">';
+        sc.metrics.forEach(function (mm) {
+            const c = varietyColor(mm.score);
+            html += '<div>'
+              + '<div class="flex justify-between items-baseline mb-1"><span class="text-sm font-bold text-slate-200">' + mm.label + '</span><span class="text-xs font-mono font-bold" style="color:' + c + '">' + mm.score + '</span></div>'
+              + '<div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.08)"><div class="h-full rounded-full" style="width:' + mm.score + '%;background:' + c + '"></div></div>'
+              + '<div class="text-[11px] text-slate-500 mt-1">' + sanitizeHTML(mm.detail) + '</div>'
+              + '</div>';
+        });
+        html += '</div>';
+
+        _auditTips = scorecardTips(sc);
+        html += '<div class="border-t border-slate-700 pt-5"><p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:#B6FF3D;">Priority fixes</p><div class="space-y-2">';
+        _auditTips.forEach(function (tip, i) {
+            html += '<div class="flex items-start gap-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">'
+              + '<span style="color:#B6FF3D;">&rarr;</span>'
+              + '<div class="flex-1"><p class="text-sm text-slate-300 leading-snug">' + tip.t + '</p>'
+              + (tip.cta ? '<button onclick="auditTipAction(' + i + ')" class="mt-2 text-[10px] font-bold py-1 px-3 rounded uppercase" style="background:#B6FF3D;color:#0A0B0F;">' + sanitizeHTML(tip.cta.label) + '</button>' : '')
+              + '</div></div>';
+        });
+        html += '</div></div>';
+
+        body.innerHTML = html;
+    }
+
+    function auditTipAction(i) {
+        const tip = _auditTips[i];
+        if (tip && tip.cta && typeof tip.cta.fn === 'function') { try { tip.cta.fn(); } catch (e) {} }
+        closeAudit();
+    }
+    function openAudit() {
+        renderScorecard();
+        const mdl = document.getElementById('audit-modal');
+        if (mdl) mdl.classList.remove('hidden');
+    }
+    function closeAudit() {
+        const mdl = document.getElementById('audit-modal');
+        if (mdl) mdl.classList.add('hidden');
+    }
+
     // === Copy Lab → Studio handoff ===
     // Reads the angle stored by Copy Lab's "Design in Studio" button and pre-loads it here.
     function applyCopyLabHandoff() {
@@ -2513,6 +2670,9 @@ self.onmessage = async (e) => {
     window.syncDOM = syncDOM;
     window.state = state;
     window.renderLayout = renderLayout;
+    window.openAudit = openAudit;
+    window.closeAudit = closeAudit;
+    window.auditTipAction = auditTipAction;
     </script>
 </body>
 </html>
