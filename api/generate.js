@@ -11,6 +11,12 @@ const SYSTEM_AUDIT =
   "You are constructive but brutally honest, and you base every judgement only on what the user supplies — never invent facts. " +
   "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
 
+const SYSTEM_ANALYTICS =
+  "You are an elite performance-marketing analyst and social media strategist. You read period metrics, compare them to realistic platform benchmarks " +
+  "(always acknowledging that healthy ranges vary by account size and niche), and give honest, decision-ready analysis. " +
+  "You base everything only on the numbers supplied — never invent data. " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
 const PLATFORM_HINT = {
   Meta: "Meta feed (FB/IG): scroll-stopping, conversational, native, emotionally resonant.",
   Google: "Google Search: high-intent, benefit-led, concise; headline reads like the answer.",
@@ -93,6 +99,33 @@ REQUIREMENTS:
 - actions: 3 to 5 prioritised, concrete "do this now" steps, each <= 24 words, ordered by impact.
 - bioRewrite: a stronger ready-to-paste bio for ${p}, respecting typical limits (Instagram/TikTok ~150 chars, LinkedIn headline ~220 chars). Concrete and on-platform.
 - captionIdeas: 2 to 3 scroll-stopping caption hook lines tailored to this brand, each <= 16 words.`;
+}
+
+function buildAnalyticsPrompt({ platform, period, summary, notes, goal }) {
+  const p = platform || "Instagram";
+  return `You are analysing ${p} performance for the period: ${period || "the reporting period"}.
+
+METRICS (as supplied by the user; a dash means not provided):
+${summary || "(none provided)"}
+
+NOTES / CONTEXT:
+${notes || "(none)"}
+
+PRIMARY GOAL:
+${goal || "grow the right audience and drive profile actions (clicks, follows, enquiries)"}
+
+TASK:
+Analyse this like a senior performance-marketing analyst. Compare the figures to realistic ${p} benchmarks, but explicitly account for the fact that healthy ranges vary by account size and niche — never imply one universal number is law. Grade the period HONESTLY 0-100. Base everything strictly on the supplied numbers; if a metric is missing, do not invent it — note the gap instead.
+
+Return ONLY minified JSON, no markdown, no commentary, exactly this shape:
+{"overall":0,"verdict":"","benchmarks":[{"metric":"","you":"","typical":"","read":""}],"wins":[""],"risks":[""],"opportunities":[""],"actions":[""]}
+
+REQUIREMENTS:
+- overall: integer 0-100 for the period's health.
+- verdict: ONE sentence, <= 24 words.
+- benchmarks: 3 to 6 rows for the most important metrics supplied. "you" = the user's figure as a short string; "typical" = a realistic ${p} range; "read" = <= 12 words (e.g. "above benchmark", "in line", "below — needs work").
+- wins, risks, opportunities: 2 to 4 items each, each <= 22 words and specific to the numbers.
+- actions: 3 to 5 prioritised, concrete steps, each <= 24 words, ordered by impact.`;
 }
 
 function safeParse(raw) {
@@ -229,6 +262,38 @@ export default async function handler(req, res) {
         captionIdeas: strList(ap.captionIdeas, 4, 180),
       };
       return res.status(200).json({ audit });
+    }
+
+    // ---- Performance Analytics ----
+    if (task === "analytics") {
+      const { platform, period, summary, notes, goal } = body;
+      if (!summary || !String(summary).trim()) {
+        return res.status(400).json({ error: "Add at least one metric to analyse." });
+      }
+      const anPrompt = buildAnalyticsPrompt({ platform, period, summary, notes, goal });
+      const anText = await callProvider(anPrompt, { system: SYSTEM_ANALYTICS, temperature: 0.5, maxTokens: 4096 });
+      const an = safeParse(anText);
+      const benches = Array.isArray(an && an.benchmarks)
+        ? an.benchmarks.slice(0, 8).map((b) => ({
+            metric: String((b && b.metric) || "").slice(0, 40),
+            you: String((b && b.you) || "").slice(0, 40),
+            typical: String((b && b.typical) || "").slice(0, 60),
+            read: String((b && b.read) || "").slice(0, 60),
+          })).filter((b) => b.metric)
+        : [];
+      if (!an || (!benches.length && !(Array.isArray(an.actions) && an.actions.length))) {
+        return res.status(502).json({ error: "Model returned an unusable analysis — try again." });
+      }
+      const analytics = {
+        overall: clamp100(an.overall),
+        verdict: String(an.verdict || "").slice(0, 240),
+        benchmarks: benches,
+        wins: strList(an.wins, 5, 220),
+        risks: strList(an.risks, 5, 220),
+        opportunities: strList(an.opportunities, 5, 220),
+        actions: strList(an.actions, 6, 260),
+      };
+      return res.status(200).json({ analytics });
     }
 
     // ---- Ad copy (default) ----
