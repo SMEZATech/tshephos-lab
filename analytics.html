@@ -520,7 +520,7 @@ async function runTopPosts(){
     catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
     if(!r.ok) throw new Error((data && (data.message || data.error)) || 'Postiz request failed.');
     const posts = (data && data.topPosts) || [];
-    if(!posts.length) throw new Error('No published posts with analytics in this window yet — give it a few days of data, or widen the look-back.');
+    if(!posts.length) throw new Error('No posts published through Postiz in this window. Top Posts ranks posts you schedule or publish via Postiz — content posted directly on the platform isn’t tracked here. Post through Postiz (or widen the look-back) and they’ll appear.');
     state.topPosts = posts;
     // AI playbook across the winners (optional — cards still show if this fails)
     try{
