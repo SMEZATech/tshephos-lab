@@ -99,6 +99,58 @@ export default async function handler(req, res) {
       return res.status(200).json({ days, metrics });
     }
 
+    // Rank a channel's recent published posts by engagement (frugal: 1 list + capped per-post calls)
+    if (action === "topposts") {
+      const integ = String(q.id || "");
+      const days = Math.max(1, Math.min(365, parseInt(q.days || "30", 10) || 30));
+      const limit = Math.max(1, Math.min(10, parseInt(q.limit || "6", 10) || 6));
+      const end = new Date();
+      const start = new Date(end.getTime() - days * 86400000);
+      const list = await postizGet(
+        "/posts?startDate=" + encodeURIComponent(start.toISOString()) + "&endDate=" + encodeURIComponent(end.toISOString())
+      );
+      let posts = (list && (list.posts || list.data)) || [];
+      if (!Array.isArray(posts)) posts = [];
+      if (integ) posts = posts.filter((p) => p && p.integration && p.integration.id === integ);
+      // keep published posts only (skip queued/draft/error)
+      posts = posts.filter((p) => p && (p.releaseURL || (p.state && !["QUEUE", "DRAFT", "ERROR"].includes(String(p.state).toUpperCase()))));
+      posts.sort((a, b) => new Date(b.publishDate || 0) - new Date(a.publishDate || 0));
+      posts = posts.slice(0, limit);
+
+      const engKeys = /like|comment|share|save|reaction|repost|retweet|favorite|engag/i;
+      const enriched = await Promise.all(
+        posts.map(async (p) => {
+          let metrics = [];
+          try {
+            const a = await postizGet("/analytics/post/" + encodeURIComponent(p.id) + "?date=" + days);
+            const series = Array.isArray(a) ? a : (a && a.analytics) || [];
+            metrics = series
+              .map((m) => {
+                const data = Array.isArray(m.data) ? m.data : [];
+                const nums = data.map((d) => Number(d.total)).filter((n) => Number.isFinite(n));
+                return { label: String(m.label || ""), value: nums.length ? nums[nums.length - 1] : null };
+              })
+              .filter((m) => m.label);
+          } catch (e) {
+            metrics = [];
+          }
+          const engagement = metrics
+            .filter((m) => engKeys.test(m.label) && m.value != null)
+            .reduce((s, m) => s + m.value, 0);
+          return {
+            id: p.id,
+            content: String(p.content || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200),
+            publishDate: p.publishDate || "",
+            url: p.releaseURL || "",
+            metrics,
+            engagement,
+          };
+        })
+      );
+      enriched.sort((a, b) => b.engagement - a.engagement);
+      return res.status(200).json({ days, topPosts: enriched });
+    }
+
     return res.status(400).json({ error: "Unknown action" });
   } catch (err) {
     if (err && err.code === "NOT_CONFIGURED") {
