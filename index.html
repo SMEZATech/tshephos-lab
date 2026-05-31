@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tshepho's Lab — Copy Lab</title>
+<title>Volt — Copy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -121,13 +121,13 @@
 <div class="bg"></div>
 <main class="wrap">
   <nav class="topbar">
-    <span class="tab active">✍️ Copy Lab</span>
+    <span class="tab active">✍️ Copy</span>
     <a class="tab" href="studio.html">🎨 Studio</a>
   </nav>
 
   <header>
     <span class="badge"><span class="dot"></span> Ad Creative Engine</span>
-    <h1 class="title">Tshepho's <span class="accent">Lab</span></h1>
+    <h1 class="title">Volt<span class="accent">.</span></h1>
     <p class="sub">Drop in an offer and get a ranked batch of ad angles — each written, graded on hook/clarity/urgency, and ready to design.</p>
   </header>
 
@@ -233,7 +233,18 @@ async function moreLikeThis(v){
   finally{ state.moreFor = null; syncGen(); render(); }
 }
 
+function logUsedCopy(v){
+  try{
+    if(!v || !v.scores) return;
+    const key='volt_copy_history_v1';
+    const arr = JSON.parse(localStorage.getItem(key)||'[]') || [];
+    arr.push({ t:Date.now(), hook:v.scores.hook, clarity:v.scores.clarity, urgency:v.scores.urgency, framework:v.framework||'', platform:state.platform });
+    localStorage.setItem(key, JSON.stringify(arr.slice(-30)));
+  }catch(e){}
+}
+
 function sendToStudio(v){
+  logUsedCopy(v);
   try{
     sessionStorage.setItem('tl_handoff', JSON.stringify({ headline: v.headline, body: v.body, platform: state.platform }));
   }catch(e){}
@@ -298,6 +309,7 @@ elRes.addEventListener('click', e => {
   const copyBtn = e.target.closest('.copy');
   if(copyBtn){
     const v = state.variations.find(x=>x._id==copyBtn.dataset.id); if(!v) return;
+    logUsedCopy(v);
     navigator.clipboard && navigator.clipboard.writeText(`${v.headline}\n\n${v.body}\n\n${v.cta}${tagText(v)}`);
     copyBtn.innerHTML = `${ICON.check} Copied`;
     setTimeout(()=>{ copyBtn.innerHTML = `${ICON.copy} Copy`; }, 1400);
