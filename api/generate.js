@@ -29,6 +29,12 @@ const SYSTEM_EMAIL =
   "CRITICAL: NEVER invent or guess URLs, links, dates, prices, statistics or Related Reading titles. Use ONLY links and facts present in the user's brief. If a section has no link, simply omit the link and the Related Reading box. " +
   "Do NOT write a greeting or sign-off. Return ONLY the raw HTML fragment starting with the intro paragraph — no markdown, no code fences, no commentary.";
 
+const SYSTEM_VIDEOCOPY =
+  "You are a senior social media copywriter for SME South Africa, a platform for South African small-business owners and entrepreneurs. " +
+  "You write scroll-stopping copy to accompany short vertical video clips repurposed from webinars. " +
+  "You base the copy ONLY on the supplied transcript — never invent facts, names, statistics, dates, offers or links. " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
 const PLATFORM_HINT = {
   Meta: "Meta feed (FB/IG): scroll-stopping, conversational, native, emotionally resonant.",
   Google: "Google Search: high-intent, benefit-led, concise; headline reads like the answer.",
@@ -171,6 +177,32 @@ BRIEF:
 ${brief}
 
 Return only the HTML fragment, starting with the intro paragraph. No greeting, no footer, no promo banners, no code fences, no commentary.`;
+}
+
+const VIDEO_PLATFORM_HINT = {
+  LinkedIn: "LinkedIn: professional, insight-led, credible; a strong first line; minimal emojis; 1-3 niche hashtags is plenty.",
+  Instagram: "Instagram: warm and conversational; a few emojis ok; punchy short lines; CTA to watch/save/share.",
+  Facebook: "Facebook: friendly community tone; clear value; CTA to watch or share; light on hashtags.",
+  X: "X/Twitter: concise and punchy; a strong standalone hook line; very few hashtags.",
+  TikTok: "TikTok: native and casual, trend-aware; hook in the first 3 words; CTA to follow for more.",
+};
+
+function buildVideoCopyPrompt({ transcript, platform }) {
+  const p = VIDEO_PLATFORM_HINT[platform] ? platform : "LinkedIn";
+  const hint = VIDEO_PLATFORM_HINT[p];
+  return `A short vertical video clip has been cut from an SME South Africa webinar. Below is its transcript.
+
+TRANSCRIPT:
+"""
+${transcript}
+"""
+
+Write a social post to publish ALONGSIDE this video on ${p}. Audience: South African business owners and entrepreneurs. Tone: practical, energetic, credible, plain English, low hype. Base everything ONLY on the transcript — do not invent facts, names, numbers, dates, offers or links.
+
+Return ONLY minified JSON with this exact shape:
+{"caption":"2 to 4 short punchy lines of post copy, value-first, using \\n for line breaks, ending with a soft CTA to watch or follow; do NOT put hashtags inside the caption","hashtags":["8 to 12 relevant hashtags, no # symbol and no spaces"],"hooks":["3 alternative on-screen hook lines, each 4 to 8 words, designed to stop the scroll if overlaid on the opening of the video"]}
+
+Platform guidance: ${hint}`;
 }
 
 function safeParse(raw) {
@@ -396,6 +428,32 @@ export default async function handler(req, res) {
       let html = String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim();
       if (!html) return res.status(502).json({ error: "Model returned an empty body — try again." });
       return res.status(200).json({ emailBody: html });
+    }
+
+    // ---- Video → social post copy ----
+    if (task === "videocopy") {
+      const { transcript, platform } = body;
+      if (!transcript || !String(transcript).trim()) {
+        return res.status(400).json({ error: "No transcript — generate captions first." });
+      }
+      const text = await callProvider(
+        buildVideoCopyPrompt({ transcript: String(transcript).slice(0, 6000), platform }),
+        { system: SYSTEM_VIDEOCOPY, temperature: 0.7, maxTokens: 1200 }
+      );
+      const vp = safeParse(text);
+      if (!vp) return res.status(502).json({ error: "Model returned unusable copy — try again." });
+      const hashtags = Array.isArray(vp.hashtags)
+        ? vp.hashtags.slice(0, 12).map((h) => String(h).replace(/^#/, "").replace(/\s+/g, "").slice(0, 30)).filter(Boolean)
+        : [];
+      const videocopy = {
+        caption: String(vp.caption || "").slice(0, 1200),
+        hashtags,
+        hooks: strList(vp.hooks, 4, 80),
+      };
+      if (!videocopy.caption && !videocopy.hashtags.length) {
+        return res.status(502).json({ error: "Model returned empty copy — try again." });
+      }
+      return res.status(200).json({ videocopy });
     }
 
     // ---- Ad copy (default) ----
