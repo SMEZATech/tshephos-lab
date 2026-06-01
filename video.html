@@ -112,6 +112,21 @@
   .cap-sw:hover{transform:scale(1.08);}
   .cap-sw.on{border-color:#fff; box-shadow:0 0 0 3px rgba(182,255,61,.45);}
 
+  #capEditor{margin-top:24px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .cap-ed-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
+  .cap-ed-hint{display:block; font-size:12px; color:var(--faint); margin-top:5px;}
+  .cap-ed-count{font-family:var(--fm); font-size:11px; letter-spacing:.06em; color:var(--dim); border:1px solid var(--border); border-radius:100px; padding:5px 11px; white-space:nowrap;}
+  #capList{max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; padding-right:6px;}
+  #capList::-webkit-scrollbar{width:8px;} #capList::-webkit-scrollbar-thumb{background:var(--border-2); border-radius:8px;}
+  .caprow{display:flex; align-items:center; gap:11px; background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:8px 10px; transition:border-color .14s, background .14s; cursor:pointer;}
+  .caprow:hover{border-color:rgba(182,255,61,.45);}
+  .caprow.live{border-color:var(--accent); background:rgba(182,255,61,.07); box-shadow:0 0 0 1px var(--accent) inset;}
+  .caprow .tc{font-family:var(--fm); font-size:11px; font-weight:700; color:var(--accent); background:rgba(182,255,61,.08); border-radius:7px; padding:5px 8px; flex-shrink:0; min-width:46px; text-align:center;}
+  .caprow input{flex:1; background:transparent; border:none; border-radius:8px; padding:8px 9px; color:var(--text); font-family:var(--fb); font-size:14.5px; font-weight:600; outline:none; cursor:text;}
+  .caprow input:focus{background:#070809; box-shadow:0 0 0 2px rgba(182,255,61,.25);}
+  .caprow .del{flex-shrink:0; width:28px; height:28px; border-radius:8px; border:1px solid var(--border-2); background:transparent; color:var(--dim); font-size:15px; line-height:1; cursor:pointer; transition:all .14s;}
+  .caprow .del:hover{color:var(--low); border-color:var(--low);}
+
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
 </style>
@@ -208,6 +223,14 @@
           <button class="cap-sw" data-c="#FFC857" style="background:#FFC857;" title="Yellow"></button>
           <button class="cap-sw" data-c="#ffffff" style="background:#ffffff;" title="White"></button>
         </div>
+        <div id="capPosRow" style="display:none; margin-top:12px;">
+          <span class="lbl">Position</span>
+          <div class="seg" id="capPosSeg">
+            <button data-p="top">Top</button>
+            <button data-p="middle">Middle</button>
+            <button data-p="bottom" class="on">Bottom</button>
+          </div>
+        </div>
         <p class="note" style="margin-top:8px;">Plays your clip once to read the audio, then transcribes it. Captions burn into the exported video. Needs a Groq key set in Vercel.</p>
       </div>
 
@@ -241,6 +264,17 @@
     </section>
   </div>
 
+  <section id="capEditor" style="display:none;">
+    <div class="cap-ed-head">
+      <div>
+        <span class="lbl" style="margin:0;">✏️ Caption editor</span>
+        <span class="cap-ed-hint">Click a line to jump to it · edit any text to fix it · ✕ to drop a line</span>
+      </div>
+      <span class="cap-ed-count" id="capCount"></span>
+    </div>
+    <div id="capList"></div>
+  </section>
+
   <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
 </main>
 
@@ -267,7 +301,7 @@ const state = {
   trimStart:0, trimEnd:0, duration:0,
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
-  words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', busy:false, capturing:false,
+  words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
@@ -314,6 +348,7 @@ $('#videoFile').addEventListener('change', e => {
     $('#vidInfo').style.display='block';
     $('#vidInfo').textContent = `Loaded — ${fmtTime(state.duration)} long, ${videoEl.videoWidth}×${videoEl.videoHeight}.`;
     updateTrimRead();
+    clearCaptions();
     t=0; mainPlaying=false; state.playing=true; videoEl.currentTime=0;
   }, { once:true });
 });
@@ -527,7 +562,7 @@ function frame(now){
       if(videoEl.currentTime > state.trimEnd){ try{ videoEl.currentTime = state.trimEnd; }catch(e){} }
       drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight);
       applyLook();
-      if(state.captionsOn && state.lines.length) drawCaptions(into);
+      if(state.captionsOn && state.lines.length){ drawCaptions(into); updateLiveRow(into); }
     } else {
       if(!videoEl.paused) videoEl.pause();
       if(mainPlaying) mainPlaying = false;
@@ -614,6 +649,9 @@ function clearCaptions(){
   state.words=[]; state.lines=[]; state.captionsOn=false;
   $('#capToggleRow').style.display='none';
   $('#capColorRow').style.display='none';
+  $('#capPosRow').style.display='none';
+  $('#capEditor').style.display='none';
+  lastLiveRow = -1;
   const tog=$('#tog-captions'); if(tog) tog.classList.remove('on');
   if($('#capBtn')) $('#capBtn').textContent='✨ Generate captions';
   setCapStatus('');
@@ -685,6 +723,8 @@ async function generateCaptions(){
     $('#tog-captions').classList.add('on');
     $('#capToggleRow').style.display='block';
     $('#capColorRow').style.display='flex';
+    $('#capPosRow').style.display='block';
+    renderCapEditor();
     $('#capBtn').textContent='↻ Regenerate captions';
     setCapStatus('Captions ready — '+words.length+' words. Hit play to preview.', 'ok');
   }catch(err){
@@ -726,7 +766,8 @@ function drawCaptions(ct){
     rows[rows.length-1].push(w); rowW += ww + sp;
   }
   const lh = fs*1.16, blockH = rows.length*lh;
-  let y = H*0.80 - blockH/2 + lh/2;
+  const baseY = state.capPos==='top' ? H*0.16 : state.capPos==='middle' ? H*0.50 : H*0.80;
+  let y = baseY - blockH/2 + lh/2;
   for(const row of rows){
     const widths = row.map(w=>ctx.measureText(w.word).width);
     const total = widths.reduce((a,b)=>a+b,0) + sp*(row.length-1);
@@ -738,9 +779,21 @@ function drawCaptions(ct){
       ctx.lineWidth = Math.max(4, fs*0.16);
       ctx.lineJoin='round';
       ctx.strokeStyle='rgba(0,0,0,0.85)';
-      ctx.strokeText(w.word, cx, y);
-      ctx.fillStyle = active ? state.capColor : '#ffffff';
-      ctx.fillText(w.word, cx, y);
+      if(active){
+        // brief pop as the word becomes active
+        const into = Math.max(0, Math.min(1, (ct - w.start) / Math.max(0.08, (w.end - w.start))));
+        const pop = 1.12 - 0.12*into; // starts ~1.12, settles to ~1.0
+        ctx.save();
+        ctx.translate(cx, y); ctx.scale(pop, pop);
+        ctx.strokeText(w.word, 0, 0);
+        ctx.fillStyle = state.capColor;
+        ctx.fillText(w.word, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.strokeText(w.word, cx, y);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(w.word, cx, y);
+      }
       x += widths[i] + sp;
     }
     y += lh;
@@ -751,6 +804,72 @@ $('#capColorRow').addEventListener('click', e => {
   const b = e.target.closest('.cap-sw'); if(!b) return;
   state.capColor = b.dataset.c;
   document.querySelectorAll('.cap-sw').forEach(s=>s.classList.toggle('on', s===b));
+});
+$('#capPosSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  state.capPos = b.dataset.p;
+  document.querySelectorAll('#capPosSeg button').forEach(x=>x.classList.toggle('on', x===b));
+});
+
+// ---- caption editor (Canva-style line list) ----
+let lastLiveRow = -1;
+function escAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function lineText(L){ return L.words.map(w=>w.word).join(' '); }
+function renderCapEditor(){
+  const ed=$('#capEditor'), list=$('#capList');
+  if(!state.lines.length){ ed.style.display='none'; return; }
+  ed.style.display='block';
+  $('#capCount').textContent = state.lines.length+' lines · '+state.words.length+' words';
+  list.innerHTML = state.lines.map((L,i)=>
+    '<div class="caprow" data-i="'+i+'">'+
+      '<span class="tc">'+fmtTime(L.start)+'</span>'+
+      '<input type="text" data-i="'+i+'" value="'+escAttr(lineText(L))+'" />'+
+      '<button class="del" data-del="'+i+'" title="Delete line">✕</button>'+
+    '</div>').join('');
+  lastLiveRow = -1;
+}
+function applyLineEdit(i, text){
+  const L = state.lines[i]; if(!L) return;
+  const toks = text.trim().split(/\s+/).filter(Boolean);
+  if(!toks.length) return;
+  if(toks.length === L.words.length){
+    L.words = L.words.map((w,k)=>({ word:toks[k], start:w.start, end:w.end }));
+  } else {
+    const span = Math.max(0.2, L.end - L.start), step = span/toks.length;
+    L.words = toks.map((tok,k)=>({ word:tok, start:L.start + k*step, end:L.start + (k+1)*step }));
+  }
+  L.start = L.words[0].start; L.end = L.words[L.words.length-1].end;
+  state.words = state.lines.flatMap(x=>x.words);
+}
+function deleteLine(i){
+  state.lines.splice(i,1);
+  state.words = state.lines.flatMap(x=>x.words);
+  renderCapEditor();
+}
+function seekToLine(i){
+  const L = state.lines[i]; if(!L) return;
+  t = introDur() + L.start;
+  mainPlaying = false; state.playing = true;
+  try{ videoEl.currentTime = state.trimStart + L.start; }catch(e){}
+}
+function updateLiveRow(ct){
+  const ed=$('#capEditor'); if(!ed || ed.style.display==='none') return;
+  const idx = state.lines.findIndex(L => ct >= L.start - 0.06 && ct <= L.end + 0.30);
+  if(idx === lastLiveRow) return;
+  lastLiveRow = idx;
+  const rows = document.querySelectorAll('.caprow');
+  rows.forEach((r,k)=>r.classList.toggle('live', k===idx));
+  if(idx>=0 && rows[idx]) rows[idx].scrollIntoView({ block:'nearest', behavior:'smooth' });
+}
+$('#capList').addEventListener('input', e => {
+  const inp = e.target.closest('input[data-i]'); if(!inp) return;
+  applyLineEdit(parseInt(inp.dataset.i,10), inp.value);
+});
+$('#capList').addEventListener('click', e => {
+  const del = e.target.closest('button[data-del]');
+  if(del){ e.stopPropagation(); deleteLine(parseInt(del.dataset.del,10)); return; }
+  if(e.target.closest('input')) return;
+  const row = e.target.closest('.caprow'); if(row) seekToLine(parseInt(row.dataset.i,10));
 });
 
 // init
