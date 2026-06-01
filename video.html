@@ -127,6 +127,20 @@
   .caprow .del{flex-shrink:0; width:28px; height:28px; border-radius:8px; border:1px solid var(--border-2); background:transparent; color:var(--dim); font-size:15px; line-height:1; cursor:pointer; transition:all .14s;}
   .caprow .del:hover{color:var(--low); border-color:var(--low);}
 
+  #postCopy{margin-top:24px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .pc-block{margin-top:14px;}
+  .pc-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;}
+  .pc-head span{font-family:var(--fm); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:700;}
+  .pc-copy{font-family:var(--fm); font-size:11px; font-weight:700; padding:5px 12px; border:1px solid var(--border-2); border-radius:8px; background:#0D0F15; color:var(--text); cursor:pointer; transition:all .14s;}
+  .pc-copy:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .pc-area{width:100%; background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:13px; color:var(--text); font-family:var(--fb); font-size:14.5px; line-height:1.5; outline:none; resize:vertical;}
+  .pc-area:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(182,255,61,.18);}
+  .pc-tags{display:flex; flex-wrap:wrap; gap:7px;}
+  .pc-tag{font-family:var(--fm); font-size:12.5px; color:var(--info); background:rgba(127,200,255,.08); border:1px solid rgba(127,200,255,.22); border-radius:100px; padding:6px 12px;}
+  .pc-hooks{display:flex; flex-direction:column; gap:7px;}
+  .pc-hook{text-align:left; font-family:var(--fb); font-weight:700; font-size:14.5px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:11px; padding:11px 14px; cursor:pointer; transition:all .14s;}
+  .pc-hook:hover{border-color:var(--accent); color:var(--accent); transform:translateX(2px);}
+
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
 </style>
@@ -170,12 +184,26 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">3</span>Format</label>
+        <label class="lbl"><span class="num">3</span>Format &amp; framing</label>
         <div class="seg" id="fmtSeg">
           <button data-f="9x16" class="on">📱 9:16</button>
           <button data-f="1x1">⬛ 1:1</button>
           <button data-f="16x9">🖥 16:9</button>
         </div>
+        <label class="lbl" style="margin:14px 0 8px;">Fill</label>
+        <div class="seg" id="fillSeg">
+          <button data-fill="crop" class="on">✂️ Crop</button>
+          <button data-fill="blur">🌫 Blur fill</button>
+        </div>
+        <div id="focusRow">
+          <label class="lbl" style="margin:14px 0 8px;">Reframe focus <span class="opt">where to keep the speaker</span></label>
+          <div class="seg" id="focusSeg">
+            <button data-focus="left">◀ Left</button>
+            <button data-focus="center" class="on">Center</button>
+            <button data-focus="right">Right ▶</button>
+          </div>
+        </div>
+        <p class="note" style="margin-top:8px;"><b style="color:var(--dim)">Crop</b> fills the frame (trims the sides) — use focus so an off-centre speaker isn't cut. <b style="color:var(--dim)">Blur fill</b> shows the whole frame with blurred bars — nothing gets cropped.</p>
       </div>
 
       <div class="blk">
@@ -205,6 +233,11 @@
         <div class="togfields show" id="f-outro">
           <input type="text" id="outroHead" placeholder="Outro headline — e.g. WATCH THE FULL WEBINAR" />
           <input type="text" id="outroSub" placeholder="Outro sub-line — e.g. @sme_za" />
+        </div>
+        <div class="togrow" id="tog-hook" data-t="hook" style="margin-top:14px;"><span class="nm">Hook overlay <span class="opt" style="font-weight:400;">first 2.5s</span></span><span class="sw"></span></div>
+        <div class="togfields" id="f-hook">
+          <input type="text" id="hookText" placeholder="Scroll-stopping hook — e.g. The mistake that kills 90% of startups" />
+          <p class="note" style="margin-top:2px;">Big headline over the opening of the clip to stop the scroll. Tip: generate post copy below for hook ideas.</p>
         </div>
         <label class="lbl" style="margin-top:14px;">Logo <span class="opt">optional — upload to avoid load issues</span></label>
         <input type="file" id="logoFile" accept="image/*" />
@@ -275,6 +308,38 @@
     <div id="capList"></div>
   </section>
 
+  <section id="postCopy" style="display:none;">
+    <div class="cap-ed-head">
+      <div>
+        <span class="lbl" style="margin:0;">📝 Post copy &amp; hashtags</span>
+        <span class="cap-ed-hint">Written from your transcript — ready to paste with the video</span>
+      </div>
+      <div class="seg" id="pcPlatSeg" style="flex-wrap:wrap;">
+        <button data-pp="LinkedIn" class="on">LinkedIn</button>
+        <button data-pp="Instagram">Instagram</button>
+        <button data-pp="Facebook">Facebook</button>
+        <button data-pp="X">X</button>
+        <button data-pp="TikTok">TikTok</button>
+      </div>
+    </div>
+    <button class="btn" id="pcBtn" style="width:auto; padding:13px 24px;">✨ Generate post copy</button>
+    <div id="pcStatus" class="capstatus"></div>
+    <div id="pcResults" style="display:none; margin-top:16px;">
+      <div class="pc-block">
+        <div class="pc-head"><span>Caption</span><button class="pc-copy" data-copy="cap">Copy</button></div>
+        <textarea id="pcCaption" class="pc-area" rows="5"></textarea>
+      </div>
+      <div class="pc-block">
+        <div class="pc-head"><span>Hashtags</span><button class="pc-copy" data-copy="tags">Copy all</button></div>
+        <div id="pcTags" class="pc-tags"></div>
+      </div>
+      <div class="pc-block" id="pcHooksBlock">
+        <div class="pc-head"><span>Hook ideas</span><span class="cap-ed-hint" style="margin:0;">tap one to use it as your on-screen hook ↑</span></div>
+        <div id="pcHooks" class="pc-hooks"></div>
+      </div>
+    </div>
+  </section>
+
   <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
 </main>
 
@@ -287,6 +352,8 @@
 const $ = s => document.querySelector(s);
 
 const FMT = { '9x16':{w:1080,h:1920}, '1x1':{w:1080,h:1080}, '16x9':{w:1920,h:1080} };
+const FOCUS = { left:0, center:0.5, right:1 };
+const HOOK_DUR = 2.5;
 
 const cv = $('#stageCanvas');
 const ctx = cv.getContext('2d');
@@ -302,6 +369,7 @@ const state = {
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
   words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
+  hookOn:false, fill:'crop', focus:'center', postPlatform:'LinkedIn',
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
@@ -388,6 +456,17 @@ $('#trimEnd').addEventListener('input', e => {
 // ---- segmented + toggles ----
 $('#fmtSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setFormat(b.dataset.f); });
 $('#lookSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setLook(b.dataset.l); });
+$('#fillSeg').addEventListener('click', e => {
+  const b=e.target.closest('button'); if(!b) return;
+  state.fill = b.dataset.fill;
+  document.querySelectorAll('#fillSeg button').forEach(x=>x.classList.toggle('on', x===b));
+  $('#focusRow').style.display = (state.fill==='crop') ? 'block' : 'none';
+});
+$('#focusSeg').addEventListener('click', e => {
+  const b=e.target.closest('button'); if(!b) return;
+  state.focus = b.dataset.focus;
+  document.querySelectorAll('#focusSeg button').forEach(x=>x.classList.toggle('on', x===b));
+});
 
 document.querySelectorAll('.togrow').forEach(row => {
   row.addEventListener('click', () => {
@@ -438,11 +517,27 @@ function ensureMusicNode(){
 }
 
 // ---- drawing helpers ----
-function drawCover(media, mw, mh){
+function drawCover(media, mw, mh, focusX){
   if(!mw || !mh) return;
+  focusX = (focusX==null) ? 0.5 : focusX;
+  const r = mw/mh, cr = W/H;
+  let dw, dh, x, y;
+  if(r > cr){ dh = H; dw = H*r; x = -(dw - W)*focusX; y = 0; }
+  else { dw = W; dh = W/r; x = 0; y = -(dh - H)*0.5; }
+  ctx.drawImage(media, x, y, dw, dh);
+}
+function drawBlurFill(media, mw, mh){
+  if(!mw || !mh) return;
+  // blurred, darkened cover behind
+  ctx.save();
+  ctx.filter = 'blur('+Math.round(W*0.035)+'px) brightness(0.62)';
+  drawCover(media, mw, mh, 0.5);
+  ctx.restore();
+  ctx.filter = 'none';
+  // sharp, fully-visible foreground (contain)
   const r = mw/mh, cr = W/H;
   let dw, dh;
-  if(r > cr){ dh = H; dw = H*r; } else { dw = W; dh = W/r; }
+  if(r > cr){ dw = W; dh = W/r; } else { dh = H; dw = H*r; }
   ctx.drawImage(media, W/2 - dw/2, H/2 - dh/2, dw, dh);
 }
 function vignette(strength){
@@ -523,6 +618,38 @@ function drawOutro(p){
   ctx.globalAlpha = 1;
 }
 function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+// Scroll-stopping hook over the opening of the clip.
+function drawHook(ct){
+  if(ct < 0 || ct > HOOK_DUR) return;
+  const txt = ($('#hookText').value || '').trim();
+  if(!txt) return;
+  let a;
+  if(ct < 0.25) a = ct/0.25;
+  else if(ct > HOOK_DUR - 0.4) a = Math.max(0, (HOOK_DUR - ct)/0.4);
+  else a = 1;
+  const rise = (1 - Math.min(1, ct/0.3)) * H*0.03;
+  const fs = Math.round(W*0.072);
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.font = '800 '+fs+'px Oswald, "Plus Jakarta Sans", sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const maxW = W*0.84, words = txt.split(/\s+/);
+  let rows=[], line='';
+  for(const w of words){ const test = line ? line+' '+w : w; if(ctx.measureText(test).width > maxW && line){ rows.push(line); line=w; } else line=test; }
+  if(line) rows.push(line);
+  const lh = fs*1.12, blockH = rows.length*lh, cy = H*0.20 + rise;
+  // scrim
+  ctx.fillStyle='rgba(0,0,0,0.45)';
+  roundRect(W*0.06, cy - blockH/2 - fs*0.55, W*0.88, blockH + fs*1.0, 18); ctx.fill();
+  // lime accent bar
+  ctx.fillStyle='#B6FF3D';
+  ctx.fillRect(W/2 - W*0.07, cy - blockH/2 - fs*0.85, W*0.14, Math.max(5, fs*0.10));
+  // text
+  let y = cy - blockH/2 + lh/2;
+  ctx.lineWidth = Math.max(4, fs*0.14); ctx.lineJoin='round'; ctx.strokeStyle='rgba(0,0,0,0.85)';
+  for(const ln of rows){ ctx.strokeText(ln, W/2, y); ctx.fillStyle='#ffffff'; ctx.fillText(ln, W/2, y); y += lh; }
+  ctx.restore();
+}
 
 // ---- main loop ----
 function frame(now){
@@ -531,7 +658,8 @@ function frame(now){
     // capture mode — playing the clip once to read its audio for transcription
     if(state.capturing){
       ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
-      drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight);
+      if(state.fill==='blur') drawBlurFill(videoEl, videoEl.videoWidth, videoEl.videoHeight);
+      else drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight, FOCUS[state.focus]);
       applyLook();
       ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0, H/2 - H*0.05, W, H*0.10);
       ctx.fillStyle=C_REDLT; ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -560,8 +688,10 @@ function frame(now){
       }
       // safety: keep within trim
       if(videoEl.currentTime > state.trimEnd){ try{ videoEl.currentTime = state.trimEnd; }catch(e){} }
-      drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight);
+      if(state.fill==='blur') drawBlurFill(videoEl, videoEl.videoWidth, videoEl.videoHeight);
+      else drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight, FOCUS[state.focus]);
       applyLook();
+      if(state.hookOn) drawHook(into);
       if(state.captionsOn && state.lines.length){ drawCaptions(into); updateLiveRow(into); }
     } else {
       if(!videoEl.paused) videoEl.pause();
@@ -651,6 +781,8 @@ function clearCaptions(){
   $('#capColorRow').style.display='none';
   $('#capPosRow').style.display='none';
   $('#capEditor').style.display='none';
+  $('#postCopy').style.display='none';
+  $('#pcResults').style.display='none';
   lastLiveRow = -1;
   const tog=$('#tog-captions'); if(tog) tog.classList.remove('on');
   if($('#capBtn')) $('#capBtn').textContent='✨ Generate captions';
@@ -725,6 +857,7 @@ async function generateCaptions(){
     $('#capColorRow').style.display='flex';
     $('#capPosRow').style.display='block';
     renderCapEditor();
+    $('#postCopy').style.display='block';
     $('#capBtn').textContent='↻ Regenerate captions';
     setCapStatus('Captions ready — '+words.length+' words. Hit play to preview.', 'ok');
   }catch(err){
@@ -870,6 +1003,67 @@ $('#capList').addEventListener('click', e => {
   if(del){ e.stopPropagation(); deleteLine(parseInt(del.dataset.del,10)); return; }
   if(e.target.closest('input')) return;
   const row = e.target.closest('.caprow'); if(row) seekToLine(parseInt(row.dataset.i,10));
+});
+
+// ---- post copy & hashtags (from transcript) ----
+let postCopyData = null;
+function transcriptText(){ return state.lines.map(lineText).join(' ').trim(); }
+function setPcStatus(msg, kind){ const s=$('#pcStatus'); s.textContent=msg||''; s.className='capstatus'+(kind?' '+kind:''); }
+async function generatePostCopy(){
+  if(state.busy || !state.lines.length) return;
+  state.busy = true; $('#pcBtn').disabled = true;
+  setPcStatus('Writing your post for '+state.postPlatform+'…', 'busy');
+  try{
+    const r = await fetch('/api/generate', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      body: JSON.stringify({ task:'videocopy', transcript: transcriptText(), platform: state.postPlatform })
+    });
+    let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the copy service.'); }
+    if(r.status===401) throw new Error('Copy service rejected the app key.');
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Copy generation failed.');
+    const vc = data.videocopy; if(!vc) throw new Error('No copy returned — try again.');
+    postCopyData = vc;
+    renderPostCopy(vc);
+    $('#pcResults').style.display='block';
+    setPcStatus('', '');
+  }catch(err){ setPcStatus(err.message, 'err'); }
+  finally{ state.busy = false; $('#pcBtn').disabled = false; }
+}
+function renderPostCopy(vc){
+  $('#pcCaption').value = vc.caption || '';
+  $('#pcTags').innerHTML = (vc.hashtags||[]).map(h=>'<span class="pc-tag">#'+escAttr(h)+'</span>').join('');
+  const hooks = vc.hooks||[];
+  $('#pcHooks').innerHTML = hooks.map((h,i)=>'<button class="pc-hook" data-hook="'+i+'">'+escAttr(h)+' →</button>').join('');
+  $('#pcHooksBlock').style.display = hooks.length ? 'block' : 'none';
+}
+function copyText(txt, btn){
+  if(!txt) return;
+  navigator.clipboard.writeText(txt).then(()=>{ const o=btn.textContent; btn.textContent='Copied ✓'; setTimeout(()=>{ btn.textContent=o; }, 1400); }).catch(()=>{ setPcStatus('Copy failed — select and copy manually.', 'err'); });
+}
+function useAsHook(txt){
+  if(!txt) return;
+  $('#hookText').value = txt;
+  state.hookOn = true;
+  const tog=$('#tog-hook'); if(tog) tog.classList.add('on');
+  const f=$('#f-hook'); if(f) f.classList.add('show');
+  t = introDur(); mainPlaying = false; state.playing = true;
+  setPcStatus('Hook applied ↑ — play to see it on the clip opening.', 'ok');
+}
+$('#pcBtn').onclick = generatePostCopy;
+$('#pcPlatSeg').addEventListener('click', e => {
+  const b=e.target.closest('button'); if(!b) return;
+  state.postPlatform = b.dataset.pp;
+  document.querySelectorAll('#pcPlatSeg button').forEach(x=>x.classList.toggle('on', x===b));
+});
+$('#pcResults').addEventListener('click', e => {
+  const cp = e.target.closest('.pc-copy');
+  if(cp){
+    const txt = cp.dataset.copy==='cap' ? $('#pcCaption').value : (postCopyData && postCopyData.hashtags || []).map(h=>'#'+h).join(' ');
+    copyText(txt, cp); return;
+  }
+  const hk = e.target.closest('.pc-hook');
+  if(hk){ const i=parseInt(hk.dataset.hook,10); useAsHook((postCopyData && postCopyData.hooks || [])[i] || ''); }
 });
 
 // init
