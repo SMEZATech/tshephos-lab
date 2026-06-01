@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<!-- Volt — Video Styler (V1) — © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — Video</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&family=Oswald:wght@500;700;900&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
+    --accent:#B6FF3D; --accent-press:#a3ec2b;
+    --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui,sans-serif;
+    --fb:'Plus Jakarta Sans',system-ui,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--fb); color:var(--text); background:var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;}
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
+      radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
+      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+  .wrap{position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:26px 22px 36px;}
+
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+  h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(40px,7.5vw,68px); line-height:.98; letter-spacing:-.02em; margin:18px 0 0;}
+  h1.title .accent{color:var(--accent);}
+  .sub{color:var(--dim); font-size:16px; max-width:600px; margin:15px 0 0; line-height:1.55;}
+
+  .layout{display:grid; grid-template-columns:380px 1fr; gap:22px; margin-top:30px;}
+  @media(max-width:920px){.layout{grid-template-columns:1fr;}}
+
+  .panel{background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04); align-self:start;}
+  .blk{padding:16px 0; border-bottom:1px solid var(--border);}
+  .blk:first-child{padding-top:0;}
+  .blk:last-child{border-bottom:none; padding-bottom:0;}
+  .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:10px;}
+  .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
+  .num{font-family:var(--fd); font-weight:800; color:var(--accent); margin-right:7px;}
+
+  input[type=file]{width:100%; font-size:12.5px; color:var(--dim); font-family:var(--fb);}
+  input[type=file]::file-selector-button{margin-right:12px; padding:8px 13px; border-radius:9px; border:1px solid var(--border-2); background:#0D0F15; color:var(--text); font-family:var(--fm); font-weight:700; font-size:11.5px; cursor:pointer; transition:all .14s;}
+  input[type=file]::file-selector-button:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  input[type=text]{width:100%; font-family:var(--fb); font-size:14px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:11px; padding:11px 13px; outline:none; transition:border-color .16s, box-shadow .16s;}
+  input[type=text]::placeholder{color:#565c68;}
+  input[type=text]:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  input[type=range]{width:100%; accent-color:var(--accent); cursor:pointer;}
+
+  .seg{display:flex; gap:6px; flex-wrap:wrap;}
+  .seg button{font-family:var(--fm); font-size:12px; font-weight:700; padding:9px 13px; border:1px solid var(--border-2); border-radius:10px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .seg button:hover{color:var(--text); border-color:var(--accent);}
+  .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .trim-read{font-family:var(--fm); font-size:12px; color:var(--text); margin-bottom:10px;}
+  .trim-read b{color:var(--accent);}
+  .rangepair label{display:flex; justify-content:space-between; font-family:var(--fm); font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.08em; margin:8px 0 4px;}
+
+  .togrow{display:flex; align-items:center; gap:11px; cursor:pointer; user-select:none; margin-bottom:4px;}
+  .togrow .nm{font-family:var(--fb); font-weight:700; font-size:14px; color:var(--text);}
+  .sw{position:relative; width:38px; height:21px; border-radius:100px; background:#2a2f3a; border:1px solid var(--border-2); flex-shrink:0; margin-left:auto; transition:background .15s;}
+  .sw::after{content:''; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#888f9d; transition:transform .15s, background .15s;}
+  .togrow.on .sw{background:var(--accent); border-color:var(--accent);}
+  .togrow.on .sw::after{transform:translateX(17px); background:#0A0B0F;}
+  .togfields{display:none; margin-top:10px;}
+  .togfields.show{display:block;}
+  .togfields input{margin-bottom:8px;}
+
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:9px; width:100%; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:15px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
+  .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(182,255,61,.7);}
+  .btn:active:not(:disabled){transform:translateY(1px);}
+  .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .ctrls{display:flex; gap:8px; margin-top:14px;}
+  .mini{flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:12px; background:#0D0F15; border:1px solid var(--border-2); color:var(--text); border-radius:11px; padding:11px 10px; cursor:pointer; transition:all .14s;}
+  .mini:hover{background:var(--surface-2); border-color:var(--accent);}
+  .mini svg{width:14px;height:14px;}
+
+  /* Stage */
+  .stage{display:flex; flex-direction:column; align-items:center; justify-content:flex-start;}
+  .canvas-shell{position:relative; background:#000; border:1px solid var(--border); border-radius:18px; overflow:hidden; box-shadow:0 24px 60px -28px rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center; width:100%; min-height:300px; padding:14px;}
+  #stageCanvas{max-height:64vh; max-width:100%; height:auto; width:auto; border-radius:8px; background:#0a0b0f; display:block;}
+  .stage-empty{color:var(--faint); text-align:center; padding:80px 20px;}
+  .stage-empty svg{width:34px;height:34px;opacity:.5;}
+  .stage-empty p{margin:14px 0 0; font-size:15px;}
+  .timeline{display:flex; align-items:center; gap:12px; margin-top:14px; width:100%; justify-content:center; flex-wrap:wrap;}
+  .tcode{font-family:var(--fm); font-size:13px; color:var(--accent); font-weight:700; background:rgba(182,255,61,.08); border:1px solid rgba(182,255,61,.2); border-radius:8px; padding:5px 11px;}
+  .status{font-family:var(--fm); font-size:12px; color:var(--info); margin-top:12px; min-height:16px; text-align:center;}
+  .status.rec{color:var(--low);}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .note{font-size:12px; color:var(--faint); line-height:1.5; margin-top:14px;}
+
+  footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
+  footer span{color:var(--dim);}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="audit.html">🔍 Audit</a>
+    <a class="tab" href="analytics.html">📊 Analytics</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <span class="tab active">🎬 Video</span>
+  </nav>
+
+  <header>
+    <span class="badge"><span class="dot"></span> Video Styler · V1</span>
+    <h1 class="title">Volt<span class="accent">.</span></h1>
+    <p class="sub">Turn a webinar recording into a branded vertical short. Upload, trim to the moment, reframe, apply the SME look, add music and a branded intro/outro — then export. <span style="color:var(--faint)">Auto-captions land in the next update.</span></p>
+  </header>
+
+  <div class="layout">
+    <!-- CONTROL PANEL -->
+    <section class="panel">
+      <div class="blk">
+        <label class="lbl"><span class="num">1</span>Upload webinar clip</label>
+        <input type="file" id="videoFile" accept="video/*" />
+        <p class="note" id="vidInfo" style="margin-top:8px; display:none;"></p>
+      </div>
+
+      <div class="blk" id="trimBlk" style="opacity:.4; pointer-events:none;">
+        <label class="lbl"><span class="num">2</span>Trim</label>
+        <div class="trim-read" id="trimRead">Load a clip to set the trim.</div>
+        <div class="rangepair">
+          <label>Start <span id="startLbl">0:00</span></label>
+          <input type="range" id="trimStart" min="0" max="100" value="0" step="0.1" />
+          <label>End <span id="endLbl">0:00</span></label>
+          <input type="range" id="trimEnd" min="0" max="100" value="100" step="0.1" />
+        </div>
+      </div>
+
+      <div class="blk">
+        <label class="lbl"><span class="num">3</span>Format</label>
+        <div class="seg" id="fmtSeg">
+          <button data-f="9x16" class="on">📱 9:16</button>
+          <button data-f="1x1">⬛ 1:1</button>
+          <button data-f="16x9">🖥 16:9</button>
+        </div>
+      </div>
+
+      <div class="blk">
+        <label class="lbl"><span class="num">4</span>Look</label>
+        <div class="seg" id="lookSeg">
+          <button data-l="sme" class="on">SME</button>
+          <button data-l="clean">Clean</button>
+          <button data-l="bold">Bold</button>
+        </div>
+      </div>
+
+      <div class="blk">
+        <label class="lbl"><span class="num">5</span>Background music <span class="opt">optional</span></label>
+        <input type="file" id="musicFile" accept="audio/*" />
+        <label style="display:flex; justify-content:space-between; font-family:var(--fm); font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.08em; margin:12px 0 4px;">Music volume <span id="volLbl">25%</span></label>
+        <input type="range" id="musicVol" min="0" max="100" value="25" />
+        <p class="note" style="margin-top:6px;">The speaker's voice is always kept — music sits underneath it.</p>
+      </div>
+
+      <div class="blk">
+        <label class="lbl"><span class="num">6</span>Branding</label>
+        <div class="togrow on" id="tog-intro" data-t="intro"><span class="nm">Intro card</span><span class="sw"></span></div>
+        <div class="togfields show" id="f-intro">
+          <input type="text" id="introTitle" placeholder="Intro title — e.g. How To Scale With Minimal Capital" />
+        </div>
+        <div class="togrow on" id="tog-outro" data-t="outro" style="margin-top:14px;"><span class="nm">Outro card</span><span class="sw"></span></div>
+        <div class="togfields show" id="f-outro">
+          <input type="text" id="outroHead" placeholder="Outro headline — e.g. WATCH THE FULL WEBINAR" />
+          <input type="text" id="outroSub" placeholder="Outro sub-line — e.g. @sme_za" />
+        </div>
+        <label class="lbl" style="margin-top:14px;">Logo <span class="opt">optional — upload to avoid load issues</span></label>
+        <input type="file" id="logoFile" accept="image/*" />
+      </div>
+
+      <div class="blk">
+        <button class="btn" id="exportBtn" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          <span id="exportLbl">Export short (.webm)</span>
+        </button>
+        <div class="ctrls">
+          <button class="mini" id="playBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 6-12 6z"/></svg> Play</button>
+          <button class="mini" id="pauseBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4h3v12H5zM12 4h3v12h-3z"/></svg> Pause</button>
+          <button class="mini" id="resetBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg> Restart</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STAGE -->
+    <section class="stage">
+      <div class="canvas-shell">
+        <div class="stage-empty" id="stageEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.55-2.27A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.89L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <p>Upload a webinar clip to start.</p>
+        </div>
+        <canvas id="stageCanvas" width="1080" height="1920" style="display:none;"></canvas>
+      </div>
+      <div class="timeline" id="timeline" style="display:none;">
+        <span class="tcode" id="tcode">0.0s / 0.0s</span>
+      </div>
+      <div class="status" id="status"></div>
+      <p class="note" style="max-width:560px; text-align:center;">Tip: keep shorts to ~20–45s. Export plays in real time, so a 40s short takes about 40s to record. Output is <b style="color:var(--dim);">.webm</b>; mp4 conversion is coming with the captions update.</p>
+    </section>
+  </div>
+
+  <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
+</main>
+
+<!-- hidden media elements -->
+<video id="srcVideo" playsinline crossorigin="anonymous" style="display:none;"></video>
+<audio id="srcMusic" loop style="display:none;"></audio>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+
+const FMT = { '9x16':{w:1080,h:1920}, '1x1':{w:1080,h:1080}, '16x9':{w:1920,h:1080} };
+
+const cv = $('#stageCanvas');
+const ctx = cv.getContext('2d');
+const videoEl = $('#srcVideo');
+const musicEl = $('#srcMusic');
+
+const C_NAVY='#0a2c3d', C_RED='#9c1c1f', C_WHITE='#ffffff', C_REDLT='#ffb1b1';
+
+const state = {
+  loaded:false, format:'9x16', look:'sme',
+  trimStart:0, trimEnd:0, duration:0,
+  introOn:true, outroOn:true, musicVol:0.25,
+  playing:false, recording:false,
+};
+let W=1080, H=1920;
+let logoImg=null, logoReady=false;
+let t=0, lastTime=performance.now(), recStart=0, mainPlaying=false;
+let mediaRecorder=null, chunks=[];
+let audioCtx=null, dest=null, vidSrcNode=null, vidGain=null, musSrcNode=null, musGain=null;
+
+const INTRO_DUR=2.5, OUTRO_DUR=3.0;
+function introDur(){ return state.introOn ? INTRO_DUR : 0; }
+function outroDur(){ return state.outroOn ? OUTRO_DUR : 0; }
+function clipDur(){ return Math.max(0, state.trimEnd - state.trimStart); }
+function totalDur(){ return introDur() + clipDur() + outroDur(); }
+
+function fmtTime(s){ s=Math.max(0,s||0); const m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+String(ss).padStart(2,'0'); }
+
+function setFormat(f){
+  state.format=f; const d=FMT[f]; W=d.w; H=d.h; cv.width=W; cv.height=H;
+  document.querySelectorAll('#fmtSeg button').forEach(b=>b.classList.toggle('on', b.dataset.f===f));
+}
+function setLook(l){
+  state.look=l;
+  document.querySelectorAll('#lookSeg button').forEach(b=>b.classList.toggle('on', b.dataset.l===l));
+}
+
+// ---- file inputs ----
+$('#videoFile').addEventListener('change', e => {
+  const file = e.target.files[0]; if(!file) return;
+  videoEl.src = URL.createObjectURL(file);
+  videoEl.muted = true; // muted until export, so preview doesn't autoblast
+  videoEl.addEventListener('loadedmetadata', () => {
+    state.duration = videoEl.duration || 0;
+    state.trimStart = 0;
+    state.trimEnd = Math.min(state.duration, 45);
+    const ts=$('#trimStart'), te=$('#trimEnd');
+    ts.max = state.duration.toFixed(1); ts.value = 0;
+    te.max = state.duration.toFixed(1); te.value = state.trimEnd.toFixed(1);
+    state.loaded = true;
+    $('#trimBlk').style.opacity='1'; $('#trimBlk').style.pointerEvents='auto';
+    $('#exportBtn').disabled = false;
+    $('#stageEmpty').style.display='none';
+    cv.style.display='block';
+    $('#timeline').style.display='flex';
+    $('#vidInfo').style.display='block';
+    $('#vidInfo').textContent = `Loaded — ${fmtTime(state.duration)} long, ${videoEl.videoWidth}×${videoEl.videoHeight}.`;
+    updateTrimRead();
+    t=0; mainPlaying=false; state.playing=true; videoEl.currentTime=0;
+  }, { once:true });
+});
+
+$('#musicFile').addEventListener('change', e => {
+  const file = e.target.files[0]; if(!file) return;
+  musicEl.src = URL.createObjectURL(file);
+  ensureMusicNode();
+});
+
+$('#logoFile').addEventListener('change', e => {
+  const file = e.target.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = () => { const im = new Image(); im.onload = ()=>{ logoImg=im; logoReady=true; }; im.src = r.result; };
+  r.readAsDataURL(file);
+});
+
+// ---- trim ----
+function updateTrimRead(){
+  $('#startLbl').textContent = fmtTime(state.trimStart);
+  $('#endLbl').textContent = fmtTime(state.trimEnd);
+  $('#trimRead').innerHTML = `<b>${fmtTime(state.trimStart)}</b> → <b>${fmtTime(state.trimEnd)}</b> &nbsp;·&nbsp; ${clipDur().toFixed(1)}s clip`;
+}
+$('#trimStart').addEventListener('input', e => {
+  let v = parseFloat(e.target.value);
+  if(v > state.trimEnd - 1) v = Math.max(0, state.trimEnd - 1);
+  state.trimStart = v; e.target.value = v;
+  updateTrimRead(); restart();
+});
+$('#trimEnd').addEventListener('input', e => {
+  let v = parseFloat(e.target.value);
+  if(v < state.trimStart + 1) v = Math.min(state.duration, state.trimStart + 1);
+  state.trimEnd = v; e.target.value = v;
+  updateTrimRead(); restart();
+});
+
+// ---- segmented + toggles ----
+$('#fmtSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setFormat(b.dataset.f); });
+$('#lookSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setLook(b.dataset.l); });
+
+document.querySelectorAll('.togrow').forEach(row => {
+  row.addEventListener('click', () => {
+    const key = row.dataset.t;
+    row.classList.toggle('on');
+    const on = row.classList.contains('on');
+    state[key+'On'] = on;
+    $('#f-'+key).classList.toggle('show', on);
+    restart();
+  });
+});
+
+$('#introTitle').addEventListener('input', ()=>{});
+$('#outroHead').addEventListener('input', ()=>{});
+$('#outroSub').addEventListener('input', ()=>{});
+$('#musicVol').addEventListener('input', e => {
+  state.musicVol = parseInt(e.target.value,10)/100;
+  $('#volLbl').textContent = e.target.value + '%';
+  if(musGain) musGain.gain.value = state.musicVol;
+});
+
+// ---- preview controls ----
+$('#playBtn').onclick = () => { state.playing=true; if(!state.recording && musicEl.src) musicEl.play().catch(()=>{}); };
+$('#pauseBtn').onclick = () => { state.playing=false; videoEl.pause(); if(!state.recording) musicEl.pause(); };
+$('#resetBtn').onclick = () => restart();
+function restart(){ t=0; mainPlaying=false; try{ videoEl.pause(); videoEl.currentTime = state.trimStart; }catch(e){} }
+
+// ---- audio graph (for export) ----
+function ensureAudio(){
+  if(audioCtx) { ensureMusicNode(); return; }
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  dest = audioCtx.createMediaStreamDestination();
+  vidSrcNode = audioCtx.createMediaElementSource(videoEl);
+  vidGain = audioCtx.createGain(); vidGain.gain.value = 1.0;
+  vidSrcNode.connect(vidGain); vidGain.connect(dest); vidGain.connect(audioCtx.destination);
+  ensureMusicNode();
+}
+function ensureMusicNode(){
+  if(!audioCtx || !musicEl.src || musSrcNode) return;
+  try{
+    musSrcNode = audioCtx.createMediaElementSource(musicEl);
+    musGain = audioCtx.createGain(); musGain.gain.value = state.musicVol;
+    musSrcNode.connect(musGain); musGain.connect(dest); musGain.connect(audioCtx.destination);
+  }catch(e){ /* already connected */ }
+}
+
+// ---- drawing helpers ----
+function drawCover(media, mw, mh){
+  if(!mw || !mh) return;
+  const r = mw/mh, cr = W/H;
+  let dw, dh;
+  if(r > cr){ dh = H; dw = H*r; } else { dw = W; dh = W/r; }
+  ctx.drawImage(media, W/2 - dw/2, H/2 - dh/2, dw, dh);
+}
+function vignette(strength){
+  const v = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.32, W/2,H/2, Math.max(W,H)*0.78);
+  v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,0,'+strength+')');
+  ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
+}
+function applyLook(){
+  if(state.look === 'clean'){ vignette(0.45); return; }
+  if(state.look === 'bold'){
+    ctx.globalCompositeOperation='overlay';
+    ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='source-over';
+    vignette(0.82); return;
+  }
+  // SME — subtle brand tint that keeps the footage clear
+  ctx.globalCompositeOperation='soft-light';
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'rgba(10,44,61,0.38)');
+  g.addColorStop(1,'rgba(156,28,31,0.28)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='source-over';
+  vignette(0.62);
+}
+function wrapText(text, x, y, maxW, lh){
+  const words = String(text||'').split(/\s+/); let line='', yy=y;
+  for(const w of words){
+    const test = line ? line+' '+w : w;
+    if(ctx.measureText(test).width > maxW && line){ ctx.fillText(line, x, yy); line=w; yy+=lh; }
+    else line=test;
+  }
+  if(line) ctx.fillText(line, x, yy);
+  return yy;
+}
+function drawLogo(cx, topY, maxW){
+  if(!(logoReady && logoImg)) return 0;
+  const ratio = logoImg.naturalHeight / logoImg.naturalWidth || 0.4;
+  const lw = Math.min(maxW, W*0.42), lh = lw*ratio;
+  ctx.drawImage(logoImg, cx - lw/2, topY, lw, lh);
+  return lh;
+}
+function drawIntro(p){
+  const a = Math.min(1, p*2.2);
+  ctx.fillStyle = C_NAVY; ctx.fillRect(0,0,W,H);
+  // accent bar
+  ctx.fillStyle = 'rgba(156,28,31,0.9)'; ctx.fillRect(0, H*0.5 - 4, W, 8*a);
+  ctx.globalAlpha = a;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  let logoH = drawLogo(W/2, H*0.5 - H*0.30, W*0.4);
+  const title = $('#introTitle').value.trim() || 'Webinar Highlight';
+  ctx.fillStyle = C_WHITE; ctx.font = '900 '+Math.round(W*0.085)+'px Oswald';
+  wrapText(title.toUpperCase(), W/2, H*0.5 + (logoH? H*0.02 : -H*0.02), W*0.82, W*0.095);
+  ctx.fillStyle = C_REDLT; ctx.font = '700 '+Math.round(W*0.032)+'px Roboto';
+  ctx.fillText('SME SOUTH AFRICA', W/2, H*0.5 + H*0.16);
+  ctx.globalAlpha = 1;
+}
+function drawOutro(p){
+  const a = Math.min(1, p*2.2);
+  ctx.fillStyle = C_NAVY;
+  const grad = ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#0a2c3d'); grad.addColorStop(1,'#061f2b');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha = a;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  let logoH = drawLogo(W/2, H*0.5 - H*0.30, W*0.4);
+  const head = $('#outroHead').value.trim() || 'WATCH THE FULL WEBINAR';
+  const sub = $('#outroSub').value.trim() || '@sme_za';
+  ctx.fillStyle = C_WHITE; ctx.font = '900 '+Math.round(W*0.075)+'px Oswald';
+  const endY = wrapText(head.toUpperCase(), W/2, H*0.5 - H*0.01, W*0.82, W*0.085);
+  // CTA pill
+  const pulse = 1 + Math.sin(p*7)*0.03;
+  ctx.save();
+  ctx.translate(W/2, endY + H*0.12); ctx.scale(pulse,pulse);
+  ctx.fillStyle = C_RED; roundRect(-W*0.34, -W*0.075, W*0.68, W*0.15, 14); ctx.fill();
+  ctx.fillStyle = C_WHITE; ctx.font = '700 '+Math.round(W*0.042)+'px Oswald';
+  ctx.fillText(sub, 0, 4);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// ---- main loop ----
+function frame(now){
+  const dt = (now - lastTime)/1000; lastTime = now;
+  if(state.loaded){
+    if(state.recording){ t = (now - recStart)/1000; }
+    else if(state.playing){ t += dt; if(t >= totalDur()){ t = 0; mainPlaying=false; try{ videoEl.currentTime = state.trimStart; }catch(e){} if(musicEl.src && !state.recording){ musicEl.currentTime=0; } } }
+
+    const iD = introDur(), cD = clipDur();
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+
+    if(state.introOn && t < iD){
+      if(!videoEl.paused) videoEl.pause();
+      drawIntro(t / Math.max(0.001,iD));
+    } else if(t < iD + cD){
+      // main clip
+      const into = t - iD;
+      if(!mainPlaying){
+        mainPlaying = true;
+        try{ videoEl.currentTime = state.trimStart + into; }catch(e){}
+        if(state.playing || state.recording) videoEl.play().catch(()=>{});
+      }
+      // safety: keep within trim
+      if(videoEl.currentTime > state.trimEnd){ try{ videoEl.currentTime = state.trimEnd; }catch(e){} }
+      drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight);
+      applyLook();
+    } else {
+      if(!videoEl.paused) videoEl.pause();
+      if(mainPlaying) mainPlaying = false;
+      if(state.outroOn) drawOutro((t - iD - cD) / Math.max(0.001,outroDur()));
+      else { ctx.fillStyle=C_NAVY; ctx.fillRect(0,0,W,H); }
+    }
+
+    $('#tcode').textContent = t.toFixed(1)+'s / '+totalDur().toFixed(1)+'s';
+
+    if(state.recording && t >= totalDur()){ stopExport(); }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ---- export ----
+$('#exportBtn').onclick = async () => {
+  if(state.recording || !state.loaded) return;
+  ensureAudio();
+  if(audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); }catch(e){} }
+
+  // reset to top
+  t = 0; mainPlaying = false; chunks = [];
+  try{ videoEl.currentTime = state.trimStart; }catch(e){}
+  videoEl.muted = false;
+  if(musicEl.src){ musicEl.currentTime = 0; musicEl.play().catch(()=>{}); }
+
+  const canvasStream = cv.captureStream(30);
+  let finalStream = canvasStream;
+  if(dest && dest.stream.getAudioTracks().length){
+    finalStream = new MediaStream([ canvasStream.getVideoTracks()[0], dest.stream.getAudioTracks()[0] ]);
+  }
+
+  let mime = 'video/webm;codecs=vp9,opus';
+  if(!(window.MediaRecorder && MediaRecorder.isTypeSupported(mime))) mime = 'video/webm;codecs=vp8,opus';
+  if(!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+
+  try{
+    mediaRecorder = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+  }catch(err){
+    setStatus('Could not start the recorder on this device: '+err.message, true); return;
+  }
+  mediaRecorder.ondataavailable = ev => { if(ev.data && ev.data.size>0) chunks.push(ev.data); };
+  mediaRecorder.onstop = finalizeExport;
+
+  recStart = performance.now();
+  state.recording = true; state.playing = false;
+  mediaRecorder.start();
+
+  $('#exportBtn').disabled = true;
+  $('#exportLbl').innerHTML = '<span class="spinner"></span> Recording '+totalDur().toFixed(0)+'s…';
+  setStatus('⏺ Recording in real time — leave this tab in focus until it finishes.', true);
+};
+
+function stopExport(){
+  if(!state.recording) return;
+  state.recording = false;
+  try{ mediaRecorder.stop(); }catch(e){}
+  videoEl.pause(); videoEl.muted = true;
+  if(musicEl.src) musicEl.pause();
+}
+
+function finalizeExport(){
+  const blob = new Blob(chunks, { type:'video/webm' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sme-short-'+state.format+'.webm';
+  a.click();
+  $('#exportBtn').disabled = false;
+  $('#exportLbl').textContent = 'Export short (.webm)';
+  setStatus('✅ Exported — check your downloads.');
+  t = 0; mainPlaying = false; state.playing = true;
+  try{ videoEl.currentTime = state.trimStart; }catch(e){}
+}
+
+function setStatus(msg, rec){ const s=$('#status'); s.textContent=msg; s.classList.toggle('rec', !!rec); }
+
+// init
+setFormat('9x16');
+</script>
+</body>
+</html>
