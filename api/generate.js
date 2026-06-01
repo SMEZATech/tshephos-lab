@@ -17,6 +17,18 @@ const SYSTEM_ANALYTICS =
   "You base everything only on the numbers supplied — never invent data. " +
   "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
 
+const SYSTEM_EMAIL =
+  "You are the body writer for SME South Africa's weekly email newsletter. You write ONLY the inner body HTML — never the header, footer, greeting, or promo banners (those are fixed and added separately). " +
+  "Audience: South African small-business owners. Voice: warm, practical, encouraging, plain English, skimmable. " +
+  "You output HTML fragments using ONLY these patterns, with no <html>, <head>, <body> or <style> tags: " +
+  "intro paragraph as <p class=\"intro-text\" style=\"margin-bottom: 0;\">...</p>; section headings as <h2>Title Case Heading</h2>; body copy as <p>...</p>; " +
+  "in-text links as <a href=\"URL\" target=\"_blank\">anchor</a>; a Related Reading box as <div class=\"related-reading\"><span>📚 Related Reading:</span> <a href=\"URL\" class=\"related-link\">Title</a></div>; " +
+  "an image (only when an image URL is explicitly supplied) as <img src=\"URL\" alt=\"...\" class=\"newsletter-image\">; and a divider between sections as " +
+  "<hr style=\"border: 0; border-top: 2px dashed #e2e8f0; margin: 25px 0;\">. " +
+  "Structure: one intro paragraph, then 2-3 sections, each = <h2> + optional image + 1-2 <p> + optional Related Reading box, separated by the dashed <hr>. " +
+  "CRITICAL: NEVER invent or guess URLs, links, dates, prices, statistics or Related Reading titles. Use ONLY links and facts present in the user's brief. If a section has no link, simply omit the link and the Related Reading box. " +
+  "Do NOT write a greeting or sign-off. Return ONLY the raw HTML fragment starting with the intro paragraph — no markdown, no code fences, no commentary.";
+
 const PLATFORM_HINT = {
   Meta: "Meta feed (FB/IG): scroll-stopping, conversational, native, emotionally resonant.",
   Google: "Google Search: high-intent, benefit-led, concise; headline reads like the answer.",
@@ -152,6 +164,15 @@ REQUIREMENTS:
 - nextPosts: 2 to 3 ready-to-make post ideas modelled on the winners, each <= 18 words.`;
 }
 
+function buildEmailPrompt({ brief }) {
+  return `Write this week's SME South Africa newsletter BODY from the brief below. Follow the house style and rules exactly, and use ONLY the links and facts that appear in the brief.
+
+BRIEF:
+${brief}
+
+Return only the HTML fragment, starting with the intro paragraph. No greeting, no footer, no promo banners, no code fences, no commentary.`;
+}
+
 function safeParse(raw) {
   if (!raw) return null;
   let t = String(raw).trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
@@ -193,7 +214,10 @@ async function callGemini(prompt, opts = {}) {
   const payload = JSON.stringify({
     systemInstruction: { parts: [{ text: opts.system || SYSTEM }] },
     contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: { temperature: opts.temperature != null ? opts.temperature : 0.9, maxOutputTokens: opts.maxTokens || 4096, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
+    generationConfig: Object.assign(
+      { temperature: opts.temperature != null ? opts.temperature : 0.9, maxOutputTokens: opts.maxTokens || 4096, thinkingConfig: { thinkingBudget: 0 } },
+      opts.json === false ? {} : { responseMimeType: "application/json" }
+    ),
   });
   let lastErr;
   // Gemini occasionally returns 503 "overloaded / high demand". Retry a couple of times before surfacing it.
@@ -362,6 +386,16 @@ export default async function handler(req, res) {
         nextPosts: strList(bp.nextPosts, 4, 200),
       };
       return res.status(200).json({ bestposts });
+    }
+
+    // ---- Newsletter email body ----
+    if (task === "email") {
+      const { brief } = body;
+      if (!brief || !String(brief).trim()) return res.status(400).json({ error: "Missing brief" });
+      const text = await callProvider(buildEmailPrompt({ brief }), { system: SYSTEM_EMAIL, json: false, temperature: 0.7, maxTokens: 3000 });
+      let html = String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim();
+      if (!html) return res.status(502).json({ error: "Model returned an empty body — try again." });
+      return res.status(200).json({ emailBody: html });
     }
 
     // ---- Ad copy (default) ----
