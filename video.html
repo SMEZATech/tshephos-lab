@@ -104,6 +104,14 @@
 
   .note{font-size:12px; color:var(--faint); line-height:1.5; margin-top:14px;}
 
+  .capstatus{font-family:var(--fm); font-size:11.5px; line-height:1.45; color:var(--info); margin-top:10px; min-height:14px;}
+  .capstatus.busy{color:var(--mid);}
+  .capstatus.err{color:var(--low);}
+  .capstatus.ok{color:var(--good);}
+  .cap-sw{width:26px; height:26px; border-radius:50%; border:2px solid var(--border-2); cursor:pointer; padding:0; transition:transform .12s, box-shadow .14s, border-color .14s;}
+  .cap-sw:hover{transform:scale(1.08);}
+  .cap-sw.on{border-color:#fff; box-shadow:0 0 0 3px rgba(182,255,61,.45);}
+
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
 </style>
@@ -188,6 +196,22 @@
       </div>
 
       <div class="blk">
+        <label class="lbl"><span class="num">7</span>Auto-captions <span class="opt">the good part</span></label>
+        <button class="mini" id="capBtn" style="width:100%; padding:13px; font-size:13px;" disabled>✨ Generate captions</button>
+        <div id="capStatus" class="capstatus"></div>
+        <div id="capToggleRow" style="display:none; margin-top:12px;">
+          <div class="togrow on" id="tog-captions" data-t="captions" style="margin:0;"><span class="nm">Show captions</span><span class="sw"></span></div>
+        </div>
+        <div id="capColorRow" style="display:none; align-items:center; gap:9px; margin-top:12px;">
+          <span class="lbl" style="margin:0;">Highlight</span>
+          <button class="cap-sw on" data-c="#B6FF3D" style="background:#B6FF3D;" title="Lime"></button>
+          <button class="cap-sw" data-c="#FFC857" style="background:#FFC857;" title="Yellow"></button>
+          <button class="cap-sw" data-c="#ffffff" style="background:#ffffff;" title="White"></button>
+        </div>
+        <p class="note" style="margin-top:8px;">Plays your clip once to read the audio, then transcribes it. Captions burn into the exported video. Needs a Groq key set in Vercel.</p>
+      </div>
+
+      <div class="blk">
         <button class="btn" id="exportBtn" disabled>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
           <span id="exportLbl">Export short (.webm)</span>
@@ -235,6 +259,7 @@ const ctx = cv.getContext('2d');
 const videoEl = $('#srcVideo');
 const musicEl = $('#srcMusic');
 
+const APP_KEY='volt_8cdecf560665536ac875f1ce96ff8070817ab582';
 const C_NAVY='#0a2c3d', C_RED='#9c1c1f', C_WHITE='#ffffff', C_REDLT='#ffb1b1';
 
 const state = {
@@ -242,12 +267,13 @@ const state = {
   trimStart:0, trimEnd:0, duration:0,
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
+  words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', busy:false, capturing:false,
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
 let t=0, lastTime=performance.now(), recStart=0, mainPlaying=false;
 let mediaRecorder=null, chunks=[];
-let audioCtx=null, dest=null, vidSrcNode=null, vidGain=null, musSrcNode=null, musGain=null;
+let audioCtx=null, dest=null, transcribeDest=null, vidSrcNode=null, vidGain=null, musSrcNode=null, musGain=null;
 
 const INTRO_DUR=2.5, OUTRO_DUR=3.0;
 function introDur(){ return state.introOn ? INTRO_DUR : 0; }
@@ -281,6 +307,7 @@ $('#videoFile').addEventListener('change', e => {
     state.loaded = true;
     $('#trimBlk').style.opacity='1'; $('#trimBlk').style.pointerEvents='auto';
     $('#exportBtn').disabled = false;
+    $('#capBtn').disabled = false;
     $('#stageEmpty').style.display='none';
     cv.style.display='block';
     $('#timeline').style.display='flex';
@@ -314,13 +341,13 @@ $('#trimStart').addEventListener('input', e => {
   let v = parseFloat(e.target.value);
   if(v > state.trimEnd - 1) v = Math.max(0, state.trimEnd - 1);
   state.trimStart = v; e.target.value = v;
-  updateTrimRead(); restart();
+  updateTrimRead(); clearCaptions(); restart();
 });
 $('#trimEnd').addEventListener('input', e => {
   let v = parseFloat(e.target.value);
   if(v < state.trimStart + 1) v = Math.min(state.duration, state.trimStart + 1);
   state.trimEnd = v; e.target.value = v;
-  updateTrimRead(); restart();
+  updateTrimRead(); clearCaptions(); restart();
 });
 
 // ---- segmented + toggles ----
@@ -333,7 +360,7 @@ document.querySelectorAll('.togrow').forEach(row => {
     row.classList.toggle('on');
     const on = row.classList.contains('on');
     state[key+'On'] = on;
-    $('#f-'+key).classList.toggle('show', on);
+    const f = $('#f-'+key); if(f) f.classList.toggle('show', on);
     restart();
   });
 });
@@ -361,6 +388,9 @@ function ensureAudio(){
   vidSrcNode = audioCtx.createMediaElementSource(videoEl);
   vidGain = audioCtx.createGain(); vidGain.gain.value = 1.0;
   vidSrcNode.connect(vidGain); vidGain.connect(dest); vidGain.connect(audioCtx.destination);
+  // speech-only stream for transcription (NO music mixed in)
+  transcribeDest = audioCtx.createMediaStreamDestination();
+  vidGain.connect(transcribeDest);
   ensureMusicNode();
 }
 function ensureMusicNode(){
@@ -463,6 +493,19 @@ function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w
 function frame(now){
   const dt = (now - lastTime)/1000; lastTime = now;
   if(state.loaded){
+    // capture mode — playing the clip once to read its audio for transcription
+    if(state.capturing){
+      ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+      drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight);
+      applyLook();
+      ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0, H/2 - H*0.05, W, H*0.10);
+      ctx.fillStyle=C_REDLT; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='700 '+Math.round(W*0.04)+'px Roboto';
+      ctx.fillText('● Reading audio…', W/2, H/2);
+      const done = Math.max(0, videoEl.currentTime - state.trimStart);
+      $('#tcode').textContent = done.toFixed(1)+'s / '+clipDur().toFixed(1)+'s';
+      requestAnimationFrame(frame); return;
+    }
     if(state.recording){ t = (now - recStart)/1000; }
     else if(state.playing){ t += dt; if(t >= totalDur()){ t = 0; mainPlaying=false; try{ videoEl.currentTime = state.trimStart; }catch(e){} if(musicEl.src && !state.recording){ musicEl.currentTime=0; } } }
 
@@ -484,6 +527,7 @@ function frame(now){
       if(videoEl.currentTime > state.trimEnd){ try{ videoEl.currentTime = state.trimEnd; }catch(e){} }
       drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight);
       applyLook();
+      if(state.captionsOn && state.lines.length) drawCaptions(into);
     } else {
       if(!videoEl.paused) videoEl.pause();
       if(mainPlaying) mainPlaying = false;
@@ -560,6 +604,154 @@ function finalizeExport(){
 }
 
 function setStatus(msg, rec){ const s=$('#status'); s.textContent=msg; s.classList.toggle('rec', !!rec); }
+
+// ============ AUTO-CAPTIONS ============
+function setCapStatus(msg, kind){
+  const s=$('#capStatus'); s.textContent=msg||'';
+  s.className='capstatus' + (kind ? ' '+kind : '');
+}
+function clearCaptions(){
+  state.words=[]; state.lines=[]; state.captionsOn=false;
+  $('#capToggleRow').style.display='none';
+  $('#capColorRow').style.display='none';
+  const tog=$('#tog-captions'); if(tog) tog.classList.remove('on');
+  if($('#capBtn')) $('#capBtn').textContent='✨ Generate captions';
+  setCapStatus('');
+}
+function blobToBase64(blob){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>{ const s=String(r.result||''); resolve(s.slice(s.indexOf(',')+1)); };
+    r.onerror=()=>reject(new Error('Could not read the captured audio.'));
+    r.readAsDataURL(blob);
+  });
+}
+// Real-time capture of the trimmed segment's speech (no music) for transcription.
+function captureSegmentAudio(){
+  return new Promise((resolve,reject)=>{
+    ensureAudio();
+    const go = ()=>{
+      if(!transcribeDest){ reject(new Error('Audio not ready.')); return; }
+      let mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) ? 'audio/webm;codecs=opus' : 'audio/webm';
+      let rec;
+      try{ rec = new MediaRecorder(transcribeDest.stream, { mimeType: mime }); }
+      catch(err){ reject(new Error('Recorder unavailable: '+err.message)); return; }
+      const ch=[];
+      let iv=null, hard=null, done=false;
+      rec.ondataavailable=e=>{ if(e.data && e.data.size>0) ch.push(e.data); };
+      rec.onstop=()=>{ if(done) return; done=true; cleanup(); resolve(new Blob(ch,{type:'audio/webm'})); };
+      function cleanup(){
+        if(iv) clearInterval(iv); if(hard) clearTimeout(hard);
+        try{ videoEl.pause(); }catch(e){}
+        videoEl.muted = true; state.capturing = false;
+      }
+      state.capturing = true; state.playing = false; mainPlaying = false;
+      videoEl.muted = false;
+      try{ videoEl.currentTime = state.trimStart; }catch(e){}
+      videoEl.play().then(()=>{
+        rec.start();
+        iv = setInterval(()=>{ if(videoEl.currentTime >= state.trimEnd - 0.05 || videoEl.ended){ if(rec.state!=='inactive') try{rec.stop();}catch(e){} } }, 80);
+        hard = setTimeout(()=>{ if(rec.state!=='inactive') try{rec.stop();}catch(e){} }, (clipDur()*1000)+2000);
+      }).catch(err=>{ cleanup(); reject(new Error('Could not play the clip to read its audio: '+err.message)); });
+    };
+    if(audioCtx && audioCtx.state==='suspended') audioCtx.resume().then(go).catch(go);
+    else go();
+  });
+}
+async function generateCaptions(){
+  if(state.busy || !state.loaded) return;
+  state.busy = true;
+  $('#capBtn').disabled = true; $('#exportBtn').disabled = true;
+  setCapStatus('Reading audio — playing your clip once ('+clipDur().toFixed(0)+'s)…', 'busy');
+  try{
+    const blob = await captureSegmentAudio();
+    if(!blob || blob.size < 800) throw new Error('No audio captured — does this clip have sound?');
+    setCapStatus('Transcribing…', 'busy');
+    const b64 = await blobToBase64(blob);
+    const r = await fetch('/api/transcribe', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      body: JSON.stringify({ audio:b64, mime:'audio/webm', language:'en' })
+    });
+    let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the caption service.'); }
+    if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error('Captions need a Groq key — add GROQ_API_KEY in Vercel, then redeploy.');
+    if(r.status===401) throw new Error('Caption service rejected the app key.');
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Transcription failed.');
+    const words = (data.words||[]).filter(w=>w && w.word);
+    if(!words.length) throw new Error('No speech detected in this clip.');
+    state.words = words;
+    state.lines = groupLines(words);
+    state.captionsOn = true;
+    $('#tog-captions').classList.add('on');
+    $('#capToggleRow').style.display='block';
+    $('#capColorRow').style.display='flex';
+    $('#capBtn').textContent='↻ Regenerate captions';
+    setCapStatus('Captions ready — '+words.length+' words. Hit play to preview.', 'ok');
+  }catch(err){
+    setCapStatus(err.message, 'err');
+  }finally{
+    state.busy = false;
+    $('#capBtn').disabled = false; $('#exportBtn').disabled = false;
+    t = 0; mainPlaying = false; state.playing = true;
+    try{ videoEl.currentTime = state.trimStart; }catch(e){}
+  }
+}
+// Group words into short caption lines (karaoke chunks).
+function groupLines(words){
+  const lines=[]; let cur=[];
+  const flush=()=>{ if(cur.length){ lines.push({ words:cur.slice(), start:cur[0].start, end:cur[cur.length-1].end }); cur=[]; } };
+  for(let i=0;i<words.length;i++){
+    const w=words[i]; cur.push(w);
+    const next=words[i+1];
+    const gap = next ? (next.start - w.end) : 0;
+    const dur = w.end - cur[0].start;
+    if(cur.length>=5 || dur>2.4 || (next && gap>0.5) || /[.?!]$/.test(w.word)) flush();
+  }
+  flush();
+  return lines;
+}
+// Draw the active caption line, highlighting the current word.
+function drawCaptions(ct){
+  const line = state.lines.find(L => ct >= L.start - 0.06 && ct <= L.end + 0.30);
+  if(!line) return;
+  const fs = Math.round(W*0.058);
+  ctx.font = '800 '+fs+'px Oswald, "Plus Jakarta Sans", sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  const maxW = W*0.86, sp = ctx.measureText(' ').width;
+  // wrap into rows
+  const rows=[[]]; let rowW=0;
+  for(const w of line.words){
+    const ww = ctx.measureText(w.word).width;
+    if(rowW + ww > maxW && rows[rows.length-1].length){ rows.push([]); rowW=0; }
+    rows[rows.length-1].push(w); rowW += ww + sp;
+  }
+  const lh = fs*1.16, blockH = rows.length*lh;
+  let y = H*0.80 - blockH/2 + lh/2;
+  for(const row of rows){
+    const widths = row.map(w=>ctx.measureText(w.word).width);
+    const total = widths.reduce((a,b)=>a+b,0) + sp*(row.length-1);
+    let x = W/2 - total/2;
+    for(let i=0;i<row.length;i++){
+      const w=row[i];
+      const active = ct >= w.start - 0.02 && ct <= w.end + 0.02;
+      const cx = x + widths[i]/2;
+      ctx.lineWidth = Math.max(4, fs*0.16);
+      ctx.lineJoin='round';
+      ctx.strokeStyle='rgba(0,0,0,0.85)';
+      ctx.strokeText(w.word, cx, y);
+      ctx.fillStyle = active ? state.capColor : '#ffffff';
+      ctx.fillText(w.word, cx, y);
+      x += widths[i] + sp;
+    }
+    y += lh;
+  }
+}
+$('#capBtn').onclick = generateCaptions;
+$('#capColorRow').addEventListener('click', e => {
+  const b = e.target.closest('.cap-sw'); if(!b) return;
+  state.capColor = b.dataset.c;
+  document.querySelectorAll('.cap-sw').forEach(s=>s.classList.toggle('on', s===b));
+});
 
 // init
 setFormat('9x16');
