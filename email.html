@@ -56,13 +56,26 @@
   .promo-head{display:flex; align-items:center; gap:11px; cursor:pointer; user-select:none;}
   .promo-head .em{font-size:17px;}
   .promo-head .nm{font-family:var(--fb); font-weight:700; font-size:14.5px; color:var(--text);}
-  .promo-head .hint{font-size:12px; color:var(--faint); margin-left:auto;}
-  .sw{position:relative; width:38px; height:21px; border-radius:100px; background:#2a2f3a; border:1px solid var(--border-2); flex-shrink:0; transition:background .15s;}
+  .promo-head .hint{font-size:12px; color:var(--faint);}
+  .sw{position:relative; width:38px; height:21px; border-radius:100px; background:#2a2f3a; border:1px solid var(--border-2); flex-shrink:0; margin-left:auto; transition:background .15s;}
   .sw::after{content:''; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#888f9d; transition:transform .15s, background .15s;}
   .promo.on .sw{background:var(--accent); border-color:var(--accent);}
   .promo.on .sw::after{transform:translateX(17px); background:#0A0B0F;}
   .promo-fields{display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);}
   .promo.on .promo-fields{display:block;}
+
+  .linkrow{display:flex; gap:8px; margin-bottom:8px; align-items:center;}
+  .linkrow .lk-text{flex:1.2; min-width:110px;}
+  .linkrow .lk-url{flex:1.5; min-width:130px;}
+  .lk-del{flex-shrink:0; width:40px; align-self:stretch; min-height:42px; border:1px solid var(--border-2); background:#0D0F15; color:var(--dim); border-radius:11px; cursor:pointer; font-size:13px; transition:all .14s;}
+  .lk-del:hover{border-color:var(--low); color:var(--low);}
+  .addlink{margin-top:4px; font-family:var(--fm); font-size:12px; font-weight:700; color:var(--accent); background:transparent; border:1px dashed var(--border-2); border-radius:10px; padding:9px 14px; cursor:pointer; transition:border-color .14s;}
+  .addlink:hover{border-color:var(--accent);}
+
+  .pseg{display:inline-flex; gap:4px; background:#0D0F15; border:1px solid var(--border-2); border-radius:10px; padding:3px;}
+  .pseg button{font-family:var(--fm); font-size:11px; font-weight:700; padding:6px 11px; border:none; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .pseg button.on{background:var(--accent); color:#0A0B0F;}
+  .stage{display:flex; justify-content:center;}
 
   .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
   .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
@@ -87,7 +100,8 @@
   .mini:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
   .mini.ok{background:var(--good); color:#0A0B0F; border-color:var(--good);}
   .mini svg{width:13px;height:13px;}
-  .frame{width:100%; height:760px; border:1px solid var(--border); border-radius:18px; background:#f0f2f5; box-shadow:0 24px 60px -28px rgba(0,0,0,.8);}
+  .frame{width:100%; height:760px; border:1px solid var(--border); border-radius:18px; background:#f0f2f5; box-shadow:0 24px 60px -28px rgba(0,0,0,.8); transition:width .25s ease, border-radius .25s, border-width .25s;}
+  .frame.mobile{width:390px; max-width:100%; border-radius:30px; border:8px solid #1a1e28;}
   .skel{height:760px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
   @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
 
@@ -118,7 +132,13 @@
 Section 1 — why networking matters for growth. Link: https://smesouthafrica.co.za/the-importance-of-networking-for-the-growth-of-smes/
 Section 2 — growing connections online (LinkedIn, virtual groups). Related reading: https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/
 Keep it warm and practical."></textarea>
-    <p style="font-size:12.5px; color:var(--faint); margin:10px 0 0; line-height:1.5;">Volt uses <b style="color:var(--dim);">only the links you paste here</b> — it will never invent a URL, date or statistic. Leave a section without a link and it simply won't add one.</p>
+    <p style="font-size:12.5px; color:var(--faint); margin:10px 0 0; line-height:1.5;">Describe the content only — <b style="color:var(--dim);">add your links in the box below</b>. Volt uses only those links and never invents a URL, date or statistic.</p>
+
+    <div style="margin-top:22px;">
+      <label class="lbl">Links <span class="opt">— the exact links Volt may use (text + URL). It weaves these into the body.</span></label>
+      <div id="links"></div>
+      <button type="button" class="addlink" id="addLink">+ Add link</button>
+    </div>
 
     <div class="promos">
       <label class="lbl">Add promo blocks <span class="opt">— optional, you fill the details so they're always accurate</span></label>
@@ -152,6 +172,38 @@ Keep it warm and practical."></textarea>
             <input class="field-sm" id="rs-link" placeholder="Button link — full URL" />
             <input class="field-sm" id="rs-btn" placeholder="Button text — e.g. DOWNLOAD NOW" />
           </div>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-sponsored">
+        <div class="promo-head" data-toggle="sponsored">
+          <span class="em">✦</span>
+          <span class="nm">Sponsored mention</span>
+          <span class="hint">client feature</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="sp-title" placeholder="Feature title — e.g. Be the Answer AI Recommends" />
+          <textarea id="sp-body" rows="2" placeholder="What to say about the client (your words — keep all claims accurate)."></textarea>
+          <textarea id="sp-bullets" rows="2" placeholder="Optional bullet points — one per line."></textarea>
+          <div class="row">
+            <input class="field-sm" id="sp-link" placeholder="Button link — full URL" />
+            <input class="field-sm" id="sp-btn" placeholder="Button text — e.g. Start free trial" />
+          </div>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-task">
+        <div class="promo-head" data-toggle="task">
+          <span class="em">👉</span>
+          <span class="nm">Weekly action / task</span>
+          <span class="hint">drives engagement</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="tk-title" placeholder="Action title — e.g. Your 5-Minute Action This Week" />
+          <textarea id="tk-body" rows="2" placeholder="The task — what should they actually do this week?"></textarea>
+          <input id="tk-cta" placeholder="Optional reply prompt — e.g. Hit reply and tell us how it goes 👇" />
         </div>
       </div>
     </div>
@@ -294,6 +346,41 @@ function resourceBlock(p){
                 </table>`;
 }
 
+function sponsoredBlock(p){
+  const bl = (p.bullets || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const bulletsHtml = bl.length
+    ? `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 4px 0 18px 0;">` + bl.map(b =>
+        `<tr><td width="20" valign="top" style="padding-top: 2px; font-size: 18px; color: #9c1c1f;">•</td><td style="font-family: 'Roboto', sans-serif; color: #444444; line-height: 1.6; font-size: 15px; padding-bottom: 8px;">${esc(b)}</td></tr>`).join('') + `</table>`
+    : '';
+  const btnHtml = p.link
+    ? `<table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 6px auto 0;"><tr><td align="center" style="border-radius: 6px; background-color: #9c1c1f; box-shadow: 0 4px 10px rgba(156,28,31,0.2);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 14px; font-family: 'Oswald', sans-serif; font-weight: 700; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 6px; display: inline-block; text-transform: uppercase; border: none;">${esc(p.btn || 'Learn more')}</a></td></tr></table>`
+    : '';
+  return `
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fafbfc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 25px 0;">
+                    <tr><td style="padding: 28px 26px;">
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">✦ Sponsored</p>
+                        <h2 style="margin: 0 0 12px 0;">${esc(p.title)}</h2>
+                        ${p.body ? `<p style="margin: 0 0 14px 0;">${esc(p.body)}</p>` : ''}
+                        ${bulletsHtml}
+                        ${btnHtml}
+                    </td></tr>
+                </table>`;
+}
+
+function taskBlock(p){
+  return `
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #061f2b 100%); border-radius: 14px; margin: 25px 0; box-shadow: 0 10px 25px rgba(10,44,61,0.2);">
+                    <tr><td style="padding: 30px 28px;">
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #ffb1b1; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">👉 This Week's Action</p>
+                        <h3 style="margin: 0 0 12px 0; font-family: 'Oswald', sans-serif; font-size: 22px; color: #ffffff; font-weight: 900; line-height: 1.25;">${esc(p.title)}</h3>
+                        <p style="margin: 0; font-family: 'Roboto', sans-serif; color: rgba(255,255,255,0.88); line-height: 1.6; font-size: 15px;">${esc(p.body)}</p>
+                        ${p.cta ? `<p style="margin: 16px 0 0 0; font-family: 'Roboto', sans-serif; color: #ffffff; line-height: 1.5; font-size: 14px; font-weight: 700;">${esc(p.cta)}</p>` : ''}
+                    </td></tr>
+                </table>`;
+}
+
 // A realistic sample body so the design is visible on first load.
 const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a business is incredible, but it can often feel lonely. The right conversation, though, can change your trajectory — bringing new clients or mentors who genuinely understand your challenges. This week, we look at simple, stress-free ways to grow your network, both online and in person.</p>
 
@@ -310,8 +397,8 @@ const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a b
                 <p>You do not have to leave your office to build a strong professional network. Platforms like LinkedIn and virtual industry groups let you connect with potential partners across the entire country. Instead of sending direct sales pitches, join relevant conversations and leave helpful comments — engaging regularly builds real relationships without geographical limits.</p>
                 <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/" class="related-link">5 Networking Tips To Help Your Business Grow</a></div>`;
 
-const state = { brief:'', loading:false, body:null,
-  promos:{ webinar:{on:false}, resource:{on:false} } };
+const state = { brief:'', loading:false, body:null, previewMode:'desktop',
+  promos:{ webinar:{on:false}, resource:{on:false}, sponsored:{on:false}, task:{on:false} } };
 
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
 let lastFragment = '';
@@ -328,6 +415,29 @@ document.querySelectorAll('.promo-head').forEach(h => {
   });
 });
 
+// Link rows — easy structured link adding
+const elLinks = $('#links');
+function addLinkRow(text, url){
+  const row = document.createElement('div');
+  row.className = 'linkrow';
+  row.innerHTML = '<input class="lk-text" placeholder="Link text — e.g. The Importance Of Networking" />'
+    + '<input class="lk-url" placeholder="https://..." />'
+    + '<button type="button" class="lk-del" title="Remove link">✕</button>';
+  if(text) row.querySelector('.lk-text').value = text;
+  if(url) row.querySelector('.lk-url').value = url;
+  row.querySelector('.lk-del').addEventListener('click', () => row.remove());
+  elLinks.appendChild(row);
+}
+$('#addLink').addEventListener('click', () => addLinkRow());
+addLinkRow();
+
+function collectLinks(){
+  return [...document.querySelectorAll('.linkrow')].map(r => ({
+    text: r.querySelector('.lk-text').value.trim(),
+    url: r.querySelector('.lk-url').value.trim()
+  })).filter(l => l.text && l.url);
+}
+
 function collectPromos(){
   const blocks = [];
   if(state.promos.webinar.on){
@@ -337,6 +447,14 @@ function collectPromos(){
   if(state.promos.resource.on){
     const title = $('#rs-title').value.trim();
     if(title) blocks.push(resourceBlock({ title, desc:$('#rs-desc').value.trim(), link:$('#rs-link').value.trim(), btn:$('#rs-btn').value.trim() }));
+  }
+  if(state.promos.sponsored.on){
+    const title = $('#sp-title').value.trim();
+    if(title) blocks.push(sponsoredBlock({ title, body:$('#sp-body').value.trim(), bullets:$('#sp-bullets').value, link:$('#sp-link').value.trim(), btn:$('#sp-btn').value.trim() }));
+  }
+  if(state.promos.task.on){
+    const title = $('#tk-title').value.trim();
+    if(title) blocks.push(taskBlock({ title, body:$('#tk-body').value.trim(), cta:$('#tk-cta').value.trim() }));
   }
   return blocks.join('\n');
 }
@@ -353,21 +471,39 @@ function previewDoc(fragment){
 
 function renderPreview(bodyHtml){
   lastFragment = assemble(bodyHtml);
+  const isM = state.previewMode === 'mobile';
   elRes.innerHTML = `
     <div class="preview-wrap">
       <div class="pbar">
         <span class="ptitle">Live preview — exactly what lands in Kit</span>
+        <div class="pseg" id="pseg">
+          <button data-m="desktop" class="${isM?'':'on'}">🖥 Desktop</button>
+          <button data-m="mobile" class="${isM?'on':''}">📱 Mobile</button>
+        </div>
         <div class="right">
           <button class="mini" id="copyBtn">${ICON.copy} Copy HTML</button>
           <button class="mini" id="dlBtn">${ICON.down} Download .html</button>
         </div>
       </div>
-      <iframe class="frame" id="frame" title="Email preview"></iframe>
+      <div class="stage">
+        <iframe class="frame ${isM?'mobile':''}" id="frame" title="Email preview"></iframe>
+      </div>
     </div>`;
   const frame = document.getElementById('frame');
   frame.srcdoc = previewDoc(lastFragment);
   document.getElementById('copyBtn').addEventListener('click', copyHtml);
   document.getElementById('dlBtn').addEventListener('click', downloadHtml);
+  document.getElementById('pseg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    setPreviewMode(b.dataset.m);
+  });
+}
+
+function setPreviewMode(mode){
+  state.previewMode = mode;
+  const frame = document.getElementById('frame');
+  if(frame) frame.classList.toggle('mobile', mode === 'mobile');
+  document.querySelectorAll('#pseg button').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
 }
 
 async function copyHtml(){
@@ -405,7 +541,13 @@ async function run(){
   elRun.disabled = true; elRunLabel.innerHTML = '<span class="spinner"></span> Building…';
   elRes.innerHTML = `<div class="skel"></div>`;
   try{
-    const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'email', brief: state.brief }) });
+    const links = collectLinks();
+    let fullBrief = state.brief;
+    if(links.length){
+      fullBrief += '\n\nLINKS YOU MAY USE (anchor text → URL — use ONLY these, woven in as in-text links or a Related Reading box where they fit):\n'
+        + links.map(l => '- "' + l.text + '" → ' + l.url).join('\n');
+    }
+    const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'email', brief: fullBrief }) });
     let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the generator — check your connection and try again.'); }
     if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
     const bodyHtml = (data && data.emailBody) || '';
