@@ -112,7 +112,7 @@
   .cap-sw:hover{transform:scale(1.08);}
   .cap-sw.on{border-color:#fff; box-shadow:0 0 0 3px rgba(182,255,61,.45);}
 
-  #capEditor{margin-top:24px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  #capEditor{margin-top:24px; width:100%; align-self:stretch; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .cap-ed-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
   .cap-ed-hint{display:block; font-size:12px; color:var(--faint); margin-top:5px;}
   .cap-ed-count{font-family:var(--fm); font-size:11px; letter-spacing:.06em; color:var(--dim); border:1px solid var(--border); border-radius:100px; padding:5px 11px; white-space:nowrap;}
@@ -127,7 +127,7 @@
   .caprow .del{flex-shrink:0; width:28px; height:28px; border-radius:8px; border:1px solid var(--border-2); background:transparent; color:var(--dim); font-size:15px; line-height:1; cursor:pointer; transition:all .14s;}
   .caprow .del:hover{color:var(--low); border-color:var(--low);}
 
-  #postCopy{margin-top:24px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  #postCopy{margin-top:24px; width:100%; align-self:stretch; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .pc-block{margin-top:14px;}
   .pc-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;}
   .pc-head span{font-family:var(--fm); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:700;}
@@ -239,6 +239,12 @@
           <input type="text" id="hookText" placeholder="Scroll-stopping hook — e.g. The mistake that kills 90% of startups" />
           <p class="note" style="margin-top:2px;">Big headline over the opening of the clip to stop the scroll. Tip: generate post copy below for hook ideas.</p>
         </div>
+        <div class="togrow" id="tog-progress" data-t="progress" style="margin-top:14px;"><span class="nm">Progress bar</span><span class="sw"></span></div>
+        <div class="togrow" id="tog-name" data-t="name" style="margin-top:14px;"><span class="nm">Speaker name <span class="opt" style="font-weight:400;">first ~5s</span></span><span class="sw"></span></div>
+        <div class="togfields" id="f-name">
+          <input type="text" id="nameName" placeholder="Speaker name — e.g. Thabo Mokoena" />
+          <input type="text" id="nameTitle" placeholder="Title — e.g. Founder, Acme (optional)" />
+        </div>
         <label class="lbl" style="margin-top:14px;">Logo <span class="opt">optional — upload to avoid load issues</span></label>
         <input type="file" id="logoFile" accept="image/*" />
       </div>
@@ -263,6 +269,21 @@
             <button data-p="middle">Middle</button>
             <button data-p="bottom" class="on">Bottom</button>
           </div>
+        </div>
+        <div id="capStyleRow" style="display:none; margin-top:12px;">
+          <span class="lbl">Size</span>
+          <div class="seg" id="capSizeSeg" style="margin-bottom:10px;">
+            <button data-sz="S">A−</button>
+            <button data-sz="M" class="on">A</button>
+            <button data-sz="L">A+</button>
+          </div>
+          <span class="lbl">Background</span>
+          <div class="seg" id="capBgSeg" style="margin-bottom:10px;">
+            <button data-bg="none" class="on">None</button>
+            <button data-bg="bar">Bar</button>
+            <button data-bg="box">Box</button>
+          </div>
+          <div class="togrow" id="tog-caps" data-t="caps" style="margin:0;"><span class="nm">ALL CAPS</span><span class="sw"></span></div>
         </div>
         <p class="note" style="margin-top:8px;">Plays your clip once to read the audio, then transcribes it. Captions burn into the exported video. Needs a Groq key set in Vercel.</p>
       </div>
@@ -293,22 +314,22 @@
         <span class="tcode" id="tcode">0.0s / 0.0s</span>
       </div>
       <div class="status" id="status"></div>
-      <p class="note" style="max-width:560px; text-align:center;">Tip: keep shorts to ~20–45s. Export plays in real time, so a 40s short takes about 40s to record. Output is <b style="color:var(--dim);">.webm</b>; mp4 conversion is coming with the captions update.</p>
-    </section>
-  </div>
-
-  <section id="capEditor" style="display:none;">
+      <p class="note" style="max-width:560px; text-align:center;">Tip: keep shorts to ~20–45s. Export plays in real time, so a 40s short takes about 40s to record. Output is <b style="color:var(--dim);">.webm</b> for now — mp4 is on the roadmap.</p>
+      <section id="capEditor" style="display:none;">
     <div class="cap-ed-head">
       <div>
         <span class="lbl" style="margin:0;">✏️ Caption editor</span>
         <span class="cap-ed-hint">Click a line to jump to it · edit any text to fix it · ✕ to drop a line</span>
       </div>
-      <span class="cap-ed-count" id="capCount"></span>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="pc-copy" id="srtBtn">⬇ .SRT</button>
+        <span class="cap-ed-count" id="capCount"></span>
+      </div>
     </div>
     <div id="capList"></div>
   </section>
 
-  <section id="postCopy" style="display:none;">
+      <section id="postCopy" style="display:none;">
     <div class="cap-ed-head">
       <div>
         <span class="lbl" style="margin:0;">📝 Post copy &amp; hashtags</span>
@@ -339,6 +360,12 @@
       </div>
     </div>
   </section>
+    </section>
+  </div>
+
+  
+
+  
 
   <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
 </main>
@@ -370,6 +397,7 @@ const state = {
   playing:false, recording:false,
   words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
   hookOn:false, fill:'crop', focus:'center', postPlatform:'LinkedIn',
+  capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
@@ -692,6 +720,7 @@ function frame(now){
       else drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight, FOCUS[state.focus]);
       applyLook();
       if(state.hookOn) drawHook(into);
+      if(state.nameOn) drawNameTag(into);
       if(state.captionsOn && state.lines.length){ drawCaptions(into); updateLiveRow(into); }
     } else {
       if(!videoEl.paused) videoEl.pause();
@@ -700,6 +729,7 @@ function frame(now){
       else { ctx.fillStyle=C_NAVY; ctx.fillRect(0,0,W,H); }
     }
 
+    drawProgress();
     $('#tcode').textContent = t.toFixed(1)+'s / '+totalDur().toFixed(1)+'s';
 
     if(state.recording && t >= totalDur()){ stopExport(); }
@@ -780,6 +810,7 @@ function clearCaptions(){
   $('#capToggleRow').style.display='none';
   $('#capColorRow').style.display='none';
   $('#capPosRow').style.display='none';
+  $('#capStyleRow').style.display='none';
   $('#capEditor').style.display='none';
   $('#postCopy').style.display='none';
   $('#pcResults').style.display='none';
@@ -856,6 +887,7 @@ async function generateCaptions(){
     $('#capToggleRow').style.display='block';
     $('#capColorRow').style.display='flex';
     $('#capPosRow').style.display='block';
+    $('#capStyleRow').style.display='block';
     renderCapEditor();
     $('#postCopy').style.display='block';
     $('#capBtn').textContent='↻ Regenerate captions';
@@ -884,53 +916,103 @@ function groupLines(words){
   return lines;
 }
 // Draw the active caption line, highlighting the current word.
+const CAP_SIZE = { S:0.048, M:0.058, L:0.072 };
 function drawCaptions(ct){
   const line = state.lines.find(L => ct >= L.start - 0.06 && ct <= L.end + 0.30);
   if(!line) return;
-  const fs = Math.round(W*0.058);
+  const fs = Math.round(W * (CAP_SIZE[state.capSize] || 0.058));
+  const caps = state.capsOn;
+  const disp = s => caps ? String(s).toUpperCase() : String(s);
   ctx.font = '800 '+fs+'px Oswald, "Plus Jakarta Sans", sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   const maxW = W*0.86, sp = ctx.measureText(' ').width;
-  // wrap into rows
+  // wrap into rows of {w, txt, ww}
   const rows=[[]]; let rowW=0;
   for(const w of line.words){
-    const ww = ctx.measureText(w.word).width;
+    const txt = disp(w.word), ww = ctx.measureText(txt).width;
     if(rowW + ww > maxW && rows[rows.length-1].length){ rows.push([]); rowW=0; }
-    rows[rows.length-1].push(w); rowW += ww + sp;
+    rows[rows.length-1].push({ w, txt, ww }); rowW += ww + sp;
   }
-  const lh = fs*1.16, blockH = rows.length*lh;
+  const lh = fs*1.18, blockH = rows.length*lh;
   const baseY = state.capPos==='top' ? H*0.16 : state.capPos==='middle' ? H*0.50 : H*0.80;
-  let y = baseY - blockH/2 + lh/2;
+  const topY = baseY - blockH/2;
+  // optional background bar behind the whole block
+  if(state.capBg==='bar'){
+    let maxRowW = 0;
+    for(const row of rows){ const t = row.reduce((a,c)=>a+c.ww,0) + sp*(row.length-1); if(t>maxRowW) maxRowW=t; }
+    const padX = fs*0.55, padY = fs*0.42;
+    ctx.fillStyle='rgba(0,0,0,0.55)';
+    roundRect(W/2 - maxRowW/2 - padX, topY - padY, maxRowW + padX*2, blockH + padY*2, fs*0.28); ctx.fill();
+  }
+  let y = topY + lh/2;
   for(const row of rows){
-    const widths = row.map(w=>ctx.measureText(w.word).width);
-    const total = widths.reduce((a,b)=>a+b,0) + sp*(row.length-1);
+    const total = row.reduce((a,c)=>a+c.ww,0) + sp*(row.length-1);
     let x = W/2 - total/2;
-    for(let i=0;i<row.length;i++){
-      const w=row[i];
-      const active = ct >= w.start - 0.02 && ct <= w.end + 0.02;
-      const cx = x + widths[i]/2;
-      ctx.lineWidth = Math.max(4, fs*0.16);
-      ctx.lineJoin='round';
-      ctx.strokeStyle='rgba(0,0,0,0.85)';
-      if(active){
-        // brief pop as the word becomes active
+    for(const cell of row){
+      const w = cell.w, active = ct >= w.start - 0.02 && ct <= w.end + 0.02;
+      const cx = x + cell.ww/2;
+      ctx.lineWidth = Math.max(4, fs*0.16); ctx.lineJoin='round'; ctx.strokeStyle='rgba(0,0,0,0.85)';
+      if(active && state.capBg==='box'){
+        // filled highlight box behind the active word
+        const bw = cell.ww + fs*0.40;
+        ctx.fillStyle = state.capColor;
+        roundRect(cx - bw/2, y - fs*0.62, bw, fs*1.24, fs*0.22); ctx.fill();
+        ctx.fillStyle = '#0A0B0F';
+        ctx.fillText(cell.txt, cx, y);
+      } else if(active){
         const into = Math.max(0, Math.min(1, (ct - w.start) / Math.max(0.08, (w.end - w.start))));
-        const pop = 1.12 - 0.12*into; // starts ~1.12, settles to ~1.0
+        const pop = 1.12 - 0.12*into;
         ctx.save();
         ctx.translate(cx, y); ctx.scale(pop, pop);
-        ctx.strokeText(w.word, 0, 0);
+        ctx.strokeText(cell.txt, 0, 0);
         ctx.fillStyle = state.capColor;
-        ctx.fillText(w.word, 0, 0);
+        ctx.fillText(cell.txt, 0, 0);
         ctx.restore();
       } else {
-        ctx.strokeText(w.word, cx, y);
+        ctx.strokeText(cell.txt, cx, y);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(w.word, cx, y);
+        ctx.fillText(cell.txt, cx, y);
       }
-      x += widths[i] + sp;
+      x += cell.ww + sp;
     }
     y += lh;
   }
+}
+// thin progress bar across the bottom for the whole short
+function drawProgress(){
+  if(!state.progressOn) return;
+  const p = Math.max(0, Math.min(1, t / Math.max(0.001, totalDur())));
+  const h = Math.max(5, Math.round(H*0.008));
+  ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(0, H - h, W, h);
+  ctx.fillStyle='#B6FF3D'; ctx.fillRect(0, H - h, W*p, h);
+}
+// speaker name lower-third (brief, fades; flips away from the caption zone)
+function drawNameTag(ct){
+  if(ct < 0 || ct > 5.0) return;
+  const nm = ($('#nameName').value || '').trim(); if(!nm) return;
+  const title = ($('#nameTitle').value || '').trim();
+  const a = ct < 0.3 ? ct/0.3 : ct > 4.5 ? Math.max(0, (5.0-ct)/0.5) : 1;
+  const fsN = Math.round(W*0.040), fsT = Math.round(W*0.029);
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = '700 '+fsN+'px Oswald, sans-serif';
+  const nameW = ctx.measureText(nm).width;
+  ctx.font = '400 '+fsT+'px Roboto, sans-serif';
+  const titleW = title ? ctx.measureText(title).width : 0;
+  const boxW = Math.max(nameW, titleW) + W*0.06;
+  const boxH = title ? (fsN + fsT + W*0.035) : (fsN + W*0.028);
+  const bx = W*0.06;
+  const by = (state.capPos==='bottom' ? H*0.66 : H*0.90) - boxH/2;
+  ctx.fillStyle='rgba(10,44,61,0.92)'; roundRect(bx, by, boxW, boxH, 12); ctx.fill();
+  ctx.fillStyle='#9c1c1f'; ctx.fillRect(bx, by, Math.max(5, W*0.012), boxH);
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  const tx = bx + W*0.035;
+  if(title){
+    ctx.fillStyle='#ffffff'; ctx.font='700 '+fsN+'px Oswald, sans-serif'; ctx.fillText(nm, tx, by + boxH*0.36);
+    ctx.fillStyle='#ffb1b1'; ctx.font='400 '+fsT+'px Roboto, sans-serif'; ctx.fillText(title, tx, by + boxH*0.68);
+  } else {
+    ctx.fillStyle='#ffffff'; ctx.font='700 '+fsN+'px Oswald, sans-serif'; ctx.fillText(nm, tx, by + boxH/2);
+  }
+  ctx.restore();
 }
 $('#capBtn').onclick = generateCaptions;
 $('#capColorRow').addEventListener('click', e => {
@@ -943,6 +1025,32 @@ $('#capPosSeg').addEventListener('click', e => {
   state.capPos = b.dataset.p;
   document.querySelectorAll('#capPosSeg button').forEach(x=>x.classList.toggle('on', x===b));
 });
+$('#capSizeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  state.capSize = b.dataset.sz;
+  document.querySelectorAll('#capSizeSeg button').forEach(x=>x.classList.toggle('on', x===b));
+});
+$('#capBgSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  state.capBg = b.dataset.bg;
+  document.querySelectorAll('#capBgSeg button').forEach(x=>x.classList.toggle('on', x===b));
+});
+// .SRT export
+function srtTime(s){
+  s = Math.max(0, s||0);
+  const ms = Math.floor((s % 1) * 1000), tt = Math.floor(s);
+  const hh = Math.floor(tt/3600), mm = Math.floor((tt%3600)/60), ss = tt%60;
+  const p = (n,w)=>String(n).padStart(w,'0');
+  return p(hh,2)+':'+p(mm,2)+':'+p(ss,2)+','+p(ms,3);
+}
+function buildSrt(){
+  return state.lines.map((L,i)=> (i+1)+'\n'+srtTime(L.start)+' --> '+srtTime(Math.max(L.end, L.start+0.4))+'\n'+lineText(L)+'\n').join('\n');
+}
+$('#srtBtn').onclick = () => {
+  if(!state.lines.length) return;
+  const blob = new Blob([buildSrt()], { type:'text/plain;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sme-captions.srt'; a.click();
+};
 
 // ---- caption editor (Canva-style line list) ----
 let lastLiveRow = -1;
