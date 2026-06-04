@@ -29,6 +29,11 @@
       radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
   .wrap{position:relative; z-index:1; max-width:880px; margin:0 auto; padding:34px 22px 60px;}
 
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
   .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);}
   h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(36px,7vw,60px); line-height:1; letter-spacing:-.02em; margin:18px 0 0;}
@@ -88,6 +93,16 @@
 <body>
 <div class="bg"></div>
 <main class="wrap" id="top">
+
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="audit.html">🔍 Audit</a>
+    <a class="tab" href="analytics.html">📊 Analytics</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <span class="tab active">📖 Guide</span>
+  </nav>
 
   <header>
     <span class="badge"><span class="dot"></span> Operator's Guide · for the Social Media Manager</span>
