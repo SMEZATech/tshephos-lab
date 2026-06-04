@@ -538,6 +538,7 @@ function renderPreview(bodyHtml){
         <input type="file" id="imgFile" accept="image/*" hidden />
         <button class="mini" id="imgFileBtn">⬆ Upload</button>
         <button class="btn" id="imgInsert" style="padding:11px 20px; font-size:13.5px;">Insert image</button>
+        <div id="imgStatus" class="kit-status" style="flex-basis:100%; margin-top:4px;"></div>
       </div>
       <p class="editing-hint">✏️ <b>Edit straight in the preview</b> — fix wording, format text, add images. Your changes flow into the exported HTML. The header, footer and promo blocks stay locked to the template.</p>
       <div class="stage">
@@ -626,10 +627,30 @@ function wireEditorToolbar(){
   imgFile.addEventListener('change', e => {
     const f = e.target.files[0]; if(!f) return;
     const rd = new FileReader();
-    rd.onload = () => { document.getElementById('imgUrl').value = rd.result; };
+    rd.onload = () => { document.getElementById('imgUrl').value = rd.result; hostUploadedImage(f, rd.result); };
     rd.readAsDataURL(f);
   });
   document.getElementById('imgInsert').addEventListener('click', insertImage);
+}
+function setImgStatus(msg, kind){ const s=document.getElementById('imgStatus'); if(!s) return; s.innerHTML=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
+// Upload the chosen file to the WordPress media library so it survives in sent emails.
+async function hostUploadedImage(file, dataUrl){
+  setImgStatus('Uploading image to your media library…', 'busy');
+  try{
+    const r = await fetch('/api/upload', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      body: JSON.stringify({ dataBase64: String(dataUrl), filename: file.name, contentType: file.type || 'image/png' })
+    });
+    let data={}; try{ data = await r.json(); }catch(_){}
+    if(r.status===503 && data.error==='NOT_CONFIGURED'){
+      setImgStatus('⚠️ Inserted for preview only — '+(data.message||'set up image hosting')+' (or paste a hosted URL).', 'err'); return;
+    }
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Upload failed.');
+    document.getElementById('imgUrl').value = data.url;   // swap the data-URL for the hosted URL
+    setImgStatus('✅ Hosted on your site — safe to send. Click Insert.', 'ok');
+  }catch(err){
+    setImgStatus('Upload failed ('+esc(err.message)+') — the image will only show in preview unless you paste a hosted URL.', 'err');
+  }
 }
 function insertImage(){
   const url = (document.getElementById('imgUrl').value || '').trim();

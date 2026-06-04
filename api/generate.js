@@ -35,6 +35,12 @@ const SYSTEM_VIDEOCOPY =
   "You base the copy ONLY on the supplied transcript — never invent facts, names, statistics, dates, offers or links. " +
   "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
 
+const SYSTEM_HIGHLIGHTS =
+  "You are a senior short-form video editor who finds the most clip-worthy moments in long talks and webinars for vertical social shorts. " +
+  "You pick self-contained, punchy moments that open on a strong hook and end on a satisfying payoff or punchline. " +
+  "You base everything ONLY on the supplied transcript and timestamps — never invent words, and never return a time outside the transcript. " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
 const PLATFORM_HINT = {
   Meta: "Meta feed (FB/IG): scroll-stopping, conversational, native, emotionally resonant.",
   Google: "Google Search: high-intent, benefit-led, concise; headline reads like the answer.",
@@ -203,6 +209,31 @@ Return ONLY minified JSON with this exact shape:
 {"caption":"2 to 4 short punchy lines of post copy, value-first, using \\n for line breaks, ending with a soft CTA to watch or follow; do NOT put hashtags inside the caption","hashtags":["8 to 12 relevant hashtags, no # symbol and no spaces"],"hooks":["3 alternative on-screen hook lines, each 4 to 8 words, designed to stop the scroll if overlaid on the opening of the video"]}
 
 Platform guidance: ${hint}`;
+}
+
+function buildHighlightsPrompt({ transcript, count, minLen, maxLen, totalDur }) {
+  return `A timestamped transcript of a webinar/talk is below. Timestamps are in SECONDS (start-end).
+
+TRANSCRIPT:
+"""
+${transcript}
+"""
+
+The segment runs from 0 to ${totalDur} seconds.
+
+TASK:
+Find the ${count} most clip-worthy moments to cut as standalone vertical shorts. Each must be self-contained, open on a strong hook and end on a satisfying payoff, punchline or takeaway. Favour bold claims, surprising insights, practical tips, story beats or emotional lines. Aim for clips about ${minLen}-${maxLen} seconds long. Base everything ONLY on the transcript — never invent words.
+
+Return ONLY minified JSON, no markdown, no commentary, exactly this shape:
+{"highlights":[{"start":0,"end":0,"title":"","hook":"","reason":"","score":0}]}
+
+REQUIREMENTS:
+- start, end: numbers in SECONDS taken from the transcript timestamps; ${minLen} <= (end - start) <= ${maxLen}; both within 0..${totalDur}; clips must NOT overlap each other.
+- title: <= 6 words naming the moment.
+- hook: a scroll-stopping on-screen hook line for the clip's opening, 4-8 words, true to the moment.
+- reason: why it will perform as a short, <= 16 words.
+- score: integer 1-100 for how clip-worthy it is — use the FULL range and rank honestly, do not give everything the same score.
+Order by score, highest first. Return at most ${count} (fewer if the transcript is too short to support more).`;
 }
 
 function safeParse(raw) {
@@ -454,6 +485,48 @@ export default async function handler(req, res) {
         return res.status(502).json({ error: "Model returned empty copy — try again." });
       }
       return res.status(200).json({ videocopy });
+    }
+
+    // ---- Auto-highlight: rank the most clip-worthy moments from a timestamped transcript ----
+    if (task === "highlights") {
+      const { transcript, count, minLen, maxLen, totalDur } = body;
+      if (!transcript || !String(transcript).trim()) {
+        return res.status(400).json({ error: "No transcript — generate captions first." });
+      }
+      const n = Math.max(1, Math.min(8, parseInt(count, 10) || 4));
+      const lo = Math.max(5, Math.min(60, parseInt(minLen, 10) || 15));
+      const hi = Math.max(lo + 3, Math.min(120, parseInt(maxLen, 10) || 40));
+      const dur = Math.max(0, Number(totalDur) || 0);
+      const text = await callProvider(
+        buildHighlightsPrompt({ transcript: String(transcript).slice(0, 12000), count: n, minLen: lo, maxLen: hi, totalDur: Math.round(dur) || 0 }),
+        { system: SYSTEM_HIGHLIGHTS, temperature: 0.5, maxTokens: 1600 }
+      );
+      const hp = safeParse(text);
+      const arr = Array.isArray(hp && hp.highlights) ? hp.highlights : [];
+      const num = (v) => { const x = Number(v); return Number.isFinite(x) ? x : null; };
+      const highlights = arr
+        .map((h) => {
+          let s = num(h && h.start), e = num(h && h.end);
+          if (s == null || e == null) return null;
+          s = Math.max(0, s); e = Math.max(s + 1, e);
+          if (dur) { s = Math.min(s, dur); e = Math.min(e, dur); }
+          if (e - s < 1) return null;
+          return {
+            start: Math.round(s * 10) / 10,
+            end: Math.round(e * 10) / 10,
+            title: String((h && h.title) || "").slice(0, 60),
+            hook: String((h && h.hook) || "").slice(0, 90),
+            reason: String((h && h.reason) || "").slice(0, 160),
+            score: clamp100(h && h.score),
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, n);
+      if (!highlights.length) {
+        return res.status(502).json({ error: "Couldn't find clear highlights — try a longer or clearer clip." });
+      }
+      return res.status(200).json({ highlights });
     }
 
     // ---- Ad copy (default) ----

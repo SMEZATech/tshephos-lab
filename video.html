@@ -148,6 +148,16 @@
   .pc-hook{text-align:left; font-family:var(--fb); font-weight:700; font-size:14.5px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:11px; padding:11px 14px; cursor:pointer; transition:all .14s;}
   .pc-hook:hover{border-color:var(--accent); color:var(--accent); transform:translateX(2px);}
 
+  .hl-card{text-align:left; background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; cursor:pointer; transition:border-color .14s, transform .14s; display:flex; gap:13px; align-items:flex-start;}
+  .hl-card:hover{border-color:var(--accent); transform:translateX(2px);}
+  .hl-score{flex-shrink:0; width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:var(--fd); font-weight:800; font-size:15px; color:#0A0B0F;}
+  .hl-main{flex:1; min-width:0;}
+  .hl-title{font-family:var(--fb); font-weight:800; font-size:15px; color:var(--text); margin:0 0 3px;}
+  .hl-meta{font-family:var(--fm); font-size:11px; color:var(--accent); margin-bottom:5px;}
+  .hl-reason{font-size:13px; color:var(--dim); line-height:1.45; margin:0;}
+  .hl-hook{font-size:12.5px; color:var(--info); margin-top:5px;}
+  .hl-go{flex-shrink:0; align-self:center; font-family:var(--fm); font-weight:700; font-size:11px; color:var(--accent); border:1px solid rgba(182,255,61,.4); border-radius:8px; padding:7px 11px; white-space:nowrap;}
+
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
 </style>
@@ -345,6 +355,18 @@
       </div>
     </div>
     <div id="capList"></div>
+  </section>
+
+      <section id="highlights" style="display:none;">
+    <div class="cap-ed-head">
+      <div>
+        <span class="lbl" style="margin:0;">✂️ Best moments</span>
+        <span class="cap-ed-hint">AI scans your transcript for the most clip-worthy moments — tap one to trim straight to it</span>
+      </div>
+      <button class="btn" id="hlBtn" style="width:auto; padding:13px 24px;">✨ Find highlights</button>
+    </div>
+    <div id="hlStatus" class="capstatus"></div>
+    <div id="hlList" style="display:none; margin-top:14px; flex-direction:column; gap:9px;"></div>
   </section>
 
       <section id="postCopy" style="display:none;">
@@ -1006,6 +1028,9 @@ function clearCaptions(){
   $('#capEditor').style.display='none';
   $('#postCopy').style.display='none';
   $('#pcResults').style.display='none';
+  if($('#highlights')) $('#highlights').style.display='none';
+  if($('#hlList')){ $('#hlList').style.display='none'; $('#hlList').innerHTML=''; }
+  hlData = [];
   lastLiveRow = -1;
   const tog=$('#tog-captions'); if(tog) tog.classList.remove('on');
   if($('#capBtn')) $('#capBtn').textContent='✨ Generate captions';
@@ -1082,6 +1107,8 @@ async function generateCaptions(){
     $('#capStyleRow').style.display='block';
     renderCapEditor();
     $('#postCopy').style.display='block';
+    $('#highlights').style.display='block';
+    setHlStatus('');
     $('#capBtn').textContent='↻ Regenerate captions';
     setCapStatus('Captions ready — '+words.length+' words. Hit play to preview.', 'ok');
   }catch(err){
@@ -1371,6 +1398,70 @@ $('#pcResults').addEventListener('click', e => {
   const hk = e.target.closest('.pc-hook');
   if(hk){ const i=parseInt(hk.dataset.hook,10); useAsHook((postCopyData && postCopyData.hooks || [])[i] || ''); }
 });
+
+// ---- auto-highlights: find the best moments from the transcript ----
+let hlData = [];
+function setHlStatus(msg, kind){ const s=$('#hlStatus'); if(!s) return; s.textContent=msg||''; s.className='capstatus'+(kind?' '+kind:''); }
+function transcriptTimed(){
+  return state.lines.map(L => L.start.toFixed(1)+'-'+L.end.toFixed(1)+': '+lineText(L)).join('\n').trim();
+}
+async function generateHighlights(){
+  if(state.busy || !state.lines.length) return;
+  state.busy = true; $('#hlBtn').disabled = true;
+  setHlStatus('Scanning the transcript for the best moments…', 'busy');
+  try{
+    const r = await fetch('/api/generate', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      body: JSON.stringify({ task:'highlights', transcript: transcriptTimed(), totalDur: clipDur(), count:5, minLen:15, maxLen:45 })
+    });
+    let data={}; try{ data=await r.json(); }catch(_){ throw new Error('Could not reach the highlights service.'); }
+    if(r.status===401) throw new Error('Service rejected the app key.');
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Highlight detection failed.');
+    const hs = data.highlights || [];
+    if(!hs.length) throw new Error('No clear highlights found — try a longer clip.');
+    renderHighlights(hs);
+    setHlStatus(hs.length+' moments found — tap one to trim straight to it.', 'ok');
+  }catch(err){ setHlStatus(err.message, 'err'); }
+  finally{ state.busy=false; $('#hlBtn').disabled=false; }
+}
+function renderHighlights(hs){
+  hlData = hs;
+  const list=$('#hlList');
+  list.innerHTML = hs.map((h,i)=>{
+    const col = h.score>=70?'var(--good)':h.score>=45?'var(--mid)':'var(--low)';
+    const range = fmtTime(h.start)+'–'+fmtTime(h.end)+' · '+Math.round(h.end-h.start)+'s';
+    return '<div class="hl-card" data-i="'+i+'">'
+      + '<div class="hl-score" style="background:'+col+'">'+h.score+'</div>'
+      + '<div class="hl-main">'
+        + '<p class="hl-title">'+escAttr(h.title||('Moment '+(i+1)))+'</p>'
+        + '<div class="hl-meta">'+range+'</div>'
+        + (h.reason?'<p class="hl-reason">'+escAttr(h.reason)+'</p>':'')
+        + (h.hook?'<div class="hl-hook">Hook: “'+escAttr(h.hook)+'”</div>':'')
+      + '</div>'
+      + '<span class="hl-go">Trim to this →</span>'
+    + '</div>';
+  }).join('');
+  list.style.display='flex';
+}
+function applyHighlight(i){
+  const h = hlData[i]; if(!h) return;
+  const oldStart = state.trimStart;
+  let ns = oldStart + h.start, ne = oldStart + h.end;
+  ns = Math.max(0, Math.min(ns, state.duration));
+  ne = Math.max(ns + 1, Math.min(ne, state.duration));
+  state.trimStart = ns; state.trimEnd = ne;
+  const ts=$('#trimStart'), te=$('#trimEnd');
+  if(ts) ts.value = ns.toFixed(1);
+  if(te) te.value = ne.toFixed(1);
+  updateTrimRead();
+  // tee up the AI hook for this exact moment
+  if(h.hook){ $('#hookText').value = h.hook; state.hookOn = true; const tg=$('#tog-hook'); if(tg) tg.classList.add('on'); const f=$('#f-hook'); if(f) f.classList.add('show'); }
+  clearCaptions();   // the old captions belonged to the wider clip
+  setStatus('✂️ Trimmed to “'+(h.title||'highlight')+'”. Regenerate captions for this clip, then export.');
+  restart();
+}
+$('#hlBtn').onclick = generateHighlights;
+$('#hlList').addEventListener('click', e => { const c=e.target.closest('.hl-card'); if(c) applyHighlight(parseInt(c.dataset.i,10)); });
 
 // ---- shared Brand Kit wiring ----
 function syncBrandUI(){
