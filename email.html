@@ -574,8 +574,8 @@ async function sendToKit(){
     let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach Kit.'); }
     if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error(data.message || 'Kit isn’t connected yet.');
     if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Kit request failed.');
-    const link = data.publicUrl ? (' — <a href="'+esc(data.publicUrl)+'" target="_blank" rel="noopener" style="color:var(--info);">preview ↗</a>') : '';
-    setKitStatus('✅ Draft created in Kit — open Kit → Broadcasts to set the audience &amp; send.'+link, 'ok');
+    const link = ' — <a href="https://app.kit.com/broadcasts" target="_blank" rel="noopener" style="color:var(--info);">open in Kit ↗</a>';
+    setKitStatus('✅ Draft created in Kit — review the audience &amp; send it from your Kit dashboard.'+link, 'ok');
   }catch(err){ setKitStatus(esc(err.message), 'err'); }
   finally{ if(btn) btn.disabled = false; }
 }
