@@ -102,8 +102,23 @@
   .mini svg{width:13px;height:13px;}
   .frame{width:100%; height:760px; border:1px solid var(--border); border-radius:18px; background:#f0f2f5; box-shadow:0 24px 60px -28px rgba(0,0,0,.8); transition:width .25s ease, border-radius .25s, border-width .25s;}
   .frame.mobile{width:390px; max-width:100%; border-radius:30px; border:8px solid #1a1e28;}
+  .mini.kit{border-color:rgba(182,255,61,.5); color:var(--accent);}
+  .mini.kit:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .kit-status{font-family:var(--fm); font-size:12px; line-height:1.5; margin:12px 0 0; min-height:14px; color:var(--info);}
+  .kit-status.busy{color:var(--mid);} .kit-status.err{color:var(--low);} .kit-status.ok{color:var(--good);}
   .skel{height:760px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
   @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+
+  /* ---- Inline editor toolbar ---- */
+  .etoolbar{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:12px;}
+  .etoolbar .mini{padding:9px 12px; min-width:36px; justify-content:center;}
+  .etoolbar .sep{width:1px; align-self:stretch; background:var(--border-2); margin:2px 4px;}
+  .eimg-panel{display:none; gap:8px; flex-wrap:wrap; align-items:center; margin:0 0 12px; padding:13px 14px; background:#0D0F15; border:1px solid var(--border-2); border-radius:13px;}
+  .eimg-panel.show{display:flex;}
+  .eimg-panel input[type=text]{font-size:13.5px; padding:10px 13px;}
+  .eimg-url{flex:1; min-width:200px;}
+  .editing-hint{font-size:12.5px; color:var(--faint); line-height:1.5; margin-bottom:12px;}
+  .editing-hint b{color:var(--dim);}
 
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
@@ -124,7 +139,7 @@
   <header>
     <span class="badge"><span class="dot"></span> Newsletter Builder</span>
     <h1 class="title">Volt<span class="accent">.</span></h1>
-    <p class="sub">Your header, footer and styling are locked in. Just describe this week's content — paste the links you want used — and Volt builds a Kit-ready HTML email in the SME house style.</p>
+    <p class="sub">Your header, footer and styling are locked in. Just describe this week's content — paste the links you want used — and Volt builds a Kit-ready HTML email in the SME house style. Then fix wording or drop in an image right inside the live preview — no code.</p>
   </header>
 
   <section class="console">
@@ -139,6 +154,17 @@ Keep it warm and practical."></textarea>
       <label class="lbl">Links <span class="opt">— the exact links Volt may use (text + URL). It weaves these into the body.</span></label>
       <div id="links"></div>
       <button type="button" class="addlink" id="addLink">+ Add link</button>
+    </div>
+
+    <div class="row" style="margin-top:22px;">
+      <div class="field">
+        <label class="lbl">Email subject <span class="opt">— used when you send to Kit</span></label>
+        <input id="subject" placeholder="e.g. Networking your way to growth 🤝" />
+      </div>
+      <div class="field">
+        <label class="lbl">Preview text <span class="opt">— the inbox snippet</span></label>
+        <input id="previewText" placeholder="One-line teaser shown next to the subject" />
+      </div>
     </div>
 
     <div class="promos">
@@ -403,6 +429,7 @@ const state = { brief:'', loading:false, body:null, previewMode:'desktop',
 
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
 let lastFragment = '';
+let editableDocRef = null; // the live preview iframe's document, for inline editing
 
 elBrief.addEventListener('input', e => { state.brief = e.target.value; });
 
@@ -460,8 +487,11 @@ function collectPromos(){
   return blocks.join('\n');
 }
 
-function assemble(bodyHtml){
-  return SHELL_TOP + '\n' + bodyHtml + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
+// editable=true wraps the body so it can be edited in the preview iframe.
+// The export copy is always built with editable=false → clean, wrapper-free HTML.
+function assemble(bodyHtml, editable){
+  const body = editable ? '<div class="volt-editable">' + bodyHtml + '</div>' : bodyHtml;
+  return SHELL_TOP + '\n' + body + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
 }
 
 function previewDoc(fragment){
@@ -471,12 +501,13 @@ function previewDoc(fragment){
 }
 
 function renderPreview(bodyHtml){
-  lastFragment = assemble(bodyHtml);
+  state.body = bodyHtml;
+  lastFragment = assemble(state.body, false); // clean export copy
   const isM = state.previewMode === 'mobile';
   elRes.innerHTML = `
     <div class="preview-wrap">
       <div class="pbar">
-        <span class="ptitle">Live preview — exactly what lands in Kit</span>
+        <span class="ptitle">Live preview — click any text to edit it</span>
         <div class="pseg" id="pseg">
           <button data-m="desktop" class="${isM?'':'on'}">🖥 Desktop</button>
           <button data-m="mobile" class="${isM?'on':''}">📱 Mobile</button>
@@ -484,20 +515,143 @@ function renderPreview(bodyHtml){
         <div class="right">
           <button class="mini" id="copyBtn">${ICON.copy} Copy HTML</button>
           <button class="mini" id="dlBtn">${ICON.down} Download .html</button>
+          <button class="mini kit" id="kitBtn" title="Create a draft broadcast in Kit">✉ Send to Kit</button>
         </div>
       </div>
+      <div id="kitStatus" class="kit-status"></div>
+      <div class="etoolbar" id="etoolbar">
+        <button class="mini" data-cmd="bold" title="Bold (Ctrl+B)" onmousedown="event.preventDefault()"><b>B</b></button>
+        <button class="mini" data-cmd="italic" title="Italic (Ctrl+I)" onmousedown="event.preventDefault()"><i>I</i></button>
+        <span class="sep"></span>
+        <button class="mini" data-cmd="formatBlock" data-val="h2" title="Section heading" onmousedown="event.preventDefault()">H2</button>
+        <button class="mini" data-cmd="formatBlock" data-val="p" title="Normal text" onmousedown="event.preventDefault()">¶</button>
+        <span class="sep"></span>
+        <button class="mini" data-cmd="createLink" title="Make selected text a link" onmousedown="event.preventDefault()">🔗 Link</button>
+        <button class="mini" data-cmd="unlink" title="Remove link" onmousedown="event.preventDefault()">⛌ Unlink</button>
+        <button class="mini" id="imgToggle" title="Insert an image" onmousedown="event.preventDefault()">🖼 Image</button>
+        <span class="sep"></span>
+        <button class="mini" id="refreshBtn" title="Re-apply promo blocks / reset layout">↻ Refresh</button>
+      </div>
+      <div class="eimg-panel" id="eimgPanel">
+        <input type="text" id="imgUrl" class="eimg-url" placeholder="Image URL — https://… (a hosted image works best in email)" />
+        <input type="text" id="imgAlt" placeholder="Alt text (optional)" style="max-width:190px;" />
+        <input type="file" id="imgFile" accept="image/*" hidden />
+        <button class="mini" id="imgFileBtn">⬆ Upload</button>
+        <button class="btn" id="imgInsert" style="padding:11px 20px; font-size:13.5px;">Insert image</button>
+      </div>
+      <p class="editing-hint">✏️ <b>Edit straight in the preview</b> — fix wording, format text, add images. Your changes flow into the exported HTML. The header, footer and promo blocks stay locked to the template.</p>
       <div class="stage">
         <iframe class="frame ${isM?'mobile':''}" id="frame" title="Email preview"></iframe>
       </div>
     </div>`;
   const frame = document.getElementById('frame');
-  frame.srcdoc = previewDoc(lastFragment);
+  frame.addEventListener('load', () => wireEditableFrame(frame));
+  frame.srcdoc = previewDoc(assemble(state.body, true));
   document.getElementById('copyBtn').addEventListener('click', copyHtml);
   document.getElementById('dlBtn').addEventListener('click', downloadHtml);
+  const kb = document.getElementById('kitBtn'); if(kb) kb.addEventListener('click', sendToKit);
   document.getElementById('pseg').addEventListener('click', e => {
     const b = e.target.closest('button'); if(!b) return;
     setPreviewMode(b.dataset.m);
   });
+  wireEditorToolbar();
+}
+
+// Create a draft broadcast in Kit from the assembled (edited) HTML.
+function setKitStatus(msg, kind){ const s=document.getElementById('kitStatus'); if(!s) return; s.innerHTML=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
+async function sendToKit(){
+  const btn = document.getElementById('kitBtn');
+  const subject = ($('#subject') ? $('#subject').value : '').trim();
+  const previewText = ($('#previewText') ? $('#previewText').value : '').trim();
+  if(!lastFragment){ setKitStatus('Build the email first.', 'err'); return; }
+  if(!subject){ setKitStatus('Add an email subject (top of the page) before sending to Kit.', 'err'); if($('#subject')) $('#subject').focus(); return; }
+  setKitStatus('Creating a draft in Kit…', 'busy'); if(btn) btn.disabled = true;
+  try{
+    const r = await fetch('/api/kit', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      body: JSON.stringify({ subject, previewText, html: lastFragment })
+    });
+    let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach Kit.'); }
+    if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error(data.message || 'Kit isn’t connected yet.');
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Kit request failed.');
+    const link = data.publicUrl ? (' — <a href="'+esc(data.publicUrl)+'" target="_blank" rel="noopener" style="color:var(--info);">preview ↗</a>') : '';
+    setKitStatus('✅ Draft created in Kit — open Kit → Broadcasts to set the audience &amp; send.'+link, 'ok');
+  }catch(err){ setKitStatus(esc(err.message), 'err'); }
+  finally{ if(btn) btn.disabled = false; }
+}
+
+// Make the body region of the preview iframe editable and keep the export copy in sync.
+function wireEditableFrame(frame){
+  const doc = frame.contentDocument; if(!doc) return;
+  const ed = doc.querySelector('.volt-editable'); if(!ed) return;
+  editableDocRef = doc;
+  ed.setAttribute('contenteditable', 'true');
+  ed.setAttribute('spellcheck', 'true');
+  try{ doc.execCommand('defaultParagraphSeparator', false, 'p'); }catch(e){}
+  const st = doc.createElement('style');
+  st.textContent = '.volt-editable:focus{outline:2px solid rgba(156,28,31,.4); outline-offset:5px; border-radius:6px;}'
+    + '.volt-editable:hover{cursor:text;}';
+  doc.head.appendChild(st);
+  ed.addEventListener('input', syncFromEditable);
+}
+function syncFromEditable(){
+  if(!editableDocRef) return;
+  const ed = editableDocRef.querySelector('.volt-editable'); if(!ed) return;
+  state.body = ed.innerHTML;
+  lastFragment = assemble(state.body, false);
+}
+// Run a rich-text command against the editable iframe document.
+function exec(cmd, val){
+  const doc = editableDocRef; if(!doc) return;
+  try{ doc.defaultView.focus(); }catch(e){}
+  try{ doc.execCommand(cmd, false, val); }catch(e){}
+  syncFromEditable();
+}
+function wireEditorToolbar(){
+  const bar = document.getElementById('etoolbar'); if(!bar) return;
+  bar.addEventListener('click', e => {
+    const b = e.target.closest('button[data-cmd]'); if(!b) return;
+    const cmd = b.dataset.cmd; let val = b.dataset.val || null;
+    if(cmd === 'createLink'){
+      val = (window.prompt('Link URL:', 'https://') || '').trim();
+      if(!val || val === 'https://') return;
+    }
+    exec(cmd, val);
+  });
+  const panel = document.getElementById('eimgPanel');
+  document.getElementById('imgToggle').addEventListener('click', () => panel.classList.toggle('show'));
+  document.getElementById('refreshBtn').addEventListener('click', () => renderPreview(state.body));
+  const imgFile = document.getElementById('imgFile');
+  document.getElementById('imgFileBtn').addEventListener('click', () => imgFile.click());
+  imgFile.addEventListener('change', e => {
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { document.getElementById('imgUrl').value = rd.result; };
+    rd.readAsDataURL(f);
+  });
+  document.getElementById('imgInsert').addEventListener('click', insertImage);
+}
+function insertImage(){
+  const url = (document.getElementById('imgUrl').value || '').trim();
+  if(!url){ showErr('Add an image URL or upload a file first.'); return; }
+  const alt = escAttr((document.getElementById('imgAlt').value || '').trim());
+  const html = '<img src="' + escAttr(url) + '" alt="' + alt + '" class="newsletter-image" />';
+  const doc = editableDocRef;
+  if(doc){
+    const ed = doc.querySelector('.volt-editable');
+    const sel = doc.getSelection();
+    if(sel && sel.rangeCount && ed && ed.contains(sel.anchorNode)){
+      doc.defaultView.focus();
+      doc.execCommand('insertHTML', false, html);
+    } else if(ed){
+      ed.insertAdjacentHTML('beforeend', html);
+    }
+    syncFromEditable();
+  }
+  document.getElementById('imgUrl').value = '';
+  document.getElementById('imgAlt').value = '';
+  document.getElementById('eimgPanel').classList.remove('show');
+  hideErr();
 }
 
 function setPreviewMode(mode){

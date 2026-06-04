@@ -64,6 +64,8 @@
   .seg button{font-family:var(--fm); font-size:12px; font-weight:700; padding:9px 13px; border:1px solid var(--border-2); border-radius:10px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
   .seg button:hover{color:var(--text); border-color:var(--accent);}
   .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .brand-sel{width:100%; font-family:var(--fm); font-size:12.5px; font-weight:700; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:10px; padding:10px 11px; margin-bottom:14px; cursor:pointer; outline:none; transition:border-color .14s;}
+  .brand-sel:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
 
   .trim-read{font-family:var(--fm); font-size:12px; color:var(--text); margin-bottom:10px;}
   .trim-read b{color:var(--accent);}
@@ -95,8 +97,13 @@
   .stage-empty{color:var(--faint); text-align:center; padding:80px 20px;}
   .stage-empty svg{width:34px;height:34px;opacity:.5;}
   .stage-empty p{margin:14px 0 0; font-size:15px;}
-  .timeline{display:flex; align-items:center; gap:12px; margin-top:14px; width:100%; justify-content:center; flex-wrap:wrap;}
+  .timeline{display:flex; flex-direction:column; align-items:center; gap:9px; margin-top:14px; width:100%;}
+  #seekBar{width:100%; align-self:stretch; height:6px; cursor:pointer;}
   .tcode{font-family:var(--fm); font-size:13px; color:var(--accent); font-weight:700; background:rgba(182,255,61,.08); border:1px solid rgba(182,255,61,.2); border-radius:8px; padding:5px 11px;}
+  .stage-controls{display:flex; gap:8px; align-items:stretch; width:100%; margin-top:12px; flex-wrap:wrap;}
+  .stage-controls .mini{flex:0 0 auto;}
+  .cap-custom{position:relative; overflow:hidden; padding:0;}
+  .cap-custom input[type=color]{position:absolute; inset:-4px; width:calc(100% + 8px); height:calc(100% + 8px); opacity:0; cursor:pointer; border:none; padding:0; background:transparent;}
   .status{font-family:var(--fm); font-size:12px; color:var(--info); margin-top:12px; min-height:16px; text-align:center;}
   .status.rec{color:var(--low);}
   .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
@@ -160,7 +167,7 @@
   <header>
     <span class="badge"><span class="dot"></span> Video Styler · V1</span>
     <h1 class="title">Volt<span class="accent">.</span></h1>
-    <p class="sub">Turn a webinar recording into a branded vertical short. Upload, trim to the moment, reframe, apply the SME look, add music and a branded intro/outro — then export. <span style="color:var(--faint)">Auto-captions land in the next update.</span></p>
+    <p class="sub">Turn a webinar recording into a branded vertical short. Upload, trim to the moment, reframe, apply the SME look, add music and a branded intro/outro — then export. <span style="color:var(--faint)">Auto-captions, caption styling and post copy are built in.</span></p>
   </header>
 
   <div class="layout">
@@ -225,6 +232,8 @@
 
       <div class="blk">
         <label class="lbl"><span class="num">6</span>Branding</label>
+        <label class="lbl" style="margin-bottom:7px;">Brand kit <span class="opt">colours, logo &amp; name from Studio</span></label>
+        <select id="brandSel" class="brand-sel" title="Switch brand — synced with Studio"></select>
         <div class="togrow on" id="tog-intro" data-t="intro"><span class="nm">Intro card</span><span class="sw"></span></div>
         <div class="togfields show" id="f-intro">
           <input type="text" id="introTitle" placeholder="Intro title — e.g. How To Scale With Minimal Capital" />
@@ -256,11 +265,17 @@
         <div id="capToggleRow" style="display:none; margin-top:12px;">
           <div class="togrow on" id="tog-captions" data-t="captions" style="margin:0;"><span class="nm">Show captions</span><span class="sw"></span></div>
         </div>
-        <div id="capColorRow" style="display:none; align-items:center; gap:9px; margin-top:12px;">
+        <div id="capColorRow" style="display:none; align-items:center; gap:9px; margin-top:12px; flex-wrap:wrap;">
           <span class="lbl" style="margin:0;">Highlight</span>
           <button class="cap-sw on" data-c="#B6FF3D" style="background:#B6FF3D;" title="Lime"></button>
           <button class="cap-sw" data-c="#FFC857" style="background:#FFC857;" title="Yellow"></button>
           <button class="cap-sw" data-c="#ffffff" style="background:#ffffff;" title="White"></button>
+          <button class="cap-sw" data-c="#9c1c1f" style="background:#9c1c1f;" title="SME Red"></button>
+          <button class="cap-sw" data-c="#0a2c3d" style="background:#0a2c3d;" title="SME Navy"></button>
+          <button class="cap-sw" data-c="#fcf7f8" style="background:#fcf7f8;" title="SME Off-white"></button>
+          <label class="cap-sw cap-custom" id="capCustomWrap" title="Custom colour — pick any" style="background:conic-gradient(from 90deg, #ff5d5d, #ffc857, #B6FF3D, #57e3c0, #7fc8ff, #c08cff, #ff5d5d);">
+            <input type="color" id="capCustom" value="#B6FF3D" />
+          </label>
         </div>
         <div id="capPosRow" style="display:none; margin-top:12px;">
           <span class="lbl">Position</span>
@@ -287,18 +302,6 @@
         </div>
         <p class="note" style="margin-top:8px;">Plays your clip once to read the audio, then transcribes it. Captions burn into the exported video. Needs a Groq key set in Vercel.</p>
       </div>
-
-      <div class="blk">
-        <button class="btn" id="exportBtn" disabled>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-          <span id="exportLbl">Export short (.webm)</span>
-        </button>
-        <div class="ctrls">
-          <button class="mini" id="playBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 6-12 6z"/></svg> Play</button>
-          <button class="mini" id="pauseBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4h3v12H5zM12 4h3v12h-3z"/></svg> Pause</button>
-          <button class="mini" id="resetBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg> Restart</button>
-        </div>
-      </div>
     </section>
 
     <!-- STAGE -->
@@ -311,8 +314,23 @@
         <canvas id="stageCanvas" width="1080" height="1920" style="display:none;"></canvas>
       </div>
       <div class="timeline" id="timeline" style="display:none;">
+        <input type="range" id="seekBar" min="0" max="1000" value="0" step="1" title="Scrub the timeline — drag to rewind or fast-forward" />
         <span class="tcode" id="tcode">0.0s / 0.0s</span>
       </div>
+      <div id="fmtPick" class="seg" style="display:none; justify-content:center; margin-top:12px;" title="Export format">
+        <button data-x="mp4" class="on">🎞 MP4</button>
+        <button data-x="webm">WebM</button>
+      </div>
+      <div class="stage-controls" id="stageControls" style="display:none;">
+        <button class="mini" id="playBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 6-12 6z"/></svg> Play</button>
+        <button class="mini" id="pauseBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4h3v12H5zM12 4h3v12h-3z"/></svg> Pause</button>
+        <button class="mini" id="resetBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg> Restart</button>
+        <button class="btn" id="exportBtn" disabled style="width:auto; flex:1 1 200px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          <span id="exportLbl">Export short (.webm)</span>
+        </button>
+      </div>
+      <p class="note" id="ctrlHint" style="display:none; text-align:center; margin-top:6px;">Spacebar play / pause · ← → arrows jump 2s · drag the bar to scrub.</p>
       <div class="status" id="status"></div>
       <p class="note" style="max-width:560px; text-align:center;">Tip: keep shorts to ~20–45s. Export plays in real time, so a 40s short takes about 40s to record. Output is <b style="color:var(--dim);">.webm</b> for now — mp4 is on the roadmap.</p>
       <section id="capEditor" style="display:none;">
@@ -388,7 +406,30 @@ const videoEl = $('#srcVideo');
 const musicEl = $('#srcMusic');
 
 const APP_KEY='volt_8cdecf560665536ac875f1ce96ff8070817ab582';
-const C_NAVY='#0a2c3d', C_RED='#9c1c1f', C_WHITE='#ffffff', C_REDLT='#ffb1b1';
+const C_WHITE='#ffffff';
+// Brand colours — refreshed from the shared Brand Kit (see refreshBrand). Defaults = SME.
+let C_NAVY='#0a2c3d', C_RED='#9c1c1f', C_REDLT='#ffb1b1';
+
+// ---- Shared Brand Kit (same localStorage store Studio writes to) ----
+const BRANDS_KEY='volt_brands_v1', ACTIVE_BRAND_KEY='volt_active_brand';
+const SME_BRAND={ id:'sme', name:'SME South Africa', primary:'#9c1c1f', secondary:'#0a2c3d', tag:'SME Knowledge HUB', cta:'Read Insight', url:'smesouthafrica.co.za', logo:'' };
+function loadBrands(){ try{ const a=JSON.parse(localStorage.getItem(BRANDS_KEY)||'null'); if(Array.isArray(a)&&a.length) return a; }catch(e){} return [Object.assign({},SME_BRAND)]; }
+function activeBrandId(){ try{ return localStorage.getItem(ACTIVE_BRAND_KEY)||'sme'; }catch(e){ return 'sme'; } }
+function setActiveBrandId(id){ try{ localStorage.setItem(ACTIVE_BRAND_KEY, id); }catch(e){} }
+function activeBrand(){ const a=loadBrands(); return a.find(b=>b.id===activeBrandId())||a[0]||SME_BRAND; }
+// shift a hex toward white (amt>0) or black (amt<0)
+function shade(hex, amt){
+  try{ const n=String(hex).replace('#',''); const f=n.length===3?n.split('').map(c=>c+c).join(''):n;
+    let r=parseInt(f.slice(0,2),16), g=parseInt(f.slice(2,4),16), b=parseInt(f.slice(4,6),16);
+    const mix=x=>Math.max(0,Math.min(255,Math.round(amt>=0 ? x+(255-x)*amt : x*(1+amt))));
+    return '#'+[mix(r),mix(g),mix(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return hex; }
+}
+function hexA(hex, a){
+  try{ const n=String(hex).replace('#',''); const f=n.length===3?n.split('').map(c=>c+c).join(''):n;
+    return 'rgba('+parseInt(f.slice(0,2),16)+','+parseInt(f.slice(2,4),16)+','+parseInt(f.slice(4,6),16)+','+a+')';
+  }catch(e){ return hex; }
+}
 
 const state = {
   loaded:false, format:'9x16', look:'sme',
@@ -398,9 +439,11 @@ const state = {
   words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
   hookOn:false, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
+  brand:null, exportFmt:'mp4',
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
+let brandLogoImg=null, brandLogoSrc='';   // logo from the active brand (fallback when no upload)
 let t=0, lastTime=performance.now(), recStart=0, mainPlaying=false;
 let mediaRecorder=null, chunks=[];
 let audioCtx=null, dest=null, transcribeDest=null, vidSrcNode=null, vidGain=null, musSrcNode=null, musGain=null;
@@ -441,6 +484,10 @@ $('#videoFile').addEventListener('change', e => {
     $('#stageEmpty').style.display='none';
     cv.style.display='block';
     $('#timeline').style.display='flex';
+    $('#stageControls').style.display='flex';
+    if(canMp4()) $('#fmtPick').style.display='flex';
+    $('#exportLbl').textContent = exportLabel();
+    $('#ctrlHint').style.display='block';
     $('#vidInfo').style.display='block';
     $('#vidInfo').textContent = `Loaded — ${fmtTime(state.duration)} long, ${videoEl.videoWidth}×${videoEl.videoHeight}.`;
     updateTrimRead();
@@ -522,6 +569,48 @@ $('#pauseBtn').onclick = () => { state.playing=false; videoEl.pause(); if(!state
 $('#resetBtn').onclick = () => restart();
 function restart(){ t=0; mainPlaying=false; try{ videoEl.pause(); videoEl.currentTime = state.trimStart; }catch(e){} }
 
+// ---- scrubbing / seek (rewind + fast-forward) ----
+const seekBar = $('#seekBar');
+let scrubbing = false;
+// Jump the timeline to a fraction (0..1) of the whole short and re-sync the clip.
+function seekTo(frac){
+  if(!state.loaded || state.recording || state.capturing) return;
+  const tot = totalDur();
+  t = Math.max(0, Math.min(tot, frac * tot));
+  mainPlaying = false; // forces the clip phase to re-seek videoEl on the next frame
+  const iD = introDur(), cD = clipDur(), into = t - iD;
+  try{
+    if(t >= iD && t < iD + cD){ videoEl.currentTime = state.trimStart + Math.max(0, into); }
+    else { videoEl.pause(); }
+  }catch(e){}
+  syncSeekBar();
+}
+function syncSeekBar(){
+  if(scrubbing || !seekBar) return;
+  seekBar.value = Math.round((t / Math.max(0.001, totalDur())) * 1000);
+}
+if(seekBar){
+  const endScrub = () => { scrubbing = false; };
+  seekBar.addEventListener('input', () => { scrubbing = true; seekTo(parseFloat(seekBar.value)/1000); });
+  seekBar.addEventListener('change', endScrub);
+  seekBar.addEventListener('pointerup', endScrub);
+  seekBar.addEventListener('mouseup', endScrub);
+}
+// Keyboard transport — spacebar play/pause, arrows jump 2s. Ignored while typing.
+document.addEventListener('keydown', e => {
+  if(!state.loaded || state.recording) return;
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+  if(e.code === 'Space'){
+    e.preventDefault();
+    if(state.playing){ $('#pauseBtn').onclick(); } else { $('#playBtn').onclick(); }
+  } else if(e.code === 'ArrowLeft'){
+    e.preventDefault(); seekTo((t - 2) / Math.max(0.001, totalDur()));
+  } else if(e.code === 'ArrowRight'){
+    e.preventDefault(); seekTo((t + 2) / Math.max(0.001, totalDur()));
+  }
+});
+
 // ---- audio graph (for export) ----
 function ensureAudio(){
   if(audioCtx) { ensureMusicNode(); return; }
@@ -601,49 +690,125 @@ function wrapText(text, x, y, maxW, lh){
   return yy;
 }
 function drawLogo(cx, topY, maxW){
-  if(!(logoReady && logoImg)) return 0;
-  const ratio = logoImg.naturalHeight / logoImg.naturalWidth || 0.4;
+  const img = (logoReady && logoImg) ? logoImg : brandLogoImg;   // uploaded logo wins, else brand logo
+  if(!img || !img.naturalWidth) return 0;
+  const ratio = img.naturalHeight / img.naturalWidth || 0.4;
   const lw = Math.min(maxW, W*0.42), lh = lw*ratio;
-  ctx.drawImage(logoImg, cx - lw/2, topY, lw, lh);
+  ctx.drawImage(img, cx - lw/2, topY, lw, lh);
   return lh;
 }
+// ---- animation easing helpers (p = 0..1 progress through the card) ----
+function segT(p,a,b){ const x=(p-a)/(b-a); return x<0?0:(x>1?1:x); }   // normalise+clamp a sub-range
+function eoc(x){ x=segT(x,0,1); return 1-Math.pow(1-x,3); }            // easeOutCubic
+function eob(x){ x=segT(x,0,1); const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2); } // easeOutBack (overshoot)
+
+// Branded, animated opening card.
 function drawIntro(p){
-  const a = Math.min(1, p*2.2);
-  ctx.fillStyle = C_NAVY; ctx.fillRect(0,0,W,H);
-  // accent bar
-  ctx.fillStyle = 'rgba(156,28,31,0.9)'; ctx.fillRect(0, H*0.5 - 4, W, 8*a);
-  ctx.globalAlpha = a;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  let logoH = drawLogo(W/2, H*0.5 - H*0.30, W*0.4);
-  const title = $('#introTitle').value.trim() || 'Webinar Highlight';
-  ctx.fillStyle = C_WHITE; ctx.font = '900 '+Math.round(W*0.085)+'px Oswald';
-  wrapText(title.toUpperCase(), W/2, H*0.5 + (logoH? H*0.02 : -H*0.02), W*0.82, W*0.095);
-  ctx.fillStyle = C_REDLT; ctx.font = '700 '+Math.round(W*0.032)+'px Roboto';
-  ctx.fillText('SME SOUTH AFRICA', W/2, H*0.5 + H*0.16);
-  ctx.globalAlpha = 1;
-}
-function drawOutro(p){
-  const a = Math.min(1, p*2.2);
-  ctx.fillStyle = C_NAVY;
-  const grad = ctx.createLinearGradient(0,0,W,H);
-  grad.addColorStop(0,'#0a2c3d'); grad.addColorStop(1,'#061f2b');
-  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
-  ctx.globalAlpha = a;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  let logoH = drawLogo(W/2, H*0.5 - H*0.30, W*0.4);
-  const head = $('#outroHead').value.trim() || 'WATCH THE FULL WEBINAR';
-  const sub = $('#outroSub').value.trim() || '@sme_za';
-  ctx.fillStyle = C_WHITE; ctx.font = '900 '+Math.round(W*0.075)+'px Oswald';
-  const endY = wrapText(head.toUpperCase(), W/2, H*0.5 - H*0.01, W*0.82, W*0.085);
-  // CTA pill
-  const pulse = 1 + Math.sin(p*7)*0.03;
   ctx.save();
-  ctx.translate(W/2, endY + H*0.12); ctx.scale(pulse,pulse);
-  ctx.fillStyle = C_RED; roundRect(-W*0.34, -W*0.075, W*0.68, W*0.15, 14); ctx.fill();
-  ctx.fillStyle = C_WHITE; ctx.font = '700 '+Math.round(W*0.042)+'px Oswald';
-  ctx.fillText(sub, 0, 4);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  // background: brand navy + soft glow
+  ctx.fillStyle=C_NAVY; ctx.fillRect(0,0,W,H);
+  const glow=ctx.createRadialGradient(W*0.5,H*0.30,0,W*0.5,H*0.30,H*0.62);
+  glow.addColorStop(0,hexA(shade(C_NAVY,0.22),0.85)); glow.addColorStop(1,hexA(C_NAVY,0));
+  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
+  // diagonal brand band sliding in from the right
+  const be=eoc(segT(p,0,0.45));
+  ctx.save(); ctx.globalAlpha=0.13*be;
+  ctx.translate(W*(1.18-0.4*be),0); ctx.rotate(-0.20);
+  ctx.fillStyle=C_RED; ctx.fillRect(0,-H*0.3,W*0.40,H*1.7);
+  ctx.fillStyle=C_REDLT; ctx.fillRect(W*0.45,-H*0.3,W*0.045,H*1.7);
   ctx.restore();
-  ctx.globalAlpha = 1;
+  // hairline rules top & bottom
+  const re=eoc(segT(p,0.05,0.5));
+  ctx.fillStyle=hexA('#ffffff',0.12*re);
+  ctx.fillRect(W*0.12, H*0.085, W*0.76*re, 2);
+  ctx.fillRect(W*0.88-W*0.76*re, H*0.915, W*0.76*re, 2);
+  // kicker pill (brand tag)
+  const ke=eoc(segT(p,0.12,0.5)), ky=H*0.155-(1-ke)*H*0.015;
+  const kicker=String((state.brand && (state.brand.tag||state.brand.name)) || 'SME SOUTH AFRICA').toUpperCase();
+  ctx.font='700 '+Math.round(W*0.026)+'px "JetBrains Mono", monospace';
+  const kw=ctx.measureText(kicker).width, kh=W*0.062;
+  ctx.globalAlpha=ke;
+  ctx.fillStyle=C_RED; roundRect(W/2-kw/2-W*0.035, ky-kh/2, kw+W*0.07, kh, kh/2); ctx.fill();
+  ctx.fillStyle='#ffffff'; ctx.fillText(kicker, W/2, ky+1);
+  ctx.globalAlpha=1;
+  // logo (fade in)
+  const le=eoc(segT(p,0.1,0.5));
+  ctx.globalAlpha=le; drawLogo(W/2, H*0.26, W*0.40); ctx.globalAlpha=1;
+  // title (slide up + fade)
+  const te=eoc(segT(p,0.26,0.72));
+  const title=String($('#introTitle').value.trim() || 'Webinar Highlight').toUpperCase();
+  const tfs=Math.round(W*0.088), tlh=tfs*1.08;
+  ctx.save(); ctx.globalAlpha=te; ctx.translate(0,(1-te)*H*0.03);
+  ctx.fillStyle=C_WHITE; ctx.font='900 '+tfs+'px Oswald, sans-serif';
+  const titleEndY=wrapText(title, W/2, H*0.54, W*0.84, tlh);
+  ctx.restore();
+  // accent underline wipe
+  const ue=eoc(segT(p,0.5,0.82));
+  const barY=titleEndY+tfs*0.58, barW=W*0.26*ue, barH=Math.max(6,tfs*0.11);
+  ctx.fillStyle=C_RED; roundRect(W/2-barW/2,barY,barW,barH,barH/2); ctx.fill();
+  // wordmark / url
+  const we=eoc(segT(p,0.58,0.88));
+  const wm=String((state.brand && state.brand.url) || (state.brand && state.brand.name) || 'smesouthafrica.co.za').toUpperCase();
+  ctx.globalAlpha=we; ctx.fillStyle=hexA('#ffffff',0.72);
+  ctx.font='700 '+Math.round(W*0.030)+'px Roboto, sans-serif';
+  ctx.fillText(wm, W/2, barY+tfs*0.95);
+  ctx.restore();
+}
+// Branded, animated closing card with a punchy CTA.
+function drawOutro(p){
+  ctx.save();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  // background gradient + warm brand glow low-centre
+  const grad=ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0, shade(C_NAVY,0.05)); grad.addColorStop(1, shade(C_NAVY,-0.5));
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+  const glow=ctx.createRadialGradient(W*0.5,H*0.6,0,W*0.5,H*0.6,H*0.55);
+  glow.addColorStop(0,hexA(C_RED,0.18)); glow.addColorStop(1,hexA(C_RED,0));
+  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
+  // accent band from the left
+  const be=eoc(segT(p,0,0.45));
+  ctx.save(); ctx.globalAlpha=0.12*be; ctx.translate(-W*(0.18-0.12*be),0); ctx.rotate(0.20);
+  ctx.fillStyle=C_RED; ctx.fillRect(-W*0.2,-H*0.3,W*0.4,H*1.7); ctx.restore();
+  // logo
+  const le=eoc(segT(p,0.05,0.45));
+  ctx.globalAlpha=le; drawLogo(W/2, H*0.18, W*0.36); ctx.globalAlpha=1;
+  // headline
+  const he=eoc(segT(p,0.18,0.6));
+  const head=String($('#outroHead').value.trim() || 'WATCH THE FULL WEBINAR').toUpperCase();
+  ctx.save(); ctx.globalAlpha=he; ctx.translate(0,(1-he)*H*0.025);
+  ctx.fillStyle=C_WHITE; ctx.font='900 '+Math.round(W*0.072)+'px Oswald, sans-serif';
+  const hEnd=wrapText(head, W/2, H*0.42, W*0.84, W*0.078);
+  ctx.restore();
+  // CTA pill — pop in (overshoot) then a gentle pulse
+  const sub=String($('#outroSub').value.trim() || (state.brand && state.brand.url) || '@sme_za');
+  const popped=segT(p,0.4,0.75), pop=eob(popped);
+  const settle=segT(p,0.75,1), pulse=1+Math.sin(p*9)*0.02*settle;
+  const sc=popped<1?pop:pulse, cAlpha=eoc(segT(p,0.4,0.58));
+  const cy=hEnd + H*0.135;
+  ctx.save();
+  ctx.translate(W/2, cy); ctx.scale(sc,sc); ctx.globalAlpha=cAlpha;
+  ctx.font='800 '+Math.round(W*0.044)+'px Oswald, sans-serif';
+  const label=sub.toUpperCase(), tw=ctx.measureText(label).width;
+  const pw=Math.min(W*0.82, tw+W*0.20), ph=W*0.155;
+  ctx.shadowColor=hexA(C_RED,0.5); ctx.shadowBlur=W*0.05; ctx.shadowOffsetY=W*0.012;
+  ctx.fillStyle=C_RED; roundRect(-pw/2,-ph/2,pw,ph,ph/2); ctx.fill();
+  ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+  ctx.fillStyle='#ffffff'; ctx.fillText(label, 0, 2);
+  ctx.restore();
+  // animated swipe-up chevrons to drive engagement
+  const che=segT(p,0.6,1);
+  if(che>0){
+    const t2=(p*1.6)%1;
+    ctx.save(); ctx.strokeStyle='#ffffff'; ctx.lineWidth=Math.max(5,W*0.008); ctx.lineCap='round'; ctx.lineJoin='round';
+    for(let i=0;i<2;i++){
+      const yy=H*0.9 - i*W*0.05 - t2*W*0.03;
+      ctx.globalAlpha=0.5*che*(1-t2)*(1-i*0.4);
+      ctx.beginPath(); ctx.moveTo(W/2-W*0.04, yy+W*0.025); ctx.lineTo(W/2, yy); ctx.lineTo(W/2+W*0.04, yy+W*0.025); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
 }
 function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 // Scroll-stopping hook over the opening of the clip.
@@ -731,6 +896,7 @@ function frame(now){
 
     drawProgress();
     $('#tcode').textContent = t.toFixed(1)+'s / '+totalDur().toFixed(1)+'s';
+    syncSeekBar();
 
     if(state.recording && t >= totalDur()){ stopExport(); }
   }
@@ -785,17 +951,43 @@ function stopExport(){
   if(musicEl.src) musicEl.pause();
 }
 
-function finalizeExport(){
-  const blob = new Blob(chunks, { type:'video/webm' });
+// True when the desktop app is running with its native MP4 bridge available.
+function canMp4(){ return !!(window.voltNative && typeof window.voltNative.toMp4 === 'function'); }
+function exportLabel(){ return (canMp4() && state.exportFmt !== 'webm') ? 'Export short (.mp4)' : 'Export short (.webm)'; }
+function resetAfterExport(){ t = 0; mainPlaying = false; state.playing = true; try{ videoEl.currentTime = state.trimStart; }catch(e){} }
+function downloadWebm(blob){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'sme-short-'+state.format+'.webm';
   a.click();
+}
+function finalizeExport(){
+  const blob = new Blob(chunks, { type:'video/webm' });
+  // Desktop + MP4 selected → convert locally via bundled ffmpeg. Otherwise download WebM (web path).
+  if(canMp4() && state.exportFmt !== 'webm'){ exportToMp4(blob); return; }
+  downloadWebm(blob);
   $('#exportBtn').disabled = false;
-  $('#exportLbl').textContent = 'Export short (.webm)';
+  $('#exportLbl').textContent = exportLabel();
   setStatus('✅ Exported — check your downloads.');
-  t = 0; mainPlaying = false; state.playing = true;
-  try{ videoEl.currentTime = state.trimStart; }catch(e){}
+  resetAfterExport();
+}
+async function exportToMp4(blob){
+  $('#exportLbl').innerHTML = '<span class="spinner"></span> Converting to MP4…';
+  setStatus('Converting to MP4 — this runs locally, a few seconds…', true);
+  try{
+    const buf = await blob.arrayBuffer();
+    const res = await window.voltNative.toMp4(buf, 'sme-short-'+state.format+'.mp4');
+    if(res && res.ok){ setStatus('✅ Saved MP4 — '+res.path); }
+    else if(res && res.canceled){ setStatus('Export canceled.'); }
+    else { throw new Error((res && res.error) || 'Conversion failed.'); }
+  }catch(err){
+    setStatus('MP4 conversion failed ('+err.message+') — saving WebM instead.', true);
+    downloadWebm(blob);
+  }finally{
+    $('#exportBtn').disabled = false;
+    $('#exportLbl').textContent = exportLabel();
+    resetAfterExport();
+  }
 }
 
 function setStatus(msg, rec){ const s=$('#status'); s.textContent=msg; s.classList.toggle('rec', !!rec); }
@@ -1002,13 +1194,13 @@ function drawNameTag(ct){
   const boxH = title ? (fsN + fsT + W*0.035) : (fsN + W*0.028);
   const bx = W*0.06;
   const by = (state.capPos==='bottom' ? H*0.66 : H*0.90) - boxH/2;
-  ctx.fillStyle='rgba(10,44,61,0.92)'; roundRect(bx, by, boxW, boxH, 12); ctx.fill();
-  ctx.fillStyle='#9c1c1f'; ctx.fillRect(bx, by, Math.max(5, W*0.012), boxH);
+  ctx.fillStyle=hexA(C_NAVY,0.92); roundRect(bx, by, boxW, boxH, 12); ctx.fill();
+  ctx.fillStyle=C_RED; ctx.fillRect(bx, by, Math.max(5, W*0.012), boxH);
   ctx.textAlign='left'; ctx.textBaseline='middle';
   const tx = bx + W*0.035;
   if(title){
     ctx.fillStyle='#ffffff'; ctx.font='700 '+fsN+'px Oswald, sans-serif'; ctx.fillText(nm, tx, by + boxH*0.36);
-    ctx.fillStyle='#ffb1b1'; ctx.font='400 '+fsT+'px Roboto, sans-serif'; ctx.fillText(title, tx, by + boxH*0.68);
+    ctx.fillStyle=C_REDLT; ctx.font='400 '+fsT+'px Roboto, sans-serif'; ctx.fillText(title, tx, by + boxH*0.68);
   } else {
     ctx.fillStyle='#ffffff'; ctx.font='700 '+fsN+'px Oswald, sans-serif'; ctx.fillText(nm, tx, by + boxH/2);
   }
@@ -1016,9 +1208,15 @@ function drawNameTag(ct){
 }
 $('#capBtn').onclick = generateCaptions;
 $('#capColorRow').addEventListener('click', e => {
-  const b = e.target.closest('.cap-sw'); if(!b) return;
+  const b = e.target.closest('.cap-sw'); if(!b || !b.dataset.c) return; // skip the custom picker
   state.capColor = b.dataset.c;
   document.querySelectorAll('.cap-sw').forEach(s=>s.classList.toggle('on', s===b));
+});
+$('#capCustom').addEventListener('input', e => {
+  state.capColor = e.target.value;
+  const wrap = $('#capCustomWrap');
+  wrap.style.background = e.target.value;
+  document.querySelectorAll('.cap-sw').forEach(s=>s.classList.toggle('on', s===wrap));
 });
 $('#capPosSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
@@ -1174,7 +1372,38 @@ $('#pcResults').addEventListener('click', e => {
   if(hk){ const i=parseInt(hk.dataset.hook,10); useAsHook((postCopyData && postCopyData.hooks || [])[i] || ''); }
 });
 
+// ---- shared Brand Kit wiring ----
+function syncBrandUI(){
+  const sel=$('#brandSel'); if(!sel) return;
+  const brands=loadBrands(), id=activeBrandId();
+  sel.innerHTML='';
+  brands.forEach(b=>{ const o=document.createElement('option'); o.value=b.id; o.textContent=b.name||'Brand'; if(b.id===id) o.selected=true; sel.appendChild(o); });
+  // freshen the default placeholders so they reflect the brand
+  const os=$('#outroSub'); if(os && state.brand) os.placeholder='Outro sub-line — e.g. '+(state.brand.url||'@sme_za');
+}
+function refreshBrand(){
+  const b=activeBrand(); state.brand=b;
+  C_RED=b.primary||'#9c1c1f'; C_NAVY=b.secondary||'#0a2c3d'; C_REDLT=shade(C_RED,0.62);
+  if(b.logo && b.logo!==brandLogoSrc){
+    brandLogoSrc=b.logo; const im=new Image();
+    im.onload=()=>{ brandLogoImg=im; }; im.onerror=()=>{ brandLogoImg=null; }; im.src=b.logo;
+  } else if(!b.logo){ brandLogoImg=null; brandLogoSrc=''; }
+  syncBrandUI();
+}
+{ const sel=$('#brandSel'); if(sel) sel.addEventListener('change', ()=>{ setActiveBrandId(sel.value); refreshBrand(); restart(); }); }
+// export format toggle (desktop only — MP4 needs the native bridge)
+$('#fmtPick').addEventListener('click', e => {
+  const b=e.target.closest('button'); if(!b) return;
+  state.exportFmt=b.dataset.x;
+  document.querySelectorAll('#fmtPick button').forEach(x=>x.classList.toggle('on', x===b));
+  $('#exportLbl').textContent = exportLabel();
+});
+// pick up brand changes made in another tab (e.g. Studio) live, or when returning to this tab
+window.addEventListener('storage', e=>{ if(e.key===BRANDS_KEY || e.key===ACTIVE_BRAND_KEY) refreshBrand(); });
+window.addEventListener('focus', refreshBrand);
+
 // init
+refreshBrand();
 setFormat('9x16');
 </script>
 </body>
