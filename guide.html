@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<!-- Volt — Operator's Guide. © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — How-To Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
+    --accent:#B6FF3D; --accent-press:#a3ec2b;
+    --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui,sans-serif;
+    --fb:'Plus Jakarta Sans',system-ui,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--fb); color:var(--text); background:var(--bg); -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden; line-height:1.6;}
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
+      radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
+      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+  .wrap{position:relative; z-index:1; max-width:880px; margin:0 auto; padding:34px 22px 60px;}
+
+  .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);}
+  h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(36px,7vw,60px); line-height:1; letter-spacing:-.02em; margin:18px 0 0;}
+  h1.title .accent{color:var(--accent);}
+  .sub{color:var(--dim); font-size:17px; max-width:640px; margin:14px 0 0;}
+
+  h2{font-family:var(--fd); font-weight:700; font-size:25px; letter-spacing:-.01em; margin:46px 0 4px; scroll-margin-top:20px; display:flex; align-items:center; gap:11px;}
+  h2 .ic{font-size:26px;}
+  h3{font-family:var(--fb); font-weight:800; font-size:18px; margin:26px 0 8px; color:var(--text);}
+  p{margin:10px 0;}
+  a{color:var(--accent); text-decoration:none; border-bottom:1px solid rgba(182,255,61,.3);}
+
+  .lead{color:var(--dim); font-size:15.5px; margin:6px 0 4px; max-width:680px;}
+  .card{background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:20px; padding:24px 26px; margin-top:16px; box-shadow:0 24px 60px -34px rgba(0,0,0,.8);}
+
+  /* contents */
+  .toc{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-top:22px;}
+  .toc a{display:flex; align-items:center; gap:10px; font-family:var(--fm); font-size:12.5px; font-weight:700; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:12px 14px; text-decoration:none; transition:all .14s;}
+  .toc a:hover{border-color:var(--accent); color:var(--accent); transform:translateY(-1px);}
+  .toc a .e{font-size:17px;}
+
+  /* numbered steps */
+  ol.steps{list-style:none; counter-reset:s; padding:0; margin:14px 0;}
+  ol.steps>li{counter-increment:s; position:relative; padding:4px 0 16px 50px; margin:0;}
+  ol.steps>li::before{content:counter(s); position:absolute; left:0; top:0; width:32px; height:32px; border-radius:50%; background:var(--accent); color:#0A0B0F; font-family:var(--fd); font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center;}
+  ol.steps>li:not(:last-child)::after{content:''; position:absolute; left:15px; top:34px; bottom:2px; width:2px; background:var(--border-2);}
+  ol.steps>li b{color:var(--text);}
+  ul.plain{margin:8px 0; padding-left:20px;} ul.plain li{margin:5px 0; color:var(--dim);} ul.plain li b{color:var(--text);}
+
+  /* chips that represent buttons/labels in the app */
+  .chip{display:inline-block; font-family:var(--fm); font-size:12px; font-weight:700; padding:3px 9px; border-radius:8px; border:1px solid var(--border-2); background:#0D0F15; color:var(--text); white-space:nowrap;}
+  .chip.lime{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .chip.tab{border-color:var(--border-2); color:var(--dim);}
+
+  /* callouts */
+  .call{border-radius:14px; padding:14px 16px 14px 16px; margin:16px 0; font-size:14.5px; border:1px solid; display:flex; gap:11px; align-items:flex-start;}
+  .call .k{font-size:18px; line-height:1.3;}
+  .call.tip{background:rgba(182,255,61,.07); border-color:rgba(182,255,61,.35); color:#e8ffd0;}
+  .call.info{background:rgba(127,200,255,.07); border-color:rgba(127,200,255,.35); color:#d6efff;}
+  .call.warn{background:rgba(255,124,124,.08); border-color:rgba(255,124,124,.35); color:#ffd7d7;}
+  .call b{color:#fff;}
+
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:14px;}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--border);}
+  th{font-family:var(--fm); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim);}
+  td b{color:var(--text);}
+
+  .kbd{font-family:var(--fm); font-size:12px; font-weight:700; background:#0D0F15; border:1px solid var(--border-2); border-bottom-width:2px; border-radius:7px; padding:3px 8px; color:var(--text);}
+
+  hr{border:0; border-top:1px solid var(--border); margin:8px 0;}
+  footer{margin-top:54px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
+  footer span{color:var(--dim);}
+  .backtop{display:inline-block; margin-top:10px; font-family:var(--fm); font-size:11px; color:var(--faint); border-bottom:none;}
+  @media print{ .bg{display:none;} body{background:#fff; color:#111;} .card{box-shadow:none;} }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<main class="wrap" id="top">
+
+  <header>
+    <span class="badge"><span class="dot"></span> Operator's Guide · for the Social Media Manager</span>
+    <h1 class="title">Volt<span class="accent">.</span> — how to use it</h1>
+    <p class="sub">Volt is SME South Africa's in-house marketing studio. Six tools, one place: write ad copy, design graphics, audit profiles, read analytics, build the newsletter, and turn webinars into branded shorts. This guide walks through each, start to finish.</p>
+  </header>
+
+  <div class="toc">
+    <a href="#start"><span class="e">🚀</span> Getting started</a>
+    <a href="#copy"><span class="e">✍️</span> Copy Lab</a>
+    <a href="#studio"><span class="e">🎨</span> Studio + Brand Kit</a>
+    <a href="#audit"><span class="e">🔍</span> Audit</a>
+    <a href="#analytics"><span class="e">📊</span> Analytics</a>
+    <a href="#email"><span class="e">✉️</span> Email</a>
+    <a href="#video"><span class="e">🎬</span> Video</a>
+    <a href="#ref"><span class="e">⌨️</span> Shortcuts &amp; export</a>
+    <a href="#trouble"><span class="e">🛟</span> Troubleshooting</a>
+  </div>
+
+  <!-- ============ GETTING STARTED ============ -->
+  <h2 id="start"><span class="ic">🚀</span> Getting started</h2>
+  <p class="lead">There are two ways to run Volt — they look identical and share the same engine.</p>
+  <div class="card">
+    <h3>Web app (easiest)</h3>
+    <ul class="plain">
+      <li>Open <a href="https://tshephos-lab.vercel.app">tshephos-lab.vercel.app</a> in your browser.</li>
+      <li>Nothing to install, nothing to sign into. Bookmark it.</li>
+    </ul>
+    <h3>Desktop app (Windows)</h3>
+    <ol class="steps">
+      <li>Open the <b>Volt</b> app.</li>
+      <li><b>Sign in</b> with your <span class="chip">@smesouthafrica.co.za</span> work email.</li>
+      <li>Click <span class="chip">⚙</span> (top-right) and paste the <b>API keys</b> you were given. These power the AI tools.</li>
+    </ol>
+    <div class="call info"><span class="k">ℹ️</span><div>The keys live only on your machine. <b>Studio</b> needs no key; the other tools each need their matching one (you'll be told which if it's missing).</div></div>
+    <h3>The six tools</h3>
+    <p>Every page has the same top bar — click a tab to switch:</p>
+    <p style="line-height:2.4;">
+      <span class="chip tab">✍️ Copy</span> &nbsp;
+      <span class="chip tab">🎨 Studio</span> &nbsp;
+      <span class="chip tab">🔍 Audit</span> &nbsp;
+      <span class="chip tab">📊 Analytics</span> &nbsp;
+      <span class="chip tab">✉️ Email</span> &nbsp;
+      <span class="chip tab">🎬 Video</span>
+    </p>
+  </div>
+
+  <!-- ============ COPY ============ -->
+  <h2 id="copy"><span class="ic">✍️</span> Copy Lab — ad copy that's ranked for you</h2>
+  <p class="lead">Generates multiple ad-copy angles for one offer, each scored so you can pick the strongest.</p>
+  <div class="card">
+    <ol class="steps">
+      <li>Type the <b>offer / product</b> you're promoting.</li>
+      <li>Describe the <b>audience</b> (who it's for).</li>
+      <li>Pick the <b>platform</b> and <b>tone</b>, and how many <b>variations</b> you want.</li>
+      <li>Hit <span class="chip lime">Generate</span>.</li>
+      <li>Read the results — each angle shows <b>hook / clarity / urgency scores</b>, a headline, body, CTA and hashtags. Copy the one you like.</li>
+    </ol>
+    <div class="call tip"><span class="k">💡</span><div><b>Tip:</b> the scores are a tough media-buyer's grade — use them to compare angles, not as a pass/fail. Mix a high-hook angle with a high-clarity one when testing.</div></div>
+  </div>
+
+  <!-- ============ STUDIO ============ -->
+  <h2 id="studio"><span class="ic">🎨</span> Studio — graphics &amp; the Brand Kit</h2>
+  <p class="lead">A built-in canvas for social graphics. It also holds the <b>Brand Kit</b> — the single source of truth for your colours, logo and name that the Video tool now reads automatically.</p>
+  <div class="card">
+    <h3>Set up your brand once</h3>
+    <ol class="steps">
+      <li>Open <span class="chip tab">🎨 Studio</span> → find the <b>Brand Kit</b>.</li>
+      <li>SME South Africa is the default (red <span class="chip">#9c1c1f</span>, navy <span class="chip">#0a2c3d</span>). To add another brand, choose <b>➕ New brand…</b>, set its colours, logo, name and website, and save.</li>
+      <li>The <b>active brand</b> is what other tools use.</li>
+    </ol>
+    <div class="call info"><span class="k">🔗</span><div><b>Why it matters:</b> whatever brand is active in Studio is the brand the <b>Video</b> tool uses for intro/outro colours, the logo and the wordmark — so everything stays on-brand without re-typing.</div></div>
+  </div>
+
+  <!-- ============ AUDIT ============ -->
+  <h2 id="audit"><span class="ic">🔍</span> Audit — score a profile</h2>
+  <p class="lead">Paste a profile and get an honest, scored breakdown with concrete fixes.</p>
+  <div class="card">
+    <ol class="steps">
+      <li>Choose the <b>platform</b> and paste the <b>handle</b>, <b>bio/about</b> and a few <b>recent captions</b>.</li>
+      <li>State the <b>goal</b> (e.g. grow followers, drive link clicks).</li>
+      <li>Generate. You get an <b>overall score</b>, scored <b>dimensions</b>, plus <b>wins, risks, opportunities, prioritised actions</b>, a ready-to-paste <b>bio rewrite</b> and caption ideas.</li>
+    </ol>
+    <div class="call tip"><span class="k">💡</span><div>The more you paste in (real bio + several captions), the sharper the audit. It never invents facts — gaps you leave blank become findings.</div></div>
+  </div>
+
+  <!-- ============ ANALYTICS ============ -->
+  <h2 id="analytics"><span class="ic">📊</span> Analytics — read your numbers</h2>
+  <p class="lead">Turn raw metrics into a decision-ready read. Two ways to use it.</p>
+  <div class="card">
+    <h3>Manual</h3>
+    <ul class="plain">
+      <li>Type in your metrics for the period and the goal → get a scored analysis with benchmarks, wins, risks and actions.</li>
+    </ul>
+    <h3>Live (Postiz)</h3>
+    <ul class="plain">
+      <li>If a Postiz key is connected, pull your <b>channels</b>, view <b>7 / 30 / 90-day</b> stats, and open <b>Top Posts</b> for an AI playbook of what to repeat.</li>
+    </ul>
+  </div>
+
+  <!-- ============ EMAIL ============ -->
+  <h2 id="email"><span class="ic">✉️</span> Email — build the newsletter</h2>
+  <p class="lead">Describe the week's content, and Volt builds a Kit-ready newsletter in the fixed SME house style. You can then edit it right in the preview and push it to Kit.</p>
+  <div class="card">
+    <h3>Build it</h3>
+    <ol class="steps">
+      <li>In the big box, <b>describe this week's content</b> — the theme and the sections you want.</li>
+      <li>Add the exact <b>links</b> Volt may use (text + URL). It only uses these and never invents a URL.</li>
+      <li>Fill the <b>Email subject</b> and <b>Preview text</b> (used when you send to Kit).</li>
+      <li>Toggle any <b>promo blocks</b> you need — webinar banner, free resource, sponsored mention, weekly action — and fill their details.</li>
+      <li>Hit <span class="chip lime">Build email</span>. The live preview appears on the right.</li>
+    </ol>
+    <h3>Edit it — right in the preview</h3>
+    <ul class="plain">
+      <li><b>Click any body text and type</b> to fix wording — no code, no templates. The header, footer and promo blocks stay locked.</li>
+      <li>Use the toolbar for <span class="chip">B</span> bold, <span class="chip">I</span> italic, <span class="chip">H2</span> heading, <span class="chip">🔗 Link</span>, and <span class="chip">🖼 Image</span>.</li>
+      <li><b>Add an image:</b> click <span class="chip">🖼 Image</span> → paste a hosted image URL (or upload a file if image hosting is set up) → <b>Insert</b>.</li>
+      <li><span class="chip">↻ Refresh</span> re-applies promo blocks after you change them.</li>
+    </ul>
+    <h3>Send it</h3>
+    <ul class="plain">
+      <li><span class="chip">✉ Send to Kit</span> creates a <b>draft broadcast</b> in Kit. It does <b>not</b> send — you set the audience and hit send inside Kit.</li>
+      <li>Prefer the old way? <span class="chip">Copy HTML</span> or <span class="chip">Download .html</span> still work.</li>
+    </ul>
+    <div class="call warn"><span class="k">⚠️</span><div><b>Images in sent emails:</b> always use a <b>hosted</b> image URL. A file you "upload" only shows in preview unless image hosting is switched on — Gmail/Outlook strip embedded images otherwise.</div></div>
+  </div>
+
+  <!-- ============ VIDEO ============ -->
+  <h2 id="video"><span class="ic">🎬</span> Video — webinar → branded short</h2>
+  <p class="lead">The deepest tool. Upload a recording, cut the moment, brand it, caption it, and export. Controls sit right under the video — no scrolling.</p>
+
+  <div class="card">
+    <h3>The full workflow</h3>
+    <ol class="steps">
+      <li><b>Upload</b> your webinar clip (step 1 on the left).</li>
+      <li><b>Trim</b> to the moment with the Start / End sliders (step 2).</li>
+      <li><b>Format &amp; framing</b> (step 3): pick <span class="chip">📱 9:16</span>, <span class="chip">1:1</span> or <span class="chip">16:9</span>. Use <b>Crop</b> + a focus side to keep an off-centre speaker, or <b>Blur fill</b> to show the whole frame.</li>
+      <li><b>Look</b> (step 4): SME / Clean / Bold colour grade.</li>
+      <li><b>Music</b> (step 5, optional): add a track; the speaker's voice always stays on top.</li>
+      <li><b>Branding</b> (step 6): pick the <b>Brand kit</b> (pulls colours, logo &amp; name from Studio), then toggle <b>Intro card</b>, <b>Outro card</b>, <b>Hook overlay</b> (first 2.5s), <b>Progress bar</b> and <b>Speaker name</b>. Upload a logo if you want to override the brand one.</li>
+      <li><b>Auto-captions</b> (step 7): click <span class="chip lime">✨ Generate captions</span>. It plays the clip once to read the audio, then writes karaoke captions. Then style them — <b>Highlight colour</b> (incl. the custom picker), <b>Position</b>, <b>Size</b>, <b>Background</b>, <b>ALL CAPS</b>.</li>
+      <li><b>Export</b> (under the video): choose <span class="chip">🎞 MP4</span> (desktop) or WebM (web), then hit <span class="chip lime">Export short</span>.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h3>Playback controls (under the video)</h3>
+    <ul class="plain">
+      <li><span class="chip">▶ Play</span> <span class="chip">⏸ Pause</span> <span class="chip">↻ Restart</span> sit right below the screen with <span class="chip lime">Export</span>.</li>
+      <li><b>Scrubber bar:</b> drag it to rewind / fast-forward. Or use the keyboard: <span class="kbd">Space</span> play/pause, <span class="kbd">←</span> <span class="kbd">→</span> jump 2 seconds.</li>
+    </ul>
+
+    <h3>✂️ Best moments (auto-highlights)</h3>
+    <p>After captions are generated, a <b>Best moments</b> section appears.</p>
+    <ol class="steps">
+      <li>Click <span class="chip lime">✨ Find highlights</span> — the AI reads the transcript and ranks the most clip-worthy moments.</li>
+      <li>Each result shows a <b>score</b>, a <b>time range</b>, a one-line reason and a suggested <b>hook</b>.</li>
+      <li>Tap a card → Volt <b>trims straight to that moment</b> and pre-fills its hook. Regenerate captions on the tight clip, then export.</li>
+    </ol>
+
+    <h3>📝 Post copy &amp; hooks</h3>
+    <ul class="plain">
+      <li>Pick a platform and hit <b>Generate post copy</b> — you get a caption, hashtags and 3 hook ideas written from the transcript.</li>
+      <li>Tap a hook to drop it onto the video as the on-screen hook overlay.</li>
+      <li>Need subtitles as a file? <span class="chip">⬇ .SRT</span> downloads them.</li>
+    </ul>
+    <div class="call info"><span class="k">🎞️</span><div><b>MP4 vs WebM:</b> the desktop app exports true <b>.mp4</b>. The web app exports <b>.webm</b> (still plays everywhere, but if a platform refuses it, use the desktop app). Export records in real time — a 40-second short takes about 40 seconds.</div></div>
+    <div class="call tip"><span class="k">💡</span><div><b>Recommended recipe:</b> 9:16 · 20–45s · Crop with focus on the speaker · SME look · Intro + Outro on · Hook overlay on · captions on (bottom, Bar background). That's the SME shorts house style.</div></div>
+  </div>
+
+  <!-- ============ REFERENCE ============ -->
+  <h2 id="ref"><span class="ic">⌨️</span> Shortcuts &amp; export reference</h2>
+  <div class="card">
+    <h3>Video keyboard</h3>
+    <table>
+      <tr><th>Key</th><th>Does</th></tr>
+      <tr><td><span class="kbd">Space</span></td><td>Play / pause the preview</td></tr>
+      <tr><td><span class="kbd">←</span> / <span class="kbd">→</span></td><td>Rewind / fast-forward 2 seconds</td></tr>
+      <tr><td>Drag the bar</td><td>Scrub anywhere in the timeline</td></tr>
+    </table>
+    <h3>What each tool gives you</h3>
+    <table>
+      <tr><th>Tool</th><th>Output</th></tr>
+      <tr><td><b>Copy</b></td><td>Ranked ad angles (headline, body, CTA, hashtags)</td></tr>
+      <tr><td><b>Studio</b></td><td>Social graphics (downloaded image)</td></tr>
+      <tr><td><b>Audit</b></td><td>Scored profile report + bio rewrite</td></tr>
+      <tr><td><b>Analytics</b></td><td>Benchmarked read + action list</td></tr>
+      <tr><td><b>Email</b></td><td>Kit-ready HTML (copy, download, or push to Kit)</td></tr>
+      <tr><td><b>Video</b></td><td>Branded short (.mp4 desktop / .webm web) + .SRT</td></tr>
+    </table>
+  </div>
+
+  <!-- ============ TROUBLESHOOTING ============ -->
+  <h2 id="trouble"><span class="ic">🛟</span> Troubleshooting</h2>
+  <div class="card">
+    <table>
+      <tr><th>You see…</th><th>Do this</th></tr>
+      <tr><td>"<b>… API key required</b>" (desktop)</td><td>Click <span class="chip">⚙</span> → paste the matching key. Copy/Audit/Analytics/Email need Gemini; captions need Groq.</td></tr>
+      <tr><td>Captions won't generate</td><td>The clip needs sound, and a Groq key must be connected. It plays the clip once to read audio — let it finish.</td></tr>
+      <tr><td>Can't export MP4</td><td>MP4 is <b>desktop only</b>. On the web app, export is WebM. (If desktop MP4 errors, it saves WebM as a fallback.)</td></tr>
+      <tr><td>Email image missing when sent</td><td>Use a <b>hosted</b> image URL — uploaded files only show in preview unless image hosting is set up.</td></tr>
+      <tr><td>"Send to Kit" says not connected</td><td>A Kit API key is needed (web: in Vercel; desktop: ⚙ Settings).</td></tr>
+      <tr><td>New change not showing (web)</td><td>Hard-refresh the page (Ctrl+F5).</td></tr>
+    </table>
+    <div class="call info"><span class="k">🆘</span><div>Anything stuck or confusing? Note exactly what you clicked and the message you saw, and send it to Tshepho — that's all that's needed to fix it fast.</div></div>
+  </div>
+
+  <p style="text-align:center; margin-top:30px;"><a class="backtop" href="#top">↑ back to top</a></p>
+  <footer>© 2026 <span>SME South Africa</span> · Volt Operator's Guide · Built by Tshepho Joel</footer>
+</main>
+</body>
+</html>
