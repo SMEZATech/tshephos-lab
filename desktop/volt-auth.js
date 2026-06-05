@@ -116,7 +116,11 @@
     '#va-badge .who{font-size:12.5px;font-weight:700;color:#ECEEF3;}' +
     '#va-gear{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#0D0F15;color:#B6FF3D;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .14s;}' +
     '#va-gear:hover{background:#B6FF3D;color:#0A0B0F;}' +
-    '.va-saved{color:#57E39A;font-size:12.5px;margin-top:10px;min-height:14px;text-align:center;}';
+    '.va-saved{color:#57E39A;font-size:12.5px;margin-top:10px;min-height:14px;text-align:center;}' +
+    '#va-refresh{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#0D0F15;color:#B6FF3D;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;margin-right:2px;}' +
+    '#va-refresh:hover{background:#B6FF3D;color:#0A0B0F;transform:rotate(90deg);}' +
+    '#va-toast{position:fixed;top:58px;right:16px;z-index:99999;background:#14171F;border:1px solid rgba(182,255,61,.4);color:#ECEEF3;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;}' +
+    '#va-toast.show{opacity:1;transform:none;}';
 
   function injectCSS() {
     if (document.getElementById("va-style")) return;
@@ -206,9 +210,13 @@
     var s = ses() || {};
     var b = document.createElement("div");
     b.id = "va-badge";
-    b.innerHTML = '<span class="who">' + esc(firstName(s.email)) + '</span><button id="va-gear" title="Settings">\u2699</button>';
+    b.innerHTML = '<span class="who">' + esc(firstName(s.email)) + '</span><button id="va-refresh" title="Check for updates">\u21bb</button><button id="va-gear" title="Settings">\u2699</button>';
     document.body.appendChild(b);
     document.getElementById("va-gear").addEventListener("click", showSettings);
+    document.getElementById("va-refresh").addEventListener("click", function () {
+      try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {}
+      location.reload();
+    });
   }
 
   /* ---------- settings modal ---------- */
@@ -242,10 +250,22 @@
   }
 
   /* ---------- init ---------- */
+  function showToast(msg) {
+    injectCSS();
+    var old = document.getElementById("va-toast"); if (old) old.parentNode.removeChild(old);
+    var t = document.createElement("div"); t.id = "va-toast"; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.classList.add("show"); }, 30);
+    setTimeout(function () { t.classList.remove("show"); }, 2600);
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 3000);
+  }
   function init() {
     var s = ses();
-    if (s && validEmail(s.email)) showBadge();
-    else showGate();
+    if (s && validEmail(s.email)) {
+      showBadge();
+      var f = null; try { f = localStorage.getItem("volt_just_updated"); } catch (e) {}
+      if (f) { try { localStorage.removeItem("volt_just_updated"); } catch (e) {} showToast("✓ You're on the latest version"); }
+    } else showGate();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
