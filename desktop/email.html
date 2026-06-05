@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<!-- Volt — Email Builder — © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+  <script src="volt-auth.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — Email</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
+    --accent:#B6FF3D; --accent-press:#a3ec2b;
+    --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui,sans-serif;
+    --fb:'Plus Jakarta Sans',system-ui,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--fb); color:var(--text); background:var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;}
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
+      radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
+      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+  .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:26px 22px 36px;}
+
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+  h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(40px,7.5vw,68px); line-height:.98; letter-spacing:-.02em; margin:18px 0 0;}
+  h1.title .accent{color:var(--accent);}
+  .sub{color:var(--dim); font-size:16px; max-width:580px; margin:15px 0 0; line-height:1.55;}
+
+  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
+  .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
+  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
+  textarea::placeholder,input::placeholder{color:#565c68;}
+  textarea:focus,input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  .row{display:flex; gap:14px; margin-top:14px; flex-wrap:wrap;}
+  .field{flex:1; min-width:180px;}
+  .field-sm{flex:1; min-width:140px;}
+
+  .promos{margin-top:22px; border-top:1px solid var(--border); padding-top:20px;}
+  .promo{background:#0D0F15; border:1px solid var(--border-2); border-radius:14px; padding:14px 16px; margin-bottom:12px;}
+  .promo-head{display:flex; align-items:center; gap:11px; cursor:pointer; user-select:none;}
+  .promo-head .em{font-size:17px;}
+  .promo-head .nm{font-family:var(--fb); font-weight:700; font-size:14.5px; color:var(--text);}
+  .promo-head .hint{font-size:12px; color:var(--faint);}
+  .sw{position:relative; width:38px; height:21px; border-radius:100px; background:#2a2f3a; border:1px solid var(--border-2); flex-shrink:0; margin-left:auto; transition:background .15s;}
+  .sw::after{content:''; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#888f9d; transition:transform .15s, background .15s;}
+  .promo.on .sw{background:var(--accent); border-color:var(--accent);}
+  .promo.on .sw::after{transform:translateX(17px); background:#0A0B0F;}
+  .promo-fields{display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);}
+  .promo.on .promo-fields{display:block;}
+
+  .linkrow{display:flex; gap:8px; margin-bottom:8px; align-items:center;}
+  .linkrow .lk-text{flex:1.2; min-width:110px;}
+  .linkrow .lk-url{flex:1.5; min-width:130px;}
+  .lk-del{flex-shrink:0; width:40px; align-self:stretch; min-height:42px; border:1px solid var(--border-2); background:#0D0F15; color:var(--dim); border-radius:11px; cursor:pointer; font-size:13px; transition:all .14s;}
+  .lk-del:hover{border-color:var(--low); color:var(--low);}
+  .addlink{margin-top:4px; font-family:var(--fm); font-size:12px; font-weight:700; color:var(--accent); background:transparent; border:1px dashed var(--border-2); border-radius:10px; padding:9px 14px; cursor:pointer; transition:border-color .14s;}
+  .addlink:hover{border-color:var(--accent);}
+
+  .pseg{display:inline-flex; gap:4px; background:#0D0F15; border:1px solid var(--border-2); border-radius:10px; padding:3px;}
+  .pseg button{font-family:var(--fm); font-size:11px; font-weight:700; padding:6px 11px; border:none; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .pseg button.on{background:var(--accent); color:#0A0B0F;}
+  .stage{display:flex; justify-content:center;}
+
+  .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
+  .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(182,255,61,.7);}
+  .btn:active:not(:disabled){transform:translateY(1px);}
+  .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .go-note{font-size:13px; color:var(--dim);}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .error{display:flex; gap:11px; align-items:flex-start; margin-top:20px; font-size:14px; line-height:1.5; color:#ffd7d7; background:rgba(255,124,124,.08); border:1px solid rgba(255,124,124,.35); border-radius:14px; padding:14px 16px;}
+  .error[hidden]{display:none;}
+  .error b{color:#fff; font-weight:700;}
+
+  /* ---- Preview ---- */
+  .preview-wrap{margin-top:30px; opacity:0; animation:rise .5s cubic-bezier(.2,.7,.2,1) forwards;}
+  @keyframes rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+  .pbar{display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
+  .pbar .ptitle{font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);}
+  .pbar .right{margin-left:auto; display:flex; gap:9px; flex-wrap:wrap;}
+  .mini{display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:11.5px; background:transparent; border:1px solid var(--border-2); color:var(--text); border-radius:9px; padding:9px 13px; cursor:pointer; transition:all .14s; flex-shrink:0;}
+  .mini:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .mini.ok{background:var(--good); color:#0A0B0F; border-color:var(--good);}
+  .mini svg{width:13px;height:13px;}
+  .frame{width:100%; height:760px; border:1px solid var(--border); border-radius:18px; background:#f0f2f5; box-shadow:0 24px 60px -28px rgba(0,0,0,.8); transition:width .25s ease, border-radius .25s, border-width .25s;}
+  .frame.mobile{width:390px; max-width:100%; border-radius:30px; border:8px solid #1a1e28;}
+  .mini.kit{border-color:rgba(182,255,61,.5); color:var(--accent);}
+  .mini.kit:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .kit-status{font-family:var(--fm); font-size:12px; line-height:1.5; margin:12px 0 0; min-height:14px; color:var(--info);}
+  .kit-status.busy{color:var(--mid);} .kit-status.err{color:var(--low);} .kit-status.ok{color:var(--good);}
+  .skel{height:760px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
+  @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+
+  /* ---- Inline editor toolbar ---- */
+  .etoolbar{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:12px;}
+  .etoolbar .mini{padding:9px 12px; min-width:36px; justify-content:center;}
+  .etoolbar .sep{width:1px; align-self:stretch; background:var(--border-2); margin:2px 4px;}
+  .eimg-panel{display:none; gap:8px; flex-wrap:wrap; align-items:center; margin:0 0 12px; padding:13px 14px; background:#0D0F15; border:1px solid var(--border-2); border-radius:13px;}
+  .eimg-panel.show{display:flex;}
+  .eimg-panel input[type=text]{font-size:13.5px; padding:10px 13px;}
+  .eimg-url{flex:1; min-width:200px;}
+  .editing-hint{font-size:12.5px; color:var(--faint); line-height:1.5; margin-bottom:12px;}
+  .editing-hint b{color:var(--dim);}
+
+  footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
+  footer span{color:var(--dim);}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="audit.html">🔍 Audit</a>
+    <a class="tab" href="analytics.html">📊 Analytics</a>
+    <span class="tab active">✉️ Email</span>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
+  <header>
+    <span class="badge"><span class="dot"></span> Newsletter Builder</span>
+    <h1 class="title">Volt<span class="accent">.</span></h1>
+    <p class="sub">Your header, footer and styling are locked in. Just describe this week's content — paste the links you want used — and Volt builds a Kit-ready HTML email in the SME house style. Then fix wording or drop in an image right inside the live preview — no code.</p>
+  </header>
+
+  <section class="console">
+    <label class="lbl" for="brief">This week's content <span class="opt">— theme, the sections you want, and any links to include</span></label>
+    <textarea id="brief" rows="7" placeholder="e.g. Theme: networking for SMEs.
+Section 1 — why networking matters for growth. Link: https://smesouthafrica.co.za/the-importance-of-networking-for-the-growth-of-smes/
+Section 2 — growing connections online (LinkedIn, virtual groups). Related reading: https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/
+Keep it warm and practical."></textarea>
+    <p style="font-size:12.5px; color:var(--faint); margin:10px 0 0; line-height:1.5;">Describe the content only — <b style="color:var(--dim);">add your links in the box below</b>. Volt uses only those links and never invents a URL, date or statistic.</p>
+
+    <div style="margin-top:22px;">
+      <label class="lbl">Links <span class="opt">— the exact links Volt may use (text + URL). It weaves these into the body.</span></label>
+      <div id="links"></div>
+      <button type="button" class="addlink" id="addLink">+ Add link</button>
+    </div>
+
+    <div class="row" style="margin-top:22px;">
+      <div class="field">
+        <label class="lbl">Email subject <span class="opt">— used when you send to Kit</span></label>
+        <input id="subject" placeholder="e.g. Networking your way to growth 🤝" />
+      </div>
+      <div class="field">
+        <label class="lbl">Preview text <span class="opt">— the inbox snippet</span></label>
+        <input id="previewText" placeholder="One-line teaser shown next to the subject" />
+      </div>
+    </div>
+
+    <div class="promos">
+      <label class="lbl">Add promo blocks <span class="opt">— optional, you fill the details so they're always accurate</span></label>
+
+      <div class="promo" id="promo-webinar">
+        <div class="promo-head" data-toggle="webinar">
+          <span class="em">▶️</span>
+          <span class="nm">Webinar banner</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="wb-title" placeholder="Webinar title — e.g. How To Scale A Business With Minimal Capital" />
+          <div class="row">
+            <input class="field-sm" id="wb-date" placeholder="Date / time — e.g. 28 May 2026, 11:00 AM SAST" />
+            <input class="field-sm" id="wb-btn" placeholder="Button text — e.g. SECURE YOUR SPOT" />
+          </div>
+          <div class="row"><input id="wb-link" placeholder="Button link — paste the full registration URL" /></div>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-resource">
+        <div class="promo-head" data-toggle="resource">
+          <span class="em">📄</span>
+          <span class="nm">Free resource card</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="rs-title" placeholder="Resource title — e.g. Marketing Plan Template" />
+          <textarea id="rs-desc" rows="2" placeholder="One or two lines describing the resource."></textarea>
+          <div class="row">
+            <input class="field-sm" id="rs-link" placeholder="Button link — full URL" />
+            <input class="field-sm" id="rs-btn" placeholder="Button text — e.g. DOWNLOAD NOW" />
+          </div>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-sponsored">
+        <div class="promo-head" data-toggle="sponsored">
+          <span class="em">✦</span>
+          <span class="nm">Sponsored mention</span>
+          <span class="hint">client feature</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="sp-title" placeholder="Feature title — e.g. Be the Answer AI Recommends" />
+          <textarea id="sp-body" rows="2" placeholder="What to say about the client (your words — keep all claims accurate)."></textarea>
+          <textarea id="sp-bullets" rows="2" placeholder="Optional bullet points — one per line."></textarea>
+          <div class="row">
+            <input class="field-sm" id="sp-link" placeholder="Button link — full URL" />
+            <input class="field-sm" id="sp-btn" placeholder="Button text — e.g. Start free trial" />
+          </div>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-task">
+        <div class="promo-head" data-toggle="task">
+          <span class="em">👉</span>
+          <span class="nm">Weekly action / task</span>
+          <span class="hint">drives engagement</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="tk-title" placeholder="Action title — e.g. Your 5-Minute Action This Week" />
+          <textarea id="tk-body" rows="2" placeholder="The task — what should they actually do this week?"></textarea>
+          <input id="tk-cta" placeholder="Optional reply prompt — e.g. Hit reply and tell us how it goes 👇" />
+        </div>
+      </div>
+    </div>
+
+    <div class="go">
+      <button class="btn" id="run">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M4 8h16M8 4v4"/></svg>
+        <span id="runlabel">Build email</span>
+      </button>
+      <span class="go-note">Header &amp; footer are fixed. Uses your Gemini key.</span>
+    </div>
+  </section>
+
+  <div class="error" id="error" hidden></div>
+  <div id="results"></div>
+
+  <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
+</main>
+
+<script>
+"use strict";
+
+// App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
+const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
+
+const ICON = {
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  down:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>',
+};
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const escAttr = s => String(s==null?'':s).replace(/"/g,'&quot;');
+
+// ===================================================================
+// FIXED SHELL — lifted verbatim from the SME newsletters.
+// The body is injected between SHELL_TOP and SHELL_BOTTOM. Never regenerated.
+// ===================================================================
+const SHELL_TOP = `<div id="body" style="background-color: #f0f2f5; padding: 20px 0; font-family: 'Roboto', Arial, sans-serif;">
+    <style>
+        table { border-collapse: collapse !important; }
+        h2 { font-family: 'Oswald', sans-serif; color: #0a2c3d; font-size: 22px; font-weight: 700; margin: 20px 0 10px 0; letter-spacing: 0.5px; line-height: 1.35; display: block; word-wrap: break-word; }
+        p { font-family: 'Roboto', sans-serif; color: #444444; line-height: 1.6; font-size: 15px; margin-bottom: 12px; margin-top: 0; }
+        a { color: #9c1c1f !important; text-decoration: none; font-weight: bold; border-bottom: 1px solid rgba(156,28,31,0.3); }
+        .newsletter-image { width: 100%; height: auto; display: block; margin: 15px 0; border-radius: 8px; border: 1px solid #eeeeee; box-shadow: 0 6px 15px rgba(0,0,0,0.06); }
+        .related-reading { background-color: #f8fafc; padding: 15px 18px; border-left: 4px solid #9c1c1f; margin: 12px 0 20px 0; font-size: 14px; line-height: 1.5; border-radius: 0 8px 8px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        .related-reading span { font-family: 'Oswald', sans-serif; color: #64748b; text-transform: uppercase; font-size: 12px; font-weight: 900; margin-right: 5px; letter-spacing: 0.5px; }
+        .related-link { font-style: normal; font-weight: 700; color: #0a2c3d !important; text-decoration: none; border-bottom: 1px solid transparent; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
+        u + #body a { color: inherit !important; text-decoration: none !important; }
+        #MessageViewBody a { color: inherit !important; text-decoration: none !important; }
+        @media only screen and (max-width: 480px) {
+            .main-wrapper { width: 100% !important; margin: 0 !important; border-radius: 0 !important; border: none !important; }
+            .content-padding, .mobile-padding, .related-reading { padding: 15px !important; }
+            .banner-text-h1 { font-size: 20px !important; line-height: 1.2 !important; }
+            .banner-subtext { font-size: 9px !important; }
+            .logo-cell { padding-left: 15px !important; width: 100px !important; }
+            .logo-img { width: 65px !important; }
+            .sidebar-cell { width: 30px !important; }
+            .sidebar-text { font-size: 7px !important; }
+            h2 { font-size: 18px !important; }
+            .webinar-banner-td { padding: 35px 20px !important; }
+            .webinar-title { font-size: 22px !important; }
+        }
+    </style>
+    <table class="main-wrapper" width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; border: 1px solid #eaeaef; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; border-collapse: separate;">
+        <tr><td style="padding: 0;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="background-color: #9c1c1f; background: linear-gradient(135deg, #8a171a 0%, #9c1c1f 100%); border-bottom: 6px solid #0a2c3d; table-layout: fixed;">
+                <tr>
+                    <td class="logo-cell" width="150" align="left" valign="middle" style="padding: 35px 0 25px 35px;">
+                        <a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="text-decoration: none; border: none;">
+                            <table border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 10px; box-shadow: 0 6px 15px rgba(0,0,0,0.25);"><tr><td style="padding: 10px;"><img src="https://smesouthafrica.co.za/wp-content/uploads/2026/04/Funding-Summit-Logo-1.png" width="85" alt="SME Logo" class="logo-img" style="display: block; border: 0;"></td></tr></table>
+                        </a>
+                    </td>
+                    <td align="left" valign="middle" style="padding-left: 20px; padding-top: 40px; padding-bottom: 25px;">
+                        <table border="0" cellspacing="0" cellpadding="0">
+                            <tr><td align="left"><h1 class="banner-text-h1" style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 26px; line-height: 1.1; letter-spacing: 0.5px; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.2); text-transform: uppercase;"><a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important;">#1 NEWSLETTER FOR<br>SMES IN SOUTH AFRICA</span></a></h1></td></tr>
+                            <tr><td style="padding-top: 10px; padding-bottom: 10px;"><table border="0" cellspacing="0" cellpadding="0"><tr><td bgcolor="#ffb1b1" height="3" width="60" style="font-size: 1px; line-height: 1px; border-radius: 2px;">&nbsp;</td></tr></table></td></tr>
+                            <tr><td align="left"><p class="banner-subtext" style="margin: 0; font-family: 'Roboto', sans-serif; color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.95;">Empowering Your Entrepreneurial Journey</p></td></tr>
+                        </table>
+                    </td>
+                    <td class="sidebar-cell" width="45" align="center" valign="middle" style="background-color: rgba(0,0,0,0.1); border-left: 1px solid rgba(255,255,255,0.15); padding: 15px 0;">
+                        <div class="sidebar-text" style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); font-family: 'Oswald', sans-serif; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2.5px; white-space: nowrap; line-height: 45px; text-align: center;"><a href="https://smesouthafrica.co.za" target="_blank" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important; opacity: 0.9;">smesouthafrica.co.za</span></a></div>
+                    </td>
+                </tr>
+            </table>
+            <div class="content-padding mobile-padding" style="padding: 25px 35px;">
+                <p style="margin-top: 0; font-weight: 600;">Good morning 👋 {{ subscriber.first_name | default: "Entrepreneur" }},</p>
+`;
+
+const SHELL_BOTTOM = `
+                <div class="mobile-padding" style="background-color: #f8fafc; border-radius: 12px; padding: 25px 20px; border: 1px solid #e2e8f0; text-align: center; margin-top: 35px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <h3 style="margin: 0 0 6px 0; font-family: 'Oswald', sans-serif; font-size: 18px; color: #0a2c3d; letter-spacing: 1px; text-transform: uppercase;">SME South Africa</h3>
+                    <p style="font-size: 13px; color: #64748b; line-height: 1.5; margin: 0; text-align: center;">Building 2, 1st Floor, Clearwater Office Park, Strubens Valley<br>
+                        <span style="display: inline-block; margin-top: 6px; background-color: #ffffff; padding: 5px 12px; border-radius: 30px; border: 1px solid #eaeaef; font-size: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);"><span style="opacity: 0.8;">📞</span> <strong style="color: #0f172a;">011 704 2641</strong> &nbsp;|&nbsp; <span style="opacity: 0.8;">✉️</span> <a href="mailto:info@smesouthafrica.co.za" style="color: #9c1c1f !important; font-weight: bold; text-decoration: none; border-bottom: none;">info@smesouthafrica.co.za</a></span>
+                    </p>
+                    <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 15px auto;"><tr><td style="border-top: 1px solid #cbd5e1; opacity: 0.5; font-size: 1px; line-height: 1px;">&nbsp;</td></tr></table>
+                    <p style="font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px 0; text-align: center;">Connect With Us</p>
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 15px auto;"><tr>
+                        <td style="padding: 0 6px;"><a href="https://www.instagram.com/sme_za/" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384031.png" width="16" alt="Instagram" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://www.facebook.com/SMESouthAfrica" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384005.png" width="16" alt="Facebook" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://www.linkedin.com/company/18100109/" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384014.png" width="16" alt="LinkedIn" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://whatsapp.com/channel/0029VafRQykBA1etEjbSak3J" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384007.png" width="16" alt="WhatsApp" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://www.youtube.com/@SMESouthAfricaOfficial" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384012.png" width="16" alt="YouTube" style="display: block; opacity: 0.8; border: none;"></a></td>
+                    </tr></table>
+                    <p style="margin: 0; font-family: 'Roboto', sans-serif; font-size: 11px; color: #94a3b8; line-height: 1.4; text-align: center;">If you no longer wish to receive these emails, you can <a href="{{ unsubscribe_url }}" style="color: #64748b !important; text-decoration: underline; border: none; font-weight: normal;">unsubscribe here</a>.</p>
+                </div>
+            </div>
+        </td></tr>
+    </table>
+</div>`;
+
+const HR = `<hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 25px 0;">`;
+
+// Promo block templates — filled from the form fields.
+function webinarBlock(p){
+  return `
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #000000; background: linear-gradient(135deg, #000000 0%, #330000 40%, #9c1c1f 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 15px 35px rgba(156,28,31,0.3); margin: 25px 0; border: 1px solid rgba(255,255,255,0.1);">
+                    <tr><td class="webinar-banner-td" style="padding: 50px 35px; text-align: center;">
+                        <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto 15px auto;"><tr><td bgcolor="#9c1c1f" style="padding: 5px 15px; border-radius: 4px;"><p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #ffffff; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">▶ WEBINAR</p></td></tr></table>
+                        <h2 class="webinar-title" style="margin: 0 0 15px 0; font-family: 'Oswald', Arial, sans-serif; font-size: 30px; color: #ffffff; font-weight: 900; line-height: 1.2; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5); border: none;">${esc(p.title)}</h2>
+                        ${p.date ? `<p style="margin: 0 auto 25px auto; font-family: 'Roboto', sans-serif; font-size: 16px; color: rgba(255,255,255,0.85); line-height: 1.5; max-width: 480px;">${esc(p.date)}</p>` : ''}
+                        <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;"><tr><td align="center" style="border-radius: 50px; background-color: #ffffff; box-shadow: 0 8px 25px rgba(0,0,0,0.4);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 15px; font-family: 'Oswald', sans-serif; font-weight: 900; color: #9c1c1f !important; text-decoration: none; padding: 16px 45px; border-radius: 50px; display: inline-block; text-transform: uppercase; letter-spacing: 1.5px; border: none;">${esc(p.btn || 'REGISTER NOW')}</a></td></tr></table>
+                    </td></tr>
+                </table>`;
+}
+
+function resourceBlock(p){
+  return `
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 2px dashed #9c1c1f; border-radius: 12px; margin: 30px 0; box-shadow: 0 8px 20px rgba(156,28,31,0.08); overflow: hidden;">
+                    <tr><td style="padding: 35px 25px; text-align: center; background-image: radial-gradient(circle at 50% 0%, rgba(156,28,31,0.04) 0%, transparent 70%);">
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #9c1c1f; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">FREE RESOURCE</p>
+                        <h3 style="margin: 0 0 15px 0; font-family: 'Oswald', sans-serif; font-size: 24px; color: #0a2c3d; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 900; line-height: 1.2;">${esc(p.title)}</h3>
+                        ${p.desc ? `<p style="font-family: 'Roboto', sans-serif; font-size: 15px; color: #444444; line-height: 1.6; margin: 0 auto 25px auto; max-width: 450px;">${esc(p.desc)}</p>` : ''}
+                        <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;"><tr><td align="center" style="border-radius: 6px; background-color: #9c1c1f; box-shadow: 0 5px 12px rgba(156,28,31,0.25);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 14px; font-family: 'Oswald', sans-serif; font-weight: 700; color: #ffffff !important; text-decoration: none; padding: 15px 30px; border-radius: 6px; display: inline-block; text-transform: uppercase; letter-spacing: 1.5px; border: none;">${esc(p.btn || 'DOWNLOAD NOW')}</a></td></tr></table>
+                    </td></tr>
+                </table>`;
+}
+
+function sponsoredBlock(p){
+  const bl = (p.bullets || '').split('\n').map(s => s.trim()).filter(Boolean);
+  const bulletsHtml = bl.length
+    ? `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 4px 0 18px 0;">` + bl.map(b =>
+        `<tr><td width="20" valign="top" style="padding-top: 2px; font-size: 18px; color: #9c1c1f;">•</td><td style="font-family: 'Roboto', sans-serif; color: #444444; line-height: 1.6; font-size: 15px; padding-bottom: 8px;">${esc(b)}</td></tr>`).join('') + `</table>`
+    : '';
+  const btnHtml = p.link
+    ? `<table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 6px auto 0;"><tr><td align="center" style="border-radius: 6px; background-color: #9c1c1f; box-shadow: 0 4px 10px rgba(156,28,31,0.2);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 14px; font-family: 'Oswald', sans-serif; font-weight: 700; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 6px; display: inline-block; text-transform: uppercase; border: none;">${esc(p.btn || 'Learn more')}</a></td></tr></table>`
+    : '';
+  return `
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fafbfc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 25px 0;">
+                    <tr><td style="padding: 28px 26px;">
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">✦ Sponsored</p>
+                        <h2 style="margin: 0 0 12px 0;">${esc(p.title)}</h2>
+                        ${p.body ? `<p style="margin: 0 0 14px 0;">${esc(p.body)}</p>` : ''}
+                        ${bulletsHtml}
+                        ${btnHtml}
+                    </td></tr>
+                </table>`;
+}
+
+function taskBlock(p){
+  return `
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #061f2b 100%); border-radius: 14px; margin: 25px 0; box-shadow: 0 10px 25px rgba(10,44,61,0.2);">
+                    <tr><td style="padding: 30px 28px;">
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #ffb1b1; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">👉 This Week's Action</p>
+                        <h3 style="margin: 0 0 12px 0; font-family: 'Oswald', sans-serif; font-size: 22px; color: #ffffff; font-weight: 900; line-height: 1.25;">${esc(p.title)}</h3>
+                        <p style="margin: 0; font-family: 'Roboto', sans-serif; color: rgba(255,255,255,0.88); line-height: 1.6; font-size: 15px;">${esc(p.body)}</p>
+                        ${p.cta ? `<p style="margin: 16px 0 0 0; font-family: 'Roboto', sans-serif; color: #ffffff; line-height: 1.5; font-size: 14px; font-weight: 700;">${esc(p.cta)}</p>` : ''}
+                    </td></tr>
+                </table>`;
+}
+
+// A realistic sample body so the design is visible on first load.
+const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a business is incredible, but it can often feel lonely. The right conversation, though, can change your trajectory — bringing new clients or mentors who genuinely understand your challenges. This week, we look at simple, stress-free ways to grow your network, both online and in person.</p>
+
+                ${HR}
+
+                <h2>Why Networking Is Crucial for SME Growth</h2>
+                <p>Running a small business can feel lonely, but you do not have to do it alone. Networking means building professional relationships with others — and it is vital because it opens doors to opportunities you might never find otherwise.</p>
+                <p>By connecting, you can share fresh ideas, find paying customers, and meet potential partners. A strong network becomes a reliable support system where you learn from the wins of fellow business owners.</p>
+                <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/the-importance-of-networking-for-the-growth-of-smes/" class="related-link">The Importance Of Networking For The Growth Of SMEs</a></div>
+
+                ${HR}
+
+                <h2>Growing Your Business Connections Online</h2>
+                <p>You do not have to leave your office to build a strong professional network. Platforms like LinkedIn and virtual industry groups let you connect with potential partners across the entire country. Instead of sending direct sales pitches, join relevant conversations and leave helpful comments — engaging regularly builds real relationships without geographical limits.</p>
+                <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/" class="related-link">5 Networking Tips To Help Your Business Grow</a></div>`;
+
+const state = { brief:'', loading:false, body:null, previewMode:'desktop',
+  promos:{ webinar:{on:false}, resource:{on:false}, sponsored:{on:false}, task:{on:false} } };
+
+const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
+let lastFragment = '';
+let editableDocRef = null; // the live preview iframe's document, for inline editing
+
+elBrief.addEventListener('input', e => { state.brief = e.target.value; });
+
+// Promo toggles
+document.querySelectorAll('.promo-head').forEach(h => {
+  h.addEventListener('click', () => {
+    const key = h.dataset.toggle;
+    const box = h.closest('.promo');
+    box.classList.toggle('on');
+    state.promos[key].on = box.classList.contains('on');
+  });
+});
+
+// Link rows — easy structured link adding
+const elLinks = $('#links');
+function addLinkRow(text, url){
+  const row = document.createElement('div');
+  row.className = 'linkrow';
+  row.innerHTML = '<input class="lk-text" placeholder="Link text — e.g. The Importance Of Networking" />'
+    + '<input class="lk-url" placeholder="https://..." />'
+    + '<button type="button" class="lk-del" title="Remove link">✕</button>';
+  if(text) row.querySelector('.lk-text').value = text;
+  if(url) row.querySelector('.lk-url').value = url;
+  row.querySelector('.lk-del').addEventListener('click', () => row.remove());
+  elLinks.appendChild(row);
+}
+$('#addLink').addEventListener('click', () => addLinkRow());
+addLinkRow();
+
+function collectLinks(){
+  return [...document.querySelectorAll('.linkrow')].map(r => ({
+    text: r.querySelector('.lk-text').value.trim(),
+    url: r.querySelector('.lk-url').value.trim()
+  })).filter(l => l.text && l.url);
+}
+
+function collectPromos(){
+  const blocks = [];
+  if(state.promos.webinar.on){
+    const title = $('#wb-title').value.trim();
+    if(title) blocks.push(webinarBlock({ title, date:$('#wb-date').value.trim(), link:$('#wb-link').value.trim(), btn:$('#wb-btn').value.trim() }));
+  }
+  if(state.promos.resource.on){
+    const title = $('#rs-title').value.trim();
+    if(title) blocks.push(resourceBlock({ title, desc:$('#rs-desc').value.trim(), link:$('#rs-link').value.trim(), btn:$('#rs-btn').value.trim() }));
+  }
+  if(state.promos.sponsored.on){
+    const title = $('#sp-title').value.trim();
+    if(title) blocks.push(sponsoredBlock({ title, body:$('#sp-body').value.trim(), bullets:$('#sp-bullets').value, link:$('#sp-link').value.trim(), btn:$('#sp-btn').value.trim() }));
+  }
+  if(state.promos.task.on){
+    const title = $('#tk-title').value.trim();
+    if(title) blocks.push(taskBlock({ title, body:$('#tk-body').value.trim(), cta:$('#tk-cta').value.trim() }));
+  }
+  return blocks.join('\n');
+}
+
+// editable=true wraps the body so it can be edited in the preview iframe.
+// The export copy is always built with editable=false → clean, wrapper-free HTML.
+function assemble(bodyHtml, editable){
+  const body = editable ? '<div class="volt-editable">' + bodyHtml + '</div>' : bodyHtml;
+  return SHELL_TOP + '\n' + body + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
+}
+
+function previewDoc(fragment){
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">`
+    + `<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700;900&family=Roboto:wght@400;700&display=swap" rel="stylesheet">`
+    + `</head><body style="margin:0;">${fragment}</body></html>`;
+}
+
+function renderPreview(bodyHtml){
+  state.body = bodyHtml;
+  lastFragment = assemble(state.body, false); // clean export copy
+  const isM = state.previewMode === 'mobile';
+  elRes.innerHTML = `
+    <div class="preview-wrap">
+      <div class="pbar">
+        <span class="ptitle">Live preview — click any text to edit it</span>
+        <div class="pseg" id="pseg">
+          <button data-m="desktop" class="${isM?'':'on'}">🖥 Desktop</button>
+          <button data-m="mobile" class="${isM?'on':''}">📱 Mobile</button>
+        </div>
+        <div class="right">
+          <button class="mini" id="copyBtn">${ICON.copy} Copy HTML</button>
+          <button class="mini" id="dlBtn">${ICON.down} Download .html</button>
+          <button class="mini kit" id="kitBtn" title="Create a draft broadcast in Kit">✉ Send to Kit</button>
+        </div>
+      </div>
+      <div id="kitStatus" class="kit-status"></div>
+      <div class="etoolbar" id="etoolbar">
+        <button class="mini" data-cmd="bold" title="Bold (Ctrl+B)" onmousedown="event.preventDefault()"><b>B</b></button>
+        <button class="mini" data-cmd="italic" title="Italic (Ctrl+I)" onmousedown="event.preventDefault()"><i>I</i></button>
+        <span class="sep"></span>
+        <button class="mini" data-cmd="formatBlock" data-val="h2" title="Section heading" onmousedown="event.preventDefault()">H2</button>
+        <button class="mini" data-cmd="formatBlock" data-val="p" title="Normal text" onmousedown="event.preventDefault()">¶</button>
+        <span class="sep"></span>
+        <button class="mini" data-cmd="createLink" title="Make selected text a link" onmousedown="event.preventDefault()">🔗 Link</button>
+        <button class="mini" data-cmd="unlink" title="Remove link" onmousedown="event.preventDefault()">⛌ Unlink</button>
+        <button class="mini" id="imgToggle" title="Insert an image" onmousedown="event.preventDefault()">🖼 Image</button>
+        <span class="sep"></span>
+        <button class="mini" id="refreshBtn" title="Re-apply promo blocks / reset layout">↻ Refresh</button>
+      </div>
+      <div class="eimg-panel" id="eimgPanel">
+        <input type="text" id="imgUrl" class="eimg-url" placeholder="Image URL — https://… (a hosted image works best in email)" />
+        <input type="text" id="imgAlt" placeholder="Alt text (optional)" style="max-width:190px;" />
+        <input type="file" id="imgFile" accept="image/*" hidden />
+        <button class="mini" id="imgFileBtn">⬆ Upload</button>
+        <button class="btn" id="imgInsert" style="padding:11px 20px; font-size:13.5px;">Insert image</button>
+        <div id="imgStatus" class="kit-status" style="flex-basis:100%; margin-top:4px;"></div>
+      </div>
+      <p class="editing-hint">✏️ <b>Edit straight in the preview</b> — fix wording, format text, add images. Your changes flow into the exported HTML. The header, footer and promo blocks stay locked to the template.</p>
+      <div class="stage">
+        <iframe class="frame ${isM?'mobile':''}" id="frame" title="Email preview"></iframe>
+      </div>
+    </div>`;
+  const frame = document.getElementById('frame');
+  frame.addEventListener('load', () => wireEditableFrame(frame));
+  frame.srcdoc = previewDoc(assemble(state.body, true));
+  document.getElementById('copyBtn').addEventListener('click', copyHtml);
+  document.getElementById('dlBtn').addEventListener('click', downloadHtml);
+  const kb = document.getElementById('kitBtn'); if(kb) kb.addEventListener('click', sendToKit);
+  document.getElementById('pseg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    setPreviewMode(b.dataset.m);
+  });
+  wireEditorToolbar();
+}
+
+// Create a draft broadcast in Kit from the assembled (edited) HTML.
+function setKitStatus(msg, kind){ const s=document.getElementById('kitStatus'); if(!s) return; s.innerHTML=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
+async function sendToKit(){
+  const btn = document.getElementById('kitBtn');
+  const subject = ($('#subject') ? $('#subject').value : '').trim();
+  const previewText = ($('#previewText') ? $('#previewText').value : '').trim();
+  if(!lastFragment){ setKitStatus('Build the email first.', 'err'); return; }
+  if(!subject){ setKitStatus('Add an email subject (top of the page) before sending to Kit.', 'err'); if($('#subject')) $('#subject').focus(); return; }
+  setKitStatus('Creating a draft in Kit…', 'busy'); if(btn) btn.disabled = true;
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/kit', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      body: JSON.stringify({ subject, previewText, html: lastFragment })
+    });
+    let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach Kit.'); }
+    if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error(data.message || 'Kit isn’t connected yet.');
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Kit request failed.');
+    const link = ' — <a href="https://app.kit.com/broadcasts" target="_blank" rel="noopener" style="color:var(--info);">open in Kit ↗</a>';
+    setKitStatus('✅ Draft created in Kit — review the audience &amp; send it from your Kit dashboard.'+link, 'ok');
+  }catch(err){ setKitStatus(esc(err.message), 'err'); }
+  finally{ if(btn) btn.disabled = false; }
+}
+
+// Make the body region of the preview iframe editable and keep the export copy in sync.
+function wireEditableFrame(frame){
+  const doc = frame.contentDocument; if(!doc) return;
+  const ed = doc.querySelector('.volt-editable'); if(!ed) return;
+  editableDocRef = doc;
+  ed.setAttribute('contenteditable', 'true');
+  ed.setAttribute('spellcheck', 'true');
+  try{ doc.execCommand('defaultParagraphSeparator', false, 'p'); }catch(e){}
+  const st = doc.createElement('style');
+  st.textContent = '.volt-editable:focus{outline:2px solid rgba(156,28,31,.4); outline-offset:5px; border-radius:6px;}'
+    + '.volt-editable:hover{cursor:text;}';
+  doc.head.appendChild(st);
+  ed.addEventListener('input', syncFromEditable);
+}
+function syncFromEditable(){
+  if(!editableDocRef) return;
+  const ed = editableDocRef.querySelector('.volt-editable'); if(!ed) return;
+  state.body = ed.innerHTML;
+  lastFragment = assemble(state.body, false);
+}
+// Run a rich-text command against the editable iframe document.
+function exec(cmd, val){
+  const doc = editableDocRef; if(!doc) return;
+  try{ doc.defaultView.focus(); }catch(e){}
+  try{ doc.execCommand(cmd, false, val); }catch(e){}
+  syncFromEditable();
+}
+function wireEditorToolbar(){
+  const bar = document.getElementById('etoolbar'); if(!bar) return;
+  bar.addEventListener('click', e => {
+    const b = e.target.closest('button[data-cmd]'); if(!b) return;
+    const cmd = b.dataset.cmd; let val = b.dataset.val || null;
+    if(cmd === 'createLink'){
+      val = (window.prompt('Link URL:', 'https://') || '').trim();
+      if(!val || val === 'https://') return;
+    }
+    exec(cmd, val);
+  });
+  const panel = document.getElementById('eimgPanel');
+  document.getElementById('imgToggle').addEventListener('click', () => panel.classList.toggle('show'));
+  document.getElementById('refreshBtn').addEventListener('click', () => renderPreview(state.body));
+  const imgFile = document.getElementById('imgFile');
+  document.getElementById('imgFileBtn').addEventListener('click', () => imgFile.click());
+  imgFile.addEventListener('change', e => {
+    const f = e.target.files[0]; if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { document.getElementById('imgUrl').value = rd.result; hostUploadedImage(f, rd.result); };
+    rd.readAsDataURL(f);
+  });
+  document.getElementById('imgInsert').addEventListener('click', insertImage);
+}
+function setImgStatus(msg, kind){ const s=document.getElementById('imgStatus'); if(!s) return; s.innerHTML=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
+// Upload the chosen file to the WordPress media library so it survives in sent emails.
+async function hostUploadedImage(file, dataUrl){
+  setImgStatus('Uploading image to your media library…', 'busy');
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/upload', {
+      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      body: JSON.stringify({ dataBase64: String(dataUrl), filename: file.name, contentType: file.type || 'image/png' })
+    });
+    let data={}; try{ data = await r.json(); }catch(_){}
+    if(r.status===503 && data.error==='NOT_CONFIGURED'){
+      setImgStatus('⚠️ Inserted for preview only — '+(data.message||'set up image hosting')+' (or paste a hosted URL).', 'err'); return;
+    }
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Upload failed.');
+    document.getElementById('imgUrl').value = data.url;   // swap the data-URL for the hosted URL
+    setImgStatus('✅ Hosted on your site — safe to send. Click Insert.', 'ok');
+  }catch(err){
+    setImgStatus('Upload failed ('+esc(err.message)+') — the image will only show in preview unless you paste a hosted URL.', 'err');
+  }
+}
+function insertImage(){
+  const url = (document.getElementById('imgUrl').value || '').trim();
+  if(!url){ showErr('Add an image URL or upload a file first.'); return; }
+  const alt = escAttr((document.getElementById('imgAlt').value || '').trim());
+  const html = '<img src="' + escAttr(url) + '" alt="' + alt + '" class="newsletter-image" />';
+  const doc = editableDocRef;
+  if(doc){
+    const ed = doc.querySelector('.volt-editable');
+    const sel = doc.getSelection();
+    if(sel && sel.rangeCount && ed && ed.contains(sel.anchorNode)){
+      doc.defaultView.focus();
+      doc.execCommand('insertHTML', false, html);
+    } else if(ed){
+      ed.insertAdjacentHTML('beforeend', html);
+    }
+    syncFromEditable();
+  }
+  document.getElementById('imgUrl').value = '';
+  document.getElementById('imgAlt').value = '';
+  document.getElementById('eimgPanel').classList.remove('show');
+  hideErr();
+}
+
+function setPreviewMode(mode){
+  state.previewMode = mode;
+  const frame = document.getElementById('frame');
+  if(frame) frame.classList.toggle('mobile', mode === 'mobile');
+  document.querySelectorAll('#pseg button').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
+}
+
+async function copyHtml(){
+  const btn = document.getElementById('copyBtn');
+  try{
+    await navigator.clipboard.writeText(lastFragment);
+    btn.classList.add('ok'); btn.innerHTML = ICON.check + ' Copied';
+    setTimeout(()=>{ btn.classList.remove('ok'); btn.innerHTML = ICON.copy + ' Copy HTML'; }, 1800);
+  }catch(e){
+    // Fallback for older contexts
+    const ta = document.createElement('textarea'); ta.value = lastFragment; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    document.body.removeChild(ta);
+    btn.classList.add('ok'); btn.innerHTML = ICON.check + ' Copied';
+    setTimeout(()=>{ btn.classList.remove('ok'); btn.innerHTML = ICON.copy + ' Copy HTML'; }, 1800);
+  }
+}
+
+function downloadHtml(){
+  const blob = new Blob([lastFragment], { type:'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sme-newsletter.html';
+  a.click();
+}
+
+function showErr(msg){ elErr.hidden = false; elErr.innerHTML = '<b>Hmm —</b> ' + esc(msg); }
+function hideErr(){ elErr.hidden = true; }
+
+async function run(){
+  if(state.loading) return;
+  if(!state.brief.trim() || state.brief.trim().length < 12){ showErr('Add a bit more detail about the content first.'); return; }
+  hideErr();
+  state.loading = true;
+  elRun.disabled = true; elRunLabel.innerHTML = '<span class="spinner"></span> Building…';
+  elRes.innerHTML = `<div class="skel"></div>`;
+  try{
+    const links = collectLinks();
+    let fullBrief = state.brief;
+    if(links.length){
+      fullBrief += '\n\nLINKS YOU MAY USE (anchor text → URL — use ONLY these, woven in as in-text links or a Related Reading box where they fit):\n'
+        + links.map(l => '- "' + l.text + '" → ' + l.url).join('\n');
+    }
+    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'email', brief: fullBrief }) });
+    let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the generator — check your connection and try again.'); }
+    if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
+    const bodyHtml = (data && data.emailBody) || '';
+    if(!bodyHtml.trim()) throw new Error('The generator came back empty — try again or add more detail.');
+    state.body = bodyHtml;
+    renderPreview(bodyHtml);
+  }catch(err){
+    elRes.innerHTML = '';
+    showErr(err.message);
+  }finally{
+    state.loading = false;
+    elRun.disabled = false; elRunLabel.textContent = 'Build email';
+  }
+}
+
+elRun.addEventListener('click', run);
+
+// Show the sample on load so the design is visible immediately.
+renderPreview(SAMPLE_BODY);
+</script>
+</body>
+</html>

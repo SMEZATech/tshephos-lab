@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<!-- Volt — Profile Audit — © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+  <script src="volt-auth.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
+    --accent:#B6FF3D; --accent-press:#a3ec2b;
+    --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui,sans-serif;
+    --fb:'Plus Jakarta Sans',system-ui,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--fb); color:var(--text); background:var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;}
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
+      radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
+      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+  .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:26px 22px 36px;}
+
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+  h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(40px,7.5vw,68px); line-height:.98; letter-spacing:-.02em; margin:18px 0 0;}
+  h1.title .accent{color:var(--accent);}
+  .sub{color:var(--dim); font-size:16px; max-width:560px; margin:15px 0 0; line-height:1.55;}
+
+  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
+  .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
+  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
+  textarea::placeholder,input::placeholder{color:#565c68;}
+  textarea:focus,input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  .row{display:flex; gap:18px; margin-top:18px; flex-wrap:wrap;}
+  .field{flex:1; min-width:230px;}
+  .seg{display:flex; gap:7px; flex-wrap:wrap;}
+  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .seg button:hover{color:var(--text); border-color:var(--accent);}
+  .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
+  .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(182,255,61,.7);}
+  .btn:active:not(:disabled){transform:translateY(1px);}
+  .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .go-note{font-size:13px; color:var(--dim);}
+
+  .error{display:flex; gap:11px; align-items:flex-start; margin-top:20px; font-size:14px; line-height:1.5; color:#ffd7d7; background:rgba(255,124,124,.08); border:1px solid rgba(255,124,124,.35); border-radius:14px; padding:14px 16px;}
+  .error[hidden]{display:none;}
+  .error b{color:#fff; font-weight:700;}
+
+  .empty{margin-top:32px; border:1px dashed var(--border-2); border-radius:20px; padding:52px 20px; text-align:center; color:var(--dim);}
+  .empty svg{width:30px;height:30px;opacity:.6;}
+  .empty p{margin:14px 0 0; font-size:15px;}
+  .skel{height:380px; border-radius:22px; margin-top:30px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
+  @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---- Report ---- */
+  .report{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:26px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04); opacity:0; animation:rise .5s cubic-bezier(.2,.7,.2,1) forwards;}
+  @keyframes rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+
+  .grade{display:flex; align-items:center; gap:20px;}
+  .grade .ring{width:92px; height:92px; border-radius:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--fd); font-weight:800; font-size:42px;}
+  .grade .meta .score{font-family:var(--fd); font-weight:800; font-size:30px; line-height:1;}
+  .grade .meta .score em{font-style:normal; font-size:15px; color:var(--dim); font-weight:500; margin-left:2px;}
+  .grade .meta .ctx{font-family:var(--fm); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin-top:6px;}
+  .grade .meta .verdict{margin:9px 0 0; font-size:15.5px; line-height:1.5; color:var(--text); max-width:580px;}
+  .good{color:var(--good);} .mid{color:var(--mid);} .low{color:var(--low);}
+
+  .sec{margin-top:28px;}
+  .sec-h{font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin:0 0 15px; padding-bottom:9px; border-bottom:1px solid var(--border);}
+
+  .dim{margin:0 0 14px;}
+  .dim-top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
+  .dim-lbl{font-family:var(--fb); font-weight:600; font-size:14px; color:var(--text);}
+  .dim-val{font-family:var(--fm); font-weight:700; font-size:13px;}
+  .bar{height:8px; background:rgba(255,255,255,.07); border-radius:100px; overflow:hidden;}
+  .bar i{display:block; height:100%; border-radius:100px; transition:width .8s cubic-bezier(.2,.7,.2,1);}
+  .dim-note{font-size:12.5px; color:var(--dim); line-height:1.45; margin-top:6px;}
+
+  .cols{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;}
+  @media(max-width:760px){.cols{grid-template-columns:1fr;}}
+  .col h4{font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; margin:0 0 12px;}
+  .col.win h4{color:var(--good);} .col.risk h4{color:var(--low);} .col.opp h4{color:var(--info);}
+  .col ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .col li{font-size:13.5px; line-height:1.5; color:var(--dim); padding-left:20px; position:relative;}
+  .col li::before{position:absolute; left:0; top:0; font-weight:700;}
+  .col.win li::before{content:'✓'; color:var(--good);}
+  .col.risk li::before{content:'!'; color:var(--low);}
+  .col.opp li::before{content:'↗'; color:var(--info);}
+
+  .acts{display:flex; flex-direction:column; gap:10px;}
+  .act{display:flex; gap:13px; align-items:flex-start; background:rgba(182,255,61,.05); border:1px solid var(--border); border-radius:13px; padding:13px 15px;}
+  .act .n{font-family:var(--fd); font-weight:800; font-size:15px; color:var(--accent); flex-shrink:0; width:18px; line-height:1.4;}
+  .act p{margin:0; font-size:14px; line-height:1.5; color:var(--text);}
+
+  .rewrite{background:#0D0F15; border:1px solid var(--border-2); border-radius:14px; padding:17px;}
+  .rewrite p{margin:0 0 13px; font-size:15.5px; line-height:1.55; color:var(--text);}
+  .ideas{display:flex; flex-direction:column; gap:9px;}
+  .idea{display:flex; justify-content:space-between; gap:13px; align-items:center; background:#0D0F15; border:1px solid var(--border); border-radius:12px; padding:12px 14px;}
+  .idea span{font-size:14px; color:var(--text); line-height:1.45;}
+
+  .mini{display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:11.5px; background:transparent; border:1px solid var(--border-2); color:var(--text); border-radius:9px; padding:8px 12px; cursor:pointer; transition:all .14s; flex-shrink:0;}
+  .mini:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .mini svg{width:13px;height:13px;}
+
+  footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
+  footer span{color:var(--dim);}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <span class="tab active">🔍 Audit</span>
+    <a class="tab" href="analytics.html">📊 Analytics</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
+  <header>
+    <span class="badge"><span class="dot"></span> Profile Auditor</span>
+    <h1 class="title">Volt<span class="accent">.</span></h1>
+    <p class="sub">Paste a profile's bio and a few recent captions, pick the platform, and get an honest, scored audit — wins, risks, fixes, and a ready-to-paste bio rewrite.</p>
+  </header>
+
+  <section class="console">
+    <label class="lbl">Platform</label>
+    <div class="seg" id="seg">
+      <button class="on" data-p="Instagram">Instagram</button>
+      <button data-p="LinkedIn">LinkedIn</button>
+      <button data-p="Facebook">Facebook</button>
+      <button data-p="TikTok">TikTok</button>
+      <button data-p="X">X</button>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="lbl" for="handle">Handle / name <span class="opt">optional</span></label>
+        <input id="handle" placeholder="e.g. @smesouthafrica" />
+      </div>
+      <div class="field">
+        <label class="lbl" for="goal">Primary goal <span class="opt">optional</span></label>
+        <input id="goal" placeholder="e.g. drive event sign-ups & follows" />
+      </div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <label class="lbl" for="bio">Bio / about text</label>
+      <textarea id="bio" rows="3" placeholder="Paste the profile bio or About section exactly as it appears."></textarea>
+    </div>
+
+    <div style="margin-top:18px;">
+      <label class="lbl" for="captions">Recent captions / posts <span class="opt">optional — one per line, 3–5 is ideal</span></label>
+      <textarea id="captions" rows="5" placeholder="Paste a few recent captions, one per line. The more you add, the sharper the audit."></textarea>
+    </div>
+
+    <div class="go">
+      <button class="btn" id="run" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span id="runlabel">Audit profile</span>
+      </button>
+      <span class="go-note">Honest 0–100 grading. Uses your Gemini key.</span>
+    </div>
+  </section>
+
+  <div class="error" id="error" hidden></div>
+  <div id="results"></div>
+
+  <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
+</main>
+
+<script>
+"use strict";
+const ICON = {
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  glass:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+};
+
+const state = { platform:'Instagram', handle:'', goal:'', bio:'', captions:'', loading:false, audit:null };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tier = v => v>=70 ? 'good' : v>=45 ? 'mid' : 'low';
+const COLORS = { good:'#57E39A', mid:'#FFC857', low:'#FF7C7C' };
+const letterGrade = v => v>=85?'A':v>=70?'B':v>=55?'C':v>=40?'D':'F';
+
+const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results');
+const elHandle=$('#handle'), elGoal=$('#goal'), elBio=$('#bio'), elCaps=$('#captions');
+
+elBio.addEventListener('input', e => { state.bio=e.target.value; syncRun(); });
+elCaps.addEventListener('input', e => { state.captions=e.target.value; syncRun(); });
+elHandle.addEventListener('input', e => { state.handle=e.target.value; });
+elGoal.addEventListener('input', e => { state.goal=e.target.value; });
+$('#seg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  state.platform = b.dataset.p;
+  [...$('#seg').children].forEach(x => x.classList.toggle('on', x===b));
+});
+elRun.addEventListener('click', () => run());
+
+function syncRun(){ elRun.disabled = state.loading || !(state.bio.trim() || state.captions.trim()); }
+
+// App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
+const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
+
+async function callApi(payload){
+  const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify(payload) });
+  let data;
+  try { data = await r.json(); } catch(_) { throw new Error('SETUP'); }
+  if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed');
+  return data;
+}
+
+async function run(){
+  state.loading = true; syncRun(); hideErr();
+  state.audit = null; render();
+  elRunLabel.textContent = 'Auditing…';
+  const svg = elRun.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner"></span>';
+  try{
+    const data = await callApi({ task:'audit', platform:state.platform, handle:state.handle, bio:state.bio, captions:state.captions, goal:state.goal });
+    if(!data || !data.audit) throw new Error('No audit returned — try again.');
+    state.audit = data.audit;
+  }catch(err){ showErr(err.message); }
+  finally{
+    state.loading = false;
+    elRunLabel.textContent = state.audit ? 'Re-audit' : 'Audit profile';
+    const ic = elRun.querySelector('.spinner'); if(ic) ic.outerHTML = ICON.glass.replace('viewBox','width="18" height="18" viewBox');
+    syncRun(); render();
+  }
+}
+
+const warnSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+function showErr(msg){
+  const setup = (msg==='SETUP' || /not set|api key|429|quota|failed to fetch|load failed/i.test(msg));
+  elErr.innerHTML = setup
+    ? warnSvg + '<div><b>Not connected yet.</b> This uses the same Gemini key as the Copy tab — once that\'s deployed and working, the auditor is live too. Locally, run <code>vercel dev</code>.</div>'
+    : warnSvg + '<div>' + esc(msg) + '</div>';
+  elErr.hidden = false;
+}
+function hideErr(){ elErr.hidden = true; }
+
+function copyText(btn, text){
+  navigator.clipboard && navigator.clipboard.writeText(text);
+  const old = btn.innerHTML;
+  btn.innerHTML = ICON.check + ' Copied';
+  setTimeout(()=>{ btn.innerHTML = old; }, 1400);
+}
+
+function dimRow(d){
+  const t = tier(d.score);
+  return `<div class="dim">
+    <div class="dim-top"><span class="dim-lbl">${esc(d.label)}</span><span class="dim-val ${t}">${d.score}</span></div>
+    <div class="bar"><i style="width:${d.score}%;background:${COLORS[t]}"></i></div>
+    ${d.note ? `<div class="dim-note">${esc(d.note)}</div>` : ''}
+  </div>`;
+}
+
+function listCol(cls, title, items){
+  if(!items || !items.length) return '';
+  return `<div class="col ${cls}"><h4>${title}</h4><ul>${items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+}
+
+function render(){
+  if(state.loading){ elRes.innerHTML = `<div class="skel"></div>`; return; }
+  const a = state.audit;
+  if(!a){
+    elRes.innerHTML = `<div class="empty">${ICON.glass}<p>Your scored profile audit will appear here.</p></div>`;
+    return;
+  }
+  const t = tier(a.overall), grade = letterGrade(a.overall);
+
+  const dims = (a.dimensions && a.dimensions.length)
+    ? `<div class="sec"><h3 class="sec-h">Scored breakdown</h3>${a.dimensions.map(dimRow).join('')}</div>` : '';
+
+  const cols = (a.wins.length || a.risks.length || a.opportunities.length)
+    ? `<div class="sec"><h3 class="sec-h">Wins · Risks · Opportunities</h3><div class="cols">
+        ${listCol('win','Key wins',a.wins)}
+        ${listCol('risk','Risks',a.risks)}
+        ${listCol('opp','Opportunities',a.opportunities)}
+      </div></div>` : '';
+
+  const acts = (a.actions && a.actions.length)
+    ? `<div class="sec"><h3 class="sec-h">Priority actions</h3><div class="acts">
+        ${a.actions.map((x,i)=>`<div class="act"><span class="n">${i+1}</span><p>${esc(x)}</p></div>`).join('')}
+      </div></div>` : '';
+
+  const rewrite = a.bioRewrite
+    ? `<div class="sec"><h3 class="sec-h">Suggested bio rewrite</h3><div class="rewrite">
+        <p>${esc(a.bioRewrite)}</p>
+        <button class="mini" id="copy-bio">${ICON.copy} Copy bio</button>
+      </div></div>` : '';
+
+  const ideas = (a.captionIdeas && a.captionIdeas.length)
+    ? `<div class="sec"><h3 class="sec-h">Caption hooks to try</h3><div class="ideas">
+        ${a.captionIdeas.map((x,i)=>`<div class="idea"><span>${esc(x)}</span><button class="mini copy-idea" data-i="${i}">${ICON.copy} Copy</button></div>`).join('')}
+      </div></div>` : '';
+
+  elRes.innerHTML = `<div class="report">
+    <div class="grade">
+      <div class="ring ${t}" style="background:${COLORS[t]}1f;border:2px solid ${COLORS[t]};">${grade}</div>
+      <div class="meta">
+        <div class="score ${t}">${a.overall}<em>/100</em></div>
+        <div class="ctx">${esc(state.platform)} profile audit</div>
+        <p class="verdict">${esc(a.verdict)}</p>
+      </div>
+    </div>
+    ${dims}${cols}${acts}${rewrite}${ideas}
+  </div>`;
+}
+
+elRes.addEventListener('click', e => {
+  const bioBtn = e.target.closest('#copy-bio');
+  if(bioBtn && state.audit){ copyText(bioBtn, state.audit.bioRewrite); return; }
+  const ideaBtn = e.target.closest('.copy-idea');
+  if(ideaBtn && state.audit){
+    const idea = state.audit.captionIdeas[+ideaBtn.dataset.i];
+    if(idea) copyText(ideaBtn, idea);
+  }
+});
+
+render();
+</script>
+</body>
+</html>

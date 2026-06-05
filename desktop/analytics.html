@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<!-- Volt — Performance Analytics — © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+  <script src="volt-auth.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
+    --accent:#B6FF3D; --accent-press:#a3ec2b;
+    --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui,sans-serif;
+    --fb:'Plus Jakarta Sans',system-ui,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--fb); color:var(--text); background:var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;}
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
+      radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
+      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+  .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:26px 22px 36px;}
+
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+  h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(40px,7.5vw,68px); line-height:.98; letter-spacing:-.02em; margin:18px 0 0;}
+  h1.title .accent{color:var(--accent);}
+  .sub{color:var(--dim); font-size:16px; max-width:580px; margin:15px 0 0; line-height:1.55;}
+
+  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
+  .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
+  textarea,input,select{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
+  textarea::placeholder,input::placeholder{color:#565c68;}
+  textarea:focus,input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  .row{display:flex; gap:18px; margin-top:18px; flex-wrap:wrap;}
+  .field{flex:1; min-width:230px;}
+  .seg{display:flex; gap:7px; flex-wrap:wrap;}
+  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .seg button:hover{color:var(--text); border-color:var(--accent);}
+  .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .mgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(225px,1fr)); gap:12px; margin-top:10px;}
+  .mcard{background:#0D0F15; border:1px solid var(--border); border-radius:13px; padding:12px 13px;}
+  .mcard .m-lbl{font-family:var(--fm); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--dim); font-weight:700;}
+  .mcard .m-hint{font-size:10px; color:var(--faint); margin-top:2px; font-weight:400;}
+  .mcard .m-ins{display:flex; gap:8px; margin-top:10px;}
+  .mcard .m-ins .col{flex:1;}
+  .mcard .m-ins .tiny{font-family:var(--fm); font-size:9px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; display:block; text-align:center; margin-bottom:4px;}
+  .mcard .m-ins input{padding:8px 6px; font-size:14px; text-align:center; border-radius:9px;}
+
+  .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
+  .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(182,255,61,.7);}
+  .btn:active:not(:disabled){transform:translateY(1px);}
+  .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .go-note{font-size:13px; color:var(--dim);}
+
+  .error{display:flex; gap:11px; align-items:flex-start; margin-top:20px; font-size:14px; line-height:1.5; color:#ffd7d7; background:rgba(255,124,124,.08); border:1px solid rgba(255,124,124,.35); border-radius:14px; padding:14px 16px;}
+  .error[hidden]{display:none;}
+  .error b{color:#fff; font-weight:700;}
+
+  .empty{margin-top:32px; border:1px dashed var(--border-2); border-radius:20px; padding:52px 20px; text-align:center; color:var(--dim);}
+  .empty svg{width:30px;height:30px;opacity:.6;}
+  .empty p{margin:14px 0 0; font-size:15px;}
+  .skel{height:160px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
+  @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .report{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:26px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04); opacity:0; animation:rise .5s cubic-bezier(.2,.7,.2,1) forwards;}
+  @keyframes rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+
+  .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px;}
+  .kpi{background:#0D0F15; border:1px solid var(--border); border-radius:14px; padding:14px 15px;}
+  .kpi .k-lbl{font-family:var(--fm); font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--dim);}
+  .kpi .k-val{font-family:var(--fd); font-weight:800; font-size:23px; margin-top:7px; line-height:1;}
+  .kpi .k-d{font-family:var(--fm); font-size:11.5px; font-weight:700; display:inline-flex; gap:4px; align-items:center;}
+  .kpi .k-vs{font-family:var(--fm); font-size:10px; color:var(--faint); margin-left:6px; letter-spacing:.04em;}
+  .kpi .k-sub{font-family:var(--fm); font-size:10px; color:var(--faint); margin-top:7px; letter-spacing:.03em;}
+  .kpi .k-line{margin-top:8px;}
+  .k-d.up{color:var(--good);} .k-d.down{color:var(--low);} .k-d.flat{color:var(--dim);}
+
+  .grade{display:flex; align-items:center; gap:20px;}
+  .grade .ring{width:90px; height:90px; border-radius:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--fd); font-weight:800; font-size:40px;}
+  .grade .meta .score{font-family:var(--fd); font-weight:800; font-size:29px; line-height:1;}
+  .grade .meta .score em{font-style:normal; font-size:15px; color:var(--dim); font-weight:500; margin-left:2px;}
+  .grade .meta .ctx{font-family:var(--fm); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); margin-top:6px;}
+  .grade .meta .verdict{margin:9px 0 0; font-size:15.5px; line-height:1.5; color:var(--text); max-width:580px;}
+  .good{color:var(--good);} .mid{color:var(--mid);} .low{color:var(--low);}
+
+  .sec{margin-top:28px;}
+  .sec-h{font-family:var(--fm); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin:0 0 15px; padding-bottom:9px; border-bottom:1px solid var(--border);}
+
+  .bwrap{overflow-x:auto;}
+  .bench{width:100%; border-collapse:collapse; font-size:13.5px; min-width:420px;}
+  .bench th{text-align:left; font-family:var(--fm); font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--dim); padding:0 10px 9px; border-bottom:1px solid var(--border); font-weight:700;}
+  .bench td{padding:11px 10px; border-bottom:1px solid var(--border); vertical-align:top; color:var(--text);}
+  .bench td.metric{font-weight:600;}
+  .bench td.read{font-weight:600;}
+
+  .cols{display:grid; grid-template-columns:repeat(3,1fr); gap:18px;}
+  @media(max-width:760px){.cols{grid-template-columns:1fr;}}
+  .col h4{font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; margin:0 0 12px;}
+  .col.win h4{color:var(--good);} .col.risk h4{color:var(--low);} .col.opp h4{color:var(--info);}
+  .col ul{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .col li{font-size:13.5px; line-height:1.5; color:var(--dim); padding-left:20px; position:relative;}
+  .col li::before{position:absolute; left:0; top:0; font-weight:700;}
+  .col.win li::before{content:'✓'; color:var(--good);}
+  .col.risk li::before{content:'!'; color:var(--low);}
+  .col.opp li::before{content:'↗'; color:var(--info);}
+
+  .acts{display:flex; flex-direction:column; gap:10px;}
+  .act{display:flex; gap:13px; align-items:flex-start; background:rgba(182,255,61,.05); border:1px solid var(--border); border-radius:13px; padding:13px 15px;}
+  .act .n{font-family:var(--fd); font-weight:800; font-size:15px; color:var(--accent); flex-shrink:0; width:18px; line-height:1.4;}
+  .act p{margin:0; font-size:14px; line-height:1.5; color:var(--text);}
+
+  .trk{margin-top:26px; font-size:12.5px; line-height:1.55; color:var(--faint); border-top:1px solid var(--border); padding-top:16px;}
+
+  .ls-msg{font-size:13.5px; line-height:1.55; color:var(--dim); margin:0;}
+  .ls-setup{border:1px dashed var(--border-2); border-radius:14px; padding:16px; margin-top:4px;}
+  .ls-steps{margin:10px 0 0; padding-left:20px; color:var(--dim); font-size:13px; line-height:1.65;}
+  .ls-steps code{background:#0D0F15; border:1px solid var(--border-2); border-radius:5px; padding:1px 5px; font-family:var(--fm); font-size:11px; color:#bfe6ff;}
+
+  .posts{display:flex; flex-direction:column; gap:12px;}
+  .post{background:#0D0F15; border:1px solid var(--border); border-radius:13px; padding:14px 15px;}
+  .post-h{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .post-rank{font-family:var(--fd); font-weight:800; font-size:14px; color:var(--accent);}
+  .post-date{font-family:var(--fm); font-size:11px; color:var(--faint);}
+  .post-link{margin-left:auto; font-family:var(--fm); font-size:11px; color:var(--info); text-decoration:none;}
+  .post-link:hover{text-decoration:underline;}
+  .post-text{margin:0 0 11px; font-size:14px; line-height:1.5; color:var(--text);}
+  .pmets{display:flex; flex-wrap:wrap; gap:8px;}
+  .pmet{font-family:var(--fm); font-size:11px; color:var(--dim); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:7px; padding:4px 9px;}
+  .pmet b{color:var(--text); font-weight:700;}
+  .pb-verdict{font-size:15px; line-height:1.5; color:var(--text); margin:18px 0 14px; padding:13px 15px; background:rgba(182,255,61,.06); border:1px solid var(--border); border-radius:12px;}
+  .pb{margin-top:14px;}
+  .pb-h{font-family:var(--fm); font-size:11px; letter-spacing:.08em; text-transform:uppercase; margin:0 0 8px;}
+  .pb-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px;}
+  .pb-list li{font-size:13.5px; line-height:1.5; color:var(--dim); padding-left:16px; position:relative;}
+  .pb-list li::before{content:'›'; position:absolute; left:0; color:var(--accent); font-weight:700;}
+
+  footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
+  footer span{color:var(--dim);}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="audit.html">🔍 Audit</a>
+    <span class="tab active">📊 Analytics</span>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
+  <header>
+    <span class="badge"><span class="dot"></span> Performance Analytics</span>
+    <h1 class="title">Volt<span class="accent">.</span></h1>
+    <p class="sub">Drop in this period's numbers from each platform's native insights. Volt computes your rates and deltas, then an analyst reads the period — benchmarks, wins, risks and the next moves.</p>
+  </header>
+
+  <section class="console">
+    <label class="lbl">Data source</label>
+    <div class="seg" id="modeSeg">
+      <button class="on" data-m="manual">✍️ Manual entry</button>
+      <button data-m="live">🔌 Live (Postiz)</button>
+    </div>
+
+    <label class="lbl" style="margin-top:18px;">Platform</label>
+    <div class="seg" id="seg">
+      <button class="on" data-p="Instagram">Instagram</button>
+      <button data-p="LinkedIn">LinkedIn</button>
+      <button data-p="Facebook">Facebook</button>
+      <button data-p="TikTok">TikTok</button>
+      <button data-p="X">X</button>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="lbl" for="period">Reporting period</label>
+        <input id="period" placeholder="e.g. Last 28 days · May 2026" />
+      </div>
+      <div class="field">
+        <label class="lbl" for="goal">Primary goal <span class="opt">optional</span></label>
+        <input id="goal" placeholder="e.g. grow reach & drive link clicks" />
+      </div>
+    </div>
+
+    <div id="manualBlock">
+      <label class="lbl" style="margin-top:22px;">The numbers <span class="opt">— enter “this period”; add “previous” for trend deltas</span></label>
+      <div class="mgrid" id="metricGrid"></div>
+    </div>
+
+    <div id="liveBlock" style="display:none;">
+      <label class="lbl" style="margin-top:22px;">Connected channel <span class="opt">— pulled live from your Postiz instance</span></label>
+      <div id="liveStatus"></div>
+      <div id="liveControls" class="row" style="display:none; margin-top:0;">
+        <div class="field"><label class="lbl">Channel</label><select id="liveChannel"></select></div>
+        <div class="field"><label class="lbl">Look-back</label>
+          <select id="liveDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px;">
+      <label class="lbl" for="notes">Notes / context <span class="opt">optional — campaigns, posting changes, anything notable</span></label>
+      <textarea id="notes" rows="2" placeholder="e.g. Ran the Funding Summit campaign; shifted to 3 reels/week."></textarea>
+    </div>
+
+    <div class="go">
+      <button class="btn" id="run" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+        <span id="runlabel">Analyze performance</span>
+      </button>
+      <span class="go-note">Computed locally · read by your Gemini key.</span>
+    </div>
+  </section>
+
+  <div class="error" id="error" hidden></div>
+  <div id="results"></div>
+
+  <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
+</main>
+
+<script>
+"use strict";
+const ICON = {
+  chart:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>',
+};
+const COLORS = { good:'#57E39A', mid:'#FFC857', low:'#FF7C7C' };
+const tier = v => v>=70 ? 'good' : v>=45 ? 'mid' : 'low';
+const letterGrade = v => v>=85?'A':v>=70?'B':v>=55?'C':v>=40?'D':'F';
+
+const METRICS = [
+  { key:'followers',  label:'Followers',        hint:'total',                          goodUp:true  },
+  { key:'reach',      label:'Reach / Impr.',    hint:'this period',                    goodUp:true  },
+  { key:'engagement', label:'Engagements',      hint:'likes+comments+shares+saves',    goodUp:true  },
+  { key:'visits',     label:'Profile visits',   hint:'this period',                    goodUp:true  },
+  { key:'clicks',     label:'Link clicks',      hint:'this period',                    goodUp:true  },
+  { key:'posts',      label:'Posts published',  hint:'this period',                    goodUp:null  },
+];
+
+// App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
+const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
+const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'manual', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'' };
+METRICS.forEach(m => state.metrics[m.key] = { this:'', prev:'' });
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { const n = parseFloat(String(v==null?'':v).replace(/[, %]/g,'')); return Number.isFinite(n)?n:null; };
+const fmt = n => n==null ? '—' : Number(n).toLocaleString(undefined,{maximumFractionDigits: (Math.abs(n%1)>0?2:0)});
+const pctChange = (a,b) => (a==null||b==null||b===0) ? null : ((a-b)/b*100);
+
+// ---- build metric inputs ----
+const grid = $('#metricGrid');
+grid.innerHTML = METRICS.map(m => `
+  <div class="mcard">
+    <div class="m-lbl">${m.label}</div>
+    <div class="m-hint">${m.hint}</div>
+    <div class="m-ins">
+      <div class="col"><span class="tiny">This</span><input inputmode="numeric" data-k="${m.key}" data-f="this" placeholder="0" /></div>
+      <div class="col"><span class="tiny">Prev</span><input inputmode="numeric" data-k="${m.key}" data-f="prev" placeholder="—" /></div>
+    </div>
+  </div>`).join('');
+
+grid.addEventListener('input', e => {
+  const el = e.target.closest('input'); if(!el) return;
+  state.metrics[el.dataset.k][el.dataset.f] = el.value;
+  syncRun();
+});
+
+$('#period').addEventListener('input', e => { state.period = e.target.value; });
+$('#goal').addEventListener('input', e => { state.goal = e.target.value; });
+$('#notes').addEventListener('input', e => { state.notes = e.target.value; });
+$('#seg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  state.platform = b.dataset.p;
+  [...$('#seg').children].forEach(x => x.classList.toggle('on', x===b));
+});
+
+const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results');
+
+function hasAnyMetric(){ return METRICS.some(m => num(state.metrics[m.key].this) != null); }
+function liveReady(){ const s = document.getElementById('liveChannel'); return !!(s && s.value); }
+function syncRun(){ elRun.disabled = state.loading || (state.mode === 'live' ? !liveReady() : !hasAnyMetric()); }
+elRun.addEventListener('click', () => run());
+
+// ---- Data-source mode (Manual / Live Postiz) ----
+const modeBtns = [...document.querySelectorAll('#modeSeg button')];
+modeBtns.forEach(b => b.addEventListener('click', () => switchMode(b.dataset.m)));
+function switchMode(m){
+  state.mode = m;
+  modeBtns.forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  document.getElementById('manualBlock').style.display = m === 'manual' ? '' : 'none';
+  document.getElementById('liveBlock').style.display   = m === 'live' ? '' : 'none';
+  hideErr();
+  if(m === 'live') fetchChannels(false);
+  syncRun();
+}
+
+let _channelsLoaded = false;
+function refreshBtnHtml(){ return '<button class="mini" id="liveRefresh" style="margin-top:12px;">↻ Retry</button>'; }
+function wireRefresh(){ const b = document.getElementById('liveRefresh'); if(b) b.onclick = () => fetchChannels(true); }
+function postizSetupHtml(){
+  return '<div class="ls-setup"><p class="ls-msg"><b>Postiz isn’t connected yet.</b> To switch this on:</p>'
+    + '<ol class="ls-steps"><li>Self-host Postiz (Docker) and open its dashboard.</li>'
+    + '<li>Connect your social accounts there (OAuth).</li>'
+    + '<li>Generate a Postiz API key.</li>'
+    + '<li>In Vercel → Settings → Environment Variables, add <code>POSTIZ_API_URL</code> and <code>POSTIZ_API_KEY</code>, then redeploy.</li></ol>'
+    + '<p class="ls-msg" style="margin-top:10px;">Until then, use <b>Manual entry</b> — it works today.</p>'
+    + refreshBtnHtml() + '</div>';
+}
+async function fetchChannels(force){
+  const status = document.getElementById('liveStatus');
+  const controls = document.getElementById('liveControls');
+  const sel = document.getElementById('liveChannel');
+  if(_channelsLoaded && !force) return;
+  status.innerHTML = '<p class="ls-msg"><span class="spinner" style="border-color:rgba(182,255,61,.3);border-top-color:#B6FF3D"></span> Loading channels…</p>';
+  controls.style.display = 'none';
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=channels', { headers:{'x-app-key':APP_KEY} });
+    let data; try { data = await r.json(); } catch { data = null; }
+    if(!r.ok || (data && data.error === 'NOT_CONFIGURED')){ status.innerHTML = postizSetupHtml(); wireRefresh(); return; }
+    const channels = (data && data.channels) || [];
+    if(!channels.length){
+      status.innerHTML = '<p class="ls-msg">No channels connected in Postiz yet. Connect your accounts in the Postiz dashboard, then retry.</p>' + refreshBtnHtml();
+      wireRefresh(); return;
+    }
+    sel.innerHTML = channels.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.platform ? (' · ' + esc(c.platform)) : '') + '</option>').join('');
+    status.innerHTML = '';
+    controls.style.display = '';
+    _channelsLoaded = true;
+    syncRun();
+  }catch(e){
+    status.innerHTML = '<p class="ls-msg">Couldn’t reach the Postiz proxy. ' + esc(e.message || '') + '</p>' + refreshBtnHtml();
+    wireRefresh();
+  }
+}
+
+async function pullLiveDash(){
+  const sel = document.getElementById('liveChannel');
+  const id = sel ? sel.value : '';
+  if(!id) throw new Error('Pick a connected channel first.');
+  const days = parseInt((document.getElementById('liveDays') || {}).value || '30', 10) || 30;
+  state.liveCtx = { id: id, days: days };
+  let r, data;
+  try { r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=analytics&id=' + encodeURIComponent(id) + '&days=' + days, { headers:{'x-app-key':APP_KEY} }); data = await r.json(); }
+  catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
+  if(!r.ok){
+    if(data && data.error === 'NOT_CONFIGURED') throw new Error(data.message || 'Postiz isn’t connected yet.');
+    throw new Error((data && (data.message || data.error)) || 'Postiz request failed.');
+  }
+  const metrics = (data && data.metrics) || [];
+  if(!metrics.length) throw new Error('Postiz returned no analytics for this channel/period yet — some platforms need a few days of data or extra verification.');
+  return dashFromLive(metrics, (data && data.days) || days);
+}
+function dashFromLive(metrics, days){
+  const kpis = metrics.map(m => ({ label:m.label, cur:(m.latest != null ? m.latest : null), delta:(m.percentageChange != null ? m.percentageChange : null), goodUp:true }))
+                      .filter(k => k.cur != null);
+  const lines = metrics.map(m => {
+    const d = (m.percentageChange != null) ? ' (' + (m.percentageChange >= 0 ? '+' : '') + Number(m.percentageChange).toFixed(1) + '% over ' + days + 'd)' : '';
+    return m.label + ': ' + (m.latest != null ? fmt(m.latest) : '—') + d;
+  });
+  return { kpis, rate:null, basis:'', perPost:null, summary: lines.join('\n'), live:true, days };
+}
+
+function buildDash(){
+  const m = state.metrics;
+  const get = k => ({ cur:num(m[k].this), prev:num(m[k].prev) });
+  const kpis = METRICS.map(def => { const g = get(def.key); return { label:def.label, cur:g.cur, delta:pctChange(g.cur,g.prev), goodUp:def.goodUp }; })
+                      .filter(k => k.cur != null);
+  const eng=num(m.engagement.this), reach=num(m.reach.this), foll=num(m.followers.this), posts=num(m.posts.this), clicks=num(m.clicks.this);
+  let rate=null, basis='';
+  if(eng!=null && reach){ rate = eng/reach*100; basis='by reach'; }
+  else if(eng!=null && foll){ rate = eng/foll*100; basis='by followers'; }
+  const perPost = (clicks!=null && posts) ? clicks/posts : null;
+
+  const lines = [];
+  METRICS.forEach(def => { const g = get(def.key); if(g.cur!=null){ const d=pctChange(g.cur,g.prev); lines.push(`${def.label}: ${fmt(g.cur)}${g.prev!=null?` (prev ${fmt(g.prev)}${d!=null?`, ${d>=0?'+':''}${d.toFixed(1)}%`:''})`:''}`); } });
+  if(rate!=null) lines.push(`Engagement rate (${basis}): ${rate.toFixed(2)}%`);
+  if(perPost!=null) lines.push(`Link clicks per post: ${perPost.toFixed(1)}`);
+
+  return { kpis, rate, basis, perPost, summary: lines.join('\n') };
+}
+
+async function callApi(payload){
+  const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify(payload) });
+  let data;
+  try { data = await r.json(); } catch(_) { throw new Error('SETUP'); }
+  if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed');
+  return data;
+}
+
+async function run(){
+  state.loading = true; syncRun(); hideErr(); state.analysis = null; state.dashData = null;
+  state.topPosts = null; state.bestposts = null; state.topError = '';
+  render();
+  elRunLabel.textContent = state.mode === 'live' ? 'Pulling…' : 'Analyzing…';
+  const svg = elRun.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner"></span>';
+
+  let dash = null;
+  try{
+    dash = state.mode === 'live' ? await pullLiveDash() : buildDash();
+  }catch(err){
+    showErr(err.message); state.loading = false; restoreRunBtn(); syncRun(); render(); return;
+  }
+
+  try{
+    const period = dash.live ? ('Last ' + dash.days + ' days (live)') : state.period;
+    const data = await callApi({ task:'analytics', platform:state.platform, period:period, summary:dash.summary, notes:state.notes, goal:state.goal });
+    if(!data || !data.analytics) throw new Error('No analysis returned — try again.');
+    state.analysis = data.analytics;
+  }catch(err){ showErr(err.message); state.analysis = null; }
+  finally{
+    state.dashData = dash;
+    state.loading = false;
+    restoreRunBtn();
+    syncRun(); render();
+  }
+}
+function restoreRunBtn(){
+  elRunLabel.textContent = 'Re-analyze';
+  const ic = elRun.querySelector('.spinner'); if(ic) ic.outerHTML = ICON.chart;
+}
+
+const warnSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+function showErr(msg){
+  const setup = (msg==='SETUP' || /not set|api key|429|quota|failed to fetch|load failed/i.test(msg));
+  elErr.innerHTML = setup
+    ? warnSvg + '<div><b>Not connected yet.</b> This uses the same Gemini key as the Copy tab — once that\'s deployed and working, the analyst is live too. Your KPI cards still compute without it.</div>'
+    : warnSvg + '<div>' + esc(msg) + '</div>';
+  elErr.hidden = false;
+}
+function hideErr(){ elErr.hidden = true; }
+
+function deltaChip(d, goodUp){
+  if(d==null) return '';
+  const dir = d>0.05 ? 'up' : d<-0.05 ? 'down' : 'flat';
+  const cls = (goodUp === true) ? dir : 'flat';
+  const arrow = d>0.05 ? '▲' : d<-0.05 ? '▼' : '–';
+  return `<span class="k-d ${cls}">${arrow} ${Math.abs(d).toFixed(1)}%</span>`;
+}
+function kpiCard(k){
+  const chip = deltaChip(k.delta, k.goodUp);
+  return `<div class="kpi"><div class="k-lbl">${esc(k.label)}</div><div class="k-val">${fmt(k.cur)}</div>${chip?`<div class="k-line">${chip}<span class="k-vs">vs prev</span></div>`:''}</div>`;
+}
+function computedTile(label, val, sub){
+  return `<div class="kpi"><div class="k-lbl">${esc(label)}</div><div class="k-val">${esc(val)}</div>${sub?`<div class="k-sub">${esc(sub)}</div>`:''}</div>`;
+}
+function readClass(read){
+  const r = String(read||'').toLowerCase();
+  if(/(above|strong|great|good|excellent|ahead|outperform|healthy|solid)/.test(r)) return 'good';
+  if(/(below|weak|low|poor|behind|under|needs|concern|drop|declin)/.test(r)) return 'low';
+  return 'mid';
+}
+function listCol(cls, title, items){
+  if(!items || !items.length) return '';
+  return `<div class="col ${cls}"><h4>${title}</h4><ul>${items.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+}
+
+function renderAnalysis(a){
+  const t = tier(a.overall), grade = letterGrade(a.overall);
+  let html = `<div class="sec"><h3 class="sec-h">Analyst read</h3>
+    <div class="grade">
+      <div class="ring ${t}" style="background:${COLORS[t]}1f;border:2px solid ${COLORS[t]};">${grade}</div>
+      <div class="meta">
+        <div class="score ${t}">${a.overall}<em>/100</em></div>
+        <div class="ctx">${esc(state.platform)} · ${esc(state.period||'this period')}</div>
+        <p class="verdict">${esc(a.verdict)}</p>
+      </div>
+    </div></div>`;
+
+  if(a.benchmarks && a.benchmarks.length){
+    html += `<div class="sec"><h3 class="sec-h">Benchmarks</h3><div class="bwrap"><table class="bench">
+      <thead><tr><th>Metric</th><th>You</th><th>Typical range</th><th>Read</th></tr></thead>
+      <tbody>${a.benchmarks.map(b=>`<tr>
+        <td class="metric">${esc(b.metric)}</td>
+        <td>${esc(b.you||'—')}</td>
+        <td style="color:var(--dim)">${esc(b.typical||'—')}</td>
+        <td class="read ${readClass(b.read)}">${esc(b.read||'—')}</td>
+      </tr>`).join('')}</tbody></table></div></div>`;
+  }
+
+  if(a.wins.length || a.risks.length || a.opportunities.length){
+    html += `<div class="sec"><h3 class="sec-h">Wins · Risks · Opportunities</h3><div class="cols">
+      ${listCol('win','Key wins',a.wins)}
+      ${listCol('risk','Risks',a.risks)}
+      ${listCol('opp','Opportunities',a.opportunities)}
+    </div></div>`;
+  }
+
+  if(a.actions && a.actions.length){
+    html += `<div class="sec"><h3 class="sec-h">Priority actions</h3><div class="acts">
+      ${a.actions.map((x,i)=>`<div class="act"><span class="n">${i+1}</span><p>${esc(x)}</p></div>`).join('')}
+    </div></div>`;
+  }
+  return html;
+}
+
+async function runTopPosts(){
+  const ctx = state.liveCtx;
+  if(!ctx || !ctx.id) return;
+  state.topLoading = true; state.topError = ''; render();
+  try{
+    let r, data;
+    try { r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=6', { headers:{'x-app-key':APP_KEY} }); data = await r.json(); }
+    catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
+    if(!r.ok) throw new Error((data && (data.message || data.error)) || 'Postiz request failed.');
+    const posts = (data && data.topPosts) || [];
+    if(!posts.length) throw new Error('No posts published through Postiz in this window. Top Posts ranks posts you schedule or publish via Postiz — content posted directly on the platform isn’t tracked here. Post through Postiz (or widen the look-back) and they’ll appear.');
+    state.topPosts = posts;
+    // AI playbook across the winners (optional — cards still show if this fails)
+    try{
+      const ai = await callApi({ task:'bestposts', platform:state.platform, goal:state.goal, posts: posts.map(p => ({ content:p.content, metrics:p.metrics, engagement:p.engagement })) });
+      state.bestposts = (ai && ai.bestposts) || null;
+    }catch(e){ state.bestposts = null; state.topError = e.message; }
+  }catch(err){ state.topError = err.message; state.topPosts = null; }
+  finally{ state.topLoading = false; render(); }
+}
+
+function playbookBlock(title, items, color){
+  if(!items || !items.length) return '';
+  return '<div class="pb"><h4 class="pb-h" style="color:' + color + '">' + title + '</h4><ul class="pb-list">' + items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
+}
+
+function topPostsSection(){
+  if(!(state.dashData && state.dashData.live)) return '';
+  let html = '<div class="sec"><h3 class="sec-h">🏆 Top posts</h3>';
+  if(state.topLoading){ return html + '<div class="skel" style="height:160px"></div></div>'; }
+  if(!state.topPosts){
+    html += '<p class="ls-msg" style="margin-bottom:12px;">Pull your recent published posts ranked by engagement, with an AI playbook of what’s working. <span style="color:var(--faint)">Uses a few Postiz calls (≈30/hour limit), so it’s on demand.</span></p>';
+    html += '<button class="mini" id="topBtn" style="padding:10px 16px;">🏆 Find my top posts</button>';
+    if(state.topError) html += '<p class="ls-msg" style="color:var(--low); margin-top:12px;">' + esc(state.topError) + '</p>';
+    return html + '</div>';
+  }
+  html += '<div class="posts">';
+  state.topPosts.forEach((p, i) => {
+    const mets = (p.metrics || []).filter(m => m.value != null).slice(0, 5)
+      .map(m => '<span class="pmet"><b>' + fmt(m.value) + '</b> ' + esc(m.label) + '</span>').join('');
+    const date = p.publishDate ? new Date(p.publishDate).toLocaleDateString() : '';
+    html += '<div class="post"><div class="post-h"><span class="post-rank">#' + (i + 1) + '</span><span class="post-date">' + esc(date) + '</span>'
+      + (p.url ? '<a class="post-link" href="' + esc(p.url) + '" target="_blank" rel="noopener">view ↗</a>' : '')
+      + '</div><p class="post-text">' + esc(p.content || '(no caption)') + '</p>'
+      + '<div class="pmets">' + (mets || '<span class="pmet" style="color:var(--faint)">no per-post metrics returned</span>') + '</div></div>';
+  });
+  html += '</div>';
+  if(state.bestposts){
+    const b = state.bestposts;
+    if(b.verdict) html += '<p class="pb-verdict">' + esc(b.verdict) + '</p>';
+    html += playbookBlock('Patterns in your winners', b.patterns, 'var(--info)');
+    html += playbookBlock('Do more of', b.doMore, 'var(--good)');
+    html += playbookBlock('Do less / fix', b.doLess, 'var(--mid)');
+    html += playbookBlock('Post these next', b.nextPosts, 'var(--accent)');
+  } else if(state.topError){
+    html += '<p class="ls-msg" style="color:var(--low); margin-top:12px;">' + esc(state.topError) + '</p>';
+  }
+  return html + '</div>';
+}
+
+function render(){
+  if(state.loading && !state.dashData){ elRes.innerHTML = `<div class="report"><div class="skel"></div></div>`; return; }
+  if(!state.dashData){
+    elRes.innerHTML = `<div class="empty">${ICON.chart}<p>Your KPI dashboard and analyst read will appear here.</p></div>`;
+    return;
+  }
+  const d = state.dashData;
+  let kpiHtml = d.kpis.map(kpiCard).join('');
+  if(d.rate != null) kpiHtml += computedTile('Engagement rate', d.rate.toFixed(2)+'%', d.basis);
+  if(d.perPost != null) kpiHtml += computedTile('Clicks / post', d.perPost.toFixed(1), '');
+
+  let html = `<div class="report">
+    <div class="sec" style="margin-top:0"><h3 class="sec-h">Your numbers — ${esc(state.period||'this period')}</h3><div class="kpis">${kpiHtml}</div></div>`;
+  if(state.loading){ html += `<div class="sec"><div class="skel" style="height:200px"></div></div>`; }
+  else if(state.analysis){ html += renderAnalysis(state.analysis); }
+  html += topPostsSection();
+  const trk = state.dashData && state.dashData.live
+    ? `Pulled live from your Postiz instance over the selected window. Coverage depends on what each platform's API exposes, so some metrics or networks may be limited.`
+    : `These figures are what you entered from each platform's native insights — Volt computes the rates and deltas, the analyst interprets them. Switch to <b>Live (Postiz)</b> for automatic, always-on data.`;
+  html += `<p class="trk">${trk}</p></div>`;
+  elRes.innerHTML = html;
+}
+
+elRes.addEventListener('click', e => { if(e.target.closest('#topBtn')) runTopPosts(); });
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,2880 @@
+<!DOCTYPE html>
+<!-- Tshepho's Lab — Studio — © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+  <script src="volt-auth.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volt — Studio</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Volt palette. Chrome accents (red/blue/emerald/purple) are remapped to one electric-lime ramp
+        // so the whole app UI is unified. The SME-branded graphic output uses sme-red/sme-navy/slate/white
+        // and is deliberately left untouched.
+        const _lime = { 200:'#e8ffc2', 300:'#d4ff8f', 400:'#c5ff5e', 500:'#B6FF3D', 600:'#a3ec2b', 700:'#8fd416', 800:'#6f9f12', 900:'#3f4d0a' };
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        sme: { red: '#9c1c1f', navy: '#0a2c3d', black: '#000000', gray: '#f8fafc' },
+                        lab: { bg:'#0A0B0F', surface:'#14171F', surface2:'#1A1E28', border:'#23262E', line:'#2A2E38', text:'#ECEEF3', dim:'#888F9D', faint:'#5B616D', accent:'#B6FF3D', ink:'#0A0B0F' },
+                        red: _lime, blue: _lime, emerald: _lime, purple: _lime, sky: _lime, indigo: _lime, violet: _lime
+                    },
+                    fontFamily: {
+                        oswald: ['Oswald', 'sans-serif'], roboto: ['Roboto', 'sans-serif'],
+                        display: ['Unbounded', 'sans-serif'], sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Note: No html2canvas, no jspdf. JSZip is loaded INSIDE the worker via importScripts. Zero main-thread deps beyond Tailwind. -->
+
+    <style>
+        body { background-color: #0A0B0F; color: #ECEEF3; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0A0B0F; }
+        ::-webkit-scrollbar-thumb { background: #2A2E38; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3a3f4a; }
+
+        .preview-bg {
+            background-color: #101218;
+            background-image: radial-gradient(#23262E 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #canvas-wrapper {
+            transform-origin: top center;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #export-canvas {
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            overflow: hidden;
+            background-color: #ffffff;
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        input[type=range] { accent-color: #B6FF3D; }
+
+        #toast {
+            visibility: hidden; min-width: 250px; background-color: #14171F; color: #fff; text-align: center;
+            border-radius: 8px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px;
+            transform: translateX(-50%); box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #23262E;
+            transition: visibility 0.3s, opacity 0.3s ease-in-out; opacity: 0;
+        }
+        #toast.show { visibility: visible; opacity: 1; }
+
+        .disabled-btn { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+
+        /* Suite nav tabs (match Copy Lab) */
+        .nav-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+        .nav-tab {
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+            padding: 7px 12px; border-radius: 9px; border: 1px solid #23262E; color: #888F9D;
+            text-decoration: none; transition: all 0.14s; cursor: pointer;
+        }
+        .nav-tab:hover { color: #ECEEF3; border-color: #B6FF3D; }
+        .nav-tab.active { background: #B6FF3D; color: #0A0B0F; border-color: #B6FF3D; }
+
+        /* Progress bar */
+        #progress-shell {
+            height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
+            margin-top: 8px; transition: opacity 0.2s;
+        }
+        #progress-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, #6f9f12, #B6FF3D);
+            transition: width 0.25s ease-out;
+        }
+
+        /* Tiny engine badge */
+        .engine-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: rgba(182,255,61,0.14); color: #B6FF3D;
+            padding: 2px 8px; border-radius: 4px;
+            font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+            text-transform: uppercase; border: 1px solid rgba(182,255,61,0.3);
+        }
+
+        /* Brand Kit — the live preview's brand colours come from these vars (the export
+           uses the worker's own BRAND object, fed the same values via the render payload). */
+        :root { --bp: #9c1c1f; --bs: #0a2c3d; }
+        .bg-sme-red    { background-color: var(--bp) !important; }
+        .text-sme-red  { color: var(--bp) !important; }
+        .border-sme-red{ border-color: var(--bp) !important; }
+        .bg-sme-navy   { background-color: var(--bs) !important; }
+        .text-sme-navy { color: var(--bs) !important; }
+
+        /* Brand Kit form fields */
+        .bk-lbl { display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#888F9D; font-weight:700; margin-bottom:4px; }
+        .bk-in  { width:100%; background:#0D0F15; color:#ECEEF3; border:1px solid #2A2E38; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; }
+        .bk-in:focus { border-color:#B6FF3D; }
+    </style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+    <div id="toast"></div>
+
+    <!-- Sidebar Controls -->
+    <aside class="w-full md:w-[480px] bg-slate-900 border-r border-slate-800 flex flex-col h-full overflow-y-auto shrink-0 z-10 shadow-2xl relative">
+
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-800 bg-slate-900/95 sticky top-0 z-20 backdrop-blur-sm">
+            <nav class="nav-tabs">
+                <a class="nav-tab" href="index.html">✍️ Copy</a>
+                <span class="nav-tab active">🎨 Studio</span>
+                <a class="nav-tab" href="audit.html">🔍 Audit</a>
+                <a class="nav-tab" href="analytics.html">📊 Analytics</a>
+                <a class="nav-tab" href="email.html">✉️ Email</a>
+                <a class="nav-tab" href="video.html">🎬 Video</a>
+                <a class="nav-tab" href="guide.html">📖 Guide</a>
+            </nav>
+            <div class="flex items-center justify-between">
+                <h1 class="text-3xl font-extrabold text-white tracking-tight leading-none" style="font-family:'Unbounded',sans-serif;">Volt<span style="color:#B6FF3D;">.</span></h1>
+                <span class="engine-badge"><span class="w-1.5 h-1.5 rounded-full" style="background:#B6FF3D;"></span> No API key</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1 tracking-widest uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Design Studio</p>
+
+            <button onclick="openBrandKit()" id="brand-chip" class="mt-4 w-full flex items-center justify-between gap-2 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 transition-colors">
+                <span class="flex items-center gap-2 min-w-0">
+                    <span id="brand-chip-swatch" class="w-4 h-4 rounded-sm shrink-0 border border-white/20" style="background:#9c1c1f;"></span>
+                    <span class="text-xs text-slate-300 font-bold truncate">Brand: <span id="brand-chip-name" class="text-white">SME South Africa</span></span>
+                </span>
+                <span class="text-[10px] font-bold uppercase tracking-widest shrink-0" style="color:#B6FF3D;">Manage</span>
+            </button>
+
+            <div id="advisor-panel" class="mt-4 bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 p-4 rounded-xl shadow-lg">
+                <div class="flex items-center gap-2 mb-2 text-sm font-bold text-blue-300 uppercase tracking-widest">
+                    <span>🤖</span> Strategy Proxy
+                </div>
+                <p id="advisor-msg" class="text-sm text-slate-300 leading-snug font-medium"></p>
+                <div id="advisor-action" class="mt-3 flex gap-2"></div>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-8 flex-1">
+
+            <!-- Feed Simulator -->
+            <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 shadow-inner">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style="color:#B6FF3D;">📱 Feed Preview</label>
+                    <span id="variety-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded" style="background:rgba(255,255,255,0.06);color:#888F9D;">—</span>
+                </div>
+                <div class="h-1.5 rounded-full overflow-hidden mb-3" style="background:rgba(255,255,255,0.08)">
+                    <div id="variety-bar" class="h-full rounded-full" style="width:0%;background:#B6FF3D;transition:width .4s ease,background .4s ease"></div>
+                </div>
+                <div id="feed-grid" class="grid grid-cols-3 gap-1.5"></div>
+                <p id="feed-hint" class="text-[10px] text-slate-500 leading-snug mt-3">Your last 9 exports show here as an Instagram-style grid — a quick gut-check on whether your feed looks varied.</p>
+                <button onclick="openAudit()" class="w-full mt-3 text-[11px] font-bold uppercase tracking-widest py-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors" style="color:#B6FF3D;">📊 Full content audit</button>
+            </div>
+
+            <!-- Step 1: Link & Context -->
+            <div class="space-y-3 bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 shadow-inner">
+                <label class="text-xs font-bold text-blue-400 uppercase tracking-widest block flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                    1. Auto-Fill Content
+                </label>
+                <div class="flex gap-2">
+                    <input type="text" id="in-url" placeholder="Paste article link..." class="flex-1 bg-slate-900 text-white rounded-lg p-3 text-sm border border-slate-600 outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="fetchArticleData()" id="btn-fetch" class="bg-blue-600 hover:bg-blue-500 text-[#0A0B0F] font-bold py-3 px-4 rounded-lg text-sm transition-colors whitespace-nowrap shadow-lg flex items-center justify-center min-w-[100px]">
+                        Auto-Fill
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-500 leading-snug">Scraper extracts headline, image, and runs the smart slicer to auto-populate carousel slides from the article description.</p>
+            </div>
+
+            <!-- Step 2: Strategic Format -->
+            <div>
+                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">2. Strategic Format</label>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                    <button onclick="setCampaign('standard')" id="camp-standard" class="camp-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-3 px-3 rounded-lg border border-red-500 transition-all text-xs uppercase tracking-wider">
+                        🖼️ Standard
+                    </button>
+                    <button onclick="setCampaign('carousel')" id="camp-carousel" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        📄 Carousel
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setCampaign('poll')" id="camp-poll" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        📊 Community Poll
+                    </button>
+                    <button onclick="setCampaign('whatsapp')" id="camp-whatsapp" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        💬 WhatsApp Channel
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                    <button onclick="setCampaign('stat')" id="camp-stat" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        📈 Stat Spotlight
+                    </button>
+                    <button onclick="setCampaign('quote')" id="camp-quote" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        ❝ Quote
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Theme Dimensions -->
+            <div id="size-controls">
+                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">3. Select Dimensions</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setFormat('landscape')" id="btn-landscape" class="format-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Land (LinkedIn)</button>
+                    <button onclick="setFormat('square')" id="btn-square" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Sq (IG Grid)</button>
+                    <button onclick="setFormat('portrait')" id="btn-portrait" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Port (IG Feed)</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Design Theme (Standard Only) -->
+            <div id="theme-controls">
+                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">4. Design Theme</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setTheme('classic')" id="theme-classic" class="theme-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Classic</button>
+                    <button onclick="setTheme('cinematic')" id="theme-cinematic" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Cinematic</button>
+                    <button onclick="setTheme('modern')" id="theme-modern" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Modern</button>
+                </div>
+            </div>
+
+            <!-- Carousel UI -->
+            <div id="carousel-controls" class="hidden space-y-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-xs font-bold text-white uppercase tracking-widest">Slides (6)</label>
+                    <button onclick="autoSliceFromTitle()" class="text-[10px] font-bold text-blue-300 hover:text-blue-200 uppercase tracking-widest underline decoration-dotted underline-offset-4">↻ Re-slice</button>
+                </div>
+                <div class="grid grid-cols-3 gap-1">
+                    <button onclick="changeSlide(0)" id="sl-0" class="slide-nav py-1.5 rounded bg-red-600 text-[#0A0B0F] text-xs font-bold">1</button>
+                    <button onclick="changeSlide(1)" id="sl-1" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">2</button>
+                    <button onclick="changeSlide(2)" id="sl-2" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">3</button>
+                    <button onclick="changeSlide(3)" id="sl-3" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">4</button>
+                    <button onclick="changeSlide(4)" id="sl-4" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">5</button>
+                    <button onclick="changeSlide(5)" id="sl-5" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">6</button>
+                </div>
+                <p class="text-[10px] text-slate-500 leading-snug pt-1">Smart slicer auto-fills slides 2–5 from the article body. Edit any slide manually; the export button ships a single ZIP with all 6 PNGs.</p>
+            </div>
+
+            <!-- Focal Point Engine -->
+            <div id="framing-controls" class="space-y-4 bg-slate-800/40 p-5 rounded-xl border border-emerald-500/30 shadow-inner">
+                <label class="text-xs font-bold text-emerald-400 uppercase tracking-widest block">5. Image Framing</label>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            <span>Horizontal</span> <span id="val-img-x">50%</span>
+                        </div>
+                        <input type="range" id="in-img-x" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
+                            <span>Vertical</span> <span id="val-img-y">50%</span>
+                        </div>
+                        <input type="range" id="in-img-y" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Inputs -->
+            <div class="space-y-4">
+                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">6. Content Adjustment</label>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Tag</label>
+                    <input type="text" id="in-tag" value="SME Knowledge HUB" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" id="lbl-title">Main Headline</label>
+                    <textarea id="in-title" rows="3" class="w-full bg-slate-800 text-white rounded-lg p-3 text-lg font-bold border border-slate-700 outline-none focus:ring-2 focus:ring-red-500 resize-none transition-shadow" oninput="syncDOM()">Four Business Ideas To Solve Socio-Economic Issues</textarea>
+                </div>
+                <div id="poll-controls" class="hidden space-y-2 mt-4">
+                    <label class="text-xs text-slate-400 block mb-1">Poll Options</label>
+                    <input type="text" id="poll-opt-1" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="Yes, definitely" oninput="syncDOM()">
+                    <input type="text" id="poll-opt-2" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="No, we need help" oninput="syncDOM()">
+                    <input type="text" id="poll-opt-3" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="Not sure yet" oninput="syncDOM()">
+                </div>
+                <div id="stat-controls" class="hidden space-y-2 mt-4">
+                    <label class="text-xs text-slate-400 block mb-1">The big stat / number</label>
+                    <input type="text" id="in-stat" value="73%" class="w-full bg-slate-800 text-white rounded-lg p-3 text-2xl font-black border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
+                    <p class="text-[10px] text-slate-500 leading-snug">Keep it short — a percentage or figure (e.g. &ldquo;73%&rdquo;, &ldquo;3&times;&rdquo;, &ldquo;R2.4bn&rdquo;). The headline above becomes the supporting line.</p>
+                </div>
+                <div id="quote-controls" class="hidden space-y-2 mt-4">
+                    <label class="text-xs text-slate-400 block mb-1">Attribution</label>
+                    <input type="text" id="in-author" value="Thabo M., SME Founder" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
+                    <p class="text-[10px] text-slate-500 leading-snug">The headline above is the quote. Add who said it here (name, role).</p>
+                </div>
+                <div id="image-upload-wrapper">
+                    <label class="text-xs text-slate-400 block mb-1">Featured Image</label>
+                    <input type="file" id="in-image" accept="image/*" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer hover:file:bg-slate-600 transition-colors">
+                </div>
+
+                <div class="flex items-center justify-between mt-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <label class="text-xs text-slate-300 font-bold uppercase tracking-wide cursor-pointer flex-1" for="toggle-footer">Show Footer / CTA Branding</label>
+                    <input type="checkbox" id="toggle-footer" checked class="w-4 h-4 accent-red-500 cursor-pointer" onchange="state.showFooter = this.checked; renderLayout();">
+                </div>
+            </div>
+
+            <!-- Typography Scaling -->
+            <div class="space-y-4 pb-10">
+                <div class="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-xs text-slate-400 font-bold block">Typography Scale</label>
+                        <span id="font-size-val" class="text-xs font-mono font-bold text-white bg-red-900/50 px-2 py-0.5 rounded">100%</span>
+                    </div>
+                    <input type="range" id="in-font-size" min="60" max="140" value="100" class="w-full cursor-pointer" oninput="syncDOM()">
+                    <p class="text-[10px] text-slate-500 leading-snug mt-2">Auto-fit binary search guarantees text never overflows the bounding box, regardless of slider position.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export -->
+        <div class="p-6 bg-slate-900 border-t border-slate-800 sticky bottom-0 z-20 shadow-2xl space-y-2">
+            <button onclick="triggerExport()" id="btn-download" class="w-full bg-[#B6FF3D] hover:bg-[#a3ec2b] text-[#0A0B0F] font-black py-4 px-6 rounded-xl text-lg transition-transform active:scale-[0.98] shadow-xl uppercase flex items-center justify-center gap-2 border border-red-500/50 relative overflow-hidden">
+                <svg id="icon-download" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <svg id="icon-loading" class="w-6 h-6 animate-spin hidden absolute left-[20%]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span id="download-text">Download HD PNG</span>
+            </button>
+
+            <!-- Secondary action for carousel: zip all 6 slides -->
+            <button onclick="triggerCarouselZipExport()" id="btn-download-zip" class="hidden w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition-transform active:scale-[0.98] shadow-lg uppercase flex items-center justify-center gap-2 border border-slate-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                <span>Export All 6 Slides (ZIP)</span>
+            </button>
+
+            <div id="progress-shell" style="opacity:0">
+                <div id="progress-bar"></div>
+            </div>
+            <p id="progress-label" class="text-[10px] text-slate-500 text-center font-mono uppercase tracking-widest" style="min-height:14px"></p>
+
+            <div class="text-center">
+                <p class="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase">Developed by Tshepho Joel © 2026</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 preview-bg flex flex-col items-center p-8 relative overflow-y-auto overflow-x-hidden">
+        <div class="mb-6 text-center shrink-0 bg-slate-900/80 backdrop-blur px-6 py-2 rounded-full border border-slate-700 shadow-lg z-20">
+            <h2 class="text-slate-200 font-bold text-sm tracking-[0.2em] uppercase flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full animate-pulse" style="background:#B6FF3D;"></span> Live Preview (DOM)
+            </h2>
+            <p id="preview-dim" class="text-red-400 font-mono text-xs font-bold mt-0.5">1200 x 628</p>
+        </div>
+
+        <div id="canvas-wrapper" class="origin-top shrink-0 mb-20 shadow-2xl">
+            <div id="export-canvas" class="relative bg-white" style="width: 1200px; height: 628px;"></div>
+        </div>
+
+        <!-- How to use -->
+        <div class="w-full max-w-[1080px] shrink-0 bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-8 shadow-xl mb-12 z-10">
+            <div class="flex items-center gap-3 mb-6 border-b border-slate-700 pb-4">
+                <span class="p-2 rounded-lg" style="background:#B6FF3D;color:#0A0B0F;"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg></span>
+                <h3 class="text-xl font-bold text-white uppercase tracking-wide" style="font-family:'Unbounded',sans-serif;">How to use the Studio</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-300">
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">1</span>
+                    <div><p class="font-bold text-white mb-1">Add your content</p><p class="text-xs leading-relaxed text-slate-400">Paste an article link into <span class="font-semibold" style="color:#B6FF3D;">Auto-Fill</span> to pull the headline, image and auto-build carousel slides — or just type your own into the fields below.</p></div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">2</span>
+                    <div><p class="font-bold text-white mb-1">Pick the format</p><p class="text-xs leading-relaxed text-slate-400">Choose a post type — <span class="font-semibold" style="color:#B6FF3D;">Standard, Carousel, Poll or WhatsApp</span> — then a size: Landscape (LinkedIn), Square (IG grid) or Portrait (IG feed).</p></div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">3</span>
+                    <div><p class="font-bold text-white mb-1">Style &amp; frame</p><p class="text-xs leading-relaxed text-slate-400">Pick a theme (Classic, Cinematic, Modern) and drag the <span class="font-semibold" style="color:#B6FF3D;">Horizontal / Vertical</span> sliders to position your photo. Toggle footer branding any time.</p></div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">4</span>
+                    <div><p class="font-bold text-white mb-1">Polish the text</p><p class="text-xs leading-relaxed text-slate-400">Edit the tag and headline. For carousels, click each slide number to edit it, or hit <span class="font-semibold" style="color:#B6FF3D;">Re-slice</span>. The Typography slider scales text — it always auto-fits, so nothing overflows.</p></div>
+                </div>
+                <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700 flex gap-3 md:col-span-2">
+                    <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-sm" style="background:#B6FF3D;color:#0A0B0F;">5</span>
+                    <div><p class="font-bold text-white mb-1">Export</p><p class="text-xs leading-relaxed text-slate-400">Hit <span class="font-semibold" style="color:#B6FF3D;">Download HD PNG</span> for a single image, or <span class="font-semibold" style="color:#B6FF3D;">Export All 6 Slides (ZIP)</span> for a full carousel. No watermark — print-quality at 3× resolution.</p></div>
+                </div>
+            </div>
+
+            <div class="mt-5 pt-5 border-t border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-400">
+                <p>💡 <span class="text-slate-200 font-semibold">Watch the Strategy Proxy &amp; Feed Preview.</span> When your recent posts start to look alike, it'll suggest switching it up so your feed stays fresh.</p>
+                <p>✍️ <span class="text-slate-200 font-semibold">Coming from the Copy tab?</span> Your chosen headline and body load in automatically — just style and export.</p>
+                <p>🎯 <span class="text-slate-200 font-semibold">For carousels, keep slide&nbsp;1 short.</span> It's the hook that stops the scroll — aim for under 8 words.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Content Scorecard modal -->
+    <div id="audit-modal" class="hidden" style="position:fixed;inset:0;z-index:1000;">
+        <div onclick="closeAudit()" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);"></div>
+        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:#14171F;border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:#14171F;z-index:2;">
+                <div class="flex items-center gap-2">
+                    <span>📊</span>
+                    <h3 class="text-lg font-bold text-white" style="font-family:'Unbounded',sans-serif;">Content Scorecard</h3>
+                </div>
+                <button onclick="closeAudit()" class="text-slate-400 hover:text-white text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700">&times;</button>
+            </div>
+            <div id="audit-body" class="p-6"></div>
+        </div>
+    </div>
+
+    <!-- Brand Kit modal -->
+    <div id="brandkit-modal" class="hidden" style="position:fixed;inset:0;z-index:1001;">
+        <div onclick="closeBrandKit()" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);"></div>
+        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:#14171F;border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:#14171F;z-index:2;">
+                <div class="flex items-center gap-2"><span>🎨</span><h3 class="text-lg font-bold text-white" style="font-family:'Unbounded',sans-serif;">Brand Kit</h3></div>
+                <button onclick="closeBrandKit()" class="text-slate-400 hover:text-white text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700">&times;</button>
+            </div>
+            <div id="brandkit-body" class="p-6"></div>
+        </div>
+    </div>
+
+
+    <!-- ============================================================ -->
+    <!-- INLINE WEB WORKER SOURCE (runs as plain text until spawned)  -->
+    <!-- ============================================================ -->
+    <script id="worker-src" type="text/worker-source">
+'use strict';
+
+// ============ A. DEPENDENCIES ============
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+
+let BRAND = {
+    red:   '#9c1c1f',
+    navy:  '#0a2c3d',
+    black: '#000000',
+    white: '#ffffff',
+    gray:  '#f8fafc',
+    cta:   'Read Insight',
+    url:   'smesouthafrica.co.za'
+};
+// Apply per-render brand overrides (colours + cta + url); white/black/gray stay structural.
+function applyBrandToWorker(b) {
+    if (!b) return;
+    if (b.primary)   BRAND.red  = b.primary;
+    if (b.secondary) BRAND.navy = b.secondary;
+    if (b.cta)       BRAND.cta  = b.cta;
+    if (b.url)       BRAND.url  = b.url;
+}
+
+// 24x24 SVG path data (Heroicons-style)
+const ICON = {
+    chevronDouble: 'M13 5l7 7-7 7M5 5l7 7-7 7',
+    arrowRight:    'M14 5l7 7m0 0l-7 7m7-7H3',
+    globe:         'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9'
+};
+
+// ============ B. FONT LOADING (idempotent — load once per worker lifetime) ============
+let _fontsLoaded = false;
+async function loadFonts(fontBuffers) {
+    if (_fontsLoaded || !fontBuffers || Object.keys(fontBuffers).length === 0) return;
+    const promises = [];
+    for (const key of Object.keys(fontBuffers)) {
+        const { family, weight, buffer } = fontBuffers[key];
+        const face = new FontFace(family, buffer, { weight: String(weight) });
+        promises.push(face.load().then(f => self.fonts.add(f)).catch(() => {}));
+    }
+    await Promise.all(promises);
+    _fontsLoaded = true;
+}
+
+// ============ C. IMAGE DECODING ============
+async function blobToBitmap(blob) {
+    if (!blob) return null;
+    try { return await createImageBitmap(blob); }
+    catch (err) { return null; }
+}
+
+// ============ D. CANVAS RENDERER ENGINE ============
+class CanvasRenderer {
+    constructor(logicalW, logicalH, scale) {
+        this.scale = scale;
+        this.w = logicalW;
+        this.h = logicalH;
+        // HIGH-DPI: backing store is logical * scale (e.g., 1200*3 = 3600px wide)
+        this.canvas = new OffscreenCanvas(logicalW * scale, logicalH * scale);
+        this.ctx = this.canvas.getContext('2d');
+        // All subsequent draws happen in logical coordinates
+        this.ctx.scale(scale, scale);
+        this.ctx.textBaseline = 'top';
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
+    }
+
+    // --- Primitives ---
+    fillBg(color) { this.ctx.fillStyle = color; this.ctx.fillRect(0, 0, this.w, this.h); }
+    rect(x, y, w, h, color) { this.ctx.fillStyle = color; this.ctx.fillRect(x, y, w, h); }
+
+    roundRectPath(x, y, w, h, radii) {
+        const ctx = this.ctx;
+        let tl, tr, br, bl;
+        if (typeof radii === 'number') { tl = tr = br = bl = radii; }
+        else { tl = radii.tl || 0; tr = radii.tr || 0; br = radii.br || 0; bl = radii.bl || 0; }
+        ctx.beginPath();
+        ctx.moveTo(x + tl, y);
+        ctx.lineTo(x + w - tr, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+        ctx.lineTo(x + w, y + h - br);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+        ctx.lineTo(x + bl, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+        ctx.lineTo(x, y + tl);
+        ctx.quadraticCurveTo(x, y, x + tl, y);
+        ctx.closePath();
+    }
+
+    fillRoundRect(x, y, w, h, radii, color) {
+        this.ctx.save();
+        this.roundRectPath(x, y, w, h, radii);
+        this.ctx.fillStyle = color;
+        this.ctx.fill();
+        this.ctx.restore();
+    }
+
+    strokeLine(x1, y1, x2, y2, color, width, cap) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        if (cap) ctx.lineCap = cap;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Draw image with CSS "cover" sizing + focal point (matches background-size:cover)
+    drawCover(img, dx, dy, dW, dH, focalX, focalY, clipRadii, opacity) {
+        if (!img) return;
+        const fx = focalX === undefined ? 0.5 : focalX;
+        const fy = focalY === undefined ? 0.5 : focalY;
+        const op = opacity === undefined ? 1 : opacity;
+        const ctx = this.ctx;
+        const iW = img.width, iH = img.height;
+        const sc = Math.max(dW / iW, dH / iH);
+        const sW = dW / sc;
+        const sH = dH / sc;
+        const sX = (iW - sW) * fx;
+        const sY = (iH - sH) * fy;
+        ctx.save();
+        if (op < 1) ctx.globalAlpha = op;
+        if (clipRadii) {
+            this.roundRectPath(dx, dy, dW, dH, clipRadii);
+            ctx.clip();
+        }
+        ctx.drawImage(img, sX, sY, sW, sH, dx, dy, dW, dH);
+        ctx.restore();
+    }
+
+    // "contain" — centered, aspect preserved
+    drawContain(img, dx, dy, dW, dH, opts) {
+        if (!img) return null;
+        opts = opts || {};
+        const ctx = this.ctx;
+        const iW = img.width, iH = img.height;
+        const sc = Math.min(dW / iW, dH / iH);
+        const sW = iW * sc;
+        const sH = iH * sc;
+        const sX = dx + (dW - sW) / 2;
+        const sY = dy + (dH - sH) / 2;
+        ctx.save();
+        if (opts.filter) ctx.filter = opts.filter;
+        if (opts.alpha !== undefined) ctx.globalAlpha = opts.alpha;
+        ctx.drawImage(img, sX, sY, sW, sH);
+        ctx.restore();
+        return { x: sX, y: sY, w: sW, h: sH };
+    }
+
+    // Composite tint (e.g., navy multiply over image)
+    tintRect(x, y, w, h, color, alpha, blend) {
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalCompositeOperation = blend || 'multiply';
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // Linear gradient fill (direction = 'top'|'bottom'|'left'|'right'|'br'|'tr')
+    linearGradient(x, y, w, h, stops, direction) {
+        const ctx = this.ctx;
+        let x1, y1, x2, y2;
+        switch (direction) {
+            case 'top':    x1=x;   y1=y+h; x2=x;   y2=y;   break;
+            case 'bottom': x1=x;   y1=y;   x2=x;   y2=y+h; break;
+            case 'right':  x1=x;   y1=y;   x2=x+w; y2=y;   break;
+            case 'left':   x1=x+w; y1=y;   x2=x;   y2=y;   break;
+            case 'br':     x1=x;   y1=y;   x2=x+w; y2=y+h; break;
+            case 'tr':     x1=x;   y1=y+h; x2=x+w; y2=y;   break;
+            default:       x1=x;   y1=y+h; x2=x;   y2=y;
+        }
+        const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+        stops.forEach(s => grad.addColorStop(s[0], s[1]));
+        ctx.save();
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, w, h);
+        ctx.restore();
+    }
+
+    // Radial "blur glow" (Modern theme + carousel cover)
+    radialGlow(cx, cy, radius, colorRgba, transparentRgba) {
+        const ctx = this.ctx;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        grad.addColorStop(0, colorRgba);
+        grad.addColorStop(1, transparentRgba);
+        ctx.save();
+        ctx.fillStyle = grad;
+        ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+        ctx.restore();
+    }
+
+    // --- Icons via Path2D + SVG path data ---
+    drawIconPath(pathData, x, y, sizePx, color, strokeWidth, lineCap) {
+        const ctx = this.ctx;
+        const path = new Path2D(pathData);
+        const sc = sizePx / 24;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(sc, sc);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = strokeWidth || 2;
+        ctx.lineCap = lineCap || 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke(path);
+        ctx.restore();
+    }
+
+    // --- TEXT ENGINE ---
+    setFont(font) {
+        const { family, weight, size, style } = font;
+        this.ctx.font = (style || 'normal') + ' ' + weight + ' ' + size + 'px "' + family + '", sans-serif';
+    }
+
+    // Greedy word-wrap with char-level fallback for overlong tokens
+    wrap(text, font, maxWidth) {
+        this.setFont(font);
+        const ctx = this.ctx;
+        const paragraphs = String(text || '').split(/\n/);
+        const out = [];
+        for (const para of paragraphs) {
+            const words = para.split(/\s+/).filter(Boolean);
+            if (words.length === 0) continue;
+            let cur = '';
+            for (const w of words) {
+                const cand = cur ? cur + ' ' + w : w;
+                if (ctx.measureText(cand).width <= maxWidth) {
+                    cur = cand;
+                } else {
+                    if (cur) { out.push(cur); cur = ''; }
+                    if (ctx.measureText(w).width > maxWidth) {
+                        // Char-level overflow handling
+                        let part = '';
+                        for (const ch of w) {
+                            const t = part + ch;
+                            if (ctx.measureText(t).width > maxWidth) {
+                                if (part) out.push(part);
+                                part = ch;
+                            } else {
+                                part = t;
+                            }
+                        }
+                        cur = part;
+                    } else {
+                        cur = w;
+                    }
+                }
+            }
+            if (cur) out.push(cur);
+        }
+        return out;
+    }
+
+    computeBlockHeight(numLines, size, lineHeightMul) {
+        return numLines * size * (lineHeightMul || 1.1);
+    }
+
+    // Binary-search the largest font size where wrapped text fits W×H
+    fitFontSize(text, fontBase, maxW, maxH, lineHeightMul, opts) {
+        opts = opts || {};
+        const minS = opts.min !== undefined ? opts.min : 8;
+        const maxS = opts.max !== undefined ? opts.max : 500;
+        if (!text || !String(text).trim()) return { size: minS, lines: [], totalH: 0 };
+
+        const tryFit = (sz) => {
+            const lines = this.wrap(text, { ...fontBase, size: sz }, maxW);
+            const totalH = this.computeBlockHeight(lines.length, sz, lineHeightMul);
+            return { fits: totalH <= maxH, lines, totalH };
+        };
+
+        // Boundary checks
+        const top = tryFit(maxS);
+        if (top.fits) return { size: maxS, lines: top.lines, totalH: top.totalH };
+        const bot = tryFit(minS);
+        if (!bot.fits) return { size: minS, lines: bot.lines, totalH: bot.totalH };
+
+        let lo = minS, hi = maxS;
+        let bestSize = minS, bestLines = bot.lines, bestH = bot.totalH;
+        while (hi - lo > 1) {
+            const mid = (lo + hi) >> 1;
+            const r = tryFit(mid);
+            if (r.fits) { lo = mid; bestSize = mid; bestLines = r.lines; bestH = r.totalH; }
+            else { hi = mid; }
+        }
+        return { size: bestSize, lines: bestLines, totalH: bestH };
+    }
+
+    drawLines(lines, font, x, y, boxW, opts) {
+        opts = opts || {};
+        const ctx = this.ctx;
+        this.setFont(font);
+        const align = opts.align || 'left';
+        const lineH = font.size * (opts.lineHeight || 1.1);
+        ctx.save();
+        ctx.fillStyle = opts.color || '#000000';
+        if (opts.shadow) {
+            ctx.shadowColor = opts.shadow.color;
+            ctx.shadowBlur = opts.shadow.blur || 0;
+            ctx.shadowOffsetX = opts.shadow.x || 0;
+            ctx.shadowOffsetY = opts.shadow.y || 0;
+        }
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const w = ctx.measureText(line).width;
+            let lx = x;
+            if (align === 'center') lx = x + (boxW - w) / 2;
+            else if (align === 'right') lx = x + boxW - w;
+            ctx.fillText(line, lx, y + i * lineH);
+        }
+        ctx.restore();
+    }
+
+    textWidth(text, font) {
+        this.setFont(font);
+        return this.ctx.measureText(String(text)).width;
+    }
+
+    drawTag(text, font, padX, padY, x, y, opts) {
+        opts = opts || {};
+        const ctx = this.ctx;
+        this.setFont(font);
+        const m = ctx.measureText(String(text));
+        const tagW = m.width + padX * 2;
+        const tagH = font.size + padY * 2;
+        const radii = opts.radii !== undefined ? opts.radii : 0;
+        this.fillRoundRect(x, y, tagW, tagH, radii, opts.bg || '#ffffff');
+        if (opts.borderColor) {
+            ctx.save();
+            this.roundRectPath(x, y, tagW, tagH, radii);
+            ctx.strokeStyle = opts.borderColor;
+            ctx.lineWidth = opts.borderWidth || 1;
+            ctx.stroke();
+            ctx.restore();
+        }
+        ctx.save();
+        ctx.fillStyle = opts.fg || '#000000';
+        ctx.textBaseline = 'top';
+        ctx.fillText(String(text), x + padX, y + padY);
+        ctx.restore();
+        return { width: tagW, height: tagH };
+    }
+
+    setShadow(color, blur, offsetX, offsetY) {
+        this.ctx.shadowColor = color;
+        this.ctx.shadowBlur = blur;
+        this.ctx.shadowOffsetX = offsetX;
+        this.ctx.shadowOffsetY = offsetY;
+    }
+
+    async toBlob(type, quality) {
+        return await this.canvas.convertToBlob({ type: type || 'image/png', quality: quality === undefined ? 0.95 : quality });
+    }
+}
+
+// ============ E. LAYOUT RENDERERS ============
+const Layouts = {
+
+    // ----- STANDARD: CLASSIC -----
+    classic(r, s, assets) {
+        const W = r.w, H = r.h;
+        const isLand = s.format === 'landscape';
+        r.fillBg(BRAND.red);
+
+        let imgX, imgY, imgW, imgH, radii;
+        if (isLand) {
+            imgX = 0; imgY = 0; imgW = W * 0.45; imgH = H;
+            radii = { tl: 0, tr: 60, br: 60, bl: 0 };
+        } else {
+            imgX = 0; imgY = 0; imgW = W; imgH = H * 0.55;
+            radii = { tl: 0, tr: 0, br: 60, bl: 60 };
+        }
+        r.fillRoundRect(imgX, imgY, imgW, imgH, radii, '#1e293b');
+        if (assets.featured) {
+            r.drawCover(assets.featured, imgX, imgY, imgW, imgH, s.focalX, s.focalY, radii);
+            r.ctx.save();
+            r.roundRectPath(imgX, imgY, imgW, imgH, radii);
+            r.ctx.clip();
+            r.tintRect(imgX, imgY, imgW, imgH, BRAND.navy, 0.2, 'multiply');
+            r.ctx.restore();
+        }
+
+        const contentX = isLand ? imgW : 0;
+        const contentY = isLand ? 0 : imgH;
+        const contentW = isLand ? W - imgW : W;
+        const contentH = isLand ? H : H - imgH;
+        const pad = 64;
+        const innerX = contentX + pad;
+        const innerY = contentY + pad;
+        const innerW = contentW - pad * 2;
+
+        const headerH = 48;
+        if (assets.logo) r.drawContain(assets.logo, innerX, innerY, 160, headerH);
+        const tagFont = { family: 'Roboto', weight: '700', size: 18 };
+        const tagText = String(s.tag || '').toUpperCase();
+        const tagPad = 24;
+        const tagW = r.textWidth(tagText, tagFont) + tagPad * 2;
+        const tagH = tagFont.size + 24;
+        r.drawTag(tagText, tagFont, tagPad, 12, innerX + innerW - tagW, innerY + (headerH - tagH) / 2,
+            { radii: 4, bg: BRAND.white, fg: BRAND.red });
+
+        const footerH = s.showFooter ? 80 : 0;
+        const footerY = contentY + contentH - pad - footerH;
+        const titleTop = innerY + headerH + 24;
+        const titleBoxH = footerY - titleTop - 24;
+
+        const ceilingBase = isLand ? 65 : (s.format === 'portrait' ? 95 : 80);
+        const ceiling = ceilingBase * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.1,
+            { max: ceiling, min: 22 });
+        const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleY, innerW,
+            { align: 'left', color: BRAND.white, lineHeight: 1.1 });
+
+        if (s.showFooter) {
+            r.strokeLine(innerX, footerY, innerX + innerW, footerY, 'rgba(255,255,255,0.25)', 1);
+            r.drawIconPath(ICON.chevronDouble, innerX, footerY + 24, 26, BRAND.red, 3);
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 22 }, innerX + 40, footerY + 22, 240, { color: BRAND.white });
+            const urlText = BRAND.url;
+            const urlFont = { family: 'Roboto', weight: '700', size: 18 };
+            const urlW = r.textWidth(urlText, urlFont);
+            r.drawIconPath(ICON.globe, innerX + innerW - 26, footerY + 24, 26, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, innerX + innerW - urlW - 36, footerY + 26, urlW, { color: BRAND.white });
+        }
+    },
+
+    // ----- STANDARD: CINEMATIC -----
+    cinematic(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.black);
+        if (assets.featured) r.drawCover(assets.featured, 0, 0, W, H, s.focalX, s.focalY, 0, 0.9);
+        r.linearGradient(0, 0, W, H, [
+            [0, 'rgba(10,44,61,0.2)'],
+            [0.5, 'rgba(10,44,61,0.8)'],
+            [1, 'rgba(10,44,61,1)']
+        ], 'bottom');
+
+        const pad = 64;
+        const tagFont = { family: 'Roboto', weight: '700', size: 18 };
+        r.drawTag(String(s.tag || '').toUpperCase(), tagFont, 24, 12, pad, pad,
+            { radii: 4, bg: BRAND.red, fg: BRAND.white, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 });
+        if (assets.logo) r.drawContain(assets.logo, W - pad - 200, pad, 200, 48);
+
+        const footerH = s.showFooter ? 80 : 0;
+        const titleBoxY = pad + 96;
+        const titleBoxH = H - titleBoxY - footerH - pad - 24;
+        const ceiling = (s.format === 'portrait' ? 95 : (s.format === 'square' ? 80 : 65)) * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, W - pad * 2, titleBoxH, 1.05,
+            { max: ceiling, min: 24 });
+        const titleY = titleBoxY + titleBoxH - fit.totalH;
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, pad, titleY, W - pad * 2,
+            { align: 'left', color: BRAND.white, lineHeight: 1.05,
+              shadow: { color: 'rgba(0,0,0,0.6)', blur: 20, x: 0, y: 4 } });
+
+        if (s.showFooter) {
+            const footerY = H - pad - footerH + 24;
+            r.strokeLine(pad, footerY, W - pad, footerY, 'rgba(255,255,255,0.25)', 1);
+            r.drawIconPath(ICON.chevronDouble, pad, footerY + 24, 26, BRAND.red, 3);
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 240, { color: BRAND.white });
+            const urlText = BRAND.url;
+            const urlFont = { family: 'Roboto', weight: '700', size: 18 };
+            const urlW = r.textWidth(urlText, urlFont);
+            r.drawIconPath(ICON.globe, W - pad - 26, footerY + 24, 26, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, W - pad - urlW - 36, footerY + 26, urlW, { color: BRAND.white });
+        }
+    },
+
+    // ----- STANDARD: MODERN -----
+    modern(r, s, assets) {
+        const W = r.w, H = r.h;
+        const isLand = s.format === 'landscape';
+        r.fillBg(BRAND.navy);
+        r.radialGlow(W * 1.05, H * 0.05, 800, 'rgba(156,28,31,0.40)', 'rgba(156,28,31,0)');
+
+        const pad = 48;
+        const gap = 32;
+        let imgX, imgY, imgW, imgH, txtX, txtY, txtW, txtH;
+        if (isLand) {
+            imgX = pad; imgY = pad; imgW = W * 0.4 - gap; imgH = H - pad * 2;
+            txtX = imgX + imgW + gap; txtY = pad; txtW = W - txtX - pad; txtH = H - pad * 2;
+        } else {
+            imgX = pad; imgY = pad; imgW = W - pad * 2; imgH = H * 0.45;
+            txtX = pad; txtY = imgY + imgH + gap; txtW = W - pad * 2; txtH = H - txtY - pad;
+        }
+        r.fillRoundRect(imgX, imgY, imgW, imgH, 16, '#1e293b');
+        if (assets.featured) r.drawCover(assets.featured, imgX, imgY, imgW, imgH, s.focalX, s.focalY, 16);
+
+        r.fillRoundRect(txtX, txtY, txtW, txtH, 16, BRAND.white);
+        const ipad = 48;
+        const innerX = txtX + ipad;
+        const innerY = txtY + ipad;
+        const innerW = txtW - ipad * 2;
+        const innerH = txtH - ipad * 2;
+
+        const headerH = 40;
+        if (assets.logo) r.drawContain(assets.logo, innerX, innerY, 140, headerH,
+            { filter: 'grayscale(1) brightness(0)', alpha: 0.8 });
+        const tagFont = { family: 'Roboto', weight: '700', size: 16 };
+        const tagText = String(s.tag || '').toUpperCase();
+        const tagPad = 24;
+        const tagW = r.textWidth(tagText, tagFont) + tagPad * 2;
+        const tagH = tagFont.size + 24;
+        r.drawTag(tagText, tagFont, tagPad, 12, innerX + innerW - tagW, innerY + (headerH - tagH) / 2,
+            { radii: 4, bg: BRAND.red, fg: BRAND.white });
+
+        const footerH = s.showFooter ? 70 : 0;
+        const titleTop = innerY + headerH + 24;
+        const titleBoxH = innerH - headerH - 24 - footerH - 24;
+        const ceilingBase = isLand ? 65 : (s.format === 'portrait' ? 95 : 80);
+        const ceiling = ceilingBase * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.1,
+            { max: ceiling, min: 22 });
+        const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleY, innerW,
+            { align: 'left', color: BRAND.navy, lineHeight: 1.1 });
+
+        if (s.showFooter) {
+            const footerY = innerY + innerH - footerH + 16;
+            r.strokeLine(innerX, footerY, innerX + innerW, footerY, '#e2e8f0', 1);
+            r.drawIconPath(ICON.chevronDouble, innerX, footerY + 22, 24, BRAND.red, 3);
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 20 }, innerX + 36, footerY + 20, 240, { color: BRAND.navy });
+            const urlText = BRAND.url;
+            const urlFont = { family: 'Roboto', weight: '700', size: 16 };
+            const urlW = r.textWidth(urlText, urlFont);
+            r.drawIconPath(ICON.globe, innerX + innerW - 24, footerY + 22, 24, BRAND.navy, 2.5);
+            r.drawLines([urlText], urlFont, innerX + innerW - urlW - 32, footerY + 22, urlW, { color: BRAND.navy });
+        }
+    },
+
+    // ----- CAROUSEL: COVER (slide 0) -----
+    carouselCover(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.navy);
+        r.radialGlow(W + 100, -100, 900, 'rgba(156,28,31,0.40)', 'rgba(156,28,31,0)');
+
+        const pad = 80;
+        const innerW = W - pad * 2;
+        const headerH = 64;
+        if (assets.logo) r.drawContain(assets.logo, pad, pad, 220, headerH);
+        const tagFont = { family: 'Roboto', weight: '700', size: 22 };
+        const tagText = String(s.tag || '').toUpperCase();
+        const tagPad = 26;
+        const tagW = r.textWidth(tagText, tagFont) + tagPad * 2;
+        const tagH = tagFont.size + 26;
+        r.drawTag(tagText, tagFont, tagPad, 13, W - pad - tagW, pad + (headerH - tagH) / 2,
+            { radii: 4, bg: BRAND.red, fg: BRAND.white, borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1 });
+
+        const footerH = s.showFooter ? 90 : 0;
+        const footerY = H - pad - footerH;
+        const titleTop = pad + headerH + 50;
+        const titleBoxH = footerY - titleTop - 50;
+
+        const ceiling = 110 * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.05,
+            { max: ceiling, min: 28 });
+        const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, pad, titleY, innerW,
+            { align: 'left', color: BRAND.white, lineHeight: 1.05,
+              shadow: { color: 'rgba(0,0,0,0.4)', blur: 14, x: 0, y: 4 } });
+
+        if (s.showFooter) {
+            r.rect(pad, footerY, innerW, 4, BRAND.red);
+            const circleR = 28;
+            const cx = pad + circleR;
+            const cy = footerY + 28 + circleR;
+            r.fillRoundRect(cx - circleR, cy - circleR, circleR * 2, circleR * 2, circleR, BRAND.white);
+            r.drawIconPath(ICON.arrowRight, cx - 18, cy - 18, 36, BRAND.red, 3);
+            r.drawLines(['SWIPE TO READ'], { family: 'Oswald', weight: '700', size: 26 }, pad + circleR * 2 + 24, cy - 18, 400, { color: BRAND.white });
+        }
+    },
+
+    // ----- CAROUSEL: BODY (slides 1-4) -----
+    carouselBody(r, s, assets, slideIdx) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.white);
+        r.rect(0, 0, 16, H, BRAND.red);
+
+        const pad = 80;
+        const innerX = 16 + pad;
+        const innerW = W - innerX - pad;
+
+        // Slide counter at 50% opacity
+        const counterText = '0' + slideIdx + ' / 05';
+        const counterFont = { family: 'Oswald', weight: '700', size: 44 };
+        r.ctx.save();
+        r.ctx.globalAlpha = 0.5;
+        r.drawLines([counterText], counterFont, innerX, pad, 400, { color: BRAND.red });
+        r.ctx.restore();
+
+        const footerH = s.showFooter ? 60 : 0;
+        const footerY = H - pad - footerH;
+        const titleTop = pad + counterFont.size * 1.2 + 40;
+        const titleBoxH = footerY - titleTop - 40;
+
+        const ceiling = 80 * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.1,
+            { max: ceiling, min: 22 });
+        const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleY, innerW,
+            { align: 'left', color: BRAND.navy, lineHeight: 1.1 });
+
+        if (s.showFooter) {
+            r.strokeLine(innerX, footerY, W - pad, footerY, '#e2e8f0', 2);
+            if (assets.logo) r.drawContain(assets.logo, innerX, footerY + 16, 140, 40,
+                { filter: 'grayscale(1) brightness(0)', alpha: 0.5 });
+            const swipeText = 'SWIPE →';
+            const swipeFont = { family: 'Roboto', weight: '700', size: 20 };
+            const swipeW = r.textWidth(swipeText, swipeFont);
+            r.drawLines([swipeText], swipeFont, W - pad - swipeW, footerY + 24, swipeW, { color: '#94a3b8' });
+        }
+    },
+
+    // ----- CAROUSEL: CTA (slide 5) -----
+    carouselCta(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.red);
+
+        const pad = 80;
+        const logoH = 96;
+        const ctaH = s.showFooter ? 100 : 0;
+        const titleSpace = H - pad * 2 - logoH - 48 - ctaH - 48;
+        const stackTotal = logoH + 48 + titleSpace + 48 + ctaH;
+        let cursorY = (H - stackTotal) / 2;
+
+        if (assets.logo) r.drawContain(assets.logo, (W - 280) / 2, cursorY, 280, logoH);
+        cursorY += logoH + 48;
+
+        const ceiling = 90 * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, W - pad * 2, titleSpace, 1.05,
+            { max: ceiling, min: 26 });
+        const titleY = cursorY + (titleSpace - fit.totalH) / 2;
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, pad, titleY, W - pad * 2,
+            { align: 'center', color: BRAND.white, lineHeight: 1.05,
+              shadow: { color: 'rgba(0,0,0,0.3)', blur: 16, x: 0, y: 4 } });
+        cursorY += titleSpace + 48;
+
+        if (s.showFooter) {
+            const ctaText = BRAND.cta.toUpperCase();
+            const ctaFont = { family: 'Oswald', weight: '700', size: 40 };
+            const ctaPad = 60;
+            const ctaW = r.textWidth(ctaText, ctaFont) + ctaPad * 2;
+            const ctaCardX = (W - ctaW) / 2;
+            r.ctx.save();
+            r.setShadow('rgba(0,0,0,0.3)', 24, 0, 12);
+            r.fillRoundRect(ctaCardX, cursorY, ctaW, ctaH, 12, BRAND.white);
+            r.ctx.restore();
+            const textY = cursorY + (ctaH - ctaFont.size) / 2 + 2;
+            r.drawLines([ctaText], ctaFont, ctaCardX, textY, ctaW, { align: 'center', color: BRAND.navy });
+        }
+    },
+
+    // ----- POLL -----
+    poll(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.linearGradient(0, 0, W, H, [[0, BRAND.navy], [1, '#111827']], 'br');
+
+        const pad = 64;
+        const cardX = pad, cardY = pad;
+        const cardW = W - pad * 2, cardH = H - pad * 2;
+        r.ctx.save();
+        r.setShadow('rgba(0,0,0,0.4)', 30, 0, 12);
+        r.fillRoundRect(cardX, cardY, cardW, cardH, 40, '#1e293b');
+        r.ctx.restore();
+        r.ctx.save();
+        r.roundRectPath(cardX, cardY, cardW, cardH, 40);
+        r.ctx.strokeStyle = '#475569';
+        r.ctx.lineWidth = 1;
+        r.ctx.stroke();
+        r.ctx.restore();
+
+        const ipad = 64;
+        const innerX = cardX + ipad;
+        const innerW = cardW - ipad * 2;
+        let cursorY = cardY + ipad;
+
+        const tagFont = { family: 'Roboto', weight: '700', size: 18 };
+        const tagText = String(s.tag || '').toUpperCase();
+        const tagPad = 28;
+        const tagW = r.textWidth(tagText, tagFont) + tagPad * 2;
+        const tagH = tagFont.size + 28;
+        r.drawTag(tagText, tagFont, tagPad, 14, cardX + (cardW - tagW) / 2, cursorY,
+            { radii: tagH / 2, bg: BRAND.red, fg: BRAND.white, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 });
+        cursorY += tagH + 36;
+
+        const titleBoxH = 280;
+        const ceiling = 64 * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.15,
+            { max: ceiling, min: 24 });
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, innerX, cursorY, innerW,
+            { align: 'center', color: BRAND.white, lineHeight: 1.15,
+              shadow: { color: 'rgba(0,0,0,0.5)', blur: 10, x: 0, y: 4 } });
+        cursorY += fit.totalH + 48;
+
+        const opts = (s.pollOpts || []).filter(x => x && String(x).trim());
+        const optH = 80, optGap = 20;
+        for (let i = 0; i < opts.length; i++) {
+            const oy = cursorY + i * (optH + optGap);
+            r.ctx.save();
+            r.setShadow('rgba(0,0,0,0.15)', 8, 0, 4);
+            r.fillRoundRect(innerX, oy, innerW, optH, 14, BRAND.white);
+            r.ctx.restore();
+            const optFont = { family: 'Roboto', weight: '700', size: 28 };
+            r.drawLines([opts[i]], optFont, innerX + 32, oy + (optH - optFont.size) / 2, innerW - 96, { color: BRAND.navy });
+            const circleR = 16;
+            const cxC = innerX + innerW - 32 - circleR;
+            const cyC = oy + optH / 2;
+            r.ctx.save();
+            r.ctx.strokeStyle = '#cbd5e1';
+            r.ctx.lineWidth = 3;
+            r.ctx.beginPath();
+            r.ctx.arc(cxC, cyC, circleR, 0, Math.PI * 2);
+            r.ctx.stroke();
+            r.ctx.restore();
+        }
+    },
+
+    // ----- WHATSAPP -----
+    whatsapp(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.navy);
+        if (assets.featured) r.drawCover(assets.featured, 0, 0, W, H, s.focalX, s.focalY, 0, 0.35);
+        r.linearGradient(0, 0, W, H, [
+            [0, 'rgba(10,44,61,0.4)'],
+            [1, 'rgba(10,44,61,0.95)']
+        ], 'bottom');
+
+        const pad = 64;
+        const tagFont = { family: 'Roboto', weight: '700', size: 26 };
+        const tagText = String(s.tag || '').toUpperCase();
+        const tagPad = 30;
+        const tagW = r.textWidth(tagText, tagFont) + tagPad * 2;
+        const tagH = tagFont.size + 32;
+        r.drawTag(tagText, tagFont, tagPad, 16, (W - tagW) / 2, pad + 40,
+            { radii: tagH / 2, bg: BRAND.red, fg: BRAND.white, borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 });
+
+        const titleBoxH = 700;
+        const titleBoxY = (H - titleBoxH) / 2;
+        const ceiling = 100 * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || ''),
+            { family: 'Oswald', weight: '700' }, W - pad * 2, titleBoxH, 1.1,
+            { max: ceiling, min: 28 });
+        const titleY = titleBoxY + (titleBoxH - fit.totalH) / 2;
+        r.drawLines(fit.lines.map(l => l.toUpperCase()),
+            { family: 'Oswald', weight: '700', size: fit.size }, pad, titleY, W - pad * 2,
+            { align: 'center', color: BRAND.white, lineHeight: 1.1,
+              shadow: { color: 'rgba(0,0,0,0.85)', blur: 16, x: 2, y: 4 } });
+
+        if (s.showFooter && assets.logo) {
+            r.ctx.save();
+            r.ctx.globalAlpha = 0.9;
+            r.drawContain(assets.logo, (W - 320) / 2, H - pad - 110, 320, 70);
+            r.ctx.restore();
+        }
+    },
+
+    // ----- STAT SPOTLIGHT -----
+    statSpotlight(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.navy);
+        r.radialGlow(W * 0.95, H * 0.08, Math.max(W, H) * 0.85, 'rgba(156,28,31,0.40)', 'rgba(156,28,31,0)');
+
+        const pad = Math.round(W * 0.07);
+        const innerW = W - pad * 2;
+
+        const headerH = 56;
+        if (assets.logo) r.drawContain(assets.logo, pad, pad, 180, headerH);
+        const tagFont = { family: 'Roboto', weight: '700', size: Math.max(16, Math.round(W * 0.018)) };
+        const tagText = String(s.tag || '').toUpperCase();
+        if (tagText) {
+            const tagPad = 24;
+            const tagW = r.textWidth(tagText, tagFont) + tagPad * 2;
+            const tagH = tagFont.size + 24;
+            r.drawTag(tagText, tagFont, tagPad, 12, W - pad - tagW, pad + (headerH - tagH) / 2,
+                { radii: 4, bg: BRAND.red, fg: BRAND.white, borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1 });
+        }
+
+        const footerH = s.showFooter ? 80 : 0;
+        const footerY = H - pad - footerH;
+        const blockTop = pad + headerH + 30;
+        const blockBottom = footerY - 30;
+        const blockH = blockBottom - blockTop;
+
+        const statText = String(s.stat || '').trim() || '—';
+        const ctxText = String(s.title || '').trim();
+
+        const statBoxH = blockH * (ctxText ? 0.62 : 0.88);
+        const statCeil = Math.min(W, H) * 0.42 * (s.userScale || 1) * 1.4;
+        const statFit = r.fitFontSize(statText, { family: 'Oswald', weight: '700' }, innerW, statBoxH, 1.0, { max: statCeil, min: 40 });
+
+        let ctxFit = { size: 0, lines: [], totalH: 0 };
+        if (ctxText) {
+            const ctxBoxH = blockH * 0.34;
+            const ctxCeil = Math.min(W, H) * 0.055 * (s.userScale || 1) * 1.4;
+            ctxFit = r.fitFontSize(ctxText, { family: 'Roboto', weight: '700' }, innerW, ctxBoxH, 1.2, { max: ctxCeil, min: 18 });
+        }
+
+        const gap = ctxText ? 28 : 0;
+        const stackH = statFit.totalH + gap + ctxFit.totalH;
+        let cy = blockTop + (blockH - stackH) / 2;
+
+        r.drawLines(statFit.lines, { family: 'Oswald', weight: '700', size: statFit.size }, pad, cy, innerW,
+            { align: 'center', color: BRAND.white, lineHeight: 1.0, shadow: { color: 'rgba(0,0,0,0.35)', blur: 18, x: 0, y: 6 } });
+        cy += statFit.totalH + gap;
+        if (ctxText) {
+            r.drawLines(ctxFit.lines, { family: 'Roboto', weight: '700', size: ctxFit.size }, pad, cy, innerW,
+                { align: 'center', color: 'rgba(255,255,255,0.92)', lineHeight: 1.2 });
+        }
+
+        if (s.showFooter) {
+            r.rect(pad, footerY, innerW, 4, BRAND.red);
+            r.drawIconPath(ICON.chevronDouble, pad, footerY + 24, 26, BRAND.red, 3);
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 260, { color: BRAND.white });
+            const urlText = BRAND.url;
+            const urlFont = { family: 'Roboto', weight: '700', size: 18 };
+            const urlW = r.textWidth(urlText, urlFont);
+            r.drawIconPath(ICON.globe, W - pad - 26, footerY + 24, 26, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, W - pad - urlW - 36, footerY + 26, urlW, { color: BRAND.white });
+        }
+    },
+
+    // ----- QUOTE / TESTIMONIAL -----
+    quote(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.navy);
+        r.radialGlow(W * 0.05, H * 0.95, Math.max(W, H) * 0.75, 'rgba(156,28,31,0.35)', 'rgba(156,28,31,0)');
+
+        const pad = Math.round(W * 0.08);
+        const innerW = W - pad * 2;
+
+        const headerH = 52;
+        const tagFont = { family: 'Roboto', weight: '700', size: Math.max(16, Math.round(W * 0.018)) };
+        const tagText = String(s.tag || '').toUpperCase();
+        if (tagText) {
+            const tagPad = 24;
+            r.drawTag(tagText, tagFont, tagPad, 12, pad, pad, { radii: 4, bg: BRAND.red, fg: BRAND.white });
+        }
+        if (assets.logo) r.drawContain(assets.logo, W - pad - 170, pad, 170, headerH);
+
+        const qmFont = { family: 'Oswald', weight: '700', size: Math.round(W * 0.18) };
+        r.drawLines(['\u201C'], qmFont, pad - Math.round(W * 0.012), pad + headerH, innerW,
+            { align: 'left', color: BRAND.red, lineHeight: 1 });
+
+        const footerH = s.showFooter ? 70 : 0;
+        const footerY = H - pad - footerH;
+
+        const authorText = String(s.author || '').trim();
+        const authorFont = { family: 'Roboto', weight: '700', size: Math.max(16, Math.round(W * 0.024)) };
+        const authorBlockH = authorText ? authorFont.size + 28 : 0;
+
+        const quoteTop = pad + headerH + Math.round(W * 0.15);
+        const quoteBottom = footerY - authorBlockH - 16;
+        const quoteBoxH = Math.max(60, quoteBottom - quoteTop);
+        const quoteText = String(s.title || '').trim();
+        const qCeil = Math.min(W, H) * 0.085 * (s.userScale || 1) * 1.4;
+        const qFit = r.fitFontSize(quoteText, { family: 'Oswald', weight: '700' }, innerW, quoteBoxH, 1.18, { max: qCeil, min: 22 });
+        const qy = quoteTop + (quoteBoxH - qFit.totalH) / 2;
+        r.drawLines(qFit.lines, { family: 'Oswald', weight: '700', size: qFit.size }, pad, qy, innerW,
+            { align: 'left', color: BRAND.white, lineHeight: 1.18 });
+
+        if (authorText) {
+            const ay = qy + qFit.totalH + 26;
+            r.strokeLine(pad, ay + authorFont.size / 2, pad + 36, ay + authorFont.size / 2, BRAND.red, 3, 'round');
+            r.drawLines([authorText], authorFont, pad + 50, ay, innerW - 50, { align: 'left', color: 'rgba(255,255,255,0.9)' });
+        }
+
+        if (s.showFooter) {
+            r.strokeLine(pad, footerY, W - pad, footerY, 'rgba(255,255,255,0.2)', 1);
+            const urlText = BRAND.url;
+            const urlFont = { family: 'Roboto', weight: '700', size: 18 };
+            const urlW = r.textWidth(urlText, urlFont);
+            r.drawIconPath(ICON.globe, pad, footerY + 22, 24, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, pad + 34, footerY + 24, urlW, { color: BRAND.white });
+        }
+    }
+};
+
+// ============ F. SLIDE DISPATCHER ============
+function renderSlide(state, slideIdx, assets, scale) {
+    let w, h;
+    if (state.campaign === 'poll') { w = 1080; h = 1080; }
+    else if (state.campaign === 'whatsapp') { w = 1080; h = 1350; }
+    else {
+        if (state.format === 'landscape') { w = 1200; h = 628; }
+        else if (state.format === 'square') { w = 1080; h = 1080; }
+        else { w = 1080; h = 1350; }
+    }
+
+    const r = new CanvasRenderer(w, h, scale);
+
+    if (state.campaign === 'standard') {
+        if (state.theme === 'cinematic')      Layouts.cinematic(r, state, assets);
+        else if (state.theme === 'modern')    Layouts.modern(r, state, assets);
+        else                                  Layouts.classic(r, state, assets);
+    } else if (state.campaign === 'carousel') {
+        const slideText = state.slides[slideIdx] || '';
+        const slideState = { ...state, title: slideText };
+        if (slideIdx === 0)      Layouts.carouselCover(r, slideState, assets);
+        else if (slideIdx === 5) Layouts.carouselCta(r, slideState, assets);
+        else                     Layouts.carouselBody(r, slideState, assets, slideIdx);
+    } else if (state.campaign === 'poll') {
+        Layouts.poll(r, state, assets);
+    } else if (state.campaign === 'whatsapp') {
+        Layouts.whatsapp(r, state, assets);
+    } else if (state.campaign === 'stat') {
+        Layouts.statSpotlight(r, state, assets);
+    } else if (state.campaign === 'quote') {
+        Layouts.quote(r, state, assets);
+    }
+
+    return r;
+}
+
+// ============ G. MESSAGE HANDLER ============
+self.onmessage = async (e) => {
+    const msg = e.data;
+    try {
+        applyBrandToWorker(msg.brand);
+        if (msg.type === 'render-single') {
+            self.postMessage({ type: 'progress', percent: 5,  label: 'Loading fonts' });
+            await loadFonts(msg.fontBuffers);
+
+            self.postMessage({ type: 'progress', percent: 20, label: 'Decoding images' });
+            const featured = await blobToBitmap(msg.featuredBlob);
+            const logo     = await blobToBitmap(msg.logoBlob);
+            const assets   = { featured, logo };
+
+            self.postMessage({ type: 'progress', percent: 55, label: 'Rendering canvas' });
+            const slideIdx = msg.slideIdx !== undefined ? msg.slideIdx : 0;
+            const r = renderSlide(msg.state, slideIdx, assets, msg.scale || 3);
+
+            self.postMessage({ type: 'progress', percent: 85, label: 'Encoding PNG' });
+            const blob = await r.toBlob('image/png', 1.0);
+
+            self.postMessage({ type: 'progress', percent: 100, label: 'Done' });
+            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_Graphic.png' });
+
+            if (featured) featured.close();
+            if (logo) logo.close();
+            return;
+        }
+
+        if (msg.type === 'render-carousel-zip') {
+            self.postMessage({ type: 'progress', percent: 3, label: 'Loading fonts' });
+            await loadFonts(msg.fontBuffers);
+
+            self.postMessage({ type: 'progress', percent: 8, label: 'Decoding images' });
+            const featured = await blobToBitmap(msg.featuredBlob);
+            const logo     = await blobToBitmap(msg.logoBlob);
+            const assets   = { featured, logo };
+
+            const numSlides = 6;
+            const zip = new JSZip();
+            for (let i = 0; i < numSlides; i++) {
+                const pct = 10 + Math.round((i / numSlides) * 78);
+                self.postMessage({ type: 'progress', percent: pct, label: 'Rendering slide ' + (i + 1) + '/' + numSlides });
+                const r = renderSlide(msg.state, i, assets, msg.scale || 3);
+                const blob = await r.toBlob('image/png', 1.0);
+                const buf  = await blob.arrayBuffer();
+                zip.file('SME_Carousel_Slide_' + (i + 1) + '.png', buf);
+            }
+
+            self.postMessage({ type: 'progress', percent: 92, label: 'Compressing ZIP' });
+            const zipBlob = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+
+            self.postMessage({ type: 'progress', percent: 100, label: 'Done' });
+            self.postMessage({ type: 'done', blob: zipBlob, filename: msg.filename || 'SME_Carousel.zip' });
+
+            if (featured) featured.close();
+            if (logo) logo.close();
+            return;
+        }
+    } catch (err) {
+        self.postMessage({
+            type: 'error',
+            message: err && err.message ? err.message : String(err),
+            stack: err && err.stack ? err.stack : ''
+        });
+    }
+};
+    </script>
+
+
+    <!-- ============================================================ -->
+    <!-- MAIN THREAD                                                  -->
+    <!-- ============================================================ -->
+    <script>
+    'use strict';
+
+    // =============================================================
+    // 1. CONSTANTS & STATE
+    // =============================================================
+    const BRAND = { red: '#9c1c1f', navy: '#0a2c3d', black: '#000000', white: '#ffffff', gray: '#f8fafc' };
+
+    const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&display=swap';
+    const WHITE_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png';
+    const DEFAULT_IMG_URL = 'https://images.unsplash.com/photo-1664575602276-acd073f104c1?auto=format&fit=crop&w=1200&q=80';
+
+    // =============================================================
+    // 1b. BRAND KIT (multi-brand; SME SA is the seeded default)
+    // =============================================================
+    const SME_BRAND = {
+        id: 'sme', name: 'SME South Africa',
+        primary: '#9c1c1f', secondary: '#0a2c3d',
+        tag: 'SME Knowledge HUB', cta: 'Read Insight', url: 'smesouthafrica.co.za',
+        logo: WHITE_LOGO
+    };
+    const BRANDS_KEY = 'volt_brands_v1';
+    const ACTIVE_BRAND_KEY = 'volt_active_brand';
+    let _bkEditing = null;
+
+    function loadBrands() {
+        try { const a = JSON.parse(localStorage.getItem(BRANDS_KEY) || 'null'); if (Array.isArray(a) && a.length) return a; } catch (e) {}
+        return [Object.assign({}, SME_BRAND)];
+    }
+    function saveBrands(a) { try { localStorage.setItem(BRANDS_KEY, JSON.stringify(a)); } catch (e) {} }
+    function getActiveBrandId() { try { return localStorage.getItem(ACTIVE_BRAND_KEY) || 'sme'; } catch (e) { return 'sme'; } }
+    function setActiveBrandId(id) { try { localStorage.setItem(ACTIVE_BRAND_KEY, id); } catch (e) {} }
+    function currentBrand() { const a = loadBrands(); return a.find(b => b.id === getActiveBrandId()) || a[0] || SME_BRAND; }
+    function brandPayload() { const b = currentBrand(); return { primary: b.primary, secondary: b.secondary, cta: b.cta, url: b.url }; }
+
+    function applyBrand() {
+        const b = currentBrand();
+        document.documentElement.style.setProperty('--bp', b.primary);
+        document.documentElement.style.setProperty('--bs', b.secondary);
+        logoBlob = null;                 // invalidate cached export logo so the new one is fetched
+        ensureLogoBlob();
+        const tagEl = document.getElementById('in-tag');
+        if (tagEl) tagEl.value = b.tag;
+        updateBrandChip();
+        renderLayout();
+    }
+    function updateBrandChip() {
+        const b = currentBrand();
+        const sw = document.getElementById('brand-chip-swatch');
+        const nm = document.getElementById('brand-chip-name');
+        if (sw) sw.style.background = b.primary;
+        if (nm) nm.textContent = b.name || 'Brand';
+    }
+    function openBrandKit() { _bkEditing = null; renderBrandKit(); const m = document.getElementById('brandkit-modal'); if (m) m.classList.remove('hidden'); }
+    function closeBrandKit() { const m = document.getElementById('brandkit-modal'); if (m) m.classList.add('hidden'); }
+    function bkNewId() { return 'b' + Date.now().toString(36); }
+
+    function renderBrandKit() {
+        const body = document.getElementById('brandkit-body');
+        if (!body) return;
+        const brands = loadBrands();
+        if (!_bkEditing) _bkEditing = Object.assign({}, currentBrand());
+        const editing = _bkEditing;
+        const isExisting = brands.some(b => b.id === editing.id);
+        const isDefault = editing.id === 'sme';
+
+        let opts = brands.map(b => '<option value="' + b.id + '"' + (b.id === editing.id ? ' selected' : '') + '>' + sanitizeHTML(b.name) + '</option>').join('');
+        opts += '<option value="__new__">➕ New brand…</option>';
+
+        body.innerHTML =
+            '<label class="bk-lbl">Active brand</label>'
+          + '<select id="bk-select" class="w-full bg-slate-900 text-white rounded-lg p-2.5 text-sm border border-slate-600 mb-5">' + opts + '</select>'
+          + '<div class="grid grid-cols-2 gap-3 mb-3">'
+          +   '<div><label class="bk-lbl">Brand name</label><input id="bk-name" class="bk-in" value="' + sanitizeHTML(editing.name || '') + '"></div>'
+          +   '<div><label class="bk-lbl">Default tag</label><input id="bk-tag" class="bk-in" value="' + sanitizeHTML(editing.tag || '') + '"></div>'
+          + '</div>'
+          + '<div class="grid grid-cols-2 gap-3 mb-3">'
+          +   '<div><label class="bk-lbl">CTA text</label><input id="bk-cta" class="bk-in" value="' + sanitizeHTML(editing.cta || '') + '"></div>'
+          +   '<div><label class="bk-lbl">Footer URL</label><input id="bk-url" class="bk-in" value="' + sanitizeHTML(editing.url || '') + '"></div>'
+          + '</div>'
+          + '<div class="grid grid-cols-2 gap-3 mb-4">'
+          +   '<div><label class="bk-lbl">Primary (accent)</label><div class="flex items-center gap-2"><input id="bk-primary" type="color" value="' + (editing.primary || '#9c1c1f') + '" class="w-10 h-9 rounded bg-slate-900 border border-slate-600 cursor-pointer p-0.5"><input id="bk-primary-hex" class="bk-in" value="' + (editing.primary || '#9c1c1f') + '"></div></div>'
+          +   '<div><label class="bk-lbl">Secondary (dark)</label><div class="flex items-center gap-2"><input id="bk-secondary" type="color" value="' + (editing.secondary || '#0a2c3d') + '" class="w-10 h-9 rounded bg-slate-900 border border-slate-600 cursor-pointer p-0.5"><input id="bk-secondary-hex" class="bk-in" value="' + (editing.secondary || '#0a2c3d') + '"></div></div>'
+          + '</div>'
+          + '<div class="mb-5"><label class="bk-lbl">Logo (white / transparent PNG works best)</label>'
+          +   '<div class="flex items-center gap-3">'
+          +     '<div class="w-24 h-12 rounded border border-slate-700 flex items-center justify-center overflow-hidden shrink-0" style="background:' + (editing.secondary || '#0a2c3d') + ';">' + (editing.logo ? '<img src="' + editing.logo + '" class="max-w-full max-h-full object-contain">' : '<span class="text-[10px] text-slate-500">none</span>') + '</div>'
+          +     '<div class="flex-1"><input id="bk-logo-file" type="file" accept="image/*" class="w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer"><p class="text-[10px] text-slate-500 mt-1">Uploads embed in the design (no CORS issues). Keep under ~300&nbsp;KB.</p></div>'
+          +   '</div>'
+          + '</div>'
+          + '<div class="flex items-center gap-2 pt-4 border-t border-slate-700">'
+          +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:#B6FF3D;color:#0A0B0F;">Save &amp; apply</button>'
+          +   (isExisting && !isDefault ? '<button id="bk-delete" class="text-[11px] font-bold py-2 px-3 rounded uppercase border border-red-500/50 text-red-300 hover:bg-red-500/10">Delete</button>' : '')
+          +   '<button onclick="closeBrandKit()" class="ml-auto text-[11px] font-bold py-2 px-4 rounded uppercase border border-slate-600 text-slate-300 hover:bg-slate-700">Done</button>'
+          + '</div>';
+
+        const sel = document.getElementById('bk-select');
+        sel.onchange = function () {
+            if (sel.value === '__new__') {
+                _bkEditing = { id: bkNewId(), name: 'New Brand', primary: '#2563eb', secondary: '#0f172a', tag: 'Knowledge Hub', cta: 'Learn more', url: 'example.com', logo: '' };
+            } else {
+                _bkEditing = Object.assign({}, loadBrands().find(b => b.id === sel.value) || currentBrand());
+            }
+            renderBrandKit();
+        };
+        const bind = (id, key) => { const el = document.getElementById(id); if (el) el.oninput = () => { _bkEditing[key] = el.value; }; };
+        bind('bk-name', 'name'); bind('bk-tag', 'tag'); bind('bk-cta', 'cta'); bind('bk-url', 'url');
+        const pc = document.getElementById('bk-primary'), pch = document.getElementById('bk-primary-hex');
+        const sc2 = document.getElementById('bk-secondary'), sch = document.getElementById('bk-secondary-hex');
+        if (pc) pc.oninput = () => { _bkEditing.primary = pc.value; if (pch) pch.value = pc.value; };
+        if (pch) pch.oninput = () => { _bkEditing.primary = pch.value; if (pc && /^#[0-9a-fA-F]{6}$/.test(pch.value)) pc.value = pch.value; };
+        if (sc2) sc2.oninput = () => { _bkEditing.secondary = sc2.value; if (sch) sch.value = sc2.value; };
+        if (sch) sch.oninput = () => { _bkEditing.secondary = sch.value; if (sc2 && /^#[0-9a-fA-F]{6}$/.test(sch.value)) sc2.value = sch.value; };
+        const lf = document.getElementById('bk-logo-file');
+        if (lf) lf.onchange = (e) => {
+            const f = e.target.files[0]; if (!f) return;
+            if (f.size > 400000) showToast('Logo is ' + Math.round(f.size / 1024) + 'KB — try to keep under ~300KB.');
+            const rd = new FileReader();
+            rd.onload = () => { _bkEditing.logo = rd.result; renderBrandKit(); };
+            rd.readAsDataURL(f);
+        };
+        const sv = document.getElementById('bk-save'); if (sv) sv.onclick = bkSave;
+        const dl = document.getElementById('bk-delete'); if (dl) dl.onclick = bkDelete;
+    }
+
+    function bkSave() {
+        if (!_bkEditing) return;
+        if (!_bkEditing.name || !_bkEditing.name.trim()) { showToast('Give the brand a name first.'); return; }
+        if (!_bkEditing.id) _bkEditing.id = bkNewId();
+        const brands = loadBrands();
+        const i = brands.findIndex(b => b.id === _bkEditing.id);
+        if (i >= 0) brands[i] = _bkEditing; else brands.push(_bkEditing);
+        saveBrands(brands);
+        setActiveBrandId(_bkEditing.id);
+        applyBrand();
+        showToast('Brand applied: ' + _bkEditing.name, 'success');
+        closeBrandKit();
+    }
+    function bkDelete() {
+        if (!_bkEditing || _bkEditing.id === 'sme') return;
+        let brands = loadBrands().filter(b => b.id !== _bkEditing.id);
+        if (!brands.length) brands = [Object.assign({}, SME_BRAND)];
+        saveBrands(brands);
+        if (getActiveBrandId() === _bkEditing.id) setActiveBrandId(brands[0].id);
+        applyBrand();
+        _bkEditing = null;
+        renderBrandKit();
+        showToast('Brand deleted.');
+    }
+
+    const canvas  = document.getElementById('export-canvas');
+    const wrapper = document.getElementById('canvas-wrapper');
+
+    // App state — single source of truth
+    const state = {
+        campaign:     'standard',
+        format:       'landscape',
+        theme:        'classic',
+        showFooter:   true,
+        currentSlide: 0,
+        slides: [
+            'Four Business Ideas To Solve Socio-Economic Issues',
+            'Focus on scalable solutions that address daily community pain points.',
+            'Leverage tech to bridge the gap in underserved markets and rural areas.',
+            'Partner with local governments and NGOs for distribution and reach.',
+            'Measure social impact alongside financial returns as a core metric.',
+            'Read the full breakdown on SME South Africa today.'
+        ],
+        isExporting:  false
+    };
+
+    // Image asset storage — keep both URL (for DOM preview) and Blob (for worker)
+    let currentImageBlob = null;
+    let currentImageSrc  = DEFAULT_IMG_URL;
+    let logoBlob         = null;
+    let fontBuffers      = {};
+    let scrapedDesc      = '';
+
+    // Worker instance (lazy)
+    let exportWorker = null;
+
+    // Designer-intent font ceilings per layout
+    const FONT_CEILINGS = { landscape: 65, square: 80, portrait: 95, whatsapp: 100 };
+
+    // =============================================================
+    // 2. INPUT SANITISER (preview only — canvas never inserts HTML)
+    // =============================================================
+    function sanitizeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>'"]/g, t => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[t] || t));
+    }
+
+    // =============================================================
+    // 3. TOAST + PROGRESS UI
+    // =============================================================
+    function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        if (!t) return;
+        t.innerText = msg;
+        t.style.borderLeft = type === 'success' ? '4px solid #10b981' : '4px solid #ef4444';
+        t.classList.add('show');
+        clearTimeout(showToast._tid);
+        showToast._tid = setTimeout(() => t.classList.remove('show'), 4000);
+    }
+
+    function setProgress(pct, label) {
+        const shell = document.getElementById('progress-shell');
+        const bar = document.getElementById('progress-bar');
+        const lbl = document.getElementById('progress-label');
+        if (shell) shell.style.opacity = pct > 0 ? '1' : '0';
+        if (bar) bar.style.width = (pct || 0) + '%';
+        if (lbl) lbl.innerText = label || '';
+    }
+
+    // =============================================================
+    // 4. FONT PRELOADER (main thread → fontBuffers for worker)
+    // =============================================================
+    async function preloadFontBuffers() {
+        try {
+            // Some browsers reject fontFile fetch without UA string; Google handles this well from main thread
+            const res = await fetch(FONTS_CSS_URL, { mode: 'cors' });
+            const css = await res.text();
+
+            // Parse each @font-face block; pick latin subset only (one woff2 per family/weight)
+            const blockRegex = /@font-face\s*{([^}]+)}/g;
+            const seen = new Set();
+            const tasks = [];
+            let m;
+            while ((m = blockRegex.exec(css)) !== null) {
+                const body = m[1];
+                // Latin subset detection
+                const isLatin = /unicode-range\s*:\s*U\+0000-00FF/i.test(body) || !/unicode-range/i.test(body);
+                if (!isLatin) continue;
+                const fam = body.match(/font-family\s*:\s*['"]?([^;'"]+)['"]?/);
+                const wt  = body.match(/font-weight\s*:\s*(\d+)/);
+                const url = body.match(/src\s*:[^;]*?url\(([^)]+)\)\s*format\(\s*['"]woff2['"]\s*\)/);
+                if (!fam || !wt || !url) continue;
+                const family = fam[1].trim();
+                const weight = wt[1].trim();
+                const key = family + '-' + weight;
+                if (seen.has(key)) continue;
+                seen.add(key);
+
+                tasks.push(
+                    fetch(url[1].trim())
+                        .then(r => r.arrayBuffer())
+                        .then(buf => {
+                            fontBuffers[key] = { family, weight, buffer: buf };
+                        })
+                        .catch(() => {})
+                );
+            }
+            await Promise.all(tasks);
+        } catch (err) {
+            console.warn('Font preload skipped:', err);
+        }
+    }
+
+    // =============================================================
+    // 5. ASSET LOADERS (Blob storage for worker handoff)
+    // =============================================================
+    async function ensureLogoBlob() {
+        if (logoBlob) return logoBlob;
+        try {
+            const src = currentBrand().logo || WHITE_LOGO;
+            const r = await fetch(src, { mode: 'cors' });
+            logoBlob = await r.blob();
+        } catch (err) {
+            console.warn('Logo fetch failed', err);
+            logoBlob = null;
+        }
+        return logoBlob;
+    }
+
+    async function ensureDefaultImageBlob() {
+        if (currentImageBlob) return currentImageBlob;
+        try {
+            const r = await fetch(DEFAULT_IMG_URL, { mode: 'cors' });
+            currentImageBlob = await r.blob();
+        } catch (err) {
+            console.warn('Default image fetch failed', err);
+            currentImageBlob = null;
+        }
+        return currentImageBlob;
+    }
+
+    // =============================================================
+    // 6. ARTICLE SCRAPER (with proxy fallback chain)
+    // =============================================================
+    async function fetchWithProxy(targetUrl) {
+        const enc = encodeURIComponent(targetUrl);
+        const proxies = [
+            'https://api.allorigins.win/raw?url=' + enc,
+            'https://corsproxy.io/?url=' + enc,
+            'https://api.codetabs.com/v1/proxy?quest=' + enc
+        ];
+        for (const proxy of proxies) {
+            try {
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 8000);
+                const r = await fetch(proxy, { signal: ctrl.signal });
+                clearTimeout(tid);
+                if (r.ok) {
+                    const clone = r.clone();
+                    const txt = await clone.text();
+                    if (!txt.toLowerCase().includes('error') || txt.length > 500) return r;
+                }
+            } catch (e) { /* try next */ }
+        }
+        throw new Error('Cannot access website. The site may have security blocks.');
+    }
+
+    async function fetchArticleData() {
+        const urlInput = document.getElementById('in-url');
+        const btn = document.getElementById('btn-fetch');
+        const inTitle = document.getElementById('in-title');
+        if (!urlInput || !urlInput.value.trim()) return showToast('Please paste a valid URL first.');
+
+        const ogHtml = btn.innerHTML;
+        btn.innerHTML = '<svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+        btn.classList.add('disabled-btn');
+
+        try {
+            const r = await fetchWithProxy(urlInput.value.trim());
+            const html = await r.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const titleEl = doc.querySelector('meta[property="og:title"]');
+            const rawTitle = (titleEl && titleEl.content) || doc.title || 'Extracted Article';
+            const cleanTitle = rawTitle.replace(' - SME South Africa', '').trim();
+            if (inTitle) inTitle.value = cleanTitle;
+
+            const descEl = doc.querySelector('meta[property="og:description"]');
+            scrapedDesc = (descEl && descEl.content) || '';
+
+            // Auto-populate carousel slides via smart slicer
+            const sliced = sliceArticleIntoSlides(scrapedDesc, cleanTitle);
+            if (sliced) {
+                state.slides = sliced;
+                if (state.campaign === 'carousel' && inTitle) {
+                    inTitle.value = state.slides[state.currentSlide] || '';
+                }
+            } else {
+                state.slides[0] = cleanTitle;
+            }
+
+            // Image
+            const ogImg = doc.querySelector('meta[property="og:image"]');
+            if (ogImg && ogImg.content) {
+                try {
+                    const imgRes = await fetchWithProxy(ogImg.content);
+                    const blob = await imgRes.blob();
+                    currentImageBlob = blob;
+                    if (currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
+                    currentImageSrc = URL.createObjectURL(blob);
+                    const elX = document.getElementById('in-img-x');
+                    const elY = document.getElementById('in-img-y');
+                    if (elX) elX.value = 50;
+                    if (elY) elY.value = 50;
+                } catch (e) {
+                    showToast('Could not load article image. Using existing.', 'error');
+                }
+            }
+            showToast('Article extracted. Slides auto-populated.', 'success');
+            syncDOM();
+        } catch (err) {
+            showToast(err.message);
+        } finally {
+            btn.innerHTML = ogHtml;
+            btn.classList.remove('disabled-btn');
+        }
+    }
+
+    // =============================================================
+    // 7. SMART CONTENT SLICER
+    //    Sentence-aware bin-packing → 6-slide carousel array
+    // =============================================================
+    function sliceArticleIntoSlides(text, headline) {
+        const maxChars = 180;
+        const bodySlots = 4;
+
+        // Always seed first and last slides
+        const finalSlides = [
+            (headline || '').trim() || 'Article Headline',
+            '', '', '', '',
+            'Read the full breakdown on SME South Africa today.'
+        ];
+
+        if (!text || !text.trim()) return finalSlides;
+
+        // Normalise whitespace
+        const clean = text.replace(/\s+/g, ' ').trim();
+
+        // Sentence split — lookbehind on terminator + lookahead on capital/digit
+        let sentences = clean.split(/(?<=[.!?])\s+(?=[A-Z0-9"'])/g)
+                             .map(s => s.trim())
+                             .filter(Boolean);
+
+        // Fallback if split produced nothing useful
+        if (sentences.length === 0) sentences = [clean];
+
+        // Greedy bin-pack into 4 body slots
+        const bins = [[], [], [], []];
+        let idx = 0;
+        for (const sent of sentences) {
+            while (idx < bodySlots) {
+                const curLen = bins[idx].join(' ').length;
+                const newLen = curLen + (curLen > 0 ? 1 : 0) + sent.length;
+                if (newLen <= maxChars || bins[idx].length === 0) {
+                    bins[idx].push(sent);
+                    break;
+                }
+                idx++;
+            }
+            if (idx >= bodySlots) bins[bodySlots - 1].push(sent);
+        }
+
+        for (let i = 0; i < bodySlots; i++) {
+            const txt = bins[i].join(' ').trim();
+            finalSlides[i + 1] = txt;
+        }
+        // If a body slot ended up empty (very short article), fill with a placeholder
+        for (let i = 1; i <= bodySlots; i++) {
+            if (!finalSlides[i]) finalSlides[i] = '(Add insight #' + i + ' for this slide.)';
+        }
+        return finalSlides;
+    }
+
+    function autoSliceFromTitle() {
+        const inTitle = document.getElementById('in-title');
+        if (!scrapedDesc) {
+            showToast('No article description scraped yet. Fetch a URL first.');
+            return;
+        }
+        const headline = state.slides[0];
+        const sliced = sliceArticleIntoSlides(scrapedDesc, headline);
+        if (sliced) {
+            state.slides = sliced;
+            if (state.campaign === 'carousel' && inTitle) {
+                inTitle.value = state.slides[state.currentSlide] || '';
+            }
+            syncDOM();
+            showToast('Slides re-sliced from article body.', 'success');
+        }
+    }
+
+    // =============================================================
+    // 8. LIVE DOM PREVIEW (unchanged behaviour, decoupled from export)
+    // =============================================================
+    function resizeWrapper() {
+        const main = document.querySelector('main');
+        if (!main || !canvas || !wrapper) return;
+        const avail = main.clientWidth - 80;
+        const cw = canvas.offsetWidth;
+        wrapper.style.transform = (cw > 0 && cw > avail) ? 'scale(' + (avail / cw) + ')' : 'scale(1)';
+    }
+
+    function getFooterHTML(lineColor, textColor) {
+        if (!state.showFooter) return '';
+        return ''
+          + '<div class="flex justify-between items-center w-full border-t border-' + lineColor + ' pt-6 mt-8 shrink-0">'
+          +   '<div class="flex items-center gap-3">'
+          +     '<svg class="w-6 h-6 text-sme-red shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>'
+          +     '<span class="' + textColor + ' font-oswald font-bold text-2xl tracking-widest uppercase leading-none mt-1">Read Insight</span>'
+          +   '</div>'
+          +   '<div class="flex items-center gap-3 ' + textColor + '">'
+          +     '<svg class="w-6 h-6 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>'
+          +     '<span class="font-roboto font-bold text-xl tracking-wide leading-none mt-1">smesouthafrica.co.za</span>'
+          +   '</div>'
+          + '</div>';
+    }
+
+    function renderLayout() {
+        const f = state.campaign === 'standard' ? state.format
+                : (state.campaign === 'whatsapp' ? 'whatsapp' : 'square');
+        let html = '';
+
+        if (state.campaign === 'standard') {
+            if (state.theme === 'classic') {
+                const isLand = f === 'landscape';
+                html = '<div class="flex ' + (isLand ? 'flex-row' : 'flex-col') + ' w-full h-full bg-sme-red relative">'
+                  +   '<div class="' + (isLand ? 'w-[45%] h-full rounded-r-[60px]' : 'w-full h-[55%] rounded-b-[60px]') + ' relative overflow-hidden shadow-[20px_20px_50px_rgba(0,0,0,0.3)] z-10 bg-slate-800 shrink-0">'
+                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
+                  +     '<div class="absolute inset-0 bg-sme-navy opacity-20 mix-blend-multiply pointer-events-none"></div>'
+                  +   '</div>'
+                  +   '<div class="flex-1 p-16 flex flex-col justify-between">'
+                  +     '<div class="flex justify-between items-start w-full">'
+                  +       '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
+                  +       '<div class="bg-white text-sme-red font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md"><span id="render-tag"></span></div>'
+                  +     '</div>'
+                  +     '<div class="flex-1 flex items-center py-6"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.1] tracking-tight w-full"></h2></div>'
+                  +     getFooterHTML('white/20', 'text-white')
+                  +   '</div>'
+                  + '</div>';
+            } else if (state.theme === 'cinematic') {
+                html = '<div class="relative w-full h-full bg-black overflow-hidden">'
+                  +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat opacity-90" style="background-size:cover;"></div>'
+                  +   '<div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(to top, var(--bs) 0%, color-mix(in srgb, var(--bs) 80%, transparent) 50%, color-mix(in srgb, var(--bs) 20%, transparent) 100%)"></div>'
+                  +   '<div class="absolute inset-0 p-16 flex flex-col justify-between z-10">'
+                  +     '<div class="flex justify-between items-start w-full">'
+                  +       '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-lg border border-white/20"><span id="render-tag"></span></div>'
+                  +       '<img src="' + WHITE_LOGO + '" class="h-12 object-contain drop-shadow-lg" crossorigin="anonymous">'
+                  +     '</div>'
+                  +     '<div class="w-full flex flex-col justify-end mt-auto">'
+                  +       '<h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.05] tracking-tight w-full drop-shadow-2xl mb-6"></h2>'
+                  +       getFooterHTML('white/20', 'text-white')
+                  +     '</div>'
+                  +   '</div>'
+                  + '</div>';
+            } else {
+                const isLand = f === 'landscape';
+                html = '<div class="flex ' + (isLand ? 'flex-row p-12 gap-8' : 'flex-col p-12 gap-6') + ' w-full h-full bg-sme-navy relative overflow-hidden">'
+                  +   '<div class="absolute top-0 right-0 w-[800px] h-[800px] bg-sme-red opacity-15 blur-[120px] rounded-full pointer-events-none"></div>'
+                  +   '<div class="' + (isLand ? 'w-[40%]' : 'w-full h-[45%]') + ' rounded-2xl relative overflow-hidden bg-slate-800 shadow-2xl shrink-0">'
+                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
+                  +   '</div>'
+                  +   '<div class="flex-1 rounded-2xl p-12 bg-white shadow-2xl flex flex-col justify-between z-10">'
+                  +     '<div class="flex justify-between items-start w-full">'
+                  +       '<img src="' + WHITE_LOGO + '" class="h-10 object-contain grayscale brightness-0 opacity-80" crossorigin="anonymous">'
+                  +       '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-xs shadow-md"><span id="render-tag"></span></div>'
+                  +     '</div>'
+                  +     '<div class="flex-1 flex items-center py-6"><h2 id="render-title" class="font-oswald font-bold text-sme-navy uppercase leading-[1.1] tracking-tight w-full"></h2></div>'
+                  +     getFooterHTML('slate-200', 'text-sme-navy')
+                  +   '</div>'
+                  + '</div>';
+            }
+        } else if (state.campaign === 'carousel') {
+            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-20 overflow-hidden">'
+              +   '<div class="absolute -top-[200px] -right-[200px] w-[800px] h-[800px] bg-sme-red rounded-full opacity-30 blur-[150px] pointer-events-none"></div>'
+              +   '<div class="flex justify-between items-start w-full z-10">'
+              +     '<img src="' + WHITE_LOGO + '" class="h-16 object-contain" crossorigin="anonymous">'
+              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-lg shadow-md border border-white/10"><span id="render-tag"></span></div>'
+              +   '</div>'
+              +   '<div class="w-full flex-1 flex items-center z-10"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.05] tracking-tight w-full drop-shadow-lg" style="font-size:110px;"></h2></div>'
+              +   (state.showFooter
+                    ? '<div class="z-10 flex items-center gap-4 border-t-4 border-sme-red pt-6 shrink-0">'
+                      + '<div class="bg-white text-sme-red rounded-full p-2 shrink-0"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></div>'
+                      + '<span class="text-white font-oswald text-2xl uppercase tracking-widest">Swipe to read</span>'
+                      + '</div>'
+                    : '')
+              + '</div>';
+            if (state.currentSlide > 0 && state.currentSlide < 5) {
+                html = '<div class="relative w-full h-full bg-white flex flex-col p-20 border-l-[16px] border-sme-red">'
+                  +   '<div class="text-sme-red font-oswald text-4xl font-bold mb-10 opacity-50 shrink-0">0' + state.currentSlide + ' / 05</div>'
+                  +   '<div class="w-full flex-1 flex items-center"><h2 id="render-title" class="font-oswald font-bold text-sme-navy uppercase leading-[1.1] tracking-tight w-full" style="font-size:80px;"></h2></div>'
+                  +   (state.showFooter
+                        ? '<div class="flex justify-between items-center w-full border-t-2 border-slate-200 pt-6 shrink-0">'
+                          + '<img src="' + WHITE_LOGO + '" class="h-10 object-contain grayscale brightness-0 opacity-50 shrink-0" crossorigin="anonymous">'
+                          + '<span class="text-slate-400 font-roboto text-xl tracking-widest uppercase font-bold shrink-0">Swipe →</span>'
+                          + '</div>'
+                        : '')
+                  + '</div>';
+            } else if (state.currentSlide === 5) {
+                html = '<div class="relative w-full h-full bg-sme-red flex flex-col items-center justify-center p-20 text-center text-white">'
+                  +   '<img src="' + WHITE_LOGO + '" class="h-24 object-contain mb-16 shadow-xl shrink-0" crossorigin="anonymous">'
+                  +   '<h2 id="render-title" class="font-oswald font-bold uppercase leading-[1.05] tracking-tight w-full mb-12" style="font-size:90px;"></h2>'
+                  +   (state.showFooter ? '<div class="bg-white text-sme-navy font-oswald text-4xl font-bold uppercase py-6 px-16 shadow-2xl rounded-xl shrink-0">Read The Insight</div>' : '')
+                  + '</div>';
+            }
+        } else if (state.campaign === 'poll') {
+            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col items-center justify-center p-16" style="background: linear-gradient(135deg, var(--bs) 0%, #111827 100%);">'
+              +   '<div class="z-10 w-full bg-[#1e293b] border border-slate-600 rounded-[40px] p-16 shadow-2xl text-center flex flex-col items-center">'
+              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-full tracking-widest uppercase text-sm shadow-md mb-8 border border-white/20"><span id="render-tag"></span></div>'
+              +     '<h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.15] tracking-tight mb-2" style="font-size:60px; text-shadow:0 4px 10px rgba(0,0,0,0.5);"></h2>'
+              +     '<div class="mt-8 space-y-4 w-full px-8 text-left">'
+              +       '<div class="bg-white p-5 rounded-xl text-sme-navy text-2xl font-bold flex justify-between items-center shadow-md"><span id="render-opt-1" class="font-roboto"></span><div class="w-8 h-8 rounded-full border-[3px] border-slate-300"></div></div>'
+              +       '<div class="bg-white p-5 rounded-xl text-sme-navy text-2xl font-bold flex justify-between items-center shadow-md"><span id="render-opt-2" class="font-roboto"></span><div class="w-8 h-8 rounded-full border-[3px] border-slate-300"></div></div>'
+              +       '<div id="opt-3-container" class="bg-white p-5 rounded-xl text-sme-navy text-2xl font-bold flex justify-between items-center shadow-md"><span id="render-opt-3" class="font-roboto"></span><div class="w-8 h-8 rounded-full border-[3px] border-slate-300"></div></div>'
+              +     '</div>'
+              +   '</div>'
+              + '</div>';
+        } else if (state.campaign === 'whatsapp') {
+            html = '<div class="relative w-full h-full flex flex-col justify-center bg-sme-navy overflow-hidden">'
+              +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover; background-position:center; opacity:0.35;"></div>'
+              +   '<div class="absolute inset-0" style="background: linear-gradient(to top, color-mix(in srgb, var(--bs) 95%, transparent), color-mix(in srgb, var(--bs) 40%, transparent));"></div>'
+              +   '<div class="z-10 p-16 w-full flex flex-col h-full justify-between relative">'
+              +     '<div class="flex justify-center pt-10"><div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-full tracking-widest uppercase text-lg shadow-md border border-white/20"><span id="render-tag"></span></div></div>'
+              +     '<div class="w-full text-center"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.1] tracking-tight" style="font-size:100px; text-shadow:2px 4px 15px rgba(0,0,0,0.9);"></h2></div>'
+              +     (state.showFooter ? '<div class="flex justify-center pb-10 shrink-0"><img src="' + WHITE_LOGO + '" class="h-16 object-contain opacity-90 shrink-0" crossorigin="anonymous"></div>' : '<div class="pb-10"></div>')
+              +   '</div>'
+              + '</div>';
+        } else if (state.campaign === 'stat') {
+            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-16 overflow-hidden">'
+              +   '<div class="absolute -top-[150px] -right-[150px] w-[700px] h-[700px] bg-sme-red rounded-full opacity-25 blur-[150px] pointer-events-none"></div>'
+              +   '<div class="flex justify-between items-start w-full z-10">'
+              +     '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
+              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md border border-white/15"><span id="render-tag"></span></div>'
+              +   '</div>'
+              +   '<div class="flex-1 flex flex-col items-center justify-center text-center z-10 py-4">'
+              +     '<div id="render-stat" class="font-oswald font-bold text-white leading-none" style="font-size:200px; text-shadow:0 6px 18px rgba(0,0,0,0.35);"></div>'
+              +     '<div id="render-title" class="font-roboto font-bold text-white/90 leading-snug mt-6 max-w-[88%]" style="font-size:42px;"></div>'
+              +   '</div>'
+              +   (state.showFooter
+                    ? '<div class="z-10 border-t-4 border-sme-red pt-6 flex justify-between items-center shrink-0">'
+                      + '<div class="flex items-center gap-3"><svg class="w-6 h-6 text-sme-red shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg><span class="text-white font-oswald font-bold text-2xl tracking-widest uppercase">Read Insight</span></div>'
+                      + '<div class="flex items-center gap-3 text-white"><svg class="w-6 h-6 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg><span class="font-roboto font-bold text-xl tracking-wide">smesouthafrica.co.za</span></div>'
+                      + '</div>'
+                    : '')
+              + '</div>';
+        } else if (state.campaign === 'quote') {
+            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-16 overflow-hidden">'
+              +   '<div class="absolute -bottom-[150px] -left-[150px] w-[650px] h-[650px] bg-sme-red rounded-full opacity-20 blur-[150px] pointer-events-none"></div>'
+              +   '<div class="flex justify-between items-start w-full z-10">'
+              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md"><span id="render-tag"></span></div>'
+              +     '<img src="' + WHITE_LOGO + '" class="h-11 object-contain" crossorigin="anonymous">'
+              +   '</div>'
+              +   '<div class="text-sme-red font-oswald font-bold leading-none z-10" style="font-size:150px; height:80px; overflow:hidden; margin-top:8px;">&ldquo;</div>'
+              +   '<div class="flex-1 flex flex-col justify-center z-10">'
+              +     '<div id="render-title" class="font-oswald font-bold text-white leading-snug" style="font-size:60px;"></div>'
+              +     '<div class="flex items-center gap-3 mt-8"><div class="w-9 h-1 bg-sme-red rounded shrink-0"></div><span id="render-author" class="font-roboto font-bold text-white/90" style="font-size:30px;"></span></div>'
+              +   '</div>'
+              +   (state.showFooter
+                    ? '<div class="z-10 border-t border-white/20 pt-5 flex items-center gap-3 text-white shrink-0"><svg class="w-5 h-5 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg><span class="font-roboto font-bold text-lg tracking-wide">smesouthafrica.co.za</span></div>'
+                    : '')
+              + '</div>';
+        }
+
+        // Brand Kit: swap the seeded SME logo/URL/CTA in the preview for the active brand.
+        // (No-op when SME is active; the export does the same via the worker BRAND payload.)
+        const _b = currentBrand();
+        if (_b.logo && _b.logo !== WHITE_LOGO) html = html.split(WHITE_LOGO).join(_b.logo);
+        if (_b.url && _b.url !== 'smesouthafrica.co.za') html = html.split('smesouthafrica.co.za').join(sanitizeHTML(_b.url));
+        if (_b.cta) html = html.split('Read The Insight').join(sanitizeHTML(_b.cta)).split('Read Insight').join(sanitizeHTML(_b.cta));
+
+        canvas.innerHTML = html;
+        syncDOM();
+        setTimeout(resizeWrapper, 50);
+    }
+
+    function syncDOM() {
+        if (state.isExporting) return;
+        const posX = document.getElementById('in-img-x')?.value || 50;
+        const posY = document.getElementById('in-img-y')?.value || 50;
+        const tagInput = document.getElementById('in-tag');
+        const titleInput = document.getElementById('in-title');
+        const fontInput = document.getElementById('in-font-size');
+
+        const valX = document.getElementById('val-img-x');
+        const valY = document.getElementById('val-img-y');
+        const valFont = document.getElementById('font-size-val');
+        if (valX) valX.innerText = posX + '%';
+        if (valY) valY.innerText = posY + '%';
+        if (valFont) valFont.innerText = (fontInput?.value || 100) + '%';
+
+        const titleSource = state.campaign === 'carousel'
+            ? sanitizeHTML(state.slides[state.currentSlide]).replace(/\n/g, '<br>')
+            : sanitizeHTML(titleInput?.value || '').replace(/\n/g, '<br>');
+
+        const rTag = document.getElementById('render-tag');
+        const rTitle = document.getElementById('render-title');
+        const rImg = document.getElementById('render-img');
+
+        if (rTag && tagInput) rTag.innerHTML = sanitizeHTML(tagInput.value);
+        if (rTitle) {
+            rTitle.innerHTML = titleSource;
+            const baseSize = state.campaign === 'standard' ? FONT_CEILINGS[state.format]
+                : state.campaign === 'carousel' ? (state.currentSlide === 0 ? 110 : 80)
+                : state.campaign === 'poll' ? 60
+                : state.campaign === 'whatsapp' ? 85
+                : state.campaign === 'stat' ? 42
+                : state.campaign === 'quote' ? 64
+                : 100;
+            rTitle.style.fontSize = Math.round(baseSize * ((fontInput?.value || 100) / 100)) + 'px';
+        }
+        if (rImg && currentImageSrc) {
+            rImg.style.backgroundImage = "url('" + currentImageSrc + "')";
+            rImg.style.backgroundPosition = posX + '% ' + posY + '%';
+        }
+
+        const rStat = document.getElementById('render-stat');
+        if (rStat) {
+            rStat.innerHTML = sanitizeHTML(document.getElementById('in-stat')?.value || '');
+            rStat.style.fontSize = Math.round(200 * ((fontInput?.value || 100) / 100)) + 'px';
+        }
+        const rAuthor = document.getElementById('render-author');
+        if (rAuthor) rAuthor.innerHTML = sanitizeHTML(document.getElementById('in-author')?.value || '');
+
+        if (state.campaign === 'poll') {
+            for (let i = 1; i <= 3; i++) {
+                const rOpt = document.getElementById('render-opt-' + i);
+                const optInput = document.getElementById('poll-opt-' + i);
+                const val = sanitizeHTML(optInput?.value || '');
+                if (rOpt) rOpt.innerHTML = val;
+                if (i === 3) {
+                    const c = document.getElementById('opt-3-container');
+                    if (c) c.style.display = val.trim() === '' ? 'none' : 'flex';
+                }
+            }
+        }
+    }
+
+    // =============================================================
+    // 9. VIEW & STATE CONTROLLERS (button handlers)
+    // =============================================================
+    function setTheme(themeName) {
+        state.theme = themeName;
+        document.querySelectorAll('.theme-btn').forEach(b => {
+            b.classList.remove('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
+            b.classList.add('bg-slate-800', 'border-transparent', 'text-slate-400');
+        });
+        const a = document.getElementById('theme-' + themeName);
+        if (a) {
+            a.classList.remove('bg-slate-800', 'border-transparent', 'text-slate-400');
+            a.classList.add('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
+        }
+        renderLayout();
+    }
+
+    function setFormat(formatName) {
+        state.format = formatName;
+        document.querySelectorAll('.format-btn').forEach(b => {
+            b.classList.remove('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
+            b.classList.add('bg-slate-800', 'border-slate-600', 'text-slate-400');
+        });
+        const a = document.getElementById('btn-' + formatName);
+        if (a) {
+            a.classList.remove('bg-slate-800', 'border-slate-600', 'text-slate-400');
+            a.classList.add('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
+        }
+        if (formatName === 'landscape') { canvas.style.width = '1200px'; canvas.style.height = '628px'; }
+        else if (formatName === 'square') { canvas.style.width = '1080px'; canvas.style.height = '1080px'; }
+        else if (formatName === 'portrait') { canvas.style.width = '1080px'; canvas.style.height = '1350px'; }
+        const dim = document.getElementById('preview-dim');
+        if (dim) dim.innerText = canvas.style.width + ' x ' + canvas.style.height;
+        renderLayout();
+    }
+
+    function setCampaign(campType) {
+        state.campaign = campType;
+        document.querySelectorAll('.camp-btn').forEach(b => {
+            b.classList.remove('bg-[#B6FF3D]', 'text-[#0A0B0F]', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
+            b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600');
+        });
+        const a = document.getElementById('camp-' + campType);
+        if (a) a.classList.add('bg-[#B6FF3D]', 'text-[#0A0B0F]', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
+
+        const tog = (id, show) => {
+            const el = document.getElementById(id);
+            if (el) show ? el.classList.remove('hidden') : el.classList.add('hidden');
+        };
+        const btnDown = document.getElementById('download-text');
+        const dimTxt = document.getElementById('preview-dim');
+        const inTitle = document.getElementById('in-title');
+        const lblTitle = document.getElementById('lbl-title');
+        // optional control groups default off; the active branch re-enables what it needs
+        tog('stat-controls', false);
+        tog('quote-controls', false);
+        if (lblTitle) lblTitle.innerText = 'Main Headline';
+
+        if (campType === 'carousel') {
+            tog('theme-controls', false); tog('size-controls', true);
+            tog('carousel-controls', true); tog('poll-controls', false);
+            tog('image-upload-wrapper', false); tog('framing-controls', false);
+            tog('btn-download-zip', true);
+            if (inTitle) inTitle.value = state.slides[state.currentSlide] || '';
+            if (btnDown) btnDown.innerText = 'Download Slide ' + (state.currentSlide + 1);
+            setFormat(state.format);
+        } else if (campType === 'poll') {
+            tog('theme-controls', false); tog('size-controls', false);
+            tog('carousel-controls', false); tog('poll-controls', true);
+            tog('image-upload-wrapper', false); tog('framing-controls', false);
+            tog('btn-download-zip', false);
+            if (btnDown) btnDown.innerText = 'Download Poll Graphic';
+            canvas.style.width = '1080px'; canvas.style.height = '1080px';
+            if (dimTxt) dimTxt.innerText = '1080 x 1080 (Poll)';
+        } else if (campType === 'stat') {
+            tog('theme-controls', false); tog('size-controls', true);
+            tog('carousel-controls', false); tog('poll-controls', false);
+            tog('stat-controls', true); tog('image-upload-wrapper', false); tog('framing-controls', false);
+            tog('btn-download-zip', false);
+            if (btnDown) btnDown.innerText = 'Download Stat Graphic';
+            if (lblTitle) lblTitle.innerText = 'Supporting line (under the stat)';
+            setFormat(state.format);
+        } else if (campType === 'quote') {
+            tog('theme-controls', false); tog('size-controls', true);
+            tog('carousel-controls', false); tog('poll-controls', false);
+            tog('quote-controls', true); tog('image-upload-wrapper', false); tog('framing-controls', false);
+            tog('btn-download-zip', false);
+            if (btnDown) btnDown.innerText = 'Download Quote Graphic';
+            if (lblTitle) lblTitle.innerText = 'Quote text';
+            setFormat(state.format);
+        } else {
+            tog('theme-controls', true); tog('size-controls', true);
+            tog('carousel-controls', false); tog('poll-controls', false);
+            tog('image-upload-wrapper', true); tog('framing-controls', true);
+            tog('btn-download-zip', false);
+            if (btnDown) btnDown.innerText = 'Download HD PNG';
+            if (campType === 'whatsapp') {
+                tog('theme-controls', false); tog('size-controls', false);
+                canvas.style.width = '1080px'; canvas.style.height = '1350px';
+                if (dimTxt) dimTxt.innerText = '1080 x 1350 (WhatsApp)';
+            } else {
+                setFormat(state.format);
+            }
+        }
+        renderLayout();
+    }
+
+    function changeSlide(idx) {
+        const inTitle = document.getElementById('in-title');
+        if (inTitle) state.slides[state.currentSlide] = inTitle.value;
+        state.currentSlide = idx;
+        if (inTitle) inTitle.value = state.slides[idx] || '';
+        document.querySelectorAll('.slide-nav').forEach((b, i) => {
+            if (i === idx) { b.classList.remove('bg-slate-700', 'text-slate-300'); b.classList.add('bg-red-600', 'text-[#0A0B0F]'); }
+            else { b.classList.remove('bg-red-600', 'text-[#0A0B0F]'); b.classList.add('bg-slate-700', 'text-slate-300'); }
+        });
+        const btnDown = document.getElementById('download-text');
+        if (state.campaign === 'carousel' && btnDown) btnDown.innerText = 'Download Slide ' + (idx + 1);
+        renderLayout();
+    }
+
+    // =============================================================
+    // 10. WORKER MANAGEMENT (lazy spawn from inline source)
+    // =============================================================
+    function getWorker() {
+        if (exportWorker) return exportWorker;
+        const src = document.getElementById('worker-src').textContent;
+        const blob = new Blob([src], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        exportWorker = new Worker(url);
+        // Note: we deliberately keep the worker alive across exports to avoid font-reload cost.
+        return exportWorker;
+    }
+
+    function buildStatePayload() {
+        // Sync any unsaved textarea edits back into state.slides
+        const inTitle = document.getElementById('in-title');
+        if (state.campaign === 'carousel' && inTitle) {
+            state.slides[state.currentSlide] = inTitle.value;
+        }
+        const focalX = parseInt(document.getElementById('in-img-x')?.value || '50', 10) / 100;
+        const focalY = parseInt(document.getElementById('in-img-y')?.value || '50', 10) / 100;
+        const userScale = parseInt(document.getElementById('in-font-size')?.value || '100', 10) / 100;
+        const tag = document.getElementById('in-tag')?.value || '';
+        const title = inTitle?.value || '';
+        const stat = document.getElementById('in-stat')?.value || '';
+        const author = document.getElementById('in-author')?.value || '';
+        const pollOpts = [
+            document.getElementById('poll-opt-1')?.value || '',
+            document.getElementById('poll-opt-2')?.value || '',
+            document.getElementById('poll-opt-3')?.value || ''
+        ];
+        return {
+            campaign: state.campaign,
+            format: state.format,
+            theme: state.theme,
+            showFooter: state.showFooter,
+            currentSlide: state.currentSlide,
+            slides: state.slides.slice(),
+            title: title,
+            tag: tag,
+            stat: stat,
+            author: author,
+            pollOpts: pollOpts,
+            focalX: focalX,
+            focalY: focalY,
+            userScale: userScale
+        };
+    }
+
+    function postAndWait(worker, payload, quiet) {
+        return new Promise((resolve, reject) => {
+            const onMsg = (ev) => {
+                const m = ev.data;
+                if (m.type === 'progress') {
+                    if (!quiet) setProgress(m.percent || 0, m.label || '');
+                } else if (m.type === 'done') {
+                    worker.removeEventListener('message', onMsg);
+                    worker.removeEventListener('error', onErr);
+                    resolve(m);
+                } else if (m.type === 'error') {
+                    worker.removeEventListener('message', onMsg);
+                    worker.removeEventListener('error', onErr);
+                    reject(new Error(m.message || 'Worker error'));
+                }
+            };
+            const onErr = (e) => {
+                worker.removeEventListener('message', onMsg);
+                worker.removeEventListener('error', onErr);
+                reject(new Error(e.message || 'Worker crashed'));
+            };
+            worker.addEventListener('message', onMsg);
+            worker.addEventListener('error', onErr);
+            worker.postMessage(payload);
+        });
+    }
+
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function setExportingUI(active) {
+        const btn = document.getElementById('btn-download');
+        const btnZip = document.getElementById('btn-download-zip');
+        const txt = document.getElementById('download-text');
+        const iD = document.getElementById('icon-download');
+        const iL = document.getElementById('icon-loading');
+        state.isExporting = active;
+        if (active) {
+            if (btn) btn.classList.add('disabled-btn');
+            if (btnZip) btnZip.classList.add('disabled-btn');
+            if (txt) txt.dataset.original = txt.innerText, txt.innerText = 'Working...';
+            if (iD) iD.classList.add('hidden');
+            if (iL) iL.classList.remove('hidden');
+        } else {
+            if (btn) btn.classList.remove('disabled-btn');
+            if (btnZip) btnZip.classList.remove('disabled-btn');
+            if (txt && txt.dataset.original) txt.innerText = txt.dataset.original;
+            if (iD) iD.classList.remove('hidden');
+            if (iL) iL.classList.add('hidden');
+            setTimeout(() => setProgress(0, ''), 1200);
+        }
+    }
+
+    // =============================================================
+    // 11. EXPORT PIPELINE (single + zip)
+    // =============================================================
+    async function triggerExport() {
+        if (state.isExporting) return;
+        setExportingUI(true);
+        try {
+            await ensureLogoBlob();
+            await ensureDefaultImageBlob();
+            const worker = getWorker();
+            const payload = {
+                type: 'render-single',
+                state: buildStatePayload(),
+                brand: brandPayload(),
+                slideIdx: state.campaign === 'carousel' ? state.currentSlide : 0,
+                featuredBlob: currentImageBlob,
+                logoBlob: logoBlob,
+                fontBuffers: fontBuffers,
+                scale: 3,
+                filename: buildFilename('png', state.campaign === 'carousel' ? state.currentSlide + 1 : null)
+            };
+            const result = await postAndWait(worker, payload);
+            downloadBlob(result.blob, result.filename);
+            showToast('Exported: ' + result.filename, 'success');
+            recordExport();
+        } catch (err) {
+            console.error('Export failed:', err);
+            showToast('Export failed: ' + err.message);
+        } finally {
+            setExportingUI(false);
+        }
+    }
+
+    async function triggerCarouselZipExport() {
+        if (state.isExporting) return;
+        if (state.campaign !== 'carousel') return;
+        setExportingUI(true);
+        try {
+            await ensureLogoBlob();
+            await ensureDefaultImageBlob();
+            const worker = getWorker();
+            const payload = {
+                type: 'render-carousel-zip',
+                state: buildStatePayload(),
+                brand: brandPayload(),
+                featuredBlob: currentImageBlob,
+                logoBlob: logoBlob,
+                fontBuffers: fontBuffers,
+                scale: 3,
+                filename: buildFilename('zip')
+            };
+            const result = await postAndWait(worker, payload);
+            downloadBlob(result.blob, result.filename);
+            showToast('Carousel ZIP exported: ' + result.filename, 'success');
+            recordExport();
+        } catch (err) {
+            console.error('ZIP export failed:', err);
+            showToast('Export failed: ' + err.message);
+        } finally {
+            setExportingUI(false);
+        }
+    }
+
+    function buildFilename(ext, slideNum) {
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        if (state.campaign === 'carousel' && slideNum) {
+            return 'SME_Carousel_Slide_' + slideNum + '_' + stamp + '.' + ext;
+        }
+        if (state.campaign === 'carousel' && ext === 'zip') {
+            return 'SME_Carousel_' + stamp + '.zip';
+        }
+        const label = ({ standard: 'Graphic', poll: 'Poll', whatsapp: 'WhatsApp', stat: 'Stat', quote: 'Quote' })[state.campaign] || 'Graphic';
+        return 'SME_' + label + '_' + stamp + '.' + ext;
+    }
+
+    // =============================================================
+    // 12. INIT
+    // =============================================================
+    // =============================================================
+    // 12a. CONTENT HISTORY + FEED SIMULATOR + VARIETY COACH
+    //      (localStorage only — no backend, no tracking off-device)
+    // =============================================================
+    const HISTORY_KEY  = 'volt_history_v1';
+    const COACH_OFF_KEY = 'volt_coach_off';
+    const COACH_ACK_KEY = 'volt_coach_ack';
+    const HISTORY_CAP  = 24;
+    const FMT_SHORT = { landscape: 'Land', square: 'Square', portrait: 'Port' };
+
+    function loadHistory() {
+        try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') || []; }
+        catch (e) { return []; }
+    }
+    function saveHistory(arr) {
+        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(-HISTORY_CAP))); } catch (e) {}
+    }
+    function lookId(rec) { return rec.campaign === 'standard' ? ('standard:' + rec.theme) : rec.campaign; }
+    function lookLabel(rec) {
+        if (rec.campaign === 'standard') return ({ classic: 'Classic', cinematic: 'Cinematic', modern: 'Modern' }[rec.theme] || 'Standard');
+        return ({ carousel: 'Carousel', poll: 'Poll', whatsapp: 'WhatsApp', stat: 'Stat Spotlight', quote: 'Quote' }[rec.campaign] || rec.campaign);
+    }
+
+    // blob -> small jpeg dataURL (keeps localStorage light)
+    async function blobToThumb(blob, maxW) {
+        const bmp = await createImageBitmap(blob);
+        const sc = maxW / bmp.width;
+        const w = Math.max(1, Math.round(bmp.width * sc));
+        const h = Math.max(1, Math.round(bmp.height * sc));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+        bmp.close();
+        return c.toDataURL('image/jpeg', 0.72);
+    }
+
+    // Render a small cover thumbnail of the current design, then log it. Never breaks export.
+    async function recordExport() {
+        try {
+            const worker = getWorker();
+            const st = buildStatePayload();
+            const res = await postAndWait(worker, {
+                type: 'render-single', state: st, brand: brandPayload(), slideIdx: 0,
+                featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers,
+                scale: 0.5, filename: 'thumb.png'
+            }, true);
+            const thumb = await blobToThumb(res.blob, 240);
+            const rec = {
+                t: Date.now(),
+                campaign: st.campaign,
+                theme: st.theme,
+                format: st.campaign === 'poll' ? 'square' : (st.campaign === 'whatsapp' ? 'portrait' : st.format),
+                title: String(st.title || st.slides[0] || '').slice(0, 60),
+                thumb: thumb
+            };
+            const h = loadHistory(); h.push(rec); saveHistory(h);
+            renderFeed(); updateAdvisor();
+        } catch (e) { /* a thumbnail failure must never affect the actual export */ }
+    }
+
+    function computeVariety(history) {
+        const recent = history.slice(-9);
+        if (recent.length === 0) return { score: 0, distinct: 0, total: 0, label: '—' };
+        const set = new Set(recent.map(lookId));
+        const score = Math.round((set.size / recent.length) * 100);
+        const label = score >= 67 ? 'Varied' : score >= 34 ? 'Okay' : 'Repetitive';
+        return { score, distinct: set.size, total: recent.length, label };
+    }
+    function varietyColor(score) { return score >= 67 ? '#B6FF3D' : score >= 34 ? '#FFC857' : '#FF7C7C'; }
+
+    function renderFeed() {
+        const grid = document.getElementById('feed-grid');
+        const hint = document.getElementById('feed-hint');
+        const badge = document.getElementById('variety-badge');
+        const bar = document.getElementById('variety-bar');
+        if (!grid) return;
+        const history = loadHistory();
+        const recent = history.slice(-9).reverse(); // newest first
+        const v = computeVariety(history);
+
+        if (badge) {
+            badge.textContent = v.total ? (v.score + '% · ' + v.label) : '—';
+            badge.style.color = v.total ? varietyColor(v.score) : '#888F9D';
+        }
+        if (bar) { bar.style.width = (v.total ? v.score : 0) + '%'; bar.style.background = varietyColor(v.score); }
+
+        if (recent.length === 0) {
+            let empty = '';
+            for (let i = 0; i < 9; i++) empty += '<div class="rounded-md border border-dashed border-slate-700" style="aspect-ratio:1/1"></div>';
+            grid.innerHTML = empty;
+            if (hint) hint.textContent = 'Your last 9 exports show here as an Instagram-style grid — a quick gut-check on whether your feed looks varied.';
+            return;
+        }
+
+        let html = '';
+        for (let i = 0; i < 9; i++) {
+            const r = recent[i];
+            if (r) {
+                const cap = lookLabel(r);
+                html += '<div class="relative rounded-md overflow-hidden border border-slate-700" style="aspect-ratio:1/1" title="' + sanitizeHTML(cap + ' · ' + (FMT_SHORT[r.format] || r.format)) + '">'
+                     +    '<img src="' + r.thumb + '" class="w-full h-full object-cover" alt="">'
+                     +    '<span class="absolute bottom-0 left-0 right-0 text-[8px] font-bold text-white px-1 py-0.5 truncate" style="background:rgba(0,0,0,0.55)">' + sanitizeHTML(cap) + '</span>'
+                     +  '</div>';
+            } else {
+                html += '<div class="rounded-md border border-dashed border-slate-700" style="aspect-ratio:1/1"></div>';
+            }
+        }
+        grid.innerHTML = html;
+        if (hint) hint.textContent = v.distinct + ' of your last ' + v.total + ' posts use a different look.';
+    }
+
+    // The coach: returns a nudge {text, cta, apply} or null
+    function getCoachNudge() {
+        if (localStorage.getItem(COACH_OFF_KEY) === '1') return null;
+        const history = loadHistory();
+        if (history.length < 5) return null;
+
+        const window7 = history.slice(-7);
+        const counts = {};
+        window7.forEach(r => { const k = lookId(r); counts[k] = (counts[k] || 0) + 1; });
+        let domKey = null, domCount = 0;
+        Object.keys(counts).forEach(k => { if (counts[k] > domCount) { domCount = counts[k]; domKey = k; } });
+
+        // consecutive same-look from newest
+        let consec = 0; const newest = lookId(history[history.length - 1]);
+        for (let i = history.length - 1; i >= 0; i--) { if (lookId(history[i]) === newest) consec++; else break; }
+
+        if (!(domCount >= 5 || consec >= 5)) return null;
+
+        // re-nag guard: stay quiet until 3 more exports since the last dismiss
+        const ack = parseInt(localStorage.getItem(COACH_ACK_KEY) || '-99', 10);
+        if (history.length - ack < 3) return null;
+
+        const looks = [
+            { id: 'standard:classic',   label: 'Classic',          apply: () => { setCampaign('standard'); setTheme('classic'); } },
+            { id: 'standard:cinematic', label: 'Cinematic',        apply: () => { setCampaign('standard'); setTheme('cinematic'); } },
+            { id: 'standard:modern',    label: 'Modern',           apply: () => { setCampaign('standard'); setTheme('modern'); } },
+            { id: 'carousel',           label: 'a Carousel',       apply: () => setCampaign('carousel') },
+            { id: 'poll',               label: 'a Poll',           apply: () => setCampaign('poll') },
+            { id: 'whatsapp',           label: 'a WhatsApp post',  apply: () => setCampaign('whatsapp') },
+            { id: 'stat',               label: 'a Stat Spotlight', apply: () => setCampaign('stat') },
+            { id: 'quote',              label: 'a Quote card',     apply: () => setCampaign('quote') }
+        ];
+        const recentLooks = history.slice(-9).map(lookId);
+        let best = null, bestCount = Infinity;
+        looks.forEach(l => {
+            if (l.id === domKey) return;            // never suggest the look they're overusing
+            const c = recentLooks.filter(x => x === l.id).length;
+            if (c < bestCount) { bestCount = c; best = l; }
+        });
+        if (!best) best = looks.find(l => l.id !== domKey) || looks[0];
+
+        const domLabel = lookLabel({ campaign: domKey.indexOf('standard') === 0 ? 'standard' : domKey, theme: (domKey.split(':')[1] || '') });
+        const n = Math.max(domCount, consec);
+        return {
+            text: n + ' of your recent posts use the <b>' + domLabel + '</b> look. Your feed is going monotone — switch it up to keep people scrolling.',
+            cta: 'Try ' + best.label,
+            apply: best.apply
+        };
+    }
+
+    function ackCoach() {
+        try { localStorage.setItem(COACH_ACK_KEY, String(loadHistory().length)); } catch (e) {}
+        updateAdvisor();
+    }
+    function disableCoach() {
+        try { localStorage.setItem(COACH_OFF_KEY, '1'); } catch (e) {}
+        updateAdvisor();
+    }
+
+    // Strategy Proxy panel: coach nudge takes priority; otherwise the day-of-week tip.
+    function updateAdvisor() {
+        const msgEl = document.getElementById('advisor-msg');
+        const actEl = document.getElementById('advisor-action');
+        if (!msgEl || !actEl) return;
+        const nudge = getCoachNudge();
+        if (nudge) {
+            msgEl.innerHTML = nudge.text;
+            actEl.innerHTML =
+                '<button id="coach-apply" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:#B6FF3D;color:#0A0B0F;">' + sanitizeHTML(nudge.cta) + '</button>'
+              + '<button id="coach-ack" class="text-slate-300 text-[10px] font-bold py-1.5 px-3 rounded uppercase border border-slate-600 hover:bg-slate-700">Got it</button>'
+              + '<button id="coach-off" class="text-slate-500 text-[10px] font-medium py-1.5 px-2 rounded uppercase hover:text-slate-300" title="Turn off variety tips">Mute</button>';
+            const ap = document.getElementById('coach-apply');
+            const ak = document.getElementById('coach-ack');
+            const of = document.getElementById('coach-off');
+            if (ap) ap.onclick = () => { try { nudge.apply(); } catch (e) {} ackCoach(); };
+            if (ak) ak.onclick = ackCoach;
+            if (of) of.onclick = disableCoach;
+            return;
+        }
+        renderDayTip(msgEl, actEl);
+    }
+
+    function renderDayTip(msgEl, actEl) {
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const today = new Date().getDay();
+        const btn = (camp, label) => '<button onclick="setCampaign(\'' + camp + '\')" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:#B6FF3D;color:#0A0B0F;">' + label + '</button>';
+        if (today === 2 || today === 4) {
+            msgEl.innerHTML = "It's <b>" + days[today] + "</b>. Polls drive mid-week engagement — try the Poll layout today.";
+            actEl.innerHTML = btn('poll', 'Create Poll');
+        } else if (today === 1 || today === 3) {
+            msgEl.innerHTML = "Happy <b>" + days[today] + "</b>. LinkedIn carousels get 3× more reach today. Build one in 30 seconds.";
+            actEl.innerHTML = btn('carousel', 'Build Carousel');
+        } else {
+            msgEl.innerHTML = 'Weekend playbook: WhatsApp Channels see high open rates. Ship a punchy broadcast.';
+            actEl.innerHTML = btn('whatsapp', 'WhatsApp Mode');
+        }
+    }
+
+    // =============================================================
+    // 12b. CONTENT SCORECARD (output audit — no API)
+    // =============================================================
+    let _auditTips = [];
+
+    function loadCopyHistory() {
+        try { return JSON.parse(localStorage.getItem('volt_copy_history_v1') || '[]') || []; }
+        catch (e) { return []; }
+    }
+
+    function computeScorecard() {
+        const out = loadHistory();
+        const copy = loadCopyHistory();
+        const recent = out.slice(-12);
+        const total = recent.length;
+        const metrics = [];
+
+        if (total >= 1) {
+            const looks = new Set(recent.map(lookId));
+            metrics.push({ key: 'variety', label: 'Visual variety', score: Math.round(looks.size / total * 100), detail: looks.size + ' distinct looks in last ' + total });
+
+            const fmts = {}; recent.forEach(r => { fmts[r.format] = (fmts[r.format] || 0) + 1; });
+            const distinctF = Object.keys(fmts).length;
+            const topF = Math.max.apply(null, Object.values(fmts));
+            let fBase = ({ 1: 35, 2: 78, 3: 100 })[distinctF] || 100;
+            if (distinctF > 1 && topF / total > 0.8) fBase -= 15;
+            metrics.push({ key: 'format', label: 'Format balance', score: fBase, detail: distinctF + ' of 3 sizes used' });
+
+            const types = new Set(recent.map(r => r.campaign));
+            const mBase = ({ 1: 30, 2: 55, 3: 75, 4: 90, 5: 100, 6: 100 })[types.size] || 100;
+            metrics.push({ key: 'mix', label: 'Post-type mix', score: mBase, detail: types.size + ' of 6 post types used' });
+        }
+
+        const recentCopy = copy.slice(-12);
+        if (recentCopy.length >= 1) {
+            const avg = recentCopy.reduce((s, c) => s + ((c.hook + c.clarity + c.urgency) / 3), 0) / recentCopy.length;
+            metrics.push({ key: 'hook', label: 'Hook strength (copy)', score: Math.round(avg * 10), detail: avg.toFixed(1) + '/10 on copy you used' });
+        }
+
+        if (total >= 2) {
+            const DAY = 86400000, now = Date.now();
+            const days = new Set(out.filter(r => now - r.t <= 14 * DAY).map(r => Math.floor(r.t / DAY)));
+            const score = Math.max(10, Math.min(100, Math.round(days.size / 6 * 100)));
+            metrics.push({ key: 'cadence', label: 'Creation cadence', score: score, detail: days.size + ' active day' + (days.size === 1 ? '' : 's') + ' in last 14' });
+        }
+
+        const overall = metrics.length ? Math.round(metrics.reduce((s, m) => s + m.score, 0) / metrics.length) : 0;
+        return { metrics, overall, total, copyCount: copy.length };
+    }
+
+    function gradeFor(score) {
+        if (score >= 85) return 'A';
+        if (score >= 70) return 'B';
+        if (score >= 55) return 'C';
+        if (score >= 40) return 'D';
+        return 'F';
+    }
+
+    function scorecardTips(sc) {
+        const m = {}; sc.metrics.forEach(x => m[x.key] = x);
+        const out = loadHistory().slice(-12);
+        const hasCarousel = out.some(r => r.campaign === 'carousel');
+        const tips = [];
+        if (m.variety && m.variety.score < 55) tips.push({ t: 'Your recent posts repeat the same look — rotate themes and templates to keep the feed fresh.' });
+        if (m.format && m.format.score < 60) tips.push({ t: 'You lean on one size. Add Portrait (4:5) — it fills more of the screen in the IG feed.', cta: { label: 'Switch to Portrait', fn: function () { setFormat('portrait'); } } });
+        if (!hasCarousel && sc.total >= 1) tips.push({ t: 'No carousels recently — they pull the most reach on LinkedIn & Instagram.', cta: { label: 'Build a carousel', fn: function () { setCampaign('carousel'); } } });
+        if (m.mix && m.mix.score < 75) tips.push({ t: 'Mostly one post type. A Stat Spotlight or Quote breaks the pattern and feeds different content.', cta: { label: 'Try a Stat Spotlight', fn: function () { setCampaign('stat'); } } });
+        if (m.hook && m.hook.score < 65) tips.push({ t: 'The copy you ship averages ' + (m.hook.score / 10).toFixed(1) + '/10 on hook. Sharpen openings in the Copy tab and use \u201CMore like this\u201D on the top scorer.' });
+        if (!sc.copyCount) tips.push({ t: 'No copy data yet — in the Copy tab, hit \u201CDesign in Studio\u201D or Copy on an angle and your hook score appears here.' });
+        if (m.cadence && m.cadence.score < 50 && sc.total >= 2) tips.push({ t: 'Your posting is bunched up. Spacing exports across the week builds a steadier presence.' });
+        if (tips.length === 0) tips.push({ t: 'Strong, varied output — keep this rhythm going. Your feed is working.' });
+        return tips.slice(0, 4);
+    }
+
+    function renderScorecard() {
+        const body = document.getElementById('audit-body');
+        if (!body) return;
+        const sc = computeScorecard();
+
+        if (sc.total < 3) {
+            body.innerHTML = '<div class="text-center py-8">'
+              + '<div class="text-5xl mb-4">📊</div>'
+              + '<p class="text-white font-bold mb-2">Not enough data yet</p>'
+              + '<p class="text-slate-400 text-sm leading-relaxed">Export a few posts (and use the Copy tab) and your audit unlocks here — visual variety, format balance, post-type mix, hook strength and cadence, each with a prioritised fix.</p>'
+              + '</div>';
+            return;
+        }
+
+        const col = varietyColor(sc.overall);
+        const grade = gradeFor(sc.overall);
+        let html = ''
+          + '<div class="flex items-center gap-4 mb-6">'
+          +   '<div class="shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center" style="background:' + col + '22;border:2px solid ' + col + ';">'
+          +     '<span style="font-family:\'Unbounded\',sans-serif;font-size:34px;font-weight:800;color:' + col + ';">' + grade + '</span>'
+          +   '</div>'
+          +   '<div>'
+          +     '<div class="text-2xl font-extrabold text-white" style="font-family:\'Unbounded\',sans-serif;">' + sc.overall + '<span class="text-slate-500 text-base font-bold">/100</span></div>'
+          +     '<div class="text-xs text-slate-400 mt-1">Based on your last ' + sc.total + ' exports' + (sc.copyCount ? ' + copy you used' : '') + '</div>'
+          +   '</div>'
+          + '</div>';
+
+        html += '<div class="space-y-3 mb-6">';
+        sc.metrics.forEach(function (mm) {
+            const c = varietyColor(mm.score);
+            html += '<div>'
+              + '<div class="flex justify-between items-baseline mb-1"><span class="text-sm font-bold text-slate-200">' + mm.label + '</span><span class="text-xs font-mono font-bold" style="color:' + c + '">' + mm.score + '</span></div>'
+              + '<div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.08)"><div class="h-full rounded-full" style="width:' + mm.score + '%;background:' + c + '"></div></div>'
+              + '<div class="text-[11px] text-slate-500 mt-1">' + sanitizeHTML(mm.detail) + '</div>'
+              + '</div>';
+        });
+        html += '</div>';
+
+        _auditTips = scorecardTips(sc);
+        html += '<div class="border-t border-slate-700 pt-5"><p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:#B6FF3D;">Priority fixes</p><div class="space-y-2">';
+        _auditTips.forEach(function (tip, i) {
+            html += '<div class="flex items-start gap-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">'
+              + '<span style="color:#B6FF3D;">&rarr;</span>'
+              + '<div class="flex-1"><p class="text-sm text-slate-300 leading-snug">' + tip.t + '</p>'
+              + (tip.cta ? '<button onclick="auditTipAction(' + i + ')" class="mt-2 text-[10px] font-bold py-1 px-3 rounded uppercase" style="background:#B6FF3D;color:#0A0B0F;">' + sanitizeHTML(tip.cta.label) + '</button>' : '')
+              + '</div></div>';
+        });
+        html += '</div></div>';
+
+        body.innerHTML = html;
+    }
+
+    function auditTipAction(i) {
+        const tip = _auditTips[i];
+        if (tip && tip.cta && typeof tip.cta.fn === 'function') { try { tip.cta.fn(); } catch (e) {} }
+        closeAudit();
+    }
+    function openAudit() {
+        renderScorecard();
+        const mdl = document.getElementById('audit-modal');
+        if (mdl) mdl.classList.remove('hidden');
+    }
+    function closeAudit() {
+        const mdl = document.getElementById('audit-modal');
+        if (mdl) mdl.classList.add('hidden');
+    }
+
+    // === Copy Lab → Studio handoff ===
+    // Reads the angle stored by Copy Lab's "Design in Studio" button and pre-loads it here.
+    function applyCopyLabHandoff() {
+        let raw;
+        try { raw = sessionStorage.getItem('tl_handoff'); } catch (e) { return false; }
+        if (!raw) return false;
+        let h;
+        try { h = JSON.parse(raw); } catch (e) { return false; }
+        try { sessionStorage.removeItem('tl_handoff'); } catch (e) {}
+        if (!h || (!h.headline && !h.body)) return false;
+
+        const headline = String(h.headline || '').trim();
+        const body = String(h.body || '').trim();
+
+        // Body becomes the article description, so "Re-slice" works too
+        scrapedDesc = body;
+        // Headline -> slide 0, body -> auto-sliced carousel slides 1-4
+        state.slides = sliceArticleIntoSlides(body, headline || state.slides[0]);
+
+        const inTitle = document.getElementById('in-title');
+        if (inTitle) inTitle.value = headline || state.slides[0];
+
+        // Map the Copy Lab platform to the best canvas size
+        const p = String(h.platform || '').toLowerCase();
+        if (p === 'meta') state.format = 'square';       // IG/FB grid
+        else if (p === 'tiktok') state.format = 'portrait'; // vertical feed
+        else state.format = 'landscape';                  // linkedin, google, default
+
+        // Render as a single Standard graphic first (carousel slides stay pre-filled)
+        setCampaign('standard');
+        showToast('Loaded from Copy Lab — headline & slides ready to design.', 'success');
+        return true;
+    }
+
+    window.addEventListener('load', async function () {
+        // Image upload binding
+        const imgInput = document.getElementById('in-image');
+        if (imgInput) {
+            imgInput.addEventListener('change', e => {
+                const f = e.target.files[0];
+                if (!f) return;
+                currentImageBlob = f;
+                if (currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
+                currentImageSrc = URL.createObjectURL(f);
+                const elX = document.getElementById('in-img-x');
+                const elY = document.getElementById('in-img-y');
+                if (elX) elX.value = 50;
+                if (elY) elY.value = 50;
+                syncDOM();
+            });
+        }
+        applyBrand();
+        renderFeed();
+        updateAdvisor();
+        // If Copy Lab handed off an angle, load it; otherwise start on the default Standard view.
+        if (!applyCopyLabHandoff()) setCampaign('standard');
+        window.addEventListener('resize', resizeWrapper);
+
+        // Kick off font preload in background — don't block UI
+        preloadFontBuffers().then(() => {
+            const n = Object.keys(fontBuffers).length;
+            if (n > 0) console.log('[Studio] Loaded ' + n + ' font weights for worker.');
+        });
+        // Prime logo + default image
+        ensureLogoBlob();
+        ensureDefaultImageBlob();
+    });
+
+    // Expose for inline onclick handlers
+    window.setTheme = setTheme;
+    window.setFormat = setFormat;
+    window.setCampaign = setCampaign;
+    window.changeSlide = changeSlide;
+    window.fetchArticleData = fetchArticleData;
+    window.triggerExport = triggerExport;
+    window.triggerCarouselZipExport = triggerCarouselZipExport;
+    window.autoSliceFromTitle = autoSliceFromTitle;
+    window.syncDOM = syncDOM;
+    window.state = state;
+    window.renderLayout = renderLayout;
+    window.openAudit = openAudit;
+    window.closeAudit = closeAudit;
+    window.auditTipAction = auditTipAction;
+    window.openBrandKit = openBrandKit;
+    window.closeBrandKit = closeBrandKit;
+    </script>
+</body>
+</html>
