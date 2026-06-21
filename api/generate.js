@@ -2,6 +2,8 @@
 // Serverless proxy. Keeps your API key on the server, never in the browser.
 // Provider is set with the LLM_PROVIDER env var: "gemini" (default) | "claude" | "groq".
 
+import { blocked } from "./_guard.js";
+
 const SYSTEM =
   "You are an elite direct-response performance-marketing copywriter and a brutally honest creative strategist. " +
   "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
@@ -337,18 +339,7 @@ async function callGroq(prompt, opts = {}) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-app-key");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  // Optional app-key guard. Enforced ONLY if APP_KEY is set in the environment;
-  // unset = open (backwards compatible). Send it from the client as the "x-app-key" header.
-  const APP_KEY = process.env.APP_KEY;
-  if (APP_KEY && req.headers["x-app-key"] !== APP_KEY) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  if (await blocked(req, res, { id: "generate", limit: 30, windowSec: 60 })) return;
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});

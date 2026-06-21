@@ -9,6 +9,8 @@
 //
 // Docs: https://docs.postiz.com/public-api
 
+import { blocked } from "./_guard.js";
+
 function baseUrl() {
   const b = process.env.POSTIZ_API_URL || "https://api.postiz.com/public/v1";
   return String(b).replace(/\/+$/, "");
@@ -32,17 +34,7 @@ async function postizGet(path) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-app-key");
-  if (req.method === "OPTIONS") return res.status(204).end();
-
-  // Optional app-key guard. Enforced ONLY if APP_KEY is set in the environment;
-  // unset = open (backwards compatible). Send it from the client as the "x-app-key" header.
-  const APP_KEY = process.env.APP_KEY;
-  if (APP_KEY && req.headers["x-app-key"] !== APP_KEY) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  if (await blocked(req, res, { methods: "GET, OPTIONS", method: "GET", id: "postiz", limit: 40, windowSec: 60 })) return;
 
   try {
     if (!process.env.POSTIZ_API_KEY) {

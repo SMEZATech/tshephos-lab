@@ -6,17 +6,10 @@
 // Desktop: the app sends x-client:desktop + x-wp-url / x-wp-user / x-wp-key.
 // In WordPress: Users → Profile → Application Passwords → add one for "Volt".
 
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-app-key, x-client, x-wp-url, x-wp-user, x-wp-key");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+import { blocked } from "./_guard.js";
 
-  const APP_KEY = process.env.APP_KEY;
-  if (APP_KEY && req.headers["x-app-key"] !== APP_KEY) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+export default async function handler(req, res) {
+  if (await blocked(req, res, { id: "upload", limit: 15, windowSec: 60 })) return;
 
   const isDesktop = req.headers["x-client"] === "desktop";
   const wpUrl = (isDesktop ? req.headers["x-wp-url"] : process.env.WP_URL) || "";
@@ -37,9 +30,11 @@ export default async function handler(req, res) {
     const filename = String(body.filename || "image.png").replace(/[^\w.\-]+/g, "_").slice(-80) || "image.png";
     const contentType = String(body.contentType || "image/png");
     if (!dataBase64) return res.status(400).json({ error: "No image data." });
+    if (!/^image\//i.test(contentType)) return res.status(400).json({ error: "Only image files can be uploaded." });
 
     const buf = Buffer.from(dataBase64, "base64");
     if (!buf.length) return res.status(400).json({ error: "Image data was empty or invalid." });
+    if (buf.length > 5 * 1024 * 1024) return res.status(413).json({ error: "Image too large — please use one under 5 MB." });
 
     const base = String(wpUrl).replace(/\/+$/, "");
     const auth = "Basic " + Buffer.from(wpUser + ":" + wpKey).toString("base64");

@@ -8,20 +8,12 @@
 // Get a V4 API key in Kit → Settings → Developer (Advanced → API Keys).
 // Docs: https://developers.kit.com/api-reference/broadcasts/create-a-broadcast
 
+import { blocked } from "./_guard.js";
+
 const KIT_URL = "https://api.kit.com/v4/broadcasts";
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-app-key, x-client, x-kit-key");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-  // Optional app-key guard (enforced only if APP_KEY is set) — backwards compatible.
-  const APP_KEY = process.env.APP_KEY;
-  if (APP_KEY && req.headers["x-app-key"] !== APP_KEY) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  if (await blocked(req, res, { id: "kit", limit: 12, windowSec: 60 })) return;
 
   // Resolve the Kit API key: desktop sends its own; web falls back to the env key.
   const isDesktop = req.headers["x-client"] === "desktop";

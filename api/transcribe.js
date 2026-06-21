@@ -8,18 +8,10 @@
 //
 // The client sends JSON: { audio: "<base64>", mime: "audio/webm", language?: "en" }
 
-export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-app-key");
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+import { blocked } from "./_guard.js";
 
-  // Optional app-key guard (enforced only when APP_KEY is set).
-  const APP_KEY = process.env.APP_KEY;
-  if (APP_KEY && req.headers["x-app-key"] !== APP_KEY) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+export default async function handler(req, res) {
+  if (await blocked(req, res, { id: "transcribe", limit: 12, windowSec: 60 })) return;
 
   const key = process.env.GROQ_API_KEY;
   if (!key) {
@@ -33,6 +25,7 @@ export default async function handler(req, res) {
 
     const buf = Buffer.from(audio, "base64");
     if (!buf.length) return res.status(400).json({ error: "Empty audio" });
+    if (buf.length > 26 * 1024 * 1024) return res.status(413).json({ error: "Audio is too large (max ~25MB)." });
 
     const form = new FormData();
     form.append("file", new Blob([buf], { type: mime || "audio/webm" }), "clip.webm");
