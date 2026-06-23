@@ -703,27 +703,44 @@ class CanvasRenderer {
         const maxS = opts.max !== undefined ? opts.max : 500;
         if (!text || !String(text).trim()) return { size: minS, lines: [], totalH: 0 };
 
+        // Wrap to a hair inside the box so a font-metric quirk (e.g. faux-bold when a weight
+        // isn't fully loaded in the export worker) can't push a line past the edge.
+        const wrapW = maxW * 0.97;
         const tryFit = (sz) => {
-            const lines = this.wrap(text, { ...fontBase, size: sz }, maxW);
+            const lines = this.wrap(text, { ...fontBase, size: sz }, wrapW);
             const totalH = this.computeBlockHeight(lines.length, sz, lineHeightMul);
             return { fits: totalH <= maxH, lines, totalH };
         };
 
-        // Boundary checks
+        let res;
         const top = tryFit(maxS);
-        if (top.fits) return { size: maxS, lines: top.lines, totalH: top.totalH };
-        const bot = tryFit(minS);
-        if (!bot.fits) return { size: minS, lines: bot.lines, totalH: bot.totalH };
-
-        let lo = minS, hi = maxS;
-        let bestSize = minS, bestLines = bot.lines, bestH = bot.totalH;
-        while (hi - lo > 1) {
-            const mid = (lo + hi) >> 1;
-            const r = tryFit(mid);
-            if (r.fits) { lo = mid; bestSize = mid; bestLines = r.lines; bestH = r.totalH; }
-            else { hi = mid; }
+        if (top.fits) { res = { size: maxS, lines: top.lines, totalH: top.totalH }; }
+        else {
+            const bot = tryFit(minS);
+            if (!bot.fits) { res = { size: minS, lines: bot.lines, totalH: bot.totalH }; }
+            else {
+                let lo = minS, hi = maxS, bestSize = minS, bestLines = bot.lines, bestH = bot.totalH;
+                while (hi - lo > 1) {
+                    const mid = (lo + hi) >> 1;
+                    const r = tryFit(mid);
+                    if (r.fits) { lo = mid; bestSize = mid; bestLines = r.lines; bestH = r.totalH; }
+                    else { hi = mid; }
+                }
+                res = { size: bestSize, lines: bestLines, totalH: bestH };
+            }
         }
-        return { size: bestSize, lines: bestLines, totalH: bestH };
+
+        // Final width guard: re-measure the widest line at the chosen size; if it STILL exceeds
+        // the box (the cause of the export overflow), scale the whole title down so it fits.
+        this.setFont({ ...fontBase, size: res.size });
+        let widest = 0;
+        for (const l of res.lines) { const w = this.ctx.measureText(l).width; if (w > widest) widest = w; }
+        if (widest > maxW && res.size > 8) {
+            const ns = Math.max(8, Math.floor(res.size * (maxW / widest)));
+            const lines = this.wrap(text, { ...fontBase, size: ns }, wrapW);
+            res = { size: ns, lines, totalH: this.computeBlockHeight(lines.length, ns, lineHeightMul) };
+        }
+        return res;
     }
 
     drawLines(lines, font, x, y, boxW, opts) {
