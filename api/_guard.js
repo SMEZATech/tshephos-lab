@@ -9,8 +9,10 @@
 //   UPSTASH_REDIS_REST_URL    and    UPSTASH_REDIS_REST_TOKEN
 // in Vercel → Settings → Environment Variables, then redeploy.
 
+import crypto from "crypto";
+
 const ALLOWED_HEADERS =
-  "Content-Type, x-app-key, x-client, x-gemini-key, x-groq-key, x-postiz-key, x-postiz-url, x-kit-key, x-wp-url, x-wp-user, x-wp-key";
+  "Content-Type, Authorization, x-app-key, x-client, x-gemini-key, x-groq-key, x-postiz-key, x-postiz-url, x-kit-key, x-wp-url, x-wp-user, x-wp-key";
 
 function isAllowedOrigin(o) {
   if (!o) return false;
@@ -91,4 +93,56 @@ async function blocked(req, res, { methods = "POST, OPTIONS", method = "POST", i
   return false;
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked };
+// ===== Phase A (auth) helpers — additive. blocked() above is unchanged (still app-key mode)
+// until the flip, so the live app is untouched. These power /api/whoami and, later, /api/keys. =====
+
+function sbBase() { return (process.env.SUPABASE_URL || "").replace(/\/+$/, ""); }
+async function sbRest(path) {
+  const svc = process.env.SUPABASE_SERVICE_KEY;
+  const r = await fetch(sbBase() + "/rest/v1/" + path, { headers: { apikey: svc, Authorization: "Bearer " + svc } });
+  return r.ok ? r.json() : null;
+}
+
+// Verify the caller's Supabase session JWT → { user, orgId } or { error }.
+async function requireSession(req) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) return { error: "AUTH_NOT_CONFIGURED" };
+  const auth = req.headers["authorization"] || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return { error: "NO_SESSION" };
+  const ur = await fetch(sbBase() + "/auth/v1/user", {
+    headers: { apikey: process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY, Authorization: "Bearer " + token },
+  });
+  if (!ur.ok) return { error: "INVALID_SESSION" };
+  const user = await ur.json();
+  if (!user || !user.id) return { error: "INVALID_SESSION" };
+  const rows = await sbRest("member?select=org_id&limit=1&user_id=eq." + encodeURIComponent(user.id));
+  const orgId = rows && rows[0] && rows[0].org_id;
+  if (!orgId) return { error: "NO_ORG" };
+  return { user, orgId };
+}
+
+// ---- per-org encrypted key storage (AES-256-GCM; used by /api/keys and at the flip) ----
+function masterKey() {
+  const buf = Buffer.from(process.env.SECRETS_MASTER_KEY || "", "base64");
+  if (buf.length !== 32) throw new Error("SECRETS_MASTER_KEY must be 32 bytes (base64).");
+  return buf;
+}
+function encryptSecret(plain) {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv("aes-256-gcm", masterKey(), iv);
+  const ct = Buffer.concat([c.update(String(plain), "utf8"), c.final()]);
+  return Buffer.concat([iv, c.getAuthTag(), ct]).toString("base64");
+}
+function decryptSecret(b64) {
+  const raw = Buffer.from(b64, "base64");
+  const d = crypto.createDecipheriv("aes-256-gcm", masterKey(), raw.subarray(0, 12));
+  d.setAuthTag(raw.subarray(12, 28));
+  return Buffer.concat([d.update(raw.subarray(28)), d.final()]).toString("utf8");
+}
+async function getOrgKey(orgId, provider) {
+  const rows = await sbRest("org_secret?select=ciphertext&limit=1&org_id=eq." + encodeURIComponent(orgId) + "&provider=eq." + encodeURIComponent(provider));
+  if (!rows || !rows[0] || !rows[0].ciphertext) return null;
+  try { return decryptSecret(rows[0].ciphertext); } catch (e) { return null; }
+}
+
+export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest };

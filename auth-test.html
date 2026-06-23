@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!-- Volt — Phase A auth test page. Verifies sign-in → JWT → /api/whoami end to end. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — Auth test</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{--bg:#0A0B0F;--surface:#14171F;--border:rgba(255,255,255,.12);--text:#ECEEF3;--dim:#888F9D;--accent:#B6FF3D;--good:#57E39A;--low:#FF7C7C;--info:#7FC8FF;}
+  *{box-sizing:border-box;} body{margin:0;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 18px;}
+  .card{width:100%;max-width:540px;background:linear-gradient(180deg,var(--surface),#11141b);border:1px solid var(--border);border-radius:20px;padding:28px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9);}
+  h1{font-family:'Unbounded',sans-serif;font-weight:800;font-size:26px;margin:0 0 4px;}h1 .d{color:var(--accent);}
+  .sub{color:var(--dim);font-size:14px;margin:0 0 22px;line-height:1.5;}
+  label{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:700;margin:14px 0 6px;}
+  input{width:100%;background:#0D0F15;border:1px solid var(--border);border-radius:11px;padding:12px 13px;color:var(--text);font-size:14.5px;outline:none;}
+  input:focus{border-color:var(--accent);}
+  .row{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;}
+  button{flex:1;min-width:120px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:14.5px;border:none;border-radius:11px;padding:13px;cursor:pointer;transition:transform .1s;}
+  button:active{transform:translateY(1px);} .primary{background:var(--accent);color:#0A0B0F;} .ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .out{margin-top:20px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.5;background:#0D0F15;border:1px solid var(--border);border-radius:12px;padding:14px;white-space:pre-wrap;word-break:break-word;min-height:40px;color:var(--info);}
+  .pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:5px 11px;border-radius:100px;border:1px solid var(--border);color:var(--dim);margin-bottom:16px;}
+  .ok{color:var(--good);} .err{color:var(--low);} .step{font-size:13px;color:var(--dim);margin:18px 0 4px;font-weight:700;}
+  code{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="card">
+  <span class="pill" id="state">· checking…</span>
+  <h1>Volt<span class="d">.</span> auth test</h1>
+  <p class="sub">A safe, standalone check of the v2 login chain — it doesn't touch the real app. Sign up, then run the API test. If it returns <code>ok: true</code> with your email and an org id, real auth is working and I'll switch it on everywhere.</p>
+
+  <div id="authBox">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" placeholder="you@example.com" />
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="at least 6 characters" />
+    <div class="row">
+      <button class="primary" id="btnUp">Sign up</button>
+      <button class="ghost" id="btnIn">Sign in</button>
+    </div>
+  </div>
+
+  <div id="appBox" style="display:none;">
+    <p class="step">✅ Signed in as <span class="ok" id="who"></span></p>
+    <div class="row">
+      <button class="primary" id="btnTest">▶ Test API (/api/whoami)</button>
+      <button class="ghost" id="btnOut">Sign out</button>
+    </div>
+  </div>
+
+  <div class="step">Result</div>
+  <div class="out" id="out">—</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+"use strict";
+const SUPABASE_URL = 'https://ltnjjsadcvqmtczbtxii.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bmpqc2FkY3ZxbXRjemJ0eGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDgyODIsImV4cCI6MjA5NzcyNDI4Mn0.3sUeA0nITk1BqPQZGrgluHqQNHm9jP6KlrRrsZG3Tps';
+const $ = s => document.querySelector(s);
+let sb, session = null;
+
+function out(msg, cls){ const el = $('#out'); el.textContent = msg; el.className = 'out' + (cls ? ' ' + cls : ''); }
+function setState(){
+  const p = $('#state');
+  if (session){ p.textContent = '· signed in'; p.classList.add('ok'); $('#authBox').style.display='none'; $('#appBox').style.display='block'; $('#who').textContent = session.user.email; }
+  else { p.textContent = '· signed out'; p.classList.remove('ok'); $('#authBox').style.display='block'; $('#appBox').style.display='none'; }
+}
+
+(function init(){
+  if (!window.supabase || !window.supabase.createClient){ out('Supabase library failed to load (check your connection).', 'err'); return; }
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  sb.auth.getSession().then(r => { session = r.data.session; setState(); });
+  sb.auth.onAuthStateChange((_e, s) => { session = s; setState(); });
+})();
+
+$('#btnUp').onclick = async () => {
+  out('Signing up…');
+  const { data, error } = await sb.auth.signUp({ email: $('#email').value.trim(), password: $('#pw').value });
+  if (error) return out('Sign-up error: ' + error.message, 'err');
+  if (data.session){ session = data.session; setState(); out('✅ Signed up & logged in. Now click "Test API".', 'ok'); }
+  else out('Signed up. If it asks you to confirm email, turn OFF "Confirm email" in Supabase, or just click Sign in.', 'ok');
+};
+$('#btnIn').onclick = async () => {
+  out('Signing in…');
+  const { data, error } = await sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#pw').value });
+  if (error) return out('Sign-in error: ' + error.message, 'err');
+  session = data.session; setState(); out('✅ Signed in. Now click "Test API".', 'ok');
+};
+$('#btnOut').onclick = async () => { await sb.auth.signOut(); session = null; setState(); out('Signed out.'); };
+$('#btnTest').onclick = async () => {
+  out('Calling /api/whoami with your session…');
+  try {
+    const r = await fetch('/api/whoami', { headers: { Authorization: 'Bearer ' + session.access_token } });
+    const j = await r.json();
+    if (j.ok) out('🎉 SUCCESS — auth chain works end to end:\n\n' + JSON.stringify(j, null, 2) + '\n\nTell Claude this worked and he\'ll switch auth on everywhere.', 'ok');
+    else out('Server rejected the session (' + r.status + '):\n\n' + JSON.stringify(j, null, 2) + '\n\nSend this to Claude.', 'err');
+  } catch (e) { out('Request failed: ' + e.message, 'err'); }
+};
+</script>
+</body>
+</html>
