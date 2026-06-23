@@ -697,7 +697,9 @@ class CanvasRenderer {
     // Binary-search the largest font size where wrapped text fits W×H
     fitFontSize(text, fontBase, maxW, maxH, lineHeightMul, opts) {
         opts = opts || {};
-        const minS = opts.min !== undefined ? opts.min : 8;
+        // The caller's `min` is a PREFERENCE, not a hard floor — text must never overflow/clip.
+        // Always allow shrinking down to a low hard floor so a long title fits the box instead of being cut.
+        const minS = Math.min(opts.min !== undefined ? opts.min : 8, opts.floor !== undefined ? opts.floor : 12);
         const maxS = opts.max !== undefined ? opts.max : 500;
         if (!text || !String(text).trim()) return { size: minS, lines: [], totalH: 0 };
 
@@ -1733,6 +1735,7 @@ self.onmessage = async (e) => {
     async function fetchWithProxy(targetUrl) {
         const enc = encodeURIComponent(targetUrl);
         const proxies = [
+            '/api/scrape?url=' + enc,
             'https://api.allorigins.win/raw?url=' + enc,
             'https://corsproxy.io/?url=' + enc,
             'https://api.codetabs.com/v1/proxy?quest=' + enc
