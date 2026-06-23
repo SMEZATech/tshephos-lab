@@ -102,6 +102,23 @@ async function sbRest(path) {
   const r = await fetch(sbBase() + "/rest/v1/" + path, { headers: { apikey: svc, Authorization: "Bearer " + svc } });
   return r.ok ? r.json() : null;
 }
+async function sbWrite(table, body) {
+  const svc = process.env.SUPABASE_SERVICE_KEY;
+  const r = await fetch(sbBase() + "/rest/v1/" + table, {
+    method: "POST",
+    headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify(body),
+  });
+  return r.ok ? r.json() : null;
+}
+// Create an org + owner membership for a brand-new user (service role bypasses RLS).
+async function provisionOrg(user) {
+  const orgRows = await sbWrite("org", { name: user.email || "My Org" });
+  const orgId = orgRows && orgRows[0] && orgRows[0].id;
+  if (!orgId) return null;
+  await sbWrite("member", { org_id: orgId, user_id: user.id, role: "owner" });
+  return orgId;
+}
 
 // Verify the caller's Supabase session JWT → { user, orgId } or { error }.
 async function requireSession(req) {
@@ -116,7 +133,8 @@ async function requireSession(req) {
   const user = await ur.json();
   if (!user || !user.id) return { error: "INVALID_SESSION" };
   const rows = await sbRest("member?select=org_id&limit=1&user_id=eq." + encodeURIComponent(user.id));
-  const orgId = rows && rows[0] && rows[0].org_id;
+  let orgId = rows && rows[0] && rows[0].org_id;
+  if (!orgId) orgId = await provisionOrg(user); // lazy auto-provision — no signup trigger needed
   if (!orgId) return { error: "NO_ORG" };
   return { user, orgId };
 }
