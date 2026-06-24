@@ -263,11 +263,24 @@ Keep it warm and practical."></textarea>
         <span id="runlabel">Build email</span>
       </button>
       <span class="go-note">Header &amp; footer are fixed. Uses your Gemini key.</span>
+      <button class="mini" id="saveDraftBtn" style="margin-left:auto;">💾 Save draft</button>
+      <button class="mini" id="draftsBtn">📁 Drafts</button>
     </div>
+    <div id="draftStatus" class="kit-status"></div>
   </section>
 
   <div class="error" id="error" hidden></div>
   <div id="results"></div>
+
+  <div id="draftsModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
+    <div style="width:100%; max-width:460px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <span class="lbl" style="margin:0;">📁 Saved drafts</span>
+        <button class="mini" id="draftsClose">Close</button>
+      </div>
+      <div id="draftsList"></div>
+    </div>
+  </div>
 
   <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
 </main>
@@ -806,6 +819,75 @@ async function run(){
 elRun.addEventListener('click', run);
 
 // Show the sample on load so the design is visible immediately.
+// ---- Phase B: save / load newsletter drafts (per account, in the database) ----
+const DRAFT_FIELDS = ['brief','subject','previewText','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-title','tk-body','tk-cta','cs-html'];
+const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
+let currentDraftId = null;
+function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
+function serializeDraft(){
+  const fields={}; DRAFT_FIELDS.forEach(id=>{ const el=$('#'+id); if(el) fields[id]=el.value; });
+  const promos={}; Object.keys(state.promos).forEach(k=>promos[k]=!!state.promos[k].on);
+  const links=[...document.querySelectorAll('.linkrow')].map(r=>({ text:r.querySelector('.lk-text').value, url:r.querySelector('.lk-url').value }));
+  return { fields, promos, links, body: state.body };
+}
+function restoreDraft(d){
+  d=d||{};
+  DRAFT_FIELDS.forEach(id=>{ const el=$('#'+id); if(el && d.fields && d.fields[id]!=null) el.value=d.fields[id]; });
+  state.brief = $('#brief')?$('#brief').value:'';
+  if(d.promos) Object.keys(d.promos).forEach(k=>{ if(!state.promos[k]) return; state.promos[k].on=!!d.promos[k]; const box=document.getElementById('promo-'+k); if(box) box.classList.toggle('on', !!d.promos[k]); });
+  document.querySelectorAll('.linkrow').forEach(r=>r.remove());
+  if(d.links && d.links.length) d.links.forEach(l=>addLinkRow(l.text,l.url)); else addLinkRow();
+  if(d.body){ state.body=d.body; renderPreview(d.body); }
+}
+async function saveDraft(){
+  const title = ($('#subject') && $('#subject').value.trim()) || 'Newsletter draft';
+  setDraftStatus('Saving…','busy');
+  try{
+    const r = await fetch(PROJECTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'save', id: currentDraftId, type:'email', title, data: serializeDraft() }) });
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(r.status===401) throw new Error('Please sign in to save drafts.');
+    if(!r.ok) throw new Error((data&&data.error)||'Save failed.');
+    currentDraftId = data.project && data.project.id;
+    setDraftStatus('✅ Saved “'+title+'”.','ok');
+  }catch(e){ setDraftStatus(e.message,'err'); }
+}
+async function openDrafts(){
+  const modal=document.getElementById('draftsModal'), list=document.getElementById('draftsList');
+  list.innerHTML='<p class="kit-status busy" style="margin:0;">Loading…</p>'; modal.style.display='flex';
+  try{
+    const r = await fetch(PROJECTS_URL+'?type=email');
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(r.status===401) throw new Error('Please sign in to see your drafts.');
+    if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
+    const ps = data.projects||[];
+    if(!ps.length){ list.innerHTML='<p class="kit-status" style="margin:0;">No saved drafts yet — build one and hit 💾 Save draft.</p>'; return; }
+    list.innerHTML = ps.map(p=>'<div class="linkrow" style="align-items:center;"><button class="mini" data-load="'+esc(p.id)+'" style="flex:1; justify-content:flex-start;">'+esc(p.title)+'</button><button class="lk-del" data-del="'+esc(p.id)+'" title="Delete">✕</button></div>').join('');
+  }catch(e){ list.innerHTML='<p class="kit-status err" style="margin:0;">'+esc(e.message)+'</p>'; }
+}
+async function loadDraft(id){
+  setDraftStatus('Loading draft…','busy');
+  try{
+    const r = await fetch(PROJECTS_URL+'?id='+encodeURIComponent(id));
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
+    currentDraftId = id;
+    restoreDraft(data.project && data.project.data);
+    document.getElementById('draftsModal').style.display='none';
+    setDraftStatus('✅ Loaded “'+esc(data.project&&data.project.title||'draft')+'”.','ok');
+  }catch(e){ setDraftStatus(e.message,'err'); }
+}
+async function deleteDraft(id){
+  try{ await fetch(PROJECTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'delete', id }) }); }catch(e){}
+  if(currentDraftId===id) currentDraftId=null;
+  openDrafts();
+}
+{ const sb=document.getElementById('saveDraftBtn'); if(sb) sb.addEventListener('click', saveDraft);
+  const db=document.getElementById('draftsBtn'); if(db) db.addEventListener('click', openDrafts);
+  const dc=document.getElementById('draftsClose'); if(dc) dc.addEventListener('click', ()=>{ document.getElementById('draftsModal').style.display='none'; });
+  const dm=document.getElementById('draftsModal'); if(dm) dm.addEventListener('click', e=>{ if(e.target===dm) dm.style.display='none'; });
+  const dl=document.getElementById('draftsList'); if(dl) dl.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadDraft(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteDraft(D.dataset.del); });
+}
+
 renderPreview(SAMPLE_BODY);
 </script>
 </body>
