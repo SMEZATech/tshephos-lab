@@ -236,6 +236,8 @@
                     <button onclick="setTheme('classic')" id="theme-classic" class="theme-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Classic</button>
                     <button onclick="setTheme('cinematic')" id="theme-cinematic" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Cinematic</button>
                     <button onclick="setTheme('modern')" id="theme-modern" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Modern</button>
+                    <button onclick="setTheme('editorial')" id="theme-editorial" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Editorial</button>
+                    <button onclick="setTheme('bold')" id="theme-bold" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Bold</button>
                 </div>
             </div>
 
@@ -992,6 +994,71 @@ const Layouts = {
     },
 
     // ----- CAROUSEL: COVER (slide 0) -----
+    // ----- STANDARD: EDITORIAL (clean magazine, off-white) -----
+    editorial(r, s, assets) {
+        const W = r.w, H = r.h;
+        const isLand = s.format === 'landscape';
+        r.fillBg('#fcf7f8');
+        const pad = Math.round(W * 0.075);
+        const innerX = pad, innerW = W - pad * 2;
+        const tagFont = { family: 'Roboto', weight: '700', size: Math.round(W * 0.0175) };
+        const tag = r.drawTag(String(s.tag || '').toUpperCase(), tagFont, 22, 12, innerX, pad, { radii: 4, bg: BRAND.red, fg: BRAND.white });
+        if (assets.logo) r.drawContain(assets.logo, innerX + innerW - 150, pad + 2, 150, 42, { filter: 'grayscale(1) brightness(0)', alpha: 0.82 });
+        const imgY = pad + Math.max(tag.height, 48) + 28;
+        const imgH = isLand ? Math.round(H * 0.5) : Math.round(H * 0.40);
+        r.fillRoundRect(innerX, imgY, innerW, imgH, 20, '#1e293b');
+        if (assets.featured) r.drawCover(assets.featured, innerX, imgY, innerW, imgH, s.focalX, s.focalY, 20);
+        r.rect(innerX, imgY + imgH + 22, Math.round(innerW * 0.16), 6, BRAND.red);
+        const footerH = s.showFooter ? 64 : 0;
+        const titleTop = imgY + imgH + 44;
+        const titleBoxH = H - titleTop - pad - footerH - 12;
+        const ceiling = (s.format === 'portrait' ? 86 : (s.format === 'square' ? 74 : 60)) * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(), { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.08, { max: ceiling, min: 22 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleTop, innerW, { align: 'left', color: BRAND.navy, lineHeight: 1.08 });
+        if (s.showFooter) {
+            const fy = H - pad - footerH + 26;
+            r.strokeLine(innerX, fy, innerX + innerW, fy, 'rgba(10,44,61,0.15)', 1);
+            const urlFont = { family: 'Roboto', weight: '700', size: Math.round(W * 0.0175) };
+            const urlW = r.textWidth(BRAND.url, urlFont);
+            r.drawIconPath(ICON.globe, innerX + innerW - urlW - 34, fy + 26, 22, BRAND.red, 2.5);
+            r.drawLines([BRAND.url], urlFont, innerX + innerW - urlW, fy + 28, urlW, { color: BRAND.navy });
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: Math.round(W * 0.02) }, innerX, fy + 24, innerW, { align: 'left', color: BRAND.red });
+        }
+    },
+
+    // ----- STANDARD: BOLD (typographic statement, brand red) -----
+    bold(r, s, assets) {
+        const W = r.w, H = r.h;
+        r.fillBg(BRAND.red);
+        r.radialGlow(W * -0.05, H * 1.05, 820, 'rgba(10,44,61,0.55)', 'rgba(10,44,61,0)');
+        const pad = Math.round(W * 0.08);
+        const innerX = pad, innerW = W - pad * 2;
+        if (assets.logo) r.drawContain(assets.logo, innerX, pad, 160, 46);
+        const tagFont = { family: 'Roboto', weight: '700', size: Math.round(W * 0.0175) };
+        const tagText = String(s.tag || '').toUpperCase();
+        const tagW = r.textWidth(tagText, tagFont) + 44;
+        r.drawTag(tagText, tagFont, 22, 12, innerX + innerW - tagW, pad + 2, { radii: 4, bg: BRAND.white, fg: BRAND.red });
+        const hasImg = !!assets.featured;
+        const footerH = s.showFooter ? 58 : 0;
+        const stripH = hasImg ? Math.round(H * 0.22) : 0;
+        const stripY = H - pad - footerH - stripH;
+        if (hasImg) {
+            r.fillRoundRect(innerX, stripY, innerW, stripH, 16, '#1e293b');
+            r.drawCover(assets.featured, innerX, stripY, innerW, stripH, s.focalX, s.focalY, 16);
+        }
+        const titleTop = pad + 116;
+        const titleBoxH = (hasImg ? stripY - 28 : (H - pad - footerH)) - titleTop;
+        const ceiling = (s.format === 'portrait' ? 128 : (s.format === 'square' ? 104 : 84)) * s.userScale * 1.4;
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(), { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.02, { max: ceiling, min: 28 });
+        const titleY = titleTop + Math.max(0, (titleBoxH - fit.totalH) / 2);
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleY, innerW, { align: 'left', color: BRAND.white, lineHeight: 1.02 });
+        if (s.showFooter) {
+            const fy = H - pad - footerH + 22;
+            r.drawIconPath(ICON.globe, innerX, fy + 24, 22, BRAND.white, 2.5);
+            r.drawLines([BRAND.url], { family: 'Roboto', weight: '700', size: Math.round(W * 0.0175) }, innerX + 34, fy + 26, 600, { color: BRAND.white });
+        }
+    },
+
     carouselCover(r, s, assets) {
         const W = r.w, H = r.h;
         r.fillBg(BRAND.navy);
@@ -1362,6 +1429,8 @@ function renderSlide(state, slideIdx, assets, scale) {
     if (state.campaign === 'standard') {
         if (state.theme === 'cinematic')      Layouts.cinematic(r, state, assets);
         else if (state.theme === 'modern')    Layouts.modern(r, state, assets);
+        else if (state.theme === 'editorial') Layouts.editorial(r, state, assets);
+        else if (state.theme === 'bold')      Layouts.bold(r, state, assets);
         else                                  Layouts.classic(r, state, assets);
     } else if (state.campaign === 'carousel') {
         const slideText = state.slides[slideIdx] || '';
@@ -1968,6 +2037,31 @@ self.onmessage = async (e) => {
                   +       '<h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.05] tracking-tight w-full drop-shadow-2xl mb-6"></h2>'
                   +       getFooterHTML('white/20', 'text-white')
                   +     '</div>'
+                  +   '</div>'
+                  + '</div>';
+            } else if (state.theme === 'editorial') {
+                html = '<div class="flex flex-col w-full h-full relative overflow-hidden" style="background:#fcf7f8;padding:7.5%;">'
+                  +   '<div class="flex justify-between items-start w-full">'
+                  +     '<div class="bg-sme-red text-white font-roboto font-bold px-5 pt-2 pb-3 rounded-sm tracking-widest uppercase text-sm"><span id="render-tag"></span></div>'
+                  +     '<img src="' + WHITE_LOGO + '" class="h-10 object-contain grayscale brightness-0 opacity-80" crossorigin="anonymous">'
+                  +   '</div>'
+                  +   '<div class="w-full rounded-2xl overflow-hidden bg-slate-800 mt-6 relative shrink-0" style="height:40%;">'
+                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
+                  +   '</div>'
+                  +   '<div class="w-20 h-1.5 bg-sme-red mt-6 shrink-0"></div>'
+                  +   '<div class="flex-1 flex items-start pt-6"><h2 id="render-title" class="font-oswald font-bold text-sme-navy uppercase leading-[1.08] tracking-tight w-full"></h2></div>'
+                  +   getFooterHTML('slate-300', 'text-sme-navy')
+                  + '</div>';
+            } else if (state.theme === 'bold') {
+                html = '<div class="flex flex-col w-full h-full relative overflow-hidden bg-sme-red" style="padding:8%;">'
+                  +   '<div class="absolute -bottom-[180px] -left-[180px] w-[640px] h-[640px] rounded-full pointer-events-none" style="background:var(--bs);opacity:.45;filter:blur(120px);"></div>'
+                  +   '<div class="flex justify-between items-start w-full z-10">'
+                  +     '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
+                  +     '<div class="bg-white text-sme-red font-roboto font-bold px-5 pt-2 pb-3 rounded-sm tracking-widest uppercase text-sm"><span id="render-tag"></span></div>'
+                  +   '</div>'
+                  +   '<div class="flex-1 flex items-center z-10 py-6"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.02] tracking-tight w-full drop-shadow-lg"></h2></div>'
+                  +   '<div class="w-full rounded-2xl overflow-hidden bg-slate-800 relative z-10 shrink-0" style="height:22%;">'
+                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
                   +   '</div>'
                   + '</div>';
             } else {
