@@ -139,6 +139,10 @@ async function requireSession(req) {
   if (!ur.ok) return { error: "INVALID_SESSION" };
   const user = await ur.json();
   if (!user || !user.id) return { error: "INVALID_SESSION" };
+  // Only org-domain accounts may use the API — protects the shared provider keys / budget.
+  // Configurable via ALLOWED_EMAIL_DOMAIN (set to "" to allow any, e.g. when commercialising).
+  const allow = (process.env.ALLOWED_EMAIL_DOMAIN != null ? process.env.ALLOWED_EMAIL_DOMAIN : "smesouthafrica.co.za").toLowerCase();
+  if (allow && !String(user.email || "").toLowerCase().endsWith("@" + allow)) return { error: "NOT_AUTHORIZED" };
   const rows = await sbRest("member?select=org_id&limit=1&user_id=eq." + encodeURIComponent(user.id));
   let orgId = rows && rows[0] && rows[0].org_id;
   if (!orgId) orgId = await provisionOrg(user); // lazy auto-provision — no signup trigger needed

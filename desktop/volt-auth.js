@@ -108,7 +108,9 @@
           .then(function (r) { if (r.error) fail(r.error.message); }).catch(function (e) { fail(e.message); });
       });
       upB.addEventListener("click", function () {
-        if (!sb) return; busy(true); err.textContent = "Creating account…";
+        if (!sb) return;
+        if (!/@smesouthafrica\.co\.za$/i.test(email.value.trim())) { fail("Please use your @smesouthafrica.co.za work email."); return; }
+        busy(true); err.textContent = "Creating account…";
         sb.auth.signUp({ email: email.value.trim(), password: pw.value })
           .then(function (r) { if (r.error) fail(r.error.message); else if (!r.data.session) fail("Account made — now click Sign in."); })
           .catch(function (e) { fail(e.message); });
