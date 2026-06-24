@@ -863,7 +863,7 @@ const Layouts = {
 
         const ceilingBase = isLand ? 65 : (s.format === 'portrait' ? 95 : 80);
         const ceiling = ceilingBase * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.1,
             { max: ceiling, min: 22 });
         const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
@@ -904,7 +904,7 @@ const Layouts = {
         const titleBoxY = pad + 96;
         const titleBoxH = H - titleBoxY - footerH - pad - 24;
         const ceiling = (s.format === 'portrait' ? 95 : (s.format === 'square' ? 80 : 65)) * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, W - pad * 2, titleBoxH, 1.05,
             { max: ceiling, min: 24 });
         const titleY = titleBoxY + titleBoxH - fit.totalH;
@@ -969,7 +969,7 @@ const Layouts = {
         const titleBoxH = innerH - headerH - 24 - footerH - 24;
         const ceilingBase = isLand ? 65 : (s.format === 'portrait' ? 95 : 80);
         const ceiling = ceilingBase * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.1,
             { max: ceiling, min: 22 });
         const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
@@ -1014,7 +1014,7 @@ const Layouts = {
         const titleBoxH = footerY - titleTop - 50;
 
         const ceiling = 110 * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.05,
             { max: ceiling, min: 28 });
         const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
@@ -1058,7 +1058,7 @@ const Layouts = {
         const titleBoxH = footerY - titleTop - 40;
 
         const ceiling = 80 * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.1,
             { max: ceiling, min: 22 });
         const titleY = titleTop + (titleBoxH - fit.totalH) / 2;
@@ -1093,7 +1093,7 @@ const Layouts = {
         cursorY += logoH + 48;
 
         const ceiling = 90 * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, W - pad * 2, titleSpace, 1.05,
             { max: ceiling, min: 26 });
         const titleY = cursorY + (titleSpace - fit.totalH) / 2;
@@ -1153,7 +1153,7 @@ const Layouts = {
 
         const titleBoxH = 280;
         const ceiling = 64 * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.15,
             { max: ceiling, min: 24 });
         r.drawLines(fit.lines.map(l => l.toUpperCase()),
@@ -1207,7 +1207,7 @@ const Layouts = {
         const titleBoxH = 700;
         const titleBoxY = (H - titleBoxH) / 2;
         const ceiling = 100 * s.userScale * 1.4;
-        const fit = r.fitFontSize(String(s.title || ''),
+        const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
             { family: 'Oswald', weight: '700' }, W - pad * 2, titleBoxH, 1.1,
             { max: ceiling, min: 28 });
         const titleY = titleBoxY + (titleBoxH - fit.totalH) / 2;
