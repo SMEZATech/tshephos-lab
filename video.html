@@ -1495,6 +1495,26 @@ $('#fmtPick').addEventListener('click', e => {
 window.addEventListener('storage', e=>{ if(e.key===BRANDS_KEY || e.key===ACTIVE_BRAND_KEY) refreshBrand(); });
 window.addEventListener('focus', refreshBrand);
 
+// Phase B: pull the org's shared Brand Kit from the account once signed in.
+const PROJECTS_URL = '/api/projects';
+async function pullBrandKit(){
+  try{
+    const r = await fetch(PROJECTS_URL + '?type=brandkit');
+    if(!r.ok) return;
+    const list = (await r.json()).projects || [];
+    if(!list[0]) return;
+    const full = await (await fetch(PROJECTS_URL + '?id=' + list[0].id)).json();
+    const d = full.project && full.project.data;
+    if(d && Array.isArray(d.brands) && d.brands.length){
+      try{ localStorage.setItem(BRANDS_KEY, JSON.stringify(d.brands)); }catch(e){}
+      if(d.active){ try{ localStorage.setItem(ACTIVE_BRAND_KEY, d.active); }catch(e){} }
+      refreshBrand();
+    }
+  }catch(e){}
+}
+window.addEventListener('volt:ready', pullBrandKit);
+if(window.voltSession) pullBrandKit();
+
 // init
 refreshBrand();
 setFormat('9x16');

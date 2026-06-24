@@ -177,6 +177,9 @@
     var g = document.getElementById("va-gate"); if (g) g.remove();
     document.documentElement.style.overflow = "";
     showBadge();
+    // Signal pages that a session is ready, so they can load per-account data (Phase B).
+    window.voltSession = session;
+    try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}
     var f = null; try { f = localStorage.getItem("volt_just_updated"); } catch (e) {}
     if (f) { try { localStorage.removeItem("volt_just_updated"); } catch (e) {} showToast("✓ You're on the latest version"); }
   }

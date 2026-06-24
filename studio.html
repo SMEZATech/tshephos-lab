@@ -1557,9 +1557,42 @@ self.onmessage = async (e) => {
         try { const a = JSON.parse(localStorage.getItem(BRANDS_KEY) || 'null'); if (Array.isArray(a) && a.length) return a; } catch (e) {}
         return [Object.assign({}, SME_BRAND)];
     }
-    function saveBrands(a) { try { localStorage.setItem(BRANDS_KEY, JSON.stringify(a)); } catch (e) {} }
+    function saveBrands(a) { try { localStorage.setItem(BRANDS_KEY, JSON.stringify(a)); } catch (e) {} pushBrandKit(); }
     function getActiveBrandId() { try { return localStorage.getItem(ACTIVE_BRAND_KEY) || 'sme'; } catch (e) { return 'sme'; } }
-    function setActiveBrandId(id) { try { localStorage.setItem(ACTIVE_BRAND_KEY, id); } catch (e) {} }
+    function setActiveBrandId(id) { try { localStorage.setItem(ACTIVE_BRAND_KEY, id); } catch (e) {} pushBrandKit(); }
+
+    // ---- Phase B: sync the Brand Kit to the account so the whole org shares brands ----
+    const PROJECTS_URL = '/api/projects';
+    let _brandKitId = null, _bkPushT = null;
+    async function pullBrandKit() {
+        try {
+            const r = await fetch(PROJECTS_URL + '?type=brandkit');
+            if (!r.ok) return;
+            const list = (await r.json()).projects || [];
+            if (!list[0]) return;
+            _brandKitId = list[0].id;
+            const full = await (await fetch(PROJECTS_URL + '?id=' + _brandKitId)).json();
+            const d = full.project && full.project.data;
+            if (d && Array.isArray(d.brands) && d.brands.length) {
+                try { localStorage.setItem(BRANDS_KEY, JSON.stringify(d.brands)); } catch (e) {}
+                if (d.active) { try { localStorage.setItem(ACTIVE_BRAND_KEY, d.active); } catch (e) {} }
+                if (typeof applyBrand === 'function') applyBrand();
+            }
+        } catch (e) {}
+    }
+    function pushBrandKit() {
+        clearTimeout(_bkPushT);
+        _bkPushT = setTimeout(async () => {
+            try {
+                const r = await fetch(PROJECTS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ op: 'save', id: _brandKitId, type: 'brandkit', title: 'Brand Kit', data: { brands: loadBrands(), active: getActiveBrandId() } }) });
+                const data = await r.json().catch(() => ({}));
+                if (data.project && data.project.id) _brandKitId = data.project.id;
+            } catch (e) {}
+        }, 700);
+    }
+    window.addEventListener('volt:ready', pullBrandKit);
+    if (window.voltSession) pullBrandKit();
     function currentBrand() { const a = loadBrands(); return a.find(b => b.id === getActiveBrandId()) || a[0] || SME_BRAND; }
     function brandPayload() { const b = currentBrand(); return { primary: b.primary, secondary: b.secondary, cta: b.cta, url: b.url }; }
 
