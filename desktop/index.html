@@ -103,6 +103,8 @@
   .mini.go-studio:hover{background:var(--accent); color:#0A0B0F;}
   .mini:disabled{opacity:.45; cursor:not-allowed;}
   .mini svg{width:13px;height:13px;}
+  .kit-status{font-family:var(--fm); font-size:12px; color:var(--dim); margin-top:8px; min-height:14px;}
+  .kit-status.busy{color:var(--info);} .kit-status.ok{color:var(--good);} .kit-status.err{color:var(--low);}
 
   .skel{height:300px; border-radius:20px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
   @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
@@ -163,11 +165,24 @@
         <span id="genlabel">Generate ad angles</span>
       </button>
       <span class="go-note">Hashtags included for every platform except Google.</span>
+      <button class="mini" id="saveDraftBtn" style="margin-left:auto;">💾 Save brief</button>
+      <button class="mini" id="draftsBtn">📁 Saved</button>
     </div>
+    <div id="draftStatus" class="kit-status"></div>
   </section>
 
   <div class="error" id="error" hidden></div>
   <div id="results"></div>
+
+  <div id="draftsModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
+    <div style="width:100%; max-width:460px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <span class="lbl" style="margin:0;">📁 Saved briefs</span>
+        <button class="mini" id="draftsClose">Close</button>
+      </div>
+      <div id="draftsList"></div>
+    </div>
+  </div>
 
   <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
 </main>
@@ -336,6 +351,71 @@ elRes.addEventListener('click', e => {
     if(v) moreLikeThis(v);
   }
 });
+
+// ---- Phase B: save / load ad-copy briefs (per account, in the database) ----
+const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
+let currentDraftId = null;
+function setDraftStatus(msg, kind){ const s=$('#draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
+function serializeDraft(){
+  return { offer: state.offer, audience: state.audience, platform: state.platform, variations: state.variations };
+}
+function restoreDraft(d){
+  d=d||{};
+  state.offer = d.offer||''; elOffer.value = state.offer;
+  state.audience = d.audience||''; elAud.value = state.audience;
+  if(d.platform){ state.platform = d.platform; [...$('#seg').children].forEach(x => x.classList.toggle('on', x.dataset.p===d.platform)); }
+  state.variations = Array.isArray(d.variations) ? d.variations.map(v => ({...v, _id: v._id!=null?v._id:++_id})) : [];
+  syncGen(); render();
+}
+async function saveDraft(){
+  if(!state.offer.trim()){ setDraftStatus('Add an offer first.','err'); return; }
+  const title = state.offer.trim().slice(0,60) + (state.offer.trim().length>60?'…':'');
+  setDraftStatus('Saving…','busy');
+  try{
+    const r = await fetch(PROJECTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'save', id: currentDraftId, type:'copy', title, data: serializeDraft() }) });
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(r.status===401) throw new Error('Please sign in to save briefs.');
+    if(!r.ok) throw new Error((data&&data.error)||'Save failed.');
+    currentDraftId = data.project && data.project.id;
+    setDraftStatus('✅ Saved.','ok');
+  }catch(e){ setDraftStatus(e.message,'err'); }
+}
+async function openDrafts(){
+  const modal=$('#draftsModal'), list=$('#draftsList');
+  list.innerHTML='<p class="kit-status busy" style="margin:0;">Loading…</p>'; modal.style.display='flex';
+  try{
+    const r = await fetch(PROJECTS_URL+'?type=copy');
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(r.status===401) throw new Error('Please sign in to see your saved briefs.');
+    if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
+    const ps = data.projects||[];
+    if(!ps.length){ list.innerHTML='<p class="kit-status" style="margin:0;">No saved briefs yet — write one and hit 💾 Save brief.</p>'; return; }
+    list.innerHTML = ps.map(p=>'<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;"><button class="mini" data-load="'+esc(p.id)+'" style="flex:1; justify-content:flex-start;">'+esc(p.title)+'</button><button class="mini" data-del="'+esc(p.id)+'" title="Delete">✕</button></div>').join('');
+  }catch(e){ list.innerHTML='<p class="kit-status err" style="margin:0;">'+esc(e.message)+'</p>'; }
+}
+async function loadDraft(id){
+  setDraftStatus('Loading…','busy');
+  try{
+    const r = await fetch(PROJECTS_URL+'?id='+encodeURIComponent(id));
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
+    currentDraftId = id;
+    restoreDraft(data.project && data.project.data);
+    $('#draftsModal').style.display='none';
+    setDraftStatus('✅ Loaded.','ok');
+  }catch(e){ setDraftStatus(e.message,'err'); }
+}
+async function deleteDraft(id){
+  try{ await fetch(PROJECTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'delete', id }) }); }catch(e){}
+  if(currentDraftId===id) currentDraftId=null;
+  openDrafts();
+}
+{ const sb=$('#saveDraftBtn'); if(sb) sb.addEventListener('click', saveDraft);
+  const db=$('#draftsBtn'); if(db) db.addEventListener('click', openDrafts);
+  const dc=$('#draftsClose'); if(dc) dc.addEventListener('click', ()=>{ $('#draftsModal').style.display='none'; });
+  const dm=$('#draftsModal'); if(dm) dm.addEventListener('click', e=>{ if(e.target===dm) dm.style.display='none'; });
+  const dl=$('#draftsList'); if(dl) dl.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadDraft(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteDraft(D.dataset.del); });
+}
 
 render();
 </script>
