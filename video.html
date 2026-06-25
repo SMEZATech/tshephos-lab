@@ -268,6 +268,12 @@
         </div>
         <label class="lbl" style="margin-top:14px;">Logo <span class="opt">optional — upload to avoid load issues</span></label>
         <input type="file" id="logoFile" accept="image/*" />
+        <div style="display:flex; gap:8px; margin-top:14px;">
+          <button class="mini" id="saveLookBtn" style="flex:1;">💾 Save look</button>
+          <button class="mini" id="looksBtn" style="flex:1;">📁 Saved looks</button>
+        </div>
+        <div id="lookStatus" class="capstatus"></div>
+        <p class="note" style="margin-top:4px;">Saves your format, look, branding text &amp; caption style as a reusable preset (the video clip isn’t included — re-upload it, then load a look).</p>
       </div>
 
       <div class="blk">
@@ -1532,9 +1538,98 @@ async function pullBrandKit(){
 window.addEventListener('volt:ready', pullBrandKit);
 if(window.voltSession) pullBrandKit();
 
+// ---- Phase B: save / load a VIDEO LOOK preset (style only — not the clip) ----
+const LOOKS_URL = '/api/projects';
+let currentLookId = null;
+function setLookStatus(msg, kind){ const s=$('#lookStatus'); if(!s) return; s.textContent=msg||''; s.className='capstatus'+(kind?' '+kind:''); }
+function serializeLook(){
+  const v = id => { const el=$('#'+id); return el?el.value:''; };
+  return {
+    format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
+    capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg,
+    toggles:{ intro:state.introOn, outro:state.outroOn, hook:state.hookOn, progress:state.progressOn, name:state.nameOn },
+    text:{ introTitle:v('introTitle'), outroHead:v('outroHead'), outroSub:v('outroSub'), hookText:v('hookText'), nameName:v('nameName'), nameTitle:v('nameTitle') }
+  };
+}
+function syncSeg(sel, val){ document.querySelectorAll(sel+' button').forEach(b=>{ const dv=Object.values(b.dataset)[0]; b.classList.toggle('on', String(dv)===String(val)); }); }
+function restoreLook(d){
+  if(!d) return;
+  if(d.format) setFormat(d.format);
+  if(d.look) setLook(d.look);
+  if(d.fill){ state.fill=d.fill; syncSeg('#fillSeg', d.fill); const fr=$('#focusRow'); if(fr) fr.style.display=(d.fill==='crop')?'block':'none'; }
+  if(d.focus){ state.focus=d.focus; syncSeg('#focusSeg', d.focus); }
+  if(d.capColor!=null){ state.capColor=d.capColor; const cc=$('#capCustom'); if(cc) cc.value=d.capColor; }
+  if(d.capPos){ state.capPos=d.capPos; syncSeg('#capPosSeg', d.capPos); }
+  if(d.capSize){ state.capSize=d.capSize; syncSeg('#capSizeSeg', d.capSize); }
+  if(d.capBg){ state.capBg=d.capBg; syncSeg('#capBgSeg', d.capBg); }
+  if(d.musicVol!=null){ state.musicVol=d.musicVol; const mv=$('#musicVol'); if(mv) mv.value=Math.round(d.musicVol*100); const vl=$('#volLbl'); if(vl) vl.textContent=Math.round(d.musicVol*100)+'%'; if(typeof musGain!=='undefined' && musGain) musGain.gain.value=state.musicVol; }
+  const tg=d.toggles||{};
+  document.querySelectorAll('.togrow').forEach(row=>{ const key=row.dataset.t; if(!key || !(key in tg)) return; const on=!!tg[key]; row.classList.toggle('on', on); state[key+'On']=on; const f=$('#f-'+key); if(f) f.classList.toggle('show', on); });
+  const tx=d.text||{}; Object.keys(tx).forEach(id=>{ const el=$('#'+id); if(el && tx[id]!=null) el.value=tx[id]; });
+  restart();
+}
+async function saveLook(){
+  const title = (($('#introTitle')&&$('#introTitle').value.trim()) || 'Video look').slice(0,60);
+  setLookStatus('Saving…','busy');
+  try{
+    const r = await fetch(LOOKS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'save', id: currentLookId, type:'videolook', title, data: serializeLook() }) });
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(r.status===401) throw new Error('Please sign in to save looks.');
+    if(!r.ok) throw new Error((data&&data.error)||'Save failed.');
+    currentLookId = data.project && data.project.id;
+    setLookStatus('✅ Look saved.','ok');
+  }catch(e){ setLookStatus(e.message,'err'); }
+}
+async function openLooks(){
+  const modal=$('#looksModal'), list=$('#looksList');
+  list.innerHTML='<p class="capstatus busy" style="margin:0;">Loading…</p>'; modal.style.display='flex';
+  try{
+    const r = await fetch(LOOKS_URL+'?type=videolook');
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(r.status===401) throw new Error('Please sign in to see your saved looks.');
+    if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
+    const ps = data.projects||[];
+    if(!ps.length){ list.innerHTML='<p class="capstatus" style="margin:0;">No saved looks yet — set one up and hit 💾 Save look.</p>'; return; }
+    list.innerHTML = ps.map(p=>'<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;"><button class="mini" data-load="'+p.id+'" style="flex:1; justify-content:flex-start;">'+(p.title||'Untitled').replace(/[<>&]/g,'')+'</button><button class="mini" data-del="'+p.id+'" title="Delete">✕</button></div>').join('');
+  }catch(e){ list.innerHTML='<p class="capstatus err" style="margin:0;">'+e.message+'</p>'; }
+}
+async function loadLook(id){
+  setLookStatus('Loading…','busy');
+  try{
+    const r = await fetch(LOOKS_URL+'?id='+encodeURIComponent(id));
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
+    currentLookId = id;
+    restoreLook(data.project && data.project.data);
+    $('#looksModal').style.display='none';
+    setLookStatus('✅ Look loaded.','ok');
+  }catch(e){ setLookStatus(e.message,'err'); }
+}
+async function deleteLook(id){
+  try{ await fetch(LOOKS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'delete', id }) }); }catch(e){}
+  if(currentLookId===id) currentLookId=null;
+  openLooks();
+}
+{ const sb=$('#saveLookBtn'); if(sb) sb.addEventListener('click', saveLook);
+  const lb=$('#looksBtn'); if(lb) lb.addEventListener('click', openLooks);
+  const lc=$('#looksClose'); if(lc) lc.addEventListener('click', ()=>{ $('#looksModal').style.display='none'; });
+  const lm=$('#looksModal'); if(lm) lm.addEventListener('click', e=>{ if(e.target===lm) lm.style.display='none'; });
+  const ll=$('#looksList'); if(ll) ll.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadLook(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteLook(D.dataset.del); });
+}
+
 // init
 refreshBrand();
 setFormat('9x16');
 </script>
+
+<div id="looksModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
+  <div style="width:100%; max-width:440px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <span class="lbl" style="margin:0;">📁 Saved looks</span>
+      <button class="mini" id="looksClose">Close</button>
+    </div>
+    <div id="looksList"></div>
+  </div>
+</div>
 </body>
 </html>
