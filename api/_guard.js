@@ -225,7 +225,7 @@ async function meter(req, res, opts = {}) {
     if (!orgId) return false;
     const units = opts.units || 1;
     const userId = req.volt.user && req.volt.user.id;
-    recordUsage(orgId, opts.kind || "ai", units, userId); // best-effort, not awaited-for-blocking
+    await recordUsage(orgId, opts.kind || "ai", units, userId); // awaited so the write isn't dropped on return
     if (process.env.BILLING_ENFORCE !== "1") return false;
     const plan = await getOrgPlan(orgId);
     const def = PLANS[plan] || PLANS.free;
