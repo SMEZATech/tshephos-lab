@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Volt — Payment</title>
+<script src="volt-auth.js"></script>
+<style>
+  :root{ --bg:#0A0B0F; --surface:#14171F; --border:rgba(255,255,255,.09); --text:#ECEEF3; --dim:#888F9D; --accent:#B6FF3D; --good:#57E39A; --low:#FF7C7C; }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;padding:24px;}
+  .card{width:100%;max-width:440px;background:linear-gradient(180deg,var(--surface),#11141b);border:1px solid var(--border);border-radius:18px;padding:32px;text-align:center;}
+  .logo{font-family:'Unbounded',system-ui;font-weight:800;font-size:24px;letter-spacing:.02em;margin:0 0 4px;}
+  .logo span{color:var(--accent);}
+  h1{font-size:18px;margin:18px 0 6px;}
+  p{color:var(--dim);font-size:14px;line-height:1.5;margin:0 0 18px;}
+  .ok{color:var(--good);} .err{color:var(--low);}
+  a.btn{display:inline-block;background:var(--accent);color:#0A0B0F;font-weight:800;text-decoration:none;padding:12px 22px;border-radius:11px;font-size:14px;}
+  .spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.18);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite;margin:8px auto 0;}
+  @keyframes s{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+  <div class="card">
+    <p class="logo">Volt<span>.</span></p>
+    <div id="state">
+      <h1>Confirming your payment…</h1>
+      <p>Hang tight — verifying with Paystack.</p>
+      <div class="spin"></div>
+    </div>
+    <a class="btn" id="back" href="index.html" style="display:none;">Back to Volt</a>
+  </div>
+<script>
+(function(){
+  function qs(k){ return new URLSearchParams(location.search).get(k); }
+  function render(title, msg, cls){
+    document.getElementById('state').innerHTML =
+      '<h1 class="'+(cls||'')+'">'+title+'</h1><p>'+msg+'</p>';
+    document.getElementById('back').style.display='inline-block';
+  }
+  var ref = qs('reference') || qs('trxref');
+  // volt-auth fires this once the Supabase session is ready (Bearer is then attached to /api/).
+  window.addEventListener('volt:ready', function run(){
+    if(!ref){ render('No payment reference', 'We couldn’t find a transaction to confirm. If you were charged, it will still apply automatically.', 'err'); return; }
+    fetch('/api/billing?action=verify&reference=' + encodeURIComponent(ref))
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(o){
+        if(o.ok && o.j && o.j.ok){ render('You’re upgraded 🎉', 'Your plan is now <b style="color:#ECEEF3;">'+(o.j.plan||'updated')+'</b>. Thanks for supporting Volt!', 'ok'); }
+        else { render('Payment not confirmed yet', 'If your payment went through, it will be applied shortly. You can close this page.', 'err'); }
+      })
+      .catch(function(){ render('Couldn’t reach the server', 'Please check your connection. Any successful payment still applies automatically.', 'err'); });
+  });
+})();
+</script>
+</body>
+</html>

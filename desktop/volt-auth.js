@@ -152,6 +152,44 @@
     out += '<div class="va-field"><span class="nm">Postiz API URL <span class="pw">· blank = cloud</span></span><input class="va-input" id="va-k-postizUrl" type="text" autocomplete="off" placeholder="https://api.postiz.com/public/v1" value="' + esc(k.postizUrl || "") + '" style="margin-top:6px;" /></div></div>';
     return out;
   }
+  /* ---------- plan & usage (Phase C billing) ---------- */
+  var BILL_API = "https://tshephos-lab.vercel.app/api/billing";
+  function loadBilling() {
+    var box = document.getElementById("va-bill");
+    if (!box) return;
+    box.innerHTML = '<p class="va-keys-note" style="margin:12px 0 2px;">Loading plan…</p>';
+    fetch(BILL_API + "?action=usage").then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (o) {
+      if (!o.ok) { box.innerHTML = ""; return; }
+      var j = o.j;
+      var lim = (j.limit < 0) ? "∞" : j.limit;
+      var pct = (j.limit > 0) ? Math.min(100, Math.round((j.used / j.limit) * 100)) : 0;
+      var html = '<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.09);">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">' +
+        '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#888F9D;">Plan &amp; usage</span>' +
+        '<span style="font-size:12px;color:#ECEEF3;font-weight:700;">' + esc(j.label) + '</span></div>' +
+        '<div style="font-size:12px;color:#888F9D;margin-bottom:6px;">' + j.used + ' / ' + lim + ' AI generations this month</div>';
+      if (j.limit > 0) html += '<div style="height:7px;border-radius:99px;background:#1A1E28;overflow:hidden;margin-bottom:8px;"><i style="display:block;height:100%;width:' + pct + '%;background:' + (pct >= 90 ? "#FF7C7C" : "#B6FF3D") + ';"></i></div>';
+      if (j.billingReady) {
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+        ["starter", "pro"].forEach(function (p) { if (p !== j.plan) html += '<button class="va-btn va-ghost va-up" data-plan="' + p + '" style="flex:1;">Upgrade to ' + p.charAt(0).toUpperCase() + p.slice(1) + '</button>'; });
+        html += "</div>";
+      } else if (!j.enforced) {
+        html += '<p class="va-keys-note" style="margin:2px 0 0;">Usage is tracked; limits aren’t enforced yet.</p>';
+      }
+      html += '<div id="va-bill-status" style="font-size:12px;color:#7FC8FF;margin-top:8px;"></div></div>';
+      box.innerHTML = html;
+      [].forEach.call(box.querySelectorAll(".va-up"), function (b) { b.addEventListener("click", function () { upgrade(b.dataset.plan); }); });
+    }).catch(function () { box.innerHTML = ""; });
+  }
+  function upgrade(plan) {
+    var st = document.getElementById("va-bill-status");
+    if (st) st.textContent = "Starting secure checkout…";
+    fetch(BILL_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", plan: plan }) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (j && j.authorization_url) { window.open(j.authorization_url, "_blank", "noopener"); if (st) st.textContent = "Complete payment in the new tab, then reopen Settings."; }
+        else if (st) st.textContent = (j && j.error) || "Could not start checkout.";
+      }).catch(function () { if (st) st.textContent = "Network error — try again."; });
+  }
   function showSettings() {
     injectCSS();
     if (document.getElementById("va-modal")) return;
@@ -159,8 +197,10 @@
     m.innerHTML = '<div class="va-card"><p class="va-logo" style="font-size:22px;">Settings</p>' +
       '<p class="va-sub" style="margin-bottom:14px;">Signed in as <b style="color:#ECEEF3;">' + esc(session && session.user && session.user.email) + '</b></p>' +
       (isDesktop() ? keyFieldsHTML() + '<button class="va-btn va-primary" id="va-save" style="width:100%;margin-top:8px;">Save keys</button><div class="va-saved" id="va-saved"></div>' : '<p class="va-keys-note" style="margin:0 0 8px;">Keys are managed centrally on the web app.</p>') +
+      '<div id="va-bill"></div>' +
       '<div class="va-row"><button class="va-btn va-ghost" id="va-signout">Sign out</button><button class="va-btn va-ghost" id="va-close" style="color:#888F9D;">Close</button></div></div>';
     document.body.appendChild(m);
+    loadBilling();
     m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
     var save = document.getElementById("va-save");
     if (save) save.addEventListener("click", function () {

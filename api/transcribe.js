@@ -8,10 +8,11 @@
 //
 // The client sends JSON: { audio: "<base64>", mime: "audio/webm", language?: "en" }
 
-import { blocked } from "./_guard.js";
+import { blocked, meter } from "./_guard.js";
 
 export default async function handler(req, res) {
   if (await blocked(req, res, { id: "transcribe", limit: 12, windowSec: 60 })) return;
+  if (await meter(req, res, { kind: "transcribe" })) return;
 
   const key = process.env.GROQ_API_KEY;
   if (!key) {

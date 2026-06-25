@@ -174,4 +174,69 @@ async function getOrgKey(orgId, provider) {
   try { return decryptSecret(rows[0].ciphertext); } catch (e) { return null; }
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest };
+// ===== Phase C (billing + metering) — additive. Records usage on every metered call;
+// only ENFORCES limits when BILLING_ENFORCE="1", so the live app is never blocked until
+// you opt in. Everything below fails OPEN on error. =====
+
+// Plan catalog. aiLimit = generations/month (-1 = unlimited). priceZar = monthly price.
+const PLANS = {
+  free:      { label: "Free",      aiLimit: 150,  priceZar: 0 },
+  starter:   { label: "Starter",   aiLimit: 1500, priceZar: 299 },
+  pro:       { label: "Pro",       aiLimit: 6000, priceZar: 799 },
+  unlimited: { label: "Unlimited", aiLimit: -1,   priceZar: 0 }, // internal / comped
+};
+
+async function sbPatch(table, filter, body) {
+  const svc = process.env.SUPABASE_SERVICE_KEY;
+  const r = await fetch(sbBase() + "/rest/v1/" + table + "?" + filter, {
+    method: "PATCH",
+    headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify(body),
+  });
+  return r.ok ? r.json() : null;
+}
+async function recordUsage(orgId, kind, units, userId) {
+  try { await sbWrite("usage_event", { org_id: orgId, user_id: userId || null, kind: kind || "ai", units: units || 1 }); } catch (e) {}
+}
+async function getOrgPlan(orgId) {
+  try {
+    const rows = await sbRest("org?select=plan&limit=1&id=eq." + encodeURIComponent(orgId));
+    return (rows && rows[0] && rows[0].plan) || "free";
+  } catch (e) { return "free"; }
+}
+async function setOrgPlan(orgId, plan) {
+  if (!PLANS[plan]) return null;
+  return sbPatch("org", "id=eq." + encodeURIComponent(orgId), { plan });
+}
+async function monthUsage(orgId) {
+  try {
+    const d = new Date();
+    const since = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
+    const rows = await sbRest("usage_event?select=units&org_id=eq." + encodeURIComponent(orgId) + "&created_at=gte." + encodeURIComponent(since) + "&limit=20000");
+    if (!rows) return 0;
+    return rows.reduce((a, r) => a + (Number(r.units) || 1), 0);
+  } catch (e) { return 0; }
+}
+// Call AFTER blocked() (so req.volt is set). Returns true if the request should STOP
+// (over quota → 402). Records the usage either way. No-op in app-key mode (no orgId).
+async function meter(req, res, opts = {}) {
+  try {
+    const orgId = req.volt && req.volt.orgId;
+    if (!orgId) return false;
+    const units = opts.units || 1;
+    const userId = req.volt.user && req.volt.user.id;
+    recordUsage(orgId, opts.kind || "ai", units, userId); // best-effort, not awaited-for-blocking
+    if (process.env.BILLING_ENFORCE !== "1") return false;
+    const plan = await getOrgPlan(orgId);
+    const def = PLANS[plan] || PLANS.free;
+    if (def.aiLimit < 0) return false; // unlimited
+    const used = await monthUsage(orgId);
+    if (used > def.aiLimit) {
+      res.status(402).json({ error: "Monthly limit reached on the " + def.label + " plan. Upgrade to keep generating.", code: "PLAN_LIMIT", used, limit: def.aiLimit, plan });
+      return true;
+    }
+    return false;
+  } catch (e) { return false; } // fail OPEN — billing must never take the app down
+}
+
+export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage };

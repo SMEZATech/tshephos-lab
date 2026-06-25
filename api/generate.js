@@ -2,7 +2,7 @@
 // Serverless proxy. Keeps your API key on the server, never in the browser.
 // Provider is set with the LLM_PROVIDER env var: "gemini" (default) | "claude" | "groq".
 
-import { blocked } from "./_guard.js";
+import { blocked, meter } from "./_guard.js";
 
 const SYSTEM =
   "You are an elite direct-response performance-marketing copywriter and a brutally honest creative strategist. " +
@@ -340,6 +340,7 @@ async function callGroq(prompt, opts = {}) {
 
 export default async function handler(req, res) {
   if (await blocked(req, res, { id: "generate", limit: 30, windowSec: 60 })) return;
+  if (await meter(req, res, { kind: "generate" })) return;
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
