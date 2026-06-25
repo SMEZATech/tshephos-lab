@@ -1086,18 +1086,7 @@ async function generateCaptions(){
   try{
     const blob = await captureSegmentAudio();
     if(!blob || blob.size < 800) throw new Error('No audio captured — does this clip have sound?');
-    setCapStatus('Transcribing…', 'busy');
-    const b64 = await blobToBase64(blob);
-    const r = await fetch('/api/transcribe', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
-      body: JSON.stringify({ audio:b64, mime:'audio/webm', language:'en' })
-    });
-    let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the caption service.'); }
-    if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error('Captions need a Groq key — add GROQ_API_KEY in Vercel, then redeploy.');
-    if(r.status===401) throw new Error('Caption service rejected the app key.');
-    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Transcription failed.');
-    const words = (data.words||[]).filter(w=>w && w.word);
+    const words = await transcribeAudio(blob);
     if(!words.length) throw new Error('No speech detected in this clip.');
     state.words = words;
     state.lines = groupLines(words);
@@ -1121,6 +1110,34 @@ async function generateCaptions(){
     t = 0; mainPlaying = false; state.playing = true;
     try{ videoEl.currentTime = state.trimStart; }catch(e){}
   }
+}
+// Transcribe the captured speech-only clip. On desktop, try local whisper.cpp first
+// (instant, offline, no per-minute cost); fall back to the Groq cloud service otherwise.
+async function transcribeAudio(blob){
+  if(window.voltNative && typeof window.voltNative.transcribe === 'function'){
+    try{
+      setCapStatus('Transcribing on your device…', 'busy');
+      const buf = await blob.arrayBuffer();
+      const res = await window.voltNative.transcribe(buf, { language:'en' });
+      if(res && res.ok){
+        const w = (res.words||[]).filter(x=>x && x.word);
+        if(w.length) return w;
+      }
+      // res.unavailable (no binary/model dropped in) or empty → silently use cloud.
+    }catch(_){ /* fall through to cloud */ }
+  }
+  setCapStatus('Transcribing…', 'busy');
+  const b64 = await blobToBase64(blob);
+  const r = await fetch('/api/transcribe', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+    body: JSON.stringify({ audio:b64, mime:'audio/webm', language:'en' })
+  });
+  let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the caption service.'); }
+  if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error('Captions need a Groq key — add GROQ_API_KEY in Vercel, then redeploy.');
+  if(r.status===401) throw new Error('Caption service rejected the app key.');
+  if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Transcription failed.');
+  return (data.words||[]).filter(w=>w && w.word);
 }
 // Group words into short caption lines (karaoke chunks).
 function groupLines(words){
