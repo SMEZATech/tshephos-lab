@@ -93,6 +93,12 @@
 
   /* Stage */
   .stage{display:flex; flex-direction:column; align-items:center; justify-content:flex-start;}
+  /* Canva-style: the video + transport controls stay pinned in view while the settings
+     (left) and the caption editor / highlights / post-copy (below) scroll. */
+  .player{position:sticky; top:14px; z-index:6; align-self:stretch; width:100%;
+          display:flex; flex-direction:column; align-items:center;
+          background:var(--bg); padding-bottom:12px; border-bottom:1px solid var(--border);}
+  @media(max-width:920px){ .player{position:static;} }
   .canvas-shell{position:relative; background:#000; border:1px solid var(--border); border-radius:18px; overflow:hidden; box-shadow:0 24px 60px -28px rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center; width:100%; min-height:300px; padding:14px;}
   #stageCanvas{max-height:64vh; max-width:100%; height:auto; width:auto; border-radius:8px; background:#0a0b0f; display:block;}
   .stage-empty{color:var(--faint); text-align:center; padding:80px 20px;}
@@ -324,6 +330,7 @@
 
     <!-- STAGE -->
     <section class="stage">
+      <div class="player">
       <div class="canvas-shell">
         <div class="stage-empty" id="stageEmpty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.55-2.27A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.89L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
@@ -339,6 +346,10 @@
         <button data-x="mp4" class="on">🎞 MP4</button>
         <button data-x="webm">WebM</button>
       </div>
+      <div id="qualPick" class="seg" style="display:none; justify-content:center; margin-top:8px;" title="Export resolution — 2× renders everything at double resolution for razor-sharp text, captions and a cleaner picture">
+        <button data-q="1" class="on">HD 1080</button>
+        <button data-q="2">⬆ Ultra 2×</button>
+      </div>
       <div class="stage-controls" id="stageControls" style="display:none;">
         <button class="mini" id="playBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 6-12 6z"/></svg> Play</button>
         <button class="mini" id="pauseBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4h3v12H5zM12 4h3v12h-3z"/></svg> Pause</button>
@@ -350,6 +361,7 @@
       </div>
       <p class="note" id="ctrlHint" style="display:none; text-align:center; margin-top:6px;">Spacebar play / pause · ← → arrows jump 2s · drag the bar to scrub.</p>
       <div class="status" id="status"></div>
+      </div><!-- /.player -->
       <p class="note" style="max-width:560px; text-align:center;">Tip: keep shorts to ~20–45s. Export plays in real time, so a 40s short takes about 40s to record. Output is <b style="color:var(--dim);">.webm</b> for now — mp4 is on the roadmap.</p>
       <section id="capEditor" style="display:none;">
     <div class="cap-ed-head">
@@ -432,6 +444,16 @@ const HOOK_DUR = 2.5;
 
 const cv = $('#stageCanvas');
 const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = true; try{ ctx.imageSmoothingQuality = 'high'; }catch(e){}
+// Set the render/export resolution = format size × scale (1 = 1080-wide, 2 = Ultra 2×).
+// All drawing is expressed in terms of W/H, so bumping these scales the whole frame — text,
+// captions and graphics are drawn at true 2× (razor sharp) and the source is scaled cleanly.
+function applyRenderScale(scale){
+  const d = FMT[state.format]; if(!d) return;
+  W = Math.round(d.w * scale); H = Math.round(d.h * scale);
+  cv.width = W; cv.height = H;
+  ctx.imageSmoothingEnabled = true; try{ ctx.imageSmoothingQuality = 'high'; }catch(e){}
+}
 const videoEl = $('#srcVideo');
 const musicEl = $('#srcMusic');
 
@@ -469,7 +491,7 @@ const state = {
   words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
   hookOn:false, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
-  brand:null, exportFmt:'mp4',
+  brand:null, exportFmt:'mp4', upscale:1,
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
@@ -516,6 +538,7 @@ $('#videoFile').addEventListener('change', e => {
     $('#timeline').style.display='flex';
     $('#stageControls').style.display='flex';
     if(canMp4()) $('#fmtPick').style.display='flex';
+    $('#qualPick').style.display='flex';
     $('#exportLbl').textContent = exportLabel();
     $('#ctrlHint').style.display='block';
     $('#vidInfo').style.display='block';
@@ -946,6 +969,7 @@ $('#exportBtn').onclick = async () => {
   videoEl.muted = false;
   if(musicEl.src){ musicEl.currentTime = 0; musicEl.play().catch(()=>{}); }
 
+  applyRenderScale(state.upscale); // Ultra 2× → record at double resolution for a sharper export
   const canvasStream = cv.captureStream(30);
   let finalStream = canvasStream;
   if(dest && dest.stream.getAudioTracks().length){
@@ -957,8 +981,9 @@ $('#exportBtn').onclick = async () => {
   if(!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
 
   try{
-    mediaRecorder = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+    mediaRecorder = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: (state.upscale>1 ? 20000000 : 8000000) });
   }catch(err){
+    applyRenderScale(1);
     setStatus('Could not start the recorder on this device: '+err.message, true); return;
   }
   mediaRecorder.ondataavailable = ev => { if(ev.data && ev.data.size>0) chunks.push(ev.data); };
@@ -993,6 +1018,7 @@ function downloadWebm(blob){
 }
 function finalizeExport(){
   const blob = new Blob(chunks, { type:'video/webm' });
+  applyRenderScale(1); // restore preview resolution now that recording is captured
   // Desktop + MP4 selected → convert locally via bundled ffmpeg. Otherwise download WebM (web path).
   if(canMp4() && state.exportFmt !== 'webm'){ exportToMp4(blob); return; }
   downloadWebm(blob);
@@ -1006,7 +1032,7 @@ async function exportToMp4(blob){
   setStatus('Converting to MP4 — this runs locally, a few seconds…', true);
   try{
     const buf = await blob.arrayBuffer();
-    const res = await window.voltNative.toMp4(buf, 'sme-short-'+state.format+'.mp4');
+    const res = await window.voltNative.toMp4(buf, 'sme-short-'+state.format+'.mp4', { enhance: state.upscale>1 });
     if(res && res.ok){ setStatus('✅ Saved MP4 — '+res.path); }
     else if(res && res.canceled){ setStatus('Export canceled.'); }
     else { throw new Error((res && res.error) || 'Conversion failed.'); }
@@ -1513,6 +1539,12 @@ $('#fmtPick').addEventListener('click', e => {
   state.exportFmt=b.dataset.x;
   document.querySelectorAll('#fmtPick button').forEach(x=>x.classList.toggle('on', x===b));
   $('#exportLbl').textContent = exportLabel();
+});
+$('#qualPick').addEventListener('click', e => {
+  const b=e.target.closest('button'); if(!b) return;
+  state.upscale = parseInt(b.dataset.q,10) || 1;
+  document.querySelectorAll('#qualPick button').forEach(x=>x.classList.toggle('on', x===b));
+  setStatus(state.upscale>1 ? 'Ultra 2× on — sharper export, records at higher resolution (a bit heavier).' : '');
 });
 // pick up brand changes made in another tab (e.g. Studio) live, or when returning to this tab
 window.addEventListener('storage', e=>{ if(e.key===BRANDS_KEY || e.key===ACTIVE_BRAND_KEY) refreshBrand(); });
