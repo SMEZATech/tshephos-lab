@@ -130,6 +130,9 @@
   .cap-ed-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
   .cap-ed-hint{display:block; font-size:12px; color:var(--faint); margin-top:5px;}
   .cap-ed-count{font-family:var(--fm); font-size:11px; letter-spacing:.06em; color:var(--dim); border:1px solid var(--border); border-radius:100px; padding:5px 11px; white-space:nowrap;}
+  .filmstrip{display:flex; gap:2px; height:44px; margin:10px 0 4px; border-radius:8px; overflow:hidden; background:#0a0b0f; border:1px solid var(--border);}
+  .film-thumb{flex:1 1 0; min-width:0; background-size:cover; background-position:center; background-repeat:no-repeat;}
+  .filmstrip.busy{opacity:.5;}
   #capList{max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; padding-right:6px;}
   #capList::-webkit-scrollbar{width:8px;} #capList::-webkit-scrollbar-thumb{background:var(--border-2); border-radius:8px;}
   .caprow{display:flex; align-items:center; gap:11px; background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:8px 10px; transition:border-color .14s, background .14s; cursor:pointer;}
@@ -200,6 +203,7 @@
       <div class="blk" id="trimBlk" style="opacity:.4; pointer-events:none;">
         <label class="lbl"><span class="num">2</span>Trim</label>
         <div class="trim-read" id="trimRead">Load a clip to set the trim.</div>
+        <div class="filmstrip" id="filmstrip" style="display:none;"></div>
         <div class="rangepair">
           <label>Start <span id="startLbl">0:00</span></label>
           <input type="range" id="trimStart" min="0" max="100" value="0" step="0.1" />
@@ -370,6 +374,7 @@
         <span class="cap-ed-hint">Click a line to jump to it · edit any text to fix it · ✕ to drop a line</span>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
+        <button class="pc-copy" id="fillerBtn" title="Strip um, uh, er, hmm… from the caption text">🧹 Fillers</button>
         <button class="pc-copy" id="srtBtn">⬇ .SRT</button>
         <span class="cap-ed-count" id="capCount"></span>
       </div>
@@ -544,6 +549,7 @@ $('#videoFile').addEventListener('change', e => {
     $('#vidInfo').style.display='block';
     $('#vidInfo').textContent = `Loaded — ${fmtTime(state.duration)} long, ${videoEl.videoWidth}×${videoEl.videoHeight}.`;
     updateTrimRead();
+    buildFilmstrip(videoEl.src);
     clearCaptions();
     t=0; mainPlaying=false; state.playing=true; videoEl.currentTime=0;
   }, { once:true });
@@ -1327,6 +1333,53 @@ $('#srtBtn').onclick = () => {
   const blob = new Blob([buildSrt()], { type:'text/plain;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sme-captions.srt'; a.click();
 };
+
+// ---- thumbnail filmstrip under the trim controls (CapCut-style) ----
+// Uses a SEPARATE detached video element so it never fights the live preview.
+async function buildFilmstrip(src){
+  const strip = $('#filmstrip'); if(!strip || !src) return;
+  strip.style.display='flex'; strip.classList.add('busy'); strip.innerHTML='';
+  let v;
+  try{
+    v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.src = src;
+    await new Promise((res,rej)=>{ v.addEventListener('loadedmetadata',res,{once:true}); v.addEventListener('error',rej,{once:true}); });
+    const dur = v.duration || 0, vw = v.videoWidth || 16, vh = v.videoHeight || 9;
+    if(!dur){ strip.style.display='none'; return; }
+    const N = 12, tc = document.createElement('canvas'); tc.width = 100; tc.height = 56;
+    const tcx = tc.getContext('2d');
+    for(let i=0;i<N;i++){
+      const time = Math.min(Math.max(0, dur-0.05), (dur/N)*(i+0.5));
+      await new Promise(res=>{ const on=()=>{ v.removeEventListener('seeked',on); res(); }; v.addEventListener('seeked',on); try{ v.currentTime = time; }catch(e){ res(); } });
+      const s = Math.max(tc.width/vw, tc.height/vh), dw = vw*s, dh = vh*s;
+      try{ tcx.drawImage(v, (tc.width-dw)/2, (tc.height-dh)/2, dw, dh); }catch(e){}
+      const cell = document.createElement('div'); cell.className = 'film-thumb';
+      cell.style.backgroundImage = 'url(' + tc.toDataURL('image/jpeg', 0.62) + ')';
+      strip.appendChild(cell);
+    }
+  }catch(e){ strip.style.display='none'; }
+  finally{ strip.classList.remove('busy'); if(v){ try{ v.removeAttribute('src'); v.load(); }catch(e){} } }
+}
+
+// ---- filler-word removal (cleans the caption text; regenerate captions to undo) ----
+const FILLERS = new Set(['um','umm','uhm','uh','uhh','er','erm','err','ah','ahh','hmm','mm','mmm','eh']);
+function removeFillers(){
+  if(!state.lines.length) return;
+  let removed = 0;
+  state.lines.forEach(L=>{
+    const kept = L.words.filter(w=>{
+      const n = String(w.word||'').toLowerCase().replace(/[^a-z]/g,'');
+      if(n && FILLERS.has(n)){ removed++; return false; }
+      return true;
+    });
+    L.words = kept;
+    if(kept.length){ L.start = kept[0].start; L.end = kept[kept.length-1].end; }
+  });
+  state.lines = state.lines.filter(L=>L.words.length);
+  state.words = state.lines.flatMap(x=>x.words);
+  renderCapEditor();
+  setCapStatus(removed ? ('🧹 Removed '+removed+' filler word'+(removed===1?'':'s')+'. Regenerate captions to undo.') : 'No filler words (um, uh, er…) found.', removed?'ok':'');
+}
+{ const fb=$('#fillerBtn'); if(fb) fb.onclick = removeFillers; }
 
 // ---- caption editor (Canva-style line list) ----
 let lastLiveRow = -1;
