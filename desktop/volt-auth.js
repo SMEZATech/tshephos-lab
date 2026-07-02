@@ -176,10 +176,12 @@
     var old = document.getElementById("va-badge"); if (old) old.remove();
     var b = document.createElement("div"); b.id = "va-badge";
     b.innerHTML = '<span class="who">' + esc(firstName(session && session.user && session.user.email)) + '</span>' +
+      '<button id="va-cmdk" title="Command menu">' + (isMac() ? "⌘K" : "Ctrl K") + '</button>' +
       '<button id="va-refresh" title="Check for updates">↻</button><button id="va-gear" title="Settings">⚙</button>';
     document.body.appendChild(b);
     document.getElementById("va-gear").addEventListener("click", showSettings);
     document.getElementById("va-refresh").addEventListener("click", function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); });
+    var ck = document.getElementById("va-cmdk"); if (ck) ck.addEventListener("click", function () { if (window.voltOpenCommand) window.voltOpenCommand(); });
   }
   function showToast(msg) {
     injectCSS();
@@ -262,10 +264,100 @@
   }
 
   /* ---------- app shown / hidden ---------- */
+  /* ---------- command palette (Ctrl/Cmd-K) — jump to any tool, run any action ---------- */
+  function isMac() { return /Mac|iPhone|iPad/.test(navigator.platform || ""); }
+  var CMDK_CSS =
+    '#vk-ov{position:fixed;inset:0;z-index:100050;display:none;align-items:flex-start;justify-content:center;padding:13vh 20px 20px;background:rgba(6,7,10,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
+    '#vk-ov.open{display:flex;}' +
+    '#vk{width:100%;max-width:560px;background:linear-gradient(180deg,#171a22,#111319);border:1px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:0 40px 100px -30px rgba(0,0,0,.9);overflow:hidden;animation:vkin .16s ease;}' +
+    '@keyframes vkin{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}' +
+    '@media(prefers-reduced-motion:reduce){#vk{animation:none;}}' +
+    '#vk-in{width:100%;box-sizing:border-box;border:none;background:transparent;color:#ECEEF3;font-family:inherit;font-size:17px;padding:18px 20px;outline:none;border-bottom:1px solid rgba(255,255,255,.09);}' +
+    '#vk-in::placeholder{color:#5B616D;}' +
+    '#vk-list{max-height:46vh;overflow-y:auto;padding:8px;}' +
+    '.vk-item{display:flex;align-items:center;gap:13px;padding:10px 13px;border-radius:11px;cursor:pointer;}' +
+    '.vk-item .vk-e{width:22px;text-align:center;font-size:16px;flex:none;}' +
+    '.vk-item .vk-t{font-size:14.5px;color:#ECEEF3;font-weight:600;line-height:1.2;}' +
+    '.vk-item .vk-s{font-size:12px;color:#888F9D;line-height:1.3;}' +
+    '.vk-item.sel{background:rgba(182,255,61,.14);}.vk-item.sel .vk-t{color:#B6FF3D;}' +
+    '.vk-empty{padding:22px;text-align:center;color:#5B616D;font-size:13px;}' +
+    '#vk-foot{display:flex;gap:16px;padding:9px 16px;border-top:1px solid rgba(255,255,255,.09);color:#5B616D;font-family:"JetBrains Mono",monospace;font-size:10.5px;}' +
+    '#vk-foot b{color:#888F9D;font-weight:700;}' +
+    '#va-cmdk{font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:700;color:#888F9D;background:#0D0F15;border:1px solid rgba(255,255,255,.14);border-radius:100px;padding:0 10px;height:30px;cursor:pointer;transition:all .18s;}' +
+    '#va-cmdk:hover{color:#0A0B0F;background:#B6FF3D;border-color:#B6FF3D;}';
+
+  // Pages can add their own commands: window.voltRegisterCommand({title, sub, emoji, run})
+  window.voltRegisterCommand = function (c) { (window.__voltCmds = window.__voltCmds || []).push(c); };
+
+  function baseCommands() {
+    var tools = [
+      { t: "Copy Lab", s: "Write ranked ad angles", e: "✍️", href: "index.html" },
+      { t: "Studio", s: "Design graphics", e: "🎨", href: "studio.html" },
+      { t: "Audit", s: "Audit a profile", e: "🔍", href: "audit.html" },
+      { t: "Analytics", s: "Performance & insights", e: "📊", href: "analytics.html" },
+      { t: "Email", s: "Build a newsletter", e: "✉️", href: "email.html" },
+      { t: "Video", s: "Make a short", e: "🎬", href: "video.html" },
+      { t: "Guide", s: "How to use Volt", e: "📖", href: "guide.html" }
+    ];
+    var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+    var cmds = tools.filter(function (x) { return x.href.toLowerCase() !== here; })
+      .map(function (x) { return { title: "Go to " + x.t, sub: x.s, emoji: x.e, run: function () { location.href = x.href; } }; });
+    cmds.push({ title: "Settings & API keys", sub: "Manage your account", emoji: "⚙️", run: showSettings });
+    cmds.push({ title: "Check for updates", sub: "Reload the latest version", emoji: "↻", run: function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); } });
+    cmds.push({ title: "Sign out", sub: "", emoji: "🚪", run: function () { if (sb) sb.auth.signOut(); } });
+    return (window.__voltCmds || []).concat(cmds);
+  }
+  function vkScore(q, s) {
+    s = s.toLowerCase(); q = (q || "").trim().toLowerCase();
+    if (!q) return 50;
+    var idx = s.indexOf(q); if (idx >= 0) return 100 - idx;
+    var qi = 0; for (var i = 0; i < s.length && qi < q.length; i++) { if (s[i] === q[qi]) qi++; }
+    return qi === q.length ? 1 : -1;
+  }
+  var cmdkReady = false, vkSel = 0, vkItems = [];
+  function initCmdK() {
+    if (cmdkReady) return; cmdkReady = true;
+    var st = document.createElement("style"); st.id = "va-cmdk-style"; st.textContent = CMDK_CSS; document.head.appendChild(st);
+    var ov = document.createElement("div"); ov.id = "vk-ov";
+    ov.innerHTML = '<div id="vk"><input id="vk-in" type="text" placeholder="Search Volt — jump to a tool or run an action…" autocomplete="off" spellcheck="false" /><div id="vk-list"></div><div id="vk-foot"><span><b>↑↓</b> move</span><span><b>↵</b> open</span><span><b>esc</b> close</span></div></div>';
+    document.body.appendChild(ov);
+    var inp = document.getElementById("vk-in"), list = document.getElementById("vk-list");
+    function closeK() { ov.classList.remove("open"); }
+    function openK() { ov.classList.add("open"); inp.value = ""; vkSel = 0; render(""); setTimeout(function () { inp.focus(); }, 20); }
+    window.voltOpenCommand = openK;
+    function render(q) {
+      var scored = [];
+      baseCommands().forEach(function (c) { var sc = vkScore(q, c.title + " " + (c.sub || "")); if (sc >= 0) scored.push({ c: c, sc: sc }); });
+      scored.sort(function (a, b) { return b.sc - a.sc; });
+      vkItems = scored.map(function (x) { return x.c; });
+      if (vkSel >= vkItems.length) vkSel = 0;
+      if (!vkItems.length) { list.innerHTML = '<div class="vk-empty">No matches.</div>'; return; }
+      list.innerHTML = vkItems.map(function (c, i) {
+        return '<div class="vk-item' + (i === vkSel ? " sel" : "") + '" data-i="' + i + '"><span class="vk-e">' + (c.emoji || "•") + '</span><div><div class="vk-t">' + esc(c.title) + "</div>" + (c.sub ? '<div class="vk-s">' + esc(c.sub) + "</div>" : "") + "</div></div>";
+      }).join("");
+    }
+    function setSel(i) { vkSel = i; var els = list.querySelectorAll(".vk-item"); for (var k = 0; k < els.length; k++) els[k].classList.toggle("sel", k === i); var s = els[i]; if (s) s.scrollIntoView({ block: "nearest" }); }
+    function run(i) { var c = vkItems[i]; if (!c) return; closeK(); try { c.run(); } catch (e) {} }
+    inp.addEventListener("input", function () { vkSel = 0; render(inp.value); });
+    inp.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setSel(Math.min(vkItems.length - 1, vkSel + 1)); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); setSel(Math.max(0, vkSel - 1)); }
+      else if (e.key === "Enter") { e.preventDefault(); run(vkSel); }
+      else if (e.key === "Escape") { e.preventDefault(); closeK(); }
+    });
+    list.addEventListener("click", function (e) { var it = e.target.closest(".vk-item"); if (it) run(parseInt(it.dataset.i, 10)); });
+    list.addEventListener("mousemove", function (e) { var it = e.target.closest(".vk-item"); if (it) { var i = parseInt(it.dataset.i, 10); if (i !== vkSel) setSel(i); } });
+    ov.addEventListener("click", function (e) { if (e.target === ov) closeK(); });
+    document.addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); if (ov.classList.contains("open")) closeK(); else openK(); }
+    });
+  }
+
   function showApp() {
     var g = document.getElementById("va-gate"); if (g) g.remove();
     document.documentElement.style.overflow = "";
     showBadge();
+    initCmdK();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
     window.voltSession = session;
     try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}
