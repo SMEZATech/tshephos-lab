@@ -52,8 +52,10 @@
 
   /* ---------- styles ---------- */
   var CSS = '' +
-    '#va-gate,#va-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,7,10,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
-    '#va-modal{z-index:100001;}' +
+    '#va-gate,#va-modal,#va-reset{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,7,10,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
+    '#va-modal,#va-reset{z-index:100001;}' +
+    '.va-forgot{display:block;width:100%;margin-top:12px;background:none;border:none;color:#7FC8FF;font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.03em;cursor:pointer;text-align:center;}' +
+    '.va-forgot:hover{color:#B6FF3D;text-decoration:underline;}' +
     '.va-card{width:100%;max-width:430px;background:linear-gradient(180deg,#14171F,#0f1218);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:30px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9);color:#ECEEF3;}' +
     '.va-logo{font-family:"Unbounded","Plus Jakarta Sans",sans-serif;font-weight:800;font-size:32px;letter-spacing:-.02em;margin:0;}.va-logo .d{color:#B6FF3D;}' +
     '.va-sub{color:#888F9D;font-size:14px;margin:6px 0 20px;line-height:1.5;}' +
@@ -95,6 +97,7 @@
           '<input class="va-input" id="va-pw" type="password" autocomplete="current-password" placeholder="6+ characters" />' +
           '<div class="va-err" id="va-err"></div>' +
           '<div class="va-row"><button class="va-btn va-primary" id="va-in">Sign in</button><button class="va-btn va-ghost" id="va-up">Create account</button></div>' +
+          '<button class="va-forgot" id="va-forgot">Forgot password?</button>' +
           '<p class="va-foot">For SME South Africa internal use.</p>' +
         '</div>';
       document.body.appendChild(g);
@@ -116,9 +119,55 @@
           .catch(function (e) { fail(e.message); });
       });
       pw.addEventListener("keydown", function (e) { if (e.key === "Enter") inB.click(); });
+      var fgB = document.getElementById("va-forgot");
+      fgB.addEventListener("click", function () {
+        if (!sb) return;
+        var em = email.value.trim();
+        if (!em) { fail("Type your email above first, then tap Forgot password."); email.focus(); return; }
+        busy(true); err.style.color = ""; err.textContent = "Sending reset link…";
+        sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + location.pathname })
+          .then(function (r) {
+            busy(false);
+            if (r.error) { err.style.color = "#FF7C7C"; err.textContent = r.error.message; }
+            else { err.style.color = "#57E39A"; err.textContent = "Check " + em + " for a reset link (check spam too)."; }
+          })
+          .catch(function (e) { fail(e.message); });
+      });
       setTimeout(function () { email.focus(); }, 50);
     }
     if (errMsg) { var el = document.getElementById("va-err"); if (el) el.textContent = errMsg; }
+  }
+
+  /* ---------- set a new password (arrives here from the recovery email link) ---------- */
+  function showReset() {
+    injectCSS();
+    var g = document.getElementById("va-gate"); if (g) g.remove();
+    if (document.getElementById("va-reset")) return;
+    document.documentElement.style.overflow = "hidden";
+    var m = document.createElement("div"); m.id = "va-reset";
+    m.innerHTML =
+      '<div class="va-card">' +
+        '<p class="va-logo">Volt<span class="d">.</span></p>' +
+        '<p class="va-sub">Set a new password for your account.</p>' +
+        '<label class="va-lbl" for="va-newpw">New password</label>' +
+        '<input class="va-input" id="va-newpw" type="password" autocomplete="new-password" placeholder="6+ characters" />' +
+        '<div class="va-err" id="va-rerr"></div>' +
+        '<div class="va-row"><button class="va-btn va-primary" id="va-setpw">Update password</button></div>' +
+      '</div>';
+    document.body.appendChild(m);
+    var np = document.getElementById("va-newpw"), rerr = document.getElementById("va-rerr"), setB = document.getElementById("va-setpw");
+    setB.addEventListener("click", function () {
+      var p = np.value || "";
+      if (p.length < 6) { rerr.style.color = "#FF7C7C"; rerr.textContent = "Use at least 6 characters."; return; }
+      setB.disabled = true; rerr.style.color = ""; rerr.textContent = "Updating…";
+      sb.auth.updateUser({ password: p }).then(function (r) {
+        if (r.error) { setB.disabled = false; rerr.style.color = "#FF7C7C"; rerr.textContent = r.error.message; return; }
+        try { history.replaceState(null, "", location.pathname); } catch (e) {}
+        m.remove(); showToast("✓ Password updated — you're in."); showApp();
+      }).catch(function (e) { setB.disabled = false; rerr.style.color = "#FF7C7C"; rerr.textContent = e.message; });
+    });
+    np.addEventListener("keydown", function (e) { if (e.key === "Enter") setB.click(); });
+    setTimeout(function () { np.focus(); }, 50);
   }
 
   /* ---------- badge + toast ---------- */
@@ -238,10 +287,16 @@
     showGate(); // show immediately so nothing flashes unauthenticated
     loadSb(function () {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      var recovering = /type=recovery/.test(location.hash || "");
       sb.auth.getSession().then(function (r) {
         session = r.data.session;
-        if (session) showApp();
-        sb.auth.onAuthStateChange(function (_e, s) { session = s; if (s) showApp(); else showGate(); });
+        if (recovering) showReset();
+        else if (session) showApp();
+        sb.auth.onAuthStateChange(function (_e, s) {
+          session = s;
+          if (_e === "PASSWORD_RECOVERY") { showReset(); return; }
+          if (s) showApp(); else showGate();
+        });
       });
     });
   }
