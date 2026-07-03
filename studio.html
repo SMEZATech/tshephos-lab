@@ -344,6 +344,12 @@
                 <span>Export All 6 Slides (ZIP)</span>
             </button>
 
+            <!-- Magic resize: export the current standard graphic at all three formats -->
+            <button onclick="triggerAllFormatsExport()" id="btn-download-all" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition-transform active:scale-[0.98] shadow-lg uppercase flex items-center justify-center gap-2 border border-slate-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m-4 12h2a2 2 0 002-2v-2"></path></svg>
+                <span>Resize to all 3 formats</span>
+            </button>
+
             <div id="progress-shell" style="opacity:0">
                 <div id="progress-bar"></div>
             </div>
@@ -2575,6 +2581,40 @@ self.onmessage = async (e) => {
         }
     }
 
+    // Magic resize — render the current Standard graphic at all three formats and download each.
+    // Renders from copies of the state snapshot (format overridden), so the live canvas is untouched.
+    async function triggerAllFormatsExport() {
+        if (state.isExporting) return;
+        if (state.campaign !== 'standard') { showToast('Switch to a Standard graphic to resize to all formats.'); return; }
+        setExportingUI(true);
+        try {
+            await ensureLogoBlob();
+            await ensureDefaultImageBlob();
+            const worker = getWorker();
+            const base = buildStatePayload();
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            const formats = [['landscape', 'Landscape'], ['square', 'Square'], ['portrait', 'Portrait']];
+            for (let k = 0; k < formats.length; k++) {
+                const st = Object.assign({}, base, { format: formats[k][0] });
+                const payload = {
+                    type: 'render-single', state: st, brand: brandPayload(), slideIdx: 0,
+                    featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers, scale: 3,
+                    filename: 'SME_Graphic_' + formats[k][1] + '_' + stamp + '.png'
+                };
+                setProgress(Math.round((k / formats.length) * 100), 'Rendering ' + formats[k][1] + '…');
+                const result = await postAndWait(worker, payload, true);
+                downloadBlob(result.blob, result.filename);
+            }
+            showToast('Exported all 3 formats — check your downloads.', 'success');
+            recordExport();
+        } catch (err) {
+            console.error('Resize-all failed:', err);
+            showToast('Export failed: ' + err.message);
+        } finally {
+            setExportingUI(false);
+        }
+    }
+
     function buildFilename(ext, slideNum) {
         const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         if (state.campaign === 'carousel' && slideNum) {
@@ -3015,6 +3055,7 @@ self.onmessage = async (e) => {
     window.fetchArticleData = fetchArticleData;
     window.triggerExport = triggerExport;
     window.triggerCarouselZipExport = triggerCarouselZipExport;
+    window.triggerAllFormatsExport = triggerAllFormatsExport;
     window.autoSliceFromTitle = autoSliceFromTitle;
     window.syncDOM = syncDOM;
     window.state = state;

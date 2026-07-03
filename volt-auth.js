@@ -304,7 +304,7 @@
       "analytics.html": [["run", "Analyze performance", "📊"]],
       "email.html": [["run", "Build the email", "✉️"], ["kitBtn", "Send to Kit", "📤"], ["saveDraftBtn", "Save draft", "💾"]],
       "video.html": [["capBtn", "Generate captions", "💬"], ["exportBtn", "Export the short", "⬇️"], ["hlBtn", "Find best moments", "✂️"]],
-      "studio.html": [["btn-download", "Download HD PNG", "🖼️"], ["btn-download-zip", "Export all 6 slides (ZIP)", "🗂️"]]
+      "studio.html": [["btn-download", "Download HD PNG", "🖼️"], ["btn-download-all", "Resize to all 3 formats", "✨"], ["btn-download-zip", "Export all 6 slides (ZIP)", "🗂️"]]
     };
     var list = defs[page] || [], out = [];
     list.forEach(function (a) {
