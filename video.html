@@ -194,14 +194,14 @@
   <header>
     <span class="badge"><span class="dot"></span> Video Styler · V1</span>
     <h1 class="title">Volt<span class="accent">.</span></h1>
-    <p class="sub">Turn a webinar recording into a branded vertical short. Upload, trim to the moment, reframe, apply the SME look, add music and a branded intro/outro — then export. <span style="color:var(--faint)">Auto-captions, caption styling and post copy are built in.</span></p>
+    <p class="sub">Turn any clip into a scroll-stopping vertical short. Upload, trim to the moment, reframe, grade the look, add music, a hook and optional intro/outro cards — then export. <span style="color:var(--faint)">Auto-captions, caption styling and post copy are built in. Intro/outro branding is optional — toggle it off for a plain short.</span></p>
   </header>
 
   <div class="layout">
     <!-- CONTROL PANEL -->
     <section class="panel">
       <div class="blk">
-        <label class="lbl"><span class="num">1</span>Upload webinar clip</label>
+        <label class="lbl"><span class="num">1</span>Upload clip</label>
         <input type="file" id="videoFile" accept="video/*" />
         <p class="note" id="vidInfo" style="margin-top:8px; display:none;"></p>
       </div>
@@ -277,18 +277,24 @@
         </div>
         <div class="togrow on" id="tog-outro" data-t="outro" style="margin-top:14px;"><span class="nm">Outro card</span><span class="sw"></span></div>
         <div class="togfields show" id="f-outro">
-          <input type="text" id="outroHead" placeholder="Outro headline — e.g. WATCH THE FULL WEBINAR" />
-          <input type="text" id="outroSub" placeholder="Outro sub-line — e.g. @sme_za" />
+          <input type="text" id="outroHead" placeholder="Outro headline — e.g. FOLLOW FOR MORE" />
+          <input type="text" id="outroSub" placeholder="Outro sub-line — e.g. @yourhandle" />
         </div>
-        <div class="togrow" id="tog-hook" data-t="hook" style="margin-top:14px;"><span class="nm">Hook overlay <span class="opt" style="font-weight:400;">first 2.5s</span></span><span class="sw"></span></div>
+        <div class="togrow" id="tog-hook" data-t="hook" style="margin-top:14px;"><span class="nm">Hook overlay <span class="opt" style="font-weight:400;">headline over the clip</span></span><span class="sw"></span></div>
         <div class="togfields" id="f-hook">
           <input type="text" id="hookText" placeholder="Scroll-stopping hook — e.g. The mistake that kills 90% of startups" />
-          <p class="note" style="margin-top:2px;">Big headline over the opening of the clip to stop the scroll. Tip: generate post copy below for hook ideas.</p>
+          <label class="lbl" style="margin:10px 0 4px;">Show it for</label>
+          <div class="seg" id="hookDurSeg">
+            <button data-hd="2.5" class="on">First 2.5s</button>
+            <button data-hd="5">First 5s</button>
+            <button data-hd="full">Whole clip</button>
+          </div>
+          <p class="note" style="margin-top:6px;">Big headline to stop the scroll. Show it just at the open, or keep it up for the entire clip. Tip: generate post copy below for hook ideas.</p>
         </div>
         <div class="togrow" id="tog-progress" data-t="progress" style="margin-top:14px;"><span class="nm">Progress bar</span><span class="sw"></span></div>
-        <div class="togrow" id="tog-name" data-t="name" style="margin-top:14px;"><span class="nm">Speaker name <span class="opt" style="font-weight:400;">first ~5s</span></span><span class="sw"></span></div>
+        <div class="togrow" id="tog-name" data-t="name" style="margin-top:14px;"><span class="nm">Name tag <span class="opt" style="font-weight:400;">lower-third, first ~5s</span></span><span class="sw"></span></div>
         <div class="togfields" id="f-name">
-          <input type="text" id="nameName" placeholder="Speaker name — e.g. Thabo Mokoena" />
+          <input type="text" id="nameName" placeholder="Name — e.g. Thabo Mokoena" />
           <input type="text" id="nameTitle" placeholder="Title — e.g. Founder, Acme (optional)" />
         </div>
         <label class="lbl" style="margin-top:14px;">Logo <span class="opt">optional — upload to avoid load issues</span></label>
@@ -353,7 +359,7 @@
       <div class="canvas-shell">
         <div class="stage-empty" id="stageEmpty">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.55-2.27A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.89L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-          <p>Upload a webinar clip to start.</p>
+          <p>Upload a clip to start.</p>
         </div>
         <canvas id="stageCanvas" width="1080" height="1920" style="display:none;"></canvas>
       </div>
@@ -509,7 +515,7 @@ const state = {
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
   words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
-  hookOn:false, fill:'crop', focus:'center', postPlatform:'LinkedIn',
+  hookOn:false, hookDur:2.5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
   brand:null, exportFmt:'mp4', upscale:1,
 };
@@ -616,6 +622,11 @@ $('#focusSeg').addEventListener('click', e => {
   const b=e.target.closest('button'); if(!b) return;
   state.focus = b.dataset.focus;
   document.querySelectorAll('#focusSeg button').forEach(x=>x.classList.toggle('on', x===b));
+});
+$('#hookDurSeg').addEventListener('click', e => {
+  const b=e.target.closest('button'); if(!b) return;
+  state.hookDur = b.dataset.hd === 'full' ? 'full' : parseFloat(b.dataset.hd);
+  document.querySelectorAll('#hookDurSeg button').forEach(x=>x.classList.toggle('on', x===b));
 });
 
 document.querySelectorAll('.togrow').forEach(row => {
@@ -812,7 +823,7 @@ function drawIntro(p){
   ctx.globalAlpha=le; drawLogo(W/2, H*0.26, W*0.40); ctx.globalAlpha=1;
   // title (slide up + fade)
   const te=eoc(segT(p,0.26,0.72));
-  const title=String($('#introTitle').value.trim() || 'Webinar Highlight').toUpperCase();
+  const title=String($('#introTitle').value.trim() || 'Your Short').toUpperCase();
   const tfs=Math.round(W*0.088), tlh=tfs*1.08;
   ctx.save(); ctx.globalAlpha=te; ctx.translate(0,(1-te)*H*0.03);
   ctx.fillStyle=C_WHITE; ctx.font='900 '+tfs+'px Oswald, sans-serif';
@@ -850,13 +861,13 @@ function drawOutro(p){
   ctx.globalAlpha=le; drawLogo(W/2, H*0.18, W*0.36); ctx.globalAlpha=1;
   // headline
   const he=eoc(segT(p,0.18,0.6));
-  const head=String($('#outroHead').value.trim() || 'WATCH THE FULL WEBINAR').toUpperCase();
+  const head=String($('#outroHead').value.trim() || 'FOLLOW FOR MORE').toUpperCase();
   ctx.save(); ctx.globalAlpha=he; ctx.translate(0,(1-he)*H*0.025);
   ctx.fillStyle=C_WHITE; ctx.font='900 '+Math.round(W*0.072)+'px Oswald, sans-serif';
   const hEnd=wrapText(head, W/2, H*0.42, W*0.84, W*0.078);
   ctx.restore();
   // CTA pill — pop in (overshoot) then a gentle pulse
-  const sub=String($('#outroSub').value.trim() || (state.brand && state.brand.url) || '@sme_za');
+  const sub=String($('#outroSub').value.trim() || (state.brand && state.brand.url) || '@yourhandle');
   const popped=segT(p,0.4,0.75), pop=eob(popped);
   const settle=segT(p,0.75,1), pulse=1+Math.sin(p*9)*0.02*settle;
   const sc=popped<1?pop:pulse, cAlpha=eoc(segT(p,0.4,0.58));
@@ -888,12 +899,13 @@ function drawOutro(p){
 function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 // Scroll-stopping hook over the opening of the clip.
 function drawHook(ct){
-  if(ct < 0 || ct > HOOK_DUR) return;
+  const dur = (state.hookDur === 'full') ? clipDur() : (state.hookDur || HOOK_DUR);
+  if(ct < 0 || ct > dur) return;
   const txt = ($('#hookText').value || '').trim();
   if(!txt) return;
   let a;
   if(ct < 0.25) a = ct/0.25;
-  else if(ct > HOOK_DUR - 0.4) a = Math.max(0, (HOOK_DUR - ct)/0.4);
+  else if(ct > dur - 0.4) a = Math.max(0, (dur - ct)/0.4);
   else a = 1;
   const rise = (1 - Math.min(1, ct/0.3)) * H*0.03;
   const fs = Math.round(W*0.072);
@@ -1622,7 +1634,7 @@ function syncBrandUI(){
   sel.innerHTML='';
   brands.forEach(b=>{ const o=document.createElement('option'); o.value=b.id; o.textContent=b.name||'Brand'; if(b.id===id) o.selected=true; sel.appendChild(o); });
   // freshen the default placeholders so they reflect the brand
-  const os=$('#outroSub'); if(os && state.brand) os.placeholder='Outro sub-line — e.g. '+(state.brand.url||'@sme_za');
+  const os=$('#outroSub'); if(os && state.brand) os.placeholder='Outro sub-line — e.g. '+(state.brand.url||'@yourhandle');
 }
 function refreshBrand(){
   const b=activeBrand(); state.brand=b;
@@ -1679,7 +1691,7 @@ function serializeLook(){
   const v = id => { const el=$('#'+id); return el?el.value:''; };
   return {
     format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
-    capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg,
+    capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
     toggles:{ intro:state.introOn, outro:state.outroOn, hook:state.hookOn, progress:state.progressOn, name:state.nameOn },
     text:{ introTitle:v('introTitle'), outroHead:v('outroHead'), outroSub:v('outroSub'), hookText:v('hookText'), nameName:v('nameName'), nameTitle:v('nameTitle') }
   };
@@ -1695,6 +1707,7 @@ function restoreLook(d){
   if(d.capPos){ state.capPos=d.capPos; syncSeg('#capPosSeg', d.capPos); }
   if(d.capSize){ state.capSize=d.capSize; syncSeg('#capSizeSeg', d.capSize); }
   if(d.capBg){ state.capBg=d.capBg; syncSeg('#capBgSeg', d.capBg); }
+  if(d.hookDur!=null){ state.hookDur=d.hookDur; syncSeg('#hookDurSeg', d.hookDur); }
   if(d.musicVol!=null){ state.musicVol=d.musicVol; const mv=$('#musicVol'); if(mv) mv.value=Math.round(d.musicVol*100); const vl=$('#volLbl'); if(vl) vl.textContent=Math.round(d.musicVol*100)+'%'; if(typeof musGain!=='undefined' && musGain) musGain.gain.value=state.musicVol; }
   const tg=d.toggles||{};
   document.querySelectorAll('.togrow').forEach(row=>{ const key=row.dataset.t; if(!key || !(key in tg)) return; const on=!!tg[key]; row.classList.toggle('on', on); state[key+'On']=on; const f=$('#f-'+key); if(f) f.classList.toggle('show', on); });
