@@ -338,6 +338,43 @@ async function callGroq(prompt, opts = {}) {
   return data?.choices?.[0]?.message?.content || "";
 }
 
+// ---- Local AI (Ollama) helpers: build the prompt for a task, and parse a raw completion.
+// These reuse the SAME builders + sanitisers as the cloud path (single source of truth).
+function buildForTask(task, body, voiceNote) {
+  if (task === "copy") {
+    const { offer, audience, platform, count = 5, winnerAngle } = body;
+    if (!offer || !String(offer).trim()) return { error: "Missing offer" };
+    return { system: SYSTEM, prompt: buildPrompt({ offer, audience, platform, count, winnerAngle }) + voiceNote, json: true, temperature: 0.85 };
+  }
+  if (task === "email") {
+    const { brief } = body;
+    if (!brief || !String(brief).trim()) return { error: "Missing brief" };
+    return { system: SYSTEM_EMAIL, prompt: buildEmailPrompt({ brief }) + voiceNote, json: false, temperature: 0.7 };
+  }
+  return null; // task not supported for local AI (falls back to cloud on the client)
+}
+function parseForTask(task, text) {
+  if (task === "copy") {
+    const parsed = safeParse(text);
+    if (!parsed || !Array.isArray(parsed.variations) || !parsed.variations.length) return { error: "Local model returned no usable variations — try again (or use a bigger model)." };
+    const variations = parsed.variations.slice(0, 12).map((v) => ({
+      framework: String(v.framework || "Angle").slice(0, 40),
+      headline: String(v.headline || "").slice(0, 160),
+      body: String(v.body || "").slice(0, 400),
+      cta: String(v.cta || "").slice(0, 40),
+      hashtags: cleanTags(v.hashtags),
+      scores: { hook: clampScore(v.scores && v.scores.hook), clarity: clampScore(v.scores && v.scores.clarity), urgency: clampScore(v.scores && v.scores.urgency) },
+    }));
+    return { data: { variations } };
+  }
+  if (task === "email") {
+    const html = String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim();
+    if (!html) return { error: "Local model returned an empty email — try again." };
+    return { data: { emailBody: html } };
+  }
+  return { error: "Unsupported task for local AI." };
+}
+
 export default async function handler(req, res) {
   if (await blocked(req, res, { id: "generate", limit: 30, windowSec: 60 })) return;
   if (await meter(req, res, { kind: "generate" })) return;
@@ -357,6 +394,21 @@ export default async function handler(req, res) {
     const voiceNote = brandVoice
       ? "\n\nBRAND VOICE — write ALL copy in exactly this voice and tone (embody it, don't describe it): " + brandVoice
       : "";
+
+    // ---- Local AI (Ollama) two-phase: server builds the prompt + parses the result;
+    // the desktop app runs the actual generation on the user's local Ollama (free, offline).
+    // Cloud path below is completely untouched.
+    if (body.mode === "build") {
+      const b = buildForTask(task, body, voiceNote);
+      if (!b) return res.status(400).json({ error: "Local AI isn't wired for this tool yet." });
+      if (b.error) return res.status(400).json({ error: b.error });
+      return res.status(200).json(b);
+    }
+    if (body.mode === "parse") {
+      const p = parseForTask(task, String(body.raw || ""));
+      if (p.error) return res.status(p.status || 502).json({ error: p.error });
+      return res.status(200).json(p.data);
+    }
 
     // ---- Profile Audit ----
     if (task === "audit") {

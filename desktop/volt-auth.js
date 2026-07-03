@@ -24,8 +24,33 @@
   function firstName(email) { var n = String(email || "").split("@")[0].split(/[._-]+/)[0]; return n ? n.charAt(0).toUpperCase() + n.slice(1) : "there"; }
 
   /* ---------- fetch patch: attach the session token (+ desktop keys) to backend calls ---------- */
+  function ollamaCfg() { try { return JSON.parse(localStorage.getItem("volt_ollama") || "{}"); } catch (e) { return {}; } }
   var _fetch = window.fetch ? window.fetch.bind(window) : null;
   if (_fetch) {
+    // Local AI: when enabled on desktop, run Copy/Email generation on the user's Ollama.
+    // Server builds the prompt + parses the result; only the LLM call runs locally (free).
+    // Returns a Promise<Response> or null (null = use the normal cloud path).
+    var runOllama = function (input, init, body, cfg) {
+      return _fetch(input, Object.assign({}, init, { body: JSON.stringify(Object.assign({}, body, { mode: "build" })) }))
+        .then(function (br) { if (!br.ok) return br; return br.json().then(function (built) {
+          return window.voltNative.ollama({ url: cfg.url, model: cfg.model || "llama3.1", system: built.system, prompt: built.prompt, temperature: built.temperature })
+            .then(function (out) {
+              if (!out || !out.ok) return _fetch(input, init); // graceful fallback to cloud
+              return _fetch(input, Object.assign({}, init, { body: JSON.stringify({ task: body.task, mode: "parse", raw: out.text }) }));
+            });
+        }); })
+        .catch(function () { return _fetch(input, init); });
+    };
+    var maybeOllama = function (url, input, init) {
+      if (!isDesktop() || !(window.voltNative && typeof window.voltNative.ollama === "function")) return null;
+      var cfg = ollamaCfg(); if (!cfg.on) return null;
+      if (!/\/api\/generate\b/.test(url)) return null;
+      var bodyStr = (init && typeof init.body === "string") ? init.body : null; if (!bodyStr) return null;
+      var body; try { body = JSON.parse(bodyStr); } catch (e) { return null; }
+      var task = (body && body.task) || "copy";
+      if (task !== "copy" && task !== "email") return null; // v1: only these run locally
+      return runOllama(input, init, body, cfg);
+    };
     window.fetch = function (input, init) {
       var url = (typeof input === "string") ? input : ((input && input.url) || "");
       if (/\/api\//.test(url)) {
@@ -46,6 +71,8 @@
         }
         init.headers = h;
       }
+      var oll = maybeOllama(url, input, init);
+      if (oll) return oll;
       return _fetch(input, init);
     };
   }
@@ -208,6 +235,20 @@
     out += '<div class="va-field"><span class="nm">Postiz API URL <span class="pw">· blank = cloud</span></span><input class="va-input" id="va-k-postizUrl" type="text" autocomplete="off" placeholder="https://api.postiz.com/public/v1" value="' + esc(k.postizUrl || "") + '" style="margin-top:6px;" /></div></div>';
     return out;
   }
+  function ollamaFieldsHTML() {
+    var c = ollamaCfg();
+    return '<div class="va-keys" style="margin-top:16px;">' +
+      '<p class="va-keys-h">Local AI <span style="font-size:11px;color:#57E39A;font-weight:700;letter-spacing:.04em;">FREE · OFFLINE</span></p>' +
+      '<p class="va-keys-note">Run Copy &amp; Email on your own machine with <b style="color:#ECEEF3;">Ollama</b> — no API cost, fully private. Install it from ollama.com, run <code style="color:#B6FF3D;">ollama pull llama3.1</code>, then switch this on. If it can’t reach Ollama it quietly falls back to the cloud.</p>' +
+      '<label class="va-field" style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="va-oll-on" ' + (c.on ? "checked" : "") + ' style="width:18px;height:18px;accent-color:#B6FF3D;"><span class="nm">Use local AI for Copy &amp; Email</span></label>' +
+      '<div class="va-field"><span class="nm">Model</span><input class="va-input" id="va-oll-model" type="text" autocomplete="off" spellcheck="false" placeholder="llama3.1" value="' + esc(c.model || "") + '" style="margin-top:6px;" /></div>' +
+      '<div class="va-field"><span class="nm">Ollama URL <span class="pw">· blank = localhost</span></span><input class="va-input" id="va-oll-url" type="text" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:11434" value="' + esc(c.url || "") + '" style="margin-top:6px;" /></div>' +
+      '</div>';
+  }
+  function saveOllama() {
+    var on = document.getElementById("va-oll-on"), m = document.getElementById("va-oll-model"), u = document.getElementById("va-oll-url");
+    try { localStorage.setItem("volt_ollama", JSON.stringify({ on: !!(on && on.checked), model: (m && m.value.trim()) || "", url: (u && u.value.trim()) || "" })); } catch (e) {}
+  }
   /* ---------- plan & usage (Phase C billing) ---------- */
   var BILL_API = "https://tshephos-lab.vercel.app/api/billing";
   function loadBilling() {
@@ -253,10 +294,12 @@
     m.innerHTML = '<div class="va-card"><p class="va-logo" style="font-size:22px;">Settings</p>' +
       '<p class="va-sub" style="margin-bottom:14px;">Signed in as <b style="color:#ECEEF3;">' + esc(session && session.user && session.user.email) + '</b></p>' +
       (isDesktop() ? keyFieldsHTML() + '<button class="va-btn va-primary" id="va-save" style="width:100%;margin-top:8px;">Save keys</button><div class="va-saved" id="va-saved"></div>' : '<p class="va-keys-note" style="margin:0 0 8px;">Keys are managed centrally on the web app.</p>') +
+      (isDesktop() ? ollamaFieldsHTML() : '') +
       '<div id="va-bill"></div>' +
       '<div class="va-row"><button class="va-btn va-ghost" id="va-signout">Sign out</button><button class="va-btn va-ghost" id="va-close" style="color:#888F9D;">Close</button></div></div>';
     document.body.appendChild(m);
     loadBilling();
+    ["va-oll-on", "va-oll-model", "va-oll-url"].forEach(function (id) { var el = document.getElementById(id); if (el) el.addEventListener("change", saveOllama); });
     m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
     var save = document.getElementById("va-save");
     if (save) save.addEventListener("click", function () {
