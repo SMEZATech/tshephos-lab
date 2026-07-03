@@ -263,7 +263,8 @@ Keep it warm and practical."></textarea>
         <span id="runlabel">Build email</span>
       </button>
       <span class="go-note">Header &amp; footer are fixed. Uses your Gemini key.</span>
-      <button class="mini" id="saveDraftBtn" style="margin-left:auto;">💾 Save draft</button>
+      <button class="mini" id="importBtn" style="margin-left:auto;" title="Paste HTML you built elsewhere (e.g. Gemini) — Volt cleans it back into the Outlook + Gmail-safe template">🧩 Paste HTML</button>
+      <button class="mini" id="saveDraftBtn">💾 Save draft</button>
       <button class="mini" id="draftsBtn">📁 Drafts</button>
     </div>
     <div id="draftStatus" class="kit-status"></div>
@@ -279,6 +280,22 @@ Keep it warm and practical."></textarea>
         <button class="mini" id="draftsClose">Close</button>
       </div>
       <div id="draftsList"></div>
+    </div>
+  </div>
+
+  <div id="importModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
+    <div style="width:100%; max-width:640px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:86vh; overflow:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <span class="lbl" style="margin:0;">🧩 Paste &amp; clean HTML</span>
+        <button class="mini" id="importClose">Close</button>
+      </div>
+      <p class="go-note" style="margin:0 0 12px;">Paste HTML you enhanced elsewhere (e.g. Gemini). Volt strips anything that breaks in Outlook &amp; Gmail and rebuilds it inside the protected template — your content stays, the structure gets made bulletproof.</p>
+      <textarea id="importHtml" rows="9" placeholder="Paste your full email HTML here…" style="width:100%; box-sizing:border-box; font-family:var(--fm); font-size:12.5px; line-height:1.5;"></textarea>
+      <div style="display:flex; gap:9px; align-items:center; margin-top:12px;">
+        <button class="btn" id="importClean" style="width:auto;">🧼 Clean &amp; rebuild</button>
+        <span class="kit-status" id="importStatus" style="margin:0;"></span>
+      </div>
+      <div id="importAudit" style="margin-top:14px;"></div>
     </div>
   </div>
 
@@ -568,7 +585,19 @@ function collectPromos(){
 // The export copy is always built with editable=false → clean, wrapper-free HTML.
 function assemble(bodyHtml, editable){
   const body = editable ? '<div class="volt-editable">' + bodyHtml + '</div>' : bodyHtml;
+  // Imported (pasted) HTML already carries its own header/footer — protect it as-is
+  // rather than re-adding Volt's branded shell (which would duplicate them).
+  if(state.imported) return protectiveWrap(body);
   return SHELL_TOP + '\n' + body + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
+}
+// Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
+// centred container with safe defaults. Used for pasted/imported HTML.
+function protectiveWrap(inner){
+  return '<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->\n'
+    + '<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width:600px;margin:0 auto;background-color:#ffffff;border-collapse:separate;">\n'
+    + '<tr><td style="padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;font-size:15px;line-height:1.6;word-break:break-word;">\n'
+    + inner + '\n</td></tr></table>\n'
+    + '<!--[if mso]></td></tr></table><![endif]-->';
 }
 
 function previewDoc(fragment){
@@ -805,6 +834,7 @@ async function run(){
     if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
     const bodyHtml = (data && data.emailBody) || '';
     if(!bodyHtml.trim()) throw new Error('The generator came back empty — try again or add more detail.');
+    state.imported = false;
     state.body = bodyHtml;
     renderPreview(bodyHtml);
   }catch(err){
@@ -828,7 +858,7 @@ function serializeDraft(){
   const fields={}; DRAFT_FIELDS.forEach(id=>{ const el=$('#'+id); if(el) fields[id]=el.value; });
   const promos={}; Object.keys(state.promos).forEach(k=>promos[k]=!!state.promos[k].on);
   const links=[...document.querySelectorAll('.linkrow')].map(r=>({ text:r.querySelector('.lk-text').value, url:r.querySelector('.lk-url').value }));
-  return { fields, promos, links, body: state.body };
+  return { fields, promos, links, body: state.body, imported: !!state.imported };
 }
 function restoreDraft(d){
   d=d||{};
@@ -837,7 +867,7 @@ function restoreDraft(d){
   if(d.promos) Object.keys(d.promos).forEach(k=>{ if(!state.promos[k]) return; state.promos[k].on=!!d.promos[k]; const box=document.getElementById('promo-'+k); if(box) box.classList.toggle('on', !!d.promos[k]); });
   document.querySelectorAll('.linkrow').forEach(r=>r.remove());
   if(d.links && d.links.length) d.links.forEach(l=>addLinkRow(l.text,l.url)); else addLinkRow();
-  if(d.body){ state.body=d.body; renderPreview(d.body); }
+  if(d.body){ state.imported = !!d.imported; state.body=d.body; renderPreview(d.body); }
 }
 async function saveDraft(){
   const title = ($('#subject') && $('#subject').value.trim()) || 'Newsletter draft';
@@ -887,6 +917,102 @@ async function deleteDraft(id){
   const dm=document.getElementById('draftsModal'); if(dm) dm.addEventListener('click', e=>{ if(e.target===dm) dm.style.display='none'; });
   const dl=document.getElementById('draftsList'); if(dl) dl.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadDraft(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteDraft(D.dataset.del); });
 }
+
+// ===== Paste & clean HTML — rebuild pasted HTML into the Outlook/Gmail-safe template =====
+(function(){
+  function mergeStyle(existing, add){
+    var have={}; (existing||'').split(';').forEach(function(d){ var i=d.indexOf(':'); if(i>0) have[d.slice(0,i).trim().toLowerCase()]=1; });
+    var extra=add.split(';').filter(Boolean).filter(function(d){ var i=d.indexOf(':'); return i>0 && !have[d.slice(0,i).trim().toLowerCase()]; });
+    return [ (existing||'').replace(/;\s*$/,''), extra.join(';') ].filter(Boolean).join(';');
+  }
+  var BAD=/^(position|float|flex|flex-.*|grid|grid-.*|gap|transform|transition|animation|animation-.*|filter|backdrop-filter|clip-path|overflow|overflow-.*|z-index|inset|top|left|right|bottom|cursor|pointer-events|user-select|content|will-change|columns|column-.*|-webkit-.*|-moz-.*|-ms-.*)$/;
+  function sanitizeStyle(style, onStrip){
+    var keep=[];
+    style.split(';').forEach(function(decl){
+      var i=decl.indexOf(':'); if(i<0) return;
+      var prop=decl.slice(0,i).trim().toLowerCase(), val=decl.slice(i+1).trim();
+      if(!prop||!val) return;
+      if(prop==='display'){ if(/^(block|inline|inline-block|none|table|table-cell|table-row|table-header-group)$/i.test(val)) keep.push('display:'+val); else onStrip(); return; }
+      if(BAD.test(prop)){ onStrip(); return; }
+      keep.push(prop+':'+val);
+    });
+    return keep.join(';');
+  }
+  function unwrapShell(bodyEl){
+    var node=bodyEl;
+    for(var i=0;i<4;i++){
+      var kids=[].slice.call(node.children).filter(function(c){ return c.tagName!=='STYLE' && c.tagName!=='SCRIPT'; });
+      if(kids.length===1 && /^(TABLE|TBODY|TR|TD|CENTER|DIV)$/.test(kids[0].tagName)) node=kids[0]; else break;
+    }
+    return node;
+  }
+  function cleanEmailHtml(raw){
+    var audit=[], counts={};
+    function add(m){ audit.push(m); }
+    var doc; try{ doc=new DOMParser().parseFromString(raw,'text/html'); }catch(e){ return {ok:false, audit:['Could not read that HTML.']}; }
+    var root=doc.body||doc.documentElement;
+    var KILL=['script','style','link','iframe','object','embed','form','input','select','textarea','meta','base','title','noscript'];
+    KILL.forEach(function(t){ var els=root.querySelectorAll(t); if(els.length){ counts[t]=els.length; [].forEach.call(els,function(el){ el.parentNode && el.parentNode.removeChild(el); }); } });
+    var stripCss=0, fixImg=0, dataUri=0, fixTable=0, fixLink=0, onH=0;
+    [].forEach.call(root.querySelectorAll('*'),function(el){
+      [].slice.call(el.attributes).forEach(function(a){
+        var n=a.name.toLowerCase();
+        if(n.indexOf('on')===0){ el.removeAttribute(a.name); onH++; }
+        else if(n==='class'||n==='id') el.removeAttribute(a.name);
+      });
+      if(el.hasAttribute('style')){
+        var c=sanitizeStyle(el.getAttribute('style'), function(){ stripCss++; });
+        if(c) el.setAttribute('style',c); else el.removeAttribute('style');
+      }
+      var tag=el.tagName.toLowerCase();
+      if(tag==='img'){ el.setAttribute('style', mergeStyle(el.getAttribute('style')||'', 'display:block;max-width:100%;height:auto;border:0;')); el.setAttribute('border','0'); if(/^data:/i.test(el.getAttribute('src')||'')) dataUri++; fixImg++; }
+      else if(tag==='a'){ el.setAttribute('target','_blank'); if(/^javascript:/i.test(el.getAttribute('href')||'')) el.setAttribute('href','#'); fixLink++; }
+      else if(tag==='table'){ if(!el.getAttribute('role')) el.setAttribute('role','presentation'); el.setAttribute('border','0'); el.setAttribute('cellspacing','0'); el.setAttribute('cellpadding','0'); fixTable++; }
+    });
+    var content=unwrapShell(root).innerHTML.trim();
+    if(!content) return {ok:false, audit:['Nothing usable was found in that HTML.']};
+    if(counts.script) add('Removed '+counts.script+' script'+(counts.script>1?'s':'')+' — email clients block scripts.');
+    if(counts.style) add('Removed '+counts.style+' &lt;style&gt; block'+(counts.style>1?'s':'')+' — Gmail strips head styles, so styling must be inline.');
+    if(counts.link) add('Removed external stylesheet/font link'+(counts.link>1?'s':'')+' — blocked by clients; sticking to web-safe fonts.');
+    ['iframe','object','embed','form','input','select','textarea'].forEach(function(t){ if(counts[t]) add('Removed '+counts[t]+' '+t+' element'+(counts[t]>1?'s':'')+' — not supported in email.'); });
+    if(onH) add('Stripped '+onH+' inline event handler'+(onH>1?'s':'')+' (onclick, etc.).');
+    if(stripCss) add('Removed '+stripCss+' unsupported CSS propert'+(stripCss>1?'ies':'y')+' (flex, grid, position, transform, overflow…) that break in Outlook.');
+    if(fixImg) add('Made '+fixImg+' image'+(fixImg>1?'s':'')+' email-safe (block display, responsive, no border).');
+    if(fixTable) add('Normalized '+fixTable+' table'+(fixTable>1?'s':'')+' (role=presentation, zeroed borders &amp; spacing).');
+    if(fixLink) add('Set '+fixLink+' link'+(fixLink>1?'s':'')+' to open in a new tab.');
+    if(dataUri) add('WARN|'+dataUri+' image'+(dataUri>1?'s are':' is')+' embedded as base64 data — Gmail &amp; Outlook block these. Upload them (image button) and use the hosted URL.');
+    add('OK|Rebuilt inside Volt\'s Outlook + Gmail-safe container.');
+    return {ok:true, audit:audit, html:content};
+  }
+  function renderAudit(list){
+    var box=document.getElementById('importAudit'); if(!box) return;
+    if(!list||!list.length){ box.innerHTML=''; return; }
+    box.innerHTML='<div class="lbl" style="margin:0 0 8px;">Compatibility report</div>'+list.map(function(m){
+      var cls='info', txt=m;
+      if(m.indexOf('WARN|')===0){ cls='warn'; txt=m.slice(5); } else if(m.indexOf('OK|')===0){ cls='ok'; txt=m.slice(3); }
+      var col=cls==='warn'?'#FFC857':(cls==='ok'?'#57E39A':'#888F9D'), ic=cls==='warn'?'⚠':(cls==='ok'?'✓':'•');
+      return '<div style="display:flex; gap:9px; font-size:13px; line-height:1.5; padding:5px 0; color:#ECEEF3;"><span style="color:'+col+'; flex:none;">'+ic+'</span><span>'+txt+'</span></div>';
+    }).join('');
+  }
+  function setImportStatus(msg,kind){ var s=document.getElementById('importStatus'); if(s){ s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); } }
+  function openImport(){ var m=document.getElementById('importModal'); if(m){ m.style.display='flex'; var ta=document.getElementById('importHtml'); if(ta) setTimeout(function(){ ta.focus(); },30); } }
+  function closeImport(){ var m=document.getElementById('importModal'); if(m) m.style.display='none'; }
+  function runClean(){
+    var raw=((document.getElementById('importHtml')||{}).value||'').trim();
+    if(!raw){ setImportStatus('Paste some HTML first.','err'); return; }
+    setImportStatus('Cleaning…','busy');
+    var res; try{ res=cleanEmailHtml(raw); }catch(e){ setImportStatus('Could not process that HTML.','err'); return; }
+    if(!res.ok){ setImportStatus((res.audit&&res.audit[0])||'Nothing usable found.','err'); renderAudit([]); return; }
+    state.imported=true;
+    renderPreview(res.html); // wraps in the protective shell + updates lastFragment (Copy/Kit use it)
+    renderAudit(res.audit);
+    setImportStatus('✅ Cleaned & rebuilt — the preview + Copy HTML / Send to Kit now use the safe version.','ok');
+  }
+  var ib=document.getElementById('importBtn'); if(ib) ib.addEventListener('click', openImport);
+  var icE=document.getElementById('importClose'); if(icE) icE.addEventListener('click', closeImport);
+  var im=document.getElementById('importModal'); if(im) im.addEventListener('click', function(e){ if(e.target===im) closeImport(); });
+  var icl=document.getElementById('importClean'); if(icl) icl.addEventListener('click', runClean);
+})();
 
 renderPreview(SAMPLE_BODY);
 </script>
