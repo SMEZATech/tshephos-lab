@@ -130,9 +130,15 @@
   .cap-ed-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
   .cap-ed-hint{display:block; font-size:12px; color:var(--faint); margin-top:5px;}
   .cap-ed-count{font-family:var(--fm); font-size:11px; letter-spacing:.06em; color:var(--dim); border:1px solid var(--border); border-radius:100px; padding:5px 11px; white-space:nowrap;}
-  .filmstrip{display:flex; gap:2px; height:44px; margin:10px 0 4px; border-radius:8px; overflow:hidden; background:#0a0b0f; border:1px solid var(--border);}
+  .filmwrap{position:relative; margin:10px 0 4px; display:none;}
+  .filmstrip{display:flex; gap:2px; height:46px; border-radius:8px; overflow:hidden; background:#0a0b0f; border:1px solid var(--border);}
   .film-thumb{flex:1 1 0; min-width:0; background-size:cover; background-position:center; background-repeat:no-repeat;}
   .filmstrip.busy{opacity:.5;}
+  .filmtrim{position:absolute; inset:0; pointer-events:none;}
+  .ft-dim{position:absolute; top:0; bottom:0; background:rgba(10,11,15,.62);}
+  .ft-region{position:absolute; top:0; bottom:0; border:2px solid var(--accent); border-radius:8px; box-sizing:border-box;}
+  .ft-handle{position:absolute; top:0; bottom:0; width:16px; margin-left:-8px; cursor:ew-resize; pointer-events:auto; display:flex; align-items:center; justify-content:center; touch-action:none;}
+  .ft-handle::before{content:""; width:4px; height:58%; border-radius:3px; background:var(--accent); box-shadow:0 0 0 3px rgba(10,11,15,.55);}
   #capList{max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; padding-right:6px;}
   #capList::-webkit-scrollbar{width:8px;} #capList::-webkit-scrollbar-thumb{background:var(--border-2); border-radius:8px;}
   .caprow{display:flex; align-items:center; gap:11px; background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:8px 10px; transition:border-color .14s, background .14s; cursor:pointer;}
@@ -203,7 +209,16 @@
       <div class="blk" id="trimBlk" style="opacity:.4; pointer-events:none;">
         <label class="lbl"><span class="num">2</span>Trim</label>
         <div class="trim-read" id="trimRead">Load a clip to set the trim.</div>
-        <div class="filmstrip" id="filmstrip" style="display:none;"></div>
+        <div class="filmwrap" id="filmwrap">
+          <div class="filmstrip" id="filmstrip"></div>
+          <div class="filmtrim" id="filmtrim">
+            <div class="ft-dim" id="ft-diml"></div>
+            <div class="ft-dim" id="ft-dimr"></div>
+            <div class="ft-region" id="ft-region"></div>
+            <div class="ft-handle" id="ft-hl" data-h="start" title="Drag to set the start"></div>
+            <div class="ft-handle" id="ft-hr" data-h="end" title="Drag to set the end"></div>
+          </div>
+        </div>
         <div class="rangepair">
           <label>Start <span id="startLbl">0:00</span></label>
           <input type="range" id="trimStart" min="0" max="100" value="0" step="0.1" />
@@ -573,6 +588,7 @@ function updateTrimRead(){
   $('#startLbl').textContent = fmtTime(state.trimStart);
   $('#endLbl').textContent = fmtTime(state.trimEnd);
   $('#trimRead').innerHTML = `<b>${fmtTime(state.trimStart)}</b> → <b>${fmtTime(state.trimEnd)}</b> &nbsp;·&nbsp; ${clipDur().toFixed(1)}s clip`;
+  syncTrimUI();
 }
 $('#trimStart').addEventListener('input', e => {
   let v = parseFloat(e.target.value);
@@ -1338,7 +1354,8 @@ $('#srtBtn').onclick = () => {
 // Uses a SEPARATE detached video element so it never fights the live preview.
 async function buildFilmstrip(src){
   const strip = $('#filmstrip'); if(!strip || !src) return;
-  strip.style.display='flex'; strip.classList.add('busy'); strip.innerHTML='';
+  const wrap = $('#filmwrap'); if(wrap) wrap.style.display='block';
+  strip.classList.add('busy'); strip.innerHTML='';
   let v;
   try{
     v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.src = src;
@@ -1356,9 +1373,40 @@ async function buildFilmstrip(src){
       cell.style.backgroundImage = 'url(' + tc.toDataURL('image/jpeg', 0.62) + ')';
       strip.appendChild(cell);
     }
-  }catch(e){ strip.style.display='none'; }
+    syncTrimUI();
+  }catch(e){ if(wrap) wrap.style.display='none'; }
   finally{ strip.classList.remove('busy'); if(v){ try{ v.removeAttribute('src'); v.load(); }catch(e){} } }
 }
+
+// ---- drag-to-trim on the filmstrip (the sliders still work as a fallback) ----
+function trimFrac(){ var d=state.duration||1; return { a:Math.max(0,Math.min(1,(state.trimStart||0)/d)), b:Math.max(0,Math.min(1,(state.trimEnd||d)/d)) }; }
+function syncTrimUI(){
+  var wrap=$('#filmwrap'); if(!wrap || wrap.style.display==='none') return;
+  var f=trimFrac(), a=f.a*100, b=f.b*100;
+  var dl=$('#ft-diml'), dr=$('#ft-dimr'), reg=$('#ft-region'), hl=$('#ft-hl'), hr=$('#ft-hr');
+  if(dl){ dl.style.left='0'; dl.style.width=a+'%'; }
+  if(dr){ dr.style.right='0'; dr.style.width=(100-b)+'%'; }
+  if(reg){ reg.style.left=a+'%'; reg.style.width=Math.max(0,b-a)+'%'; }
+  if(hl) hl.style.left=a+'%';
+  if(hr) hr.style.left=b+'%';
+}
+(function(){
+  var dragging=null;
+  function xToFrac(cx){ var r=$('#filmstrip').getBoundingClientRect(); return Math.max(0,Math.min(1,(cx-r.left)/Math.max(1,r.width))); }
+  function onMove(e){
+    if(!dragging || !state.loaded) return;
+    var cx = e.touches ? e.touches[0].clientX : e.clientX;
+    var tsec = xToFrac(cx) * (state.duration||0), gap=1;
+    if(dragging==='start'){ tsec=Math.max(0, Math.min(tsec, (state.trimEnd||0)-gap)); state.trimStart=tsec; var ts=$('#trimStart'); if(ts) ts.value=tsec; }
+    else { tsec=Math.min(state.duration||0, Math.max(tsec, (state.trimStart||0)+gap)); state.trimEnd=tsec; var te=$('#trimEnd'); if(te) te.value=tsec; }
+    updateTrimRead();
+  }
+  function onUp(){ if(!dragging) return; dragging=null; clearCaptions(); restart(); document.removeEventListener('pointermove',onMove); document.removeEventListener('pointerup',onUp); }
+  ['ft-hl','ft-hr'].forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    el.addEventListener('pointerdown', function(e){ if(!state.loaded) return; e.preventDefault(); dragging=el.getAttribute('data-h'); document.addEventListener('pointermove',onMove); document.addEventListener('pointerup',onUp); });
+  });
+})();
 
 // ---- filler-word removal (cleans the caption text; regenerate captions to undo) ----
 const FILLERS = new Set(['um','umm','uhm','uh','uhh','er','erm','err','ah','ahh','hmm','mm','mmm','eh']);
