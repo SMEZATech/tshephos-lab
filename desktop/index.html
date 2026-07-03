@@ -201,6 +201,15 @@ let _id = 0;
 const state = { offer:'', audience:'', platform:'Meta', variations:[], loading:false, moreFor:null };
 
 const $ = s => document.querySelector(s);
+// Read the active brand's voice (set in Studio → Brand Kit) so copy sounds on-brand.
+function activeBrandVoice(){
+  try{
+    const arr = JSON.parse(localStorage.getItem('volt_brands_v1')||'[]');
+    const id = localStorage.getItem('volt_active_brand');
+    const b = (Array.isArray(arr) && (arr.find(x=>x&&x.id===id) || arr[0])) || null;
+    return (b && b.voice) ? String(b.voice).slice(0,600) : '';
+  }catch(e){ return ''; }
+}
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const overall = sc => Math.round(((sc.hook+sc.clarity+sc.urgency)/3)*10)/10;
 const tier = v => v>=8 ? 'good' : v>=6 ? 'mid' : 'low';
@@ -237,7 +246,7 @@ async function run(winnerAngle){
   elGenLabel.textContent = 'Writing & scoring…';
   const svg = elGen.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner" style="border-color:rgba(10,11,15,.35);border-top-color:#0A0B0F"></span>';
   try{
-    const data = await callApi({ offer:state.offer, audience:state.audience, platform:state.platform, count:5, winnerAngle });
+    const data = await callApi({ offer:state.offer, audience:state.audience, platform:state.platform, count:5, winnerAngle, brandVoice:activeBrandVoice() });
     state.variations = rank(data.variations.map(v => ({...v, _id:++_id})));
   }catch(err){ showErr(err.message); }
   finally{
@@ -252,7 +261,7 @@ async function moreLikeThis(v){
   if(state.loading || state.moreFor) return;
   state.moreFor = v._id; syncGen(); hideErr(); render();
   try{
-    const data = await callApi({ offer:state.offer, audience:state.audience, platform:state.platform, count:3, winnerAngle:`${v.framework}: ${v.headline}` });
+    const data = await callApi({ offer:state.offer, audience:state.audience, platform:state.platform, count:3, winnerAngle:`${v.framework}: ${v.headline}`, brandVoice:activeBrandVoice() });
     state.variations = rank([...state.variations, ...data.variations.map(x => ({...x, _id:++_id}))]).slice(0,12);
   }catch(err){ showErr(err.message); }
   finally{ state.moreFor = null; syncGen(); render(); }

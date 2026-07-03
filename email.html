@@ -815,6 +815,15 @@ function downloadHtml(){
 function showErr(msg){ elErr.hidden = false; elErr.innerHTML = '<b>Hmm —</b> ' + esc(msg); }
 function hideErr(){ elErr.hidden = true; }
 
+// Read the active brand's voice (set in Studio → Brand Kit) so the newsletter sounds on-brand.
+function activeBrandVoice(){
+  try{
+    const arr = JSON.parse(localStorage.getItem('volt_brands_v1')||'[]');
+    const id = localStorage.getItem('volt_active_brand');
+    const b = (Array.isArray(arr) && (arr.find(x=>x&&x.id===id) || arr[0])) || null;
+    return (b && b.voice) ? String(b.voice).slice(0,600) : '';
+  }catch(e){ return ''; }
+}
 async function run(){
   if(state.loading) return;
   if(!state.brief.trim() || state.brief.trim().length < 12){ showErr('Add a bit more detail about the content first.'); return; }
@@ -829,7 +838,7 @@ async function run(){
       fullBrief += '\n\nLINKS YOU MAY USE (anchor text → URL — use ONLY these, woven in as in-text links or a Related Reading box where they fit):\n'
         + links.map(l => '- "' + l.text + '" → ' + l.url).join('\n');
     }
-    const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'email', brief: fullBrief }) });
+    const r = await fetch('/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'email', brief: fullBrief, brandVoice: activeBrandVoice() }) });
     let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the generator — check your connection and try again.'); }
     if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
     const bodyHtml = (data && data.emailBody) || '';

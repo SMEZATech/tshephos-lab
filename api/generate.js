@@ -352,6 +352,12 @@ export default async function handler(req, res) {
 
     const task = String(body.task || "copy").toLowerCase();
 
+    // Optional brand voice (from Studio → Brand Kit). Embodied in copy + email prompts.
+    const brandVoice = String(body.brandVoice || "").slice(0, 800).trim();
+    const voiceNote = brandVoice
+      ? "\n\nBRAND VOICE — write ALL copy in exactly this voice and tone (embody it, don't describe it): " + brandVoice
+      : "";
+
     // ---- Profile Audit ----
     if (task === "audit") {
       const { platform, handle, bio, captions, goal } = body;
@@ -447,7 +453,7 @@ export default async function handler(req, res) {
     if (task === "email") {
       const { brief } = body;
       if (!brief || !String(brief).trim()) return res.status(400).json({ error: "Missing brief" });
-      const text = await callProvider(buildEmailPrompt({ brief }), { system: SYSTEM_EMAIL, json: false, temperature: 0.7, maxTokens: 3000 });
+      const text = await callProvider(buildEmailPrompt({ brief }) + voiceNote, { system: SYSTEM_EMAIL, json: false, temperature: 0.7, maxTokens: 3000 });
       let html = String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim();
       if (!html) return res.status(502).json({ error: "Model returned an empty body — try again." });
       return res.status(200).json({ emailBody: html });
@@ -525,7 +531,7 @@ export default async function handler(req, res) {
     const { offer, audience, platform, count = 5, winnerAngle } = body;
     if (!offer || !String(offer).trim()) return res.status(400).json({ error: "Missing offer" });
 
-    const prompt = buildPrompt({ offer, audience, platform, count, winnerAngle });
+    const prompt = buildPrompt({ offer, audience, platform, count, winnerAngle }) + voiceNote;
     const text = await callProvider(prompt);
 
     const parsed = safeParse(text);
