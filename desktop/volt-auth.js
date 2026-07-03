@@ -52,8 +52,13 @@
 
   /* ---------- styles ---------- */
   var CSS = '' +
-    '#va-gate,#va-modal,#va-reset{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,7,10,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
-    '#va-modal,#va-reset{z-index:100001;}' +
+    '#va-gate,#va-modal,#va-reset,#va-welcome{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,7,10,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
+    '#va-modal,#va-reset,#va-welcome{z-index:100001;}' +
+    '.va-tips{display:flex;flex-direction:column;gap:14px;margin:2px 0 6px;}' +
+    '.va-tip{display:flex;gap:13px;align-items:flex-start;}' +
+    '.va-tip-i{width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:10px;background:#0D0F15;border:1px solid rgba(255,255,255,.1);color:#B6FF3D;font-family:"JetBrains Mono",monospace;font-size:14px;font-weight:700;}' +
+    '.va-tip-h{font-weight:700;font-size:14.5px;color:#ECEEF3;}' +
+    '.va-tip-s{font-size:12.5px;color:#888F9D;line-height:1.45;}' +
     '.va-forgot{display:block;width:100%;margin-top:12px;background:none;border:none;color:#7FC8FF;font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.03em;cursor:pointer;text-align:center;}' +
     '.va-forgot:hover{color:#B6FF3D;text-decoration:underline;}' +
     '.va-card{width:100%;max-width:430px;background:linear-gradient(180deg,#14171F,#0f1218);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:30px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9);color:#ECEEF3;}' +
@@ -289,6 +294,25 @@
   // Pages can add their own commands: window.voltRegisterCommand({title, sub, emoji, run})
   window.voltRegisterCommand = function (c) { (window.__voltCmds = window.__voltCmds || []).push(c); };
 
+  // Actions for the current tool — detected by which buttons exist + are enabled on this page.
+  function pageCommands() {
+    var page = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+    var defs = {
+      "": [["gen", "Generate ad angles", "✨"], ["saveDraftBtn", "Save this brief", "💾"]],
+      "index.html": [["gen", "Generate ad angles", "✨"], ["saveDraftBtn", "Save this brief", "💾"]],
+      "audit.html": [["run", "Run the audit", "🔍"]],
+      "analytics.html": [["run", "Analyze performance", "📊"]],
+      "email.html": [["run", "Build the email", "✉️"], ["kitBtn", "Send to Kit", "📤"], ["saveDraftBtn", "Save draft", "💾"]],
+      "video.html": [["capBtn", "Generate captions", "💬"], ["exportBtn", "Export the short", "⬇️"], ["hlBtn", "Find best moments", "✂️"]],
+      "studio.html": [["btn-download", "Download HD PNG", "🖼️"], ["btn-download-zip", "Export all 6 slides (ZIP)", "🗂️"]]
+    };
+    var list = defs[page] || [], out = [];
+    list.forEach(function (a) {
+      var el = document.getElementById(a[0]);
+      if (el && !el.disabled) out.push({ title: a[1], sub: "This tool", emoji: a[2], run: function () { var b = document.getElementById(a[0]); if (b) b.click(); } });
+    });
+    return out;
+  }
   function baseCommands() {
     var tools = [
       { t: "Copy Lab", s: "Write ranked ad angles", e: "✍️", href: "index.html" },
@@ -305,7 +329,7 @@
     cmds.push({ title: "Settings & API keys", sub: "Manage your account", emoji: "⚙️", run: showSettings });
     cmds.push({ title: "Check for updates", sub: "Reload the latest version", emoji: "↻", run: function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); } });
     cmds.push({ title: "Sign out", sub: "", emoji: "🚪", run: function () { if (sb) sb.auth.signOut(); } });
-    return (window.__voltCmds || []).concat(cmds);
+    return pageCommands().concat(window.__voltCmds || []).concat(cmds);
   }
   function vkScore(q, s) {
     s = s.toLowerCase(); q = (q || "").trim().toLowerCase();
@@ -396,12 +420,38 @@
     else window.addEventListener("load", function () { setTimeout(restoreAutosave, 250); });
   }
 
+  /* ---------- first-run onboarding (shows once) ---------- */
+  function vaTip(icon, h, s) { return '<div class="va-tip"><span class="va-tip-i">' + icon + '</span><div><div class="va-tip-h">' + h + '</div><div class="va-tip-s">' + s + '</div></div></div>'; }
+  function maybeOnboard() {
+    var done; try { done = localStorage.getItem("volt_onboarded_v1"); } catch (e) {}
+    if (done) return;
+    if (document.getElementById("va-welcome")) return;
+    injectCSS();
+    var m = document.createElement("div"); m.id = "va-welcome";
+    m.innerHTML = '<div class="va-card">' +
+      '<p class="va-logo">Volt<span class="d">.</span></p>' +
+      '<p class="va-sub" style="margin-bottom:18px;">Welcome, ' + esc(firstName(session && session.user && session.user.email)) + '. Your AI marketing suite — copy, graphics, video, email and the numbers, all in one place.</p>' +
+      '<div class="va-tips">' +
+        vaTip("🎨", "Set your brand once", "Do it in Studio — every tool then uses your colours, logo and voice.") +
+        vaTip(isMac() ? "⌘" : "^K", "Jump anywhere, instantly", "Press " + (isMac() ? "⌘K" : "Ctrl K") + " from any tool to switch or run an action.") +
+        vaTip("💾", "Never lose your work", "Everything you type autosaves — reload and it's still there.") +
+      '</div>' +
+      '<div class="va-row"><button class="va-btn va-primary" id="va-welcome-go">Start creating</button></div>' +
+    '</div>';
+    document.body.appendChild(m);
+    document.getElementById("va-welcome-go").addEventListener("click", function () {
+      try { localStorage.setItem("volt_onboarded_v1", "1"); } catch (e) {}
+      m.remove();
+    });
+  }
+
   function showApp() {
     var g = document.getElementById("va-gate"); if (g) g.remove();
     document.documentElement.style.overflow = "";
     showBadge();
     initCmdK();
     initAutosave();
+    maybeOnboard();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
     window.voltSession = session;
     try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}
