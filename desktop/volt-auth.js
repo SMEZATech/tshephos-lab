@@ -353,11 +353,55 @@
     });
   }
 
+  /* ---------- universal autosave — never lose typed work ---------- */
+  function autosaveKey() { return "volt_autosave_" + (location.pathname.split("/").pop() || "index").toLowerCase(); }
+  function autosaveFields() {
+    return [].slice.call(document.querySelectorAll("input[id],textarea[id],select[id]")).filter(function (el) {
+      if (/^(va-|vk-)/.test(el.id)) return false;
+      if (el.hasAttribute("data-no-save")) return false;
+      if (el.tagName === "INPUT") {
+        var t = (el.type || "text").toLowerCase();
+        if (["password", "file", "range", "color", "checkbox", "radio", "button", "submit", "reset", "hidden"].indexOf(t) >= 0) return false;
+      }
+      return true;
+    });
+  }
+  var autosaveT, autosaveOn = false;
+  function saveAutosave() {
+    var m = {}; autosaveFields().forEach(function (el) { if (el.value) m[el.id] = el.value; });
+    try { if (Object.keys(m).length) localStorage.setItem(autosaveKey(), JSON.stringify({ t: Date.now(), m: m })); else localStorage.removeItem(autosaveKey()); } catch (e) {}
+  }
+  function restoreAutosave() {
+    var raw; try { raw = localStorage.getItem(autosaveKey()); } catch (e) { return; }
+    if (!raw) return; var data; try { data = JSON.parse(raw); } catch (e) { return; }
+    if (!data || !data.m) return; var n = 0;
+    // Only fill fields that are currently EMPTY — never clobber a tool's defaults or a hand-off.
+    autosaveFields().forEach(function (el) {
+      var val = data.m[el.id];
+      if (val != null && val !== "" && !el.value) {
+        el.value = val;
+        try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
+        n++;
+      }
+    });
+    if (n) showToast("↩ Restored your unsaved edits");
+  }
+  function initAutosave() {
+    if (autosaveOn) return; autosaveOn = true;
+    document.addEventListener("input", function (e) {
+      var el = e.target; if (!el || !el.id || /^(va-|vk-)/.test(el.id)) return;
+      clearTimeout(autosaveT); autosaveT = setTimeout(saveAutosave, 600);
+    }, true);
+    if (document.readyState === "complete") setTimeout(restoreAutosave, 250);
+    else window.addEventListener("load", function () { setTimeout(restoreAutosave, 250); });
+  }
+
   function showApp() {
     var g = document.getElementById("va-gate"); if (g) g.remove();
     document.documentElement.style.overflow = "";
     showBadge();
     initCmdK();
+    initAutosave();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
     window.voltSession = session;
     try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}

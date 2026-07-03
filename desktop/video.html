@@ -1702,9 +1702,27 @@ async function deleteLook(id){
   const ll=$('#looksList'); if(ll) ll.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadLook(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteLook(D.dataset.del); });
 }
 
+// === Copy Lab → Video handoff: pre-load the angle's headline as the hook overlay ===
+function applyCopyHandoff(){
+  let raw; try{ raw = sessionStorage.getItem('tl_handoff_video'); }catch(e){ return; }
+  if(!raw) return;
+  let h; try{ h = JSON.parse(raw); }catch(e){ return; }
+  try{ sessionStorage.removeItem('tl_handoff_video'); }catch(e){}
+  if(!h || !h.hook) return;
+  const hk = $('#hookText'); if(hk) hk.value = String(h.hook).trim();
+  state.hookOn = true;
+  const row = $('#tog-hook'); if(row) row.classList.add('on');
+  const f = $('#f-hook'); if(f) f.classList.add('show');
+  const map = { meta:'Instagram', tiktok:'TikTok', linkedin:'LinkedIn', google:'LinkedIn' };
+  const pp = map[String(h.platform||'').toLowerCase()];
+  if(pp){ state.postPlatform = pp; document.querySelectorAll('#pcPlatSeg button').forEach(b=>b.classList.toggle('on', b.dataset.pp===pp)); }
+  setStatus('✨ Hook loaded from Copy Lab — upload your clip and the hook is ready to go.');
+}
+
 // init
 refreshBrand();
 setFormat('9x16');
+applyCopyHandoff();
 </script>
 
 <div id="looksModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">

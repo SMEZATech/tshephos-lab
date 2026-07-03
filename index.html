@@ -194,6 +194,7 @@ const ICON = {
   check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
   wand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>',
   studio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><circle cx="12" cy="12" r="10"/></svg>',
+  film:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.55-2.27A1 1 0 0 1 21 8.62v6.76a1 1 0 0 1-1.45.89L15 14M5 18h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/></svg>',
 };
 const COLORS = { good:'#57E39A', mid:'#FFC857', low:'#FF7C7C' };
 let _id = 0;
@@ -274,6 +275,13 @@ function sendToStudio(v){
   }catch(e){}
   window.location.href = 'studio.html';
 }
+function sendToVideo(v){
+  logUsedCopy(v);
+  try{
+    sessionStorage.setItem('tl_handoff_video', JSON.stringify({ hook: v.headline, platform: state.platform }));
+  }catch(e){}
+  window.location.href = 'video.html';
+}
 
 const warnSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
 function showErr(msg){
@@ -312,6 +320,7 @@ function cardHtml(v, i){
       <button class="mini copy" data-id="${v._id}">${ICON.copy} Copy</button>
       ${moreBtn}
       <button class="mini go-studio studio" data-id="${v._id}">${ICON.studio} Design in Studio →</button>
+      <button class="mini go-studio video" data-id="${v._id}">${ICON.film} Make a video →</button>
     </div>
   </article>`;
 }
@@ -343,6 +352,12 @@ elRes.addEventListener('click', e => {
   if(studioBtn){
     const v = state.variations.find(x=>x._id==studioBtn.dataset.id);
     if(v) sendToStudio(v);
+    return;
+  }
+  const videoBtn = e.target.closest('.video');
+  if(videoBtn){
+    const v = state.variations.find(x=>x._id==videoBtn.dataset.id);
+    if(v) sendToVideo(v);
     return;
   }
   const moreBtn = e.target.closest('.more');
