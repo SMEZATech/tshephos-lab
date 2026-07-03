@@ -203,6 +203,13 @@
       <div class="blk">
         <label class="lbl"><span class="num">1</span>Upload clip</label>
         <input type="file" id="videoFile" accept="video/*" />
+        <div id="urlImport" style="display:none; margin-top:10px;">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="clipUrl" placeholder="…or paste a video link" style="flex:1;" />
+            <button class="mini" id="clipFetch">Import</button>
+          </div>
+          <p class="note" id="clipStatus" style="margin-top:5px;">Pulls the clip in so you can edit it. Use content you own or have the rights to.</p>
+        </div>
         <p class="note" id="vidInfo" style="margin-top:8px; display:none;"></p>
       </div>
 
@@ -546,7 +553,11 @@ function setLook(l){
 // ---- file inputs ----
 $('#videoFile').addEventListener('change', e => {
   const file = e.target.files[0]; if(!file) return;
-  videoEl.src = URL.createObjectURL(file);
+  loadVideoSrc(URL.createObjectURL(file));
+});
+// Load a clip from any object/blob URL (used by file upload AND link import).
+function loadVideoSrc(src){
+  videoEl.src = src;
   videoEl.muted = true; // muted until export, so preview doesn't autoblast
   videoEl.addEventListener('loadedmetadata', () => {
     state.duration = videoEl.duration || 0;
@@ -574,6 +585,25 @@ $('#videoFile').addEventListener('change', e => {
     clearCaptions();
     t=0; mainPlaying=false; state.playing=true; videoEl.currentTime=0;
   }, { once:true });
+}
+
+// Import a clip from a URL via the desktop's bundled yt-dlp (dormant until yt-dlp is added).
+function setClipStatus(msg){ const s=$('#clipStatus'); if(s) s.textContent = msg; }
+if(window.voltNative && typeof window.voltNative.fetchClip === 'function'){ const ui=$('#urlImport'); if(ui) ui.style.display='block'; }
+$('#clipFetch') && $('#clipFetch').addEventListener('click', async () => {
+  const url = ($('#clipUrl').value||'').trim();
+  if(!url){ setClipStatus('Paste a video link first.'); return; }
+  if(!(window.voltNative && typeof window.voltNative.fetchClip === 'function')){ setClipStatus('Link import is available in the desktop app.'); return; }
+  const btn = $('#clipFetch'); btn.disabled = true; setClipStatus('Downloading… this can take a moment for long videos.');
+  try{
+    const res = await window.voltNative.fetchClip(url);
+    if(res && res.unavailable){ setClipStatus('Add yt-dlp to enable link import (see the yt-dlp/README in the app folder).'); return; }
+    if(!res || !res.ok){ setClipStatus((res && res.error) || 'Could not download that link.'); return; }
+    const blob = new Blob([res.bytes], { type:'video/mp4' });
+    loadVideoSrc(URL.createObjectURL(blob));
+    setClipStatus('Loaded ✓ — trim to the moment below.');
+  }catch(e){ setClipStatus('Import failed — try a different link.'); }
+  finally{ btn.disabled = false; }
 });
 
 $('#musicFile').addEventListener('change', e => {
