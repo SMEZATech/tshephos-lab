@@ -88,15 +88,16 @@ async function blocked(req, res, { methods = "POST, OPTIONS", method = "POST", i
   const rl = await rateLimit(req, { id, limit, windowSec });
   res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
   if (!rl.ok) { res.status(429).json({ error: "Too many requests — please slow down and try again in a minute." }); return true; }
-  // Auth: require a real Supabase session when configured (the v2 model). Falls back to the
-  // legacy app-key if Supabase env isn't set — so removing SUPABASE_SERVICE_KEY rolls back instantly.
-  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
-    const s = await requireSession(req);
-    if (s.error) { res.status(401).json({ error: "Please sign in to continue.", code: s.error }); return true; }
-    req.volt = { user: s.user, orgId: s.orgId };
-    return false;
+  // Auth is a real Supabase session, full stop. If the Supabase env is missing we FAIL CLOSED
+  // (503) rather than silently reverting to the old public app-key path (which was fully open
+  // when APP_KEY was also unset). The legacy app-key branch is retired.
+  if (!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)) {
+    res.status(503).json({ error: "Auth isn't configured on the server.", code: "AUTH_NOT_CONFIGURED" });
+    return true;
   }
-  if (!appKeyOk(req)) { res.status(401).json({ error: "Unauthorized" }); return true; }
+  const s = await requireSession(req);
+  if (s.error) { res.status(401).json({ error: "Please sign in to continue.", code: s.error }); return true; }
+  req.volt = { user: s.user, orgId: s.orgId };
   return false;
 }
 

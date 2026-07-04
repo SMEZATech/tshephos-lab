@@ -4,6 +4,9 @@
   "description": "Tshepho's Lab — an ad creative engine that writes and scores ad angles. © Tshepho Joel.",
   "private": true,
   "type": "module",
+  "scripts": {
+    "smoke": "node smoke.cjs"
+  },
   "engines": {
     "node": ">=18"
   }
