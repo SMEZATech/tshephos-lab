@@ -261,7 +261,7 @@ const METRICS = [
 
 // App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
 const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
-const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'manual', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'' };
+const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'live', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'' };
 METRICS.forEach(m => state.metrics[m.key] = { this:'', prev:'' });
 
 const $ = s => document.querySelector(s);
@@ -316,6 +316,10 @@ function switchMode(m){
   if(m === 'live') fetchChannels(false);
   syncRun();
 }
+// Auto re-pull when the channel or period changes, and auto-load Live on open (Postiz-first).
+['liveChannel','liveDays'].forEach(id => { const el = document.getElementById(id); if(el) el.addEventListener('change', () => { if(state.mode === 'live' && liveReady()) run(); }); });
+window.addEventListener('volt:ready', () => { if(state.mode === 'live') switchMode('live'); });
+if(window.voltSession && state.mode === 'live') switchMode('live');
 
 let _channelsLoaded = false;
 function refreshBtnHtml(){ return '<button class="mini" id="liveRefresh" style="margin-top:12px;">↻ Retry</button>'; }
@@ -350,6 +354,7 @@ async function fetchChannels(force){
     controls.style.display = '';
     _channelsLoaded = true;
     syncRun();
+    if(state.mode === 'live') run(); // auto-pull the dashboard — no manual step
   }catch(e){
     status.innerHTML = '<p class="ls-msg">Couldn’t reach the Postiz proxy. ' + esc(e.message || '') + '</p>' + refreshBtnHtml();
     wireRefresh();
