@@ -196,8 +196,15 @@ async function sbPatch(table, filter, body) {
   });
   return r.ok ? r.json() : null;
 }
-async function recordUsage(orgId, kind, units, userId) {
-  try { await sbWrite("usage_event", { org_id: orgId, user_id: userId || null, kind: kind || "ai", units: units || 1 }); } catch (e) {}
+async function recordUsage(orgId, kind, units, userId, meta) {
+  try {
+    await sbWrite("usage_event", {
+      org_id: orgId, user_id: userId || null, kind: kind || "ai", units: units || 1,
+      tool: (meta && meta.tool) || kind || null,
+      provider: (meta && meta.provider) || null,
+      model: (meta && meta.model) || null,
+    });
+  } catch (e) {}
 }
 async function getOrgPlan(orgId) {
   try {
@@ -210,6 +217,16 @@ async function setOrgPlan(orgId, plan) {
   return sbPatch("org", "id=eq." + encodeURIComponent(orgId), { plan });
 }
 async function monthUsage(orgId) {
+  // Fast path: a single SQL aggregate (org_month_usage RPC from brain.sql) — no row scan.
+  try {
+    const svc = process.env.SUPABASE_SERVICE_KEY;
+    const r = await fetch(sbBase() + "/rest/v1/rpc/org_month_usage", {
+      method: "POST", headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_org: orgId }),
+    });
+    if (r.ok) { const v = await r.json(); const n = Number(Array.isArray(v) ? v[0] : v); if (Number.isFinite(n)) return n; }
+  } catch (e) {}
+  // Fallback (until the RPC migration is applied): the old row scan.
   try {
     const d = new Date();
     const since = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
@@ -226,7 +243,7 @@ async function meter(req, res, opts = {}) {
     if (!orgId) return false;
     const units = opts.units || 1;
     const userId = req.volt.user && req.volt.user.id;
-    await recordUsage(orgId, opts.kind || "ai", units, userId); // awaited so the write isn't dropped on return
+    await recordUsage(orgId, opts.kind || "ai", units, userId, { tool: opts.kind, provider: opts.provider || (process.env.LLM_PROVIDER || "gemini"), model: opts.model }); // awaited so the write isn't dropped on return
     if (process.env.BILLING_ENFORCE !== "1") return false;
     const plan = await getOrgPlan(orgId);
     const def = PLANS[plan] || PLANS.free;
