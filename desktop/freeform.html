@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<!-- Volt — Freeform canvas (separated from Studio). © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+<script src="volt-auth.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — Freeform</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0d12;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
+  #ff-root{display:flex;height:100vh;width:100%;}
+  #ff-root .ff-sw{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.25);cursor:pointer;}
+</style>
+</head>
+<body>
+  <div id="ff-root"></div>
+<script>
+(function(){
+  var rootEl = document.getElementById('ff-root');
+  if(!window.fabric){ rootEl.innerHTML = '<p style="color:#ECEEF3;padding:24px;font-family:system-ui;">Freeform needs Fabric.js — check your connection and reload.</p>'; return; }
+
+  const SIZES = {
+    '1200x628':  { w:1200, h:628,  label:'Link · 1200×628' },
+    '1080x1080': { w:1080, h:1080, label:'Square · 1080×1080' },
+    '1080x1920': { w:1080, h:1920, label:'Story · 1080×1920' }
+  };
+  const FONTS = ['Unbounded','Plus Jakarta Sans','JetBrains Mono','Georgia','Arial Black','Impact'];
+
+  function brand(){
+    try{
+      const arr = JSON.parse(localStorage.getItem('volt_brands_v1')||'[]');
+      const id  = localStorage.getItem('volt_active_brand');
+      return (Array.isArray(arr) && (arr.find(b=>b && b.id===id) || arr[0])) || {};
+    }catch(_){ return {}; }
+  }
+  function brandSwatches(){
+    const b = brand();
+    const cols = [b.primary||'#9c1c1f', b.secondary||'#0a2c3d', b.light||'#ffb1b1', '#FFFFFF', '#0A0B0F', '#B6FF3D'];
+    return [...new Set(cols.filter(Boolean))];
+  }
+
+  const swHtml = brandSwatches().map(c=>'<button class="ff-sw" data-c="'+c+'" title="'+c+'" style="background:'+c+';"></button>').join('');
+  const fontOpts = FONTS.map(f=>'<option value="'+f+'">'+f+'</option>').join('');
+  const sizeOpts = Object.keys(SIZES).map(k=>'<option value="'+k+'">'+SIZES[k].label+'</option>').join('');
+  const B = 'w-full text-left text-sm font-semibold px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 transition mb-2';
+  rootEl.innerHTML =
+      '<aside class="w-64 shrink-0 bg-slate-900 border-r border-slate-700 p-4 overflow-y-auto">'
+    +   '<p class="text-lg font-black text-white mb-3" style="font-family:Unbounded,system-ui;">Freeform</p>'
+    +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mb-2">Canvas</p>'
+    +   '<select id="ff-size" class="w-full text-sm bg-slate-800 text-slate-100 rounded-lg px-2 py-2 mb-4 border border-slate-700">'+sizeOpts+'</select>'
+    +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mb-2">Add</p>'
+    +   '<button id="ff-add-head" class="'+B+'">➕ Headline</button>'
+    +   '<button id="ff-add-body" class="'+B+'">➕ Body text</button>'
+    +   '<button id="ff-add-rect" class="'+B+'">▭ Color block</button>'
+    +   '<button id="ff-add-img"  class="'+B+'">🖼️ Image…</button>'
+    +   '<button id="ff-add-logo" class="'+B+'">⭐ Brand logo</button>'
+    +   '<input id="ff-file" type="file" accept="image/*" class="hidden">'
+    +   '<button id="ff-removebg" class="'+B+'">🪄 Remove background</button>'
+    +   '<div class="flex gap-1.5"><input id="ff-ai-prompt" type="text" placeholder="Describe an image to generate…" class="flex-1 min-w-0 bg-slate-900 text-slate-100 rounded-lg px-2 py-2 text-xs border border-slate-700 focus:border-[#B6FF3D] outline-none"><button id="ff-ai-gen" class="text-sm font-bold px-3 rounded-lg shrink-0" style="background:#B6FF3D;color:#0A0B0F;" title="Generate image with AI">✨</button></div>'
+    +   '<div id="ff-status" class="text-[11px] text-slate-400 mb-1" style="min-height:14px;"></div>'
+    +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mt-3 mb-2">Colour <span class="text-slate-500">(selected / background)</span></p>'
+    +   '<div class="flex flex-wrap gap-1.5 mb-2" id="ff-swatches">'+swHtml+'</div>'
+    +   '<div class="flex items-center gap-2 mb-1"><input id="ff-fill" type="color" value="#9c1c1f" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-slate-700"><span class="text-xs text-slate-300">Apply to selected</span></div>'
+    +   '<div class="flex items-center gap-2 mb-3"><input id="ff-bg" type="color" value="#ffffff" class="w-8 h-8 rounded cursor-pointer bg-transparent border border-slate-700"><span class="text-xs text-slate-300">Background</span></div>'
+    +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mb-2">Selected text</p>'
+    +   '<select id="ff-font" class="w-full text-sm bg-slate-800 text-slate-100 rounded-lg px-2 py-2 mb-2 border border-slate-700">'+fontOpts+'</select>'
+    +   '<div class="flex gap-2 mb-3"><button id="ff-bigger" class="flex-1 text-sm font-bold px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">A+</button><button id="ff-smaller" class="flex-1 text-sm font-bold px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">A−</button><button id="ff-bold" class="flex-1 text-sm font-bold px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">B</button></div>'
+    +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mb-2">Layer</p>'
+    +   '<div class="grid grid-cols-2 gap-2 mb-2"><button id="ff-front" class="text-xs px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">Bring front</button><button id="ff-back" class="text-xs px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">Send back</button><button id="ff-dup" class="text-xs px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">Duplicate</button><button id="ff-del" class="text-xs px-2 py-2 rounded-lg bg-red-900/60 hover:bg-red-800 text-red-100">Delete</button></div>'
+    +   '<button id="ff-clear" class="'+B+' mt-2" style="background:#3a1212;">🗑️ Clear canvas</button>'
+    +   '<button id="ff-png" class="w-full text-sm font-extrabold px-3 py-3 rounded-lg mt-3" style="background:#B6FF3D;color:#0A0B0F;">⬇️ Download HD PNG</button>'
+    +   '<p class="text-[11px] text-slate-500 mt-3 leading-relaxed">Drag to move · corner handles resize · double-click text to edit · Delete key removes.</p>'
+    + '</aside>'
+    + '<div id="ff-stage" class="flex-1 flex items-center justify-center overflow-auto p-6"><canvas id="ff-canvas"></canvas></div>';
+
+  let fullW = 1200, fullH = 628, exportMult = 1;
+  const fc = new fabric.Canvas('ff-canvas', { backgroundColor:'#ffffff', preserveObjectStacking:true });
+  function sizeCanvas(key){
+    const s = SIZES[key] || SIZES['1200x628'];
+    fullW = s.w; fullH = s.h;
+    const stage = document.getElementById('ff-stage');
+    const maxW = Math.max(320, (stage.clientWidth  || 800) - 48);
+    const maxH = Math.max(320, (stage.clientHeight || 600) - 48);
+    const scale = Math.min(maxW/fullW, maxH/fullH, 1.2);
+    const dW = Math.round(fullW*scale), dH = Math.round(fullH*scale);
+    exportMult = fullW / dW;
+    fc.setWidth(dW); fc.setHeight(dH); fc.setZoom(scale); fc.renderAll();
+  }
+  const $$ = id => document.getElementById(id);
+  function active(){ return fc.getActiveObject(); }
+  function addText(kind){
+    const b = brand(); const isHead = kind==='head';
+    const t = new fabric.Textbox(isHead ? 'Your headline here' : 'Add your supporting copy here.', {
+      left: fullW*0.08, top: isHead ? fullH*0.12 : fullH*0.5, width: fullW*0.84,
+      fontSize: isHead ? Math.round(fullH*0.11) : Math.round(fullH*0.05),
+      fontFamily: isHead ? 'Unbounded' : 'Plus Jakarta Sans', fontWeight: isHead ? '800' : '500',
+      fill: isHead ? (b.primary||'#9c1c1f') : '#0A0B0F', lineHeight: 1.05, textAlign:'left' });
+    fc.add(t); fc.setActiveObject(t); fc.renderAll();
+  }
+  function addRect(){ const b = brand(); const r = new fabric.Rect({ left:fullW*0.1, top:fullH*0.1, width:fullW*0.4, height:fullH*0.18, fill:(b.secondary||'#0a2c3d'), rx:8, ry:8 }); fc.add(r); fc.setActiveObject(r); fc.renderAll(); }
+  function addImageFromURL(url){ if(!url) return; fabric.Image.fromURL(url, img=>{ if(!img) return; const scale = Math.min((fullW*0.6)/(img.width||1), (fullH*0.6)/(img.height||1), 1); img.set({ left:fullW*0.2, top:fullH*0.2, scaleX:scale, scaleY:scale }); fc.add(img); fc.setActiveObject(img); fc.renderAll(); }, { crossOrigin:'anonymous' }); }
+  function applyFill(c){ const o = active(); if(!o) return; o.set('fill', c); fc.renderAll(); const fi = $$('ff-fill'); if(fi) fi.value = (/^#/.test(c)?c:fi.value); }
+  function ffStatus(msg){ var s=$$('ff-status'); if(s) s.textContent=msg||''; }
+  function objToBlob(o){ return new Promise(function(res, rej){ try{ var el=o.getElement(); var w=el.naturalWidth||el.width||o.width, h=el.naturalHeight||el.height||o.height; var c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(el,0,0,w,h); c.toBlob(function(b){ b?res(b):rej(new Error('blank image')); }, 'image/png'); }catch(e){ rej(e); } }); }
+  let _bgLib=null;
+  async function removeBg(){
+    const o=active();
+    if(!o || o.type!=='image'){ ffStatus('Select an image first, then Remove background.'); return; }
+    ffStatus('Removing background… (first run downloads a small AI model)');
+    try{
+      if(!_bgLib) _bgLib = await import('https://esm.sh/@imgly/background-removal@1');
+      const removeBackground = _bgLib.removeBackground || (_bgLib.default && _bgLib.default.removeBackground);
+      if(!removeBackground) throw new Error('remover unavailable');
+      let blob; try{ blob=await objToBlob(o); }catch(e){ throw new Error('this image is cross-origin — re-upload it with “Image…”'); }
+      const outBlob = await removeBackground(blob);
+      const url = URL.createObjectURL(outBlob);
+      fabric.Image.fromURL(url, function(img2){ if(!img2){ ffStatus('Could not read the result.'); return; } img2.set({ left:o.left, top:o.top, scaleX:o.scaleX, scaleY:o.scaleY, angle:o.angle, flipX:o.flipX, flipY:o.flipY }); fc.remove(o); fc.add(img2); fc.setActiveObject(img2); fc.renderAll(); ffStatus('Background removed ✓'); }, { crossOrigin:'anonymous' });
+    }catch(e){ ffStatus('Couldn’t remove background: '+((e&&e.message)||e)); }
+  }
+  async function aiImage(){
+    var p = ($$('ff-ai-prompt').value || '').trim();
+    if(!p){ ffStatus('Describe an image first.'); return; }
+    var aspect = fullW > fullH ? '16:9' : (fullW < fullH ? '9:16' : '1:1');
+    var btn = $$('ff-ai-gen'); btn.disabled = true; ffStatus('Generating image… (a few seconds)');
+    try{
+      var r = await fetch('https://tshephos-lab.vercel.app/api/image', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:p, aspect:aspect }) });
+      var data = {}; try{ data = await r.json(); }catch(_){}
+      if(r.status === 503) throw new Error(data.error || 'Needs a Gemini key with image access.');
+      if(!r.ok || !data.image) throw new Error(data.error || 'Could not generate — try rewording.');
+      addImageFromURL(data.image); ffStatus('Image added ✓');
+    }catch(e){ ffStatus('Couldn’t generate: ' + ((e && e.message) || e)); }
+    finally{ btn.disabled = false; }
+  }
+
+  $$('ff-size').addEventListener('change', e=>sizeCanvas(e.target.value));
+  $$('ff-add-head').addEventListener('click', ()=>addText('head'));
+  $$('ff-add-body').addEventListener('click', ()=>addText('body'));
+  $$('ff-add-rect').addEventListener('click', addRect);
+  $$('ff-add-logo').addEventListener('click', ()=>{ const b=brand(); if(b.logo) addImageFromURL(b.logo); else alert('No brand logo set — add one in Studio → Brand Kit, or use “Image…”.'); });
+  $$('ff-add-img').addEventListener('click', ()=>$$('ff-file').click());
+  $$('ff-file').addEventListener('change', e=>{ const f = e.target.files && e.target.files[0]; if(!f) return; const rd = new FileReader(); rd.onload = ()=>addImageFromURL(rd.result); rd.readAsDataURL(f); e.target.value = ''; });
+  $$('ff-removebg').addEventListener('click', removeBg);
+  $$('ff-ai-gen').addEventListener('click', aiImage);
+  $$('ff-swatches').addEventListener('click', e=>{ const b=e.target.closest('.ff-sw'); if(b) applyFill(b.dataset.c); });
+  $$('ff-fill').addEventListener('input', e=>applyFill(e.target.value));
+  $$('ff-bg').addEventListener('input', e=>{ fc.setBackgroundColor(e.target.value, fc.renderAll.bind(fc)); });
+  $$('ff-font').addEventListener('change', e=>{ const o=active(); if(o && o.type==='textbox'){ o.set('fontFamily', e.target.value); fc.renderAll(); } });
+  $$('ff-bigger').addEventListener('click', ()=>{ const o=active(); if(o && o.fontSize){ o.set('fontSize', Math.round(o.fontSize*1.12)); fc.renderAll(); } });
+  $$('ff-smaller').addEventListener('click', ()=>{ const o=active(); if(o && o.fontSize){ o.set('fontSize', Math.max(8, Math.round(o.fontSize*0.9))); fc.renderAll(); } });
+  $$('ff-bold').addEventListener('click', ()=>{ const o=active(); if(o && o.type==='textbox'){ o.set('fontWeight', o.fontWeight==='800'?'400':'800'); fc.renderAll(); } });
+  $$('ff-front').addEventListener('click', ()=>{ const o=active(); if(o){ fc.bringToFront(o); fc.renderAll(); } });
+  $$('ff-back').addEventListener('click', ()=>{ const o=active(); if(o){ fc.sendToBack(o); fc.renderAll(); } });
+  $$('ff-dup').addEventListener('click', ()=>{ const o=active(); if(o) o.clone(c=>{ c.set({left:(o.left||0)+24, top:(o.top||0)+24}); fc.add(c); fc.setActiveObject(c); fc.renderAll(); }); });
+  $$('ff-del').addEventListener('click', ()=>{ const o=active(); if(o){ fc.remove(o); fc.renderAll(); } });
+  $$('ff-clear').addEventListener('click', ()=>{ if(confirm('Clear the whole canvas?')){ fc.clear(); fc.setBackgroundColor($$('ff-bg').value||'#ffffff', fc.renderAll.bind(fc)); } });
+  $$('ff-png').addEventListener('click', ()=>{ fc.discardActiveObject(); fc.renderAll(); const data = fc.toDataURL({ format:'png', multiplier: exportMult }); const a = document.createElement('a'); a.href = data; a.download = 'volt-freeform-' + fullW + 'x' + fullH + '.png'; document.body.appendChild(a); a.click(); a.remove(); });
+  document.addEventListener('keydown', e=>{ const o = active(); if((e.key==='Delete'||e.key==='Backspace') && o && !(o.isEditing)){ const tag=(document.activeElement&&document.activeElement.tagName)||''; if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT'){ e.preventDefault(); fc.remove(o); fc.renderAll(); } } });
+  window.addEventListener('resize', ()=>sizeCanvas($$('ff-size').value));
+  sizeCanvas('1200x628');
+})();
+</script>
+</body>
+</html>

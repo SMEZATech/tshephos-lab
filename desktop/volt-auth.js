@@ -233,6 +233,7 @@
     { t: "Create", e: "✦", href: "home.html" },
     { t: "Copy", e: "✍️", href: "index.html" },
     { t: "Studio", e: "🎨", href: "studio.html" },
+    { t: "Freeform", e: "🖌️", href: "freeform.html" },
     { t: "Video", e: "🎬", href: "video.html" },
     { t: "Email", e: "✉️", href: "email.html" },
     { t: "Audit", e: "🔍", href: "audit.html" },
