@@ -315,8 +315,13 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">7</span>Text overlays <span class="opt">titles, callouts &amp; handles</span></label>
-        <button class="mini" id="addLayerBtn" style="width:100%;">➕ Add text overlay</button>
+        <label class="lbl"><span class="num">7</span>Overlays <span class="opt">text, stickers &amp; images</span></label>
+        <div style="display:flex; gap:6px;">
+          <button class="mini" id="addLayerBtn" style="flex:1;">➕ Text</button>
+          <button class="mini" id="addStickerBtn" style="flex:1;">😀 Sticker</button>
+          <button class="mini" id="addImageBtn" style="flex:1;">🖼 Image</button>
+        </div>
+        <input type="file" id="layerImgFile" accept="image/*" style="display:none;" />
         <div id="layerList" style="margin-top:10px; display:flex; flex-direction:column; gap:10px;"></div>
       </div>
 
@@ -972,13 +977,28 @@ const LAYER_POS = { TL:[0.08,0.12,'left','top'], TC:[0.5,0.12,'center','top'], T
   ML:[0.08,0.5,'left','middle'], MC:[0.5,0.5,'center','middle'], MR:[0.92,0.5,'right','middle'],
   BL:[0.08,0.86,'left','bottom'], BC:[0.5,0.86,'center','bottom'], BR:[0.92,0.86,'right','bottom'] };
 const LAYER_SIZE = { S:0.045, M:0.062, L:0.085 };
+const LAYER_EMOJI_SIZE = { S:0.09, M:0.13, L:0.18 };
+const LAYER_IMG_SIZE = { S:0.2, M:0.34, L:0.5 };
 function drawLayers(ct){
   if(!state.layers || !state.layers.length) return;
   for(const L of state.layers){
-    const txt = String(L.text||'').trim(); if(!txt) continue;
     const st = L.start||0, en = (L.end!=null ? L.end : clipDur());
     if(ct < st-0.001 || ct > en+0.001) continue;
     const p = LAYER_POS[L.pos] || LAYER_POS.MC;
+    if(L.type==='emoji'){
+      const fsE = Math.round(W * (LAYER_EMOJI_SIZE[L.size] || 0.13));
+      ctx.save(); ctx.font = fsE+'px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; ctx.textAlign = p[2]; ctx.textBaseline = 'middle';
+      ctx.fillText(String(L.emoji||'⭐'), W*p[0], H*p[1]); ctx.restore(); continue;
+    }
+    if(L.type==='image'){
+      const img = L._img; if(!img || !img.complete || !img.naturalWidth) continue;
+      const wFrac = LAYER_IMG_SIZE[L.size] || 0.34, iw = W*wFrac, ih = iw*(img.naturalHeight/img.naturalWidth);
+      let ix = W*p[0], iy = H*p[1];
+      if(p[2]==='center') ix-=iw/2; else if(p[2]==='right') ix-=iw;
+      if(p[3]==='middle') iy-=ih/2; else if(p[3]==='bottom') iy-=ih;
+      ctx.drawImage(img, ix, iy, iw, ih); continue;
+    }
+    const txt = String(L.text||'').trim(); if(!txt) continue;
     const fs = Math.round(W * (LAYER_SIZE[L.size] || 0.062));
     ctx.save();
     ctx.font = '800 '+fs+'px Oswald, "Plus Jakarta Sans", sans-serif';
@@ -1004,30 +1024,42 @@ function drawLayers(ct){
 
 // ---- text overlay UI ----
 const POS_OPTS = [['TL','↖'],['TC','↑'],['TR','↗'],['ML','←'],['MC','•'],['MR','→'],['BL','↙'],['BC','↓'],['BR','↘']];
-function addLayer(){ state.layers.push({ id: Date.now()+''+Math.round(Math.random()*999), text:'', pos:'BC', size:'M', color:'#ffffff', bg:true, start:0, end:null }); renderLayers(); }
+const QUICK_EMOJI = ['🔥','✅','👇','👀','💡','⭐','❤️','😂','🚀','💯','⚠️','👉'];
+function uidL(){ return Date.now()+''+Math.round(Math.random()*999); }
+function loadLayerImg(L){ if(L.type!=='image'||!L.src) return; const im=new Image(); im.onload=()=>{ L._img=im; }; im.src=L.src; }
+function addLayer(){ state.layers.push({ id:uidL(), type:'text', text:'', pos:'BC', size:'M', color:'#ffffff', bg:true, start:0, end:null }); renderLayers(); }
+function addSticker(){ state.layers.push({ id:uidL(), type:'emoji', emoji:'🔥', pos:'MC', size:'M', start:0, end:null }); renderLayers(); }
+function addImageLayer(src){ const L={ id:uidL(), type:'image', src:src, pos:'MC', size:'M', start:0, end:null }; loadLayerImg(L); state.layers.push(L); renderLayers(); }
 function fmtLayerRange(L){ const en=(L.end!=null?L.end:clipDur()); return ((L.start||0)===0 && L.end==null) ? 'whole clip' : ((L.start||0).toFixed(1)+'–'+en.toFixed(1)+'s'); }
+function layerControls(L,i){
+  const posSel = '<select class="lyr-f" data-i="'+i+'" data-k="pos">'+POS_OPTS.map(o=>'<option value="'+o[0]+'"'+(L.pos===o[0]?' selected':'')+'>'+o[1]+' '+o[0]+'</option>').join('')+'</select>';
+  const sizeSel = '<select class="lyr-f" data-i="'+i+'" data-k="size">'+['S','M','L'].map(s=>'<option'+(L.size===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
+  let extra='';
+  if(L.type==='text') extra = '<input type="color" class="lyr-f" data-i="'+i+'" data-k="color" value="'+(L.color||'#ffffff')+'" style="width:34px; height:30px; padding:2px; border-radius:8px;" /><button class="mini lyr-tog" data-i="'+i+'" title="Background pill">'+(L.bg?'▣ BG':'▢ BG')+'</button>';
+  return '<div style="display:flex; gap:6px; align-items:center; margin-top:8px; flex-wrap:wrap;">'+posSel+sizeSel+extra+'<button class="mini lyr-time" data-i="'+i+'" title="Toggle: whole clip ↔ from the current moment (3s)">⏱ '+fmtLayerRange(L)+'</button></div>';
+}
 function renderLayers(){
   const wrap=$('#layerList'); if(!wrap) return;
   wrap.innerHTML = (state.layers||[]).map((L,i)=>{
-    const posSel = '<select class="lyr-f" data-i="'+i+'" data-k="pos">'+POS_OPTS.map(o=>'<option value="'+o[0]+'"'+(L.pos===o[0]?' selected':'')+'>'+o[1]+' '+o[0]+'</option>').join('')+'</select>';
-    const sizeSel = '<select class="lyr-f" data-i="'+i+'" data-k="size">'+['S','M','L'].map(s=>'<option'+(L.size===s?' selected':'')+'>'+s+'</option>').join('')+'</select>';
-    return '<div style="border:1px solid var(--border); border-radius:12px; padding:10px; background:#0D0F15;">'
-      + '<div style="display:flex; gap:6px; align-items:center;"><input type="text" class="lyr-f" data-i="'+i+'" data-k="text" value="'+escAttr(L.text||'')+'" placeholder="Overlay text" style="flex:1;" /><button class="mini lyr-del" data-i="'+i+'" title="Delete">✕</button></div>'
-      + '<div style="display:flex; gap:6px; align-items:center; margin-top:8px; flex-wrap:wrap;">'+posSel+sizeSel
-      +   '<input type="color" class="lyr-f" data-i="'+i+'" data-k="color" value="'+(L.color||'#ffffff')+'" style="width:34px; height:30px; padding:2px; border-radius:8px;" />'
-      +   '<button class="mini lyr-tog" data-i="'+i+'" title="Toggle background pill">'+(L.bg?'▣ BG':'▢ BG')+'</button>'
-      +   '<button class="mini lyr-time" data-i="'+i+'" title="Toggle: whole clip ↔ from the current moment (3s)">⏱ '+fmtLayerRange(L)+'</button>'
-      + '</div></div>';
+    let head;
+    if(L.type==='emoji') head='<div style="display:flex; gap:6px; align-items:center;"><input type="text" class="lyr-f" data-i="'+i+'" data-k="emoji" value="'+escAttr(L.emoji||'')+'" maxlength="4" style="width:52px; text-align:center; font-size:18px;" /><div style="flex:1; display:flex; gap:3px; flex-wrap:wrap;">'+QUICK_EMOJI.map(e=>'<button class="mini lyr-emoji" data-i="'+i+'" data-e="'+e+'" style="padding:4px 6px;">'+e+'</button>').join('')+'</div><button class="mini lyr-del" data-i="'+i+'">✕</button></div>';
+    else if(L.type==='image') head='<div style="display:flex; gap:8px; align-items:center;"><div style="width:44px; height:44px; border-radius:8px; background:#0a0b0f center/cover no-repeat;'+(L.src?'background-image:url('+L.src+');':'')+' border:1px solid var(--border); flex:none;"></div><span class="note" style="flex:1; margin:0;">Image overlay</span><button class="mini lyr-del" data-i="'+i+'">✕</button></div>';
+    else head='<div style="display:flex; gap:6px; align-items:center;"><input type="text" class="lyr-f" data-i="'+i+'" data-k="text" value="'+escAttr(L.text||'')+'" placeholder="Overlay text" style="flex:1;" /><button class="mini lyr-del" data-i="'+i+'">✕</button></div>';
+    return '<div style="border:1px solid var(--border); border-radius:12px; padding:10px; background:#0D0F15;">'+head+layerControls(L,i)+'</div>';
   }).join('');
 }
 function onLayerField(e){ const f=e.target.closest('.lyr-f'); if(!f) return; const i=+f.dataset.i, L=state.layers[i]; if(L) L[f.dataset.k]=f.value; }
 { const ab=$('#addLayerBtn'); if(ab) ab.addEventListener('click', addLayer);
+  const sb=$('#addStickerBtn'); if(sb) sb.addEventListener('click', addSticker);
+  const ib=$('#addImageBtn'); if(ib) ib.addEventListener('click', ()=>{ const f=$('#layerImgFile'); if(f) f.click(); });
+  const lf=$('#layerImgFile'); if(lf) lf.addEventListener('change', e=>{ const f=e.target.files&&e.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>addImageLayer(rd.result); rd.readAsDataURL(f); e.target.value=''; });
   const ll=$('#layerList');
   if(ll){
     ll.addEventListener('input', onLayerField);
     ll.addEventListener('change', onLayerField);
     ll.addEventListener('click', e=>{
       const del=e.target.closest('.lyr-del'); if(del){ state.layers.splice(+del.dataset.i,1); renderLayers(); return; }
+      const em=e.target.closest('.lyr-emoji'); if(em){ const L=state.layers[+em.dataset.i]; if(L){ L.emoji=em.dataset.e; renderLayers(); } return; }
       const tog=e.target.closest('.lyr-tog'); if(tog){ const L=state.layers[+tog.dataset.i]; if(L){ L.bg=!L.bg; renderLayers(); } return; }
       const tm=e.target.closest('.lyr-time'); if(tm){ const L=state.layers[+tm.dataset.i]; if(!L) return; if(L.end==null){ const cur=Math.max(0, Math.min(clipDur(), t-introDur())); L.start=cur; L.end=Math.min(clipDur(), cur+3); } else { L.start=0; L.end=null; } renderLayers(); return; }
     });
@@ -1796,7 +1828,7 @@ function serializeLook(){
   return {
     format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
     capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
-    layers: JSON.parse(JSON.stringify(state.layers||[])),
+    layers: (state.layers||[]).map(function(L){ var c=Object.assign({},L); delete c._img; return c; }),
     toggles:{ intro:state.introOn, outro:state.outroOn, hook:state.hookOn, progress:state.progressOn, name:state.nameOn },
     text:{ introTitle:v('introTitle'), outroHead:v('outroHead'), outroSub:v('outroSub'), hookText:v('hookText'), nameName:v('nameName'), nameTitle:v('nameTitle') }
   };
@@ -1813,7 +1845,7 @@ function restoreLook(d){
   if(d.capSize){ state.capSize=d.capSize; syncSeg('#capSizeSeg', d.capSize); }
   if(d.capBg){ state.capBg=d.capBg; syncSeg('#capBgSeg', d.capBg); }
   if(d.hookDur!=null){ state.hookDur=d.hookDur; syncSeg('#hookDurSeg', d.hookDur); }
-  if(Array.isArray(d.layers)){ state.layers=d.layers; renderLayers(); }
+  if(Array.isArray(d.layers)){ state.layers=d.layers; state.layers.forEach(loadLayerImg); renderLayers(); }
   if(d.musicVol!=null){ state.musicVol=d.musicVol; const mv=$('#musicVol'); if(mv) mv.value=Math.round(d.musicVol*100); const vl=$('#volLbl'); if(vl) vl.textContent=Math.round(d.musicVol*100)+'%'; if(typeof musGain!=='undefined' && musGain) musGain.gain.value=state.musicVol; }
   const tg=d.toggles||{};
   document.querySelectorAll('.togrow').forEach(row=>{ const key=row.dataset.t; if(!key || !(key in tg)) return; const on=!!tg[key]; row.classList.toggle('on', on); state[key+'On']=on; const f=$('#f-'+key); if(f) f.classList.toggle('show', on); });
