@@ -120,12 +120,21 @@
     '#va-refresh,#va-gear{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#0D0F15;color:#B6FF3D;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;}' +
     '#va-refresh:hover{background:#B6FF3D;color:#0A0B0F;transform:rotate(90deg);}#va-gear:hover{background:#B6FF3D;color:#0A0B0F;}' +
     '#va-toast{position:fixed;top:58px;right:16px;z-index:99999;background:#14171F;border:1px solid rgba(182,255,61,.4);color:#ECEEF3;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;transition:opacity .2s;}#va-toast.show{opacity:1;}' +
-    // ---- Volt modern nav — restyles the existing .tab / .nav-tab centrally (appearance only,
-    // no markup/layout/position change) so every module gets a cohesive, Canva-clean bar. ----
-    '.topbar{gap:5px !important;padding:6px !important;background:rgba(20,23,31,.55);border:1px solid rgba(255,255,255,.09);border-radius:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px -16px rgba(0,0,0,.7);}' +
-    '.tab,.nav-tab{border:1px solid transparent !important;background:transparent !important;color:#888F9D !important;padding:8px 14px !important;border-radius:11px !important;font-weight:700 !important;transition:background .16s ease,color .16s ease,box-shadow .16s ease !important;}' +
-    '.tab:hover,.nav-tab:hover{color:#ECEEF3 !important;background:rgba(255,255,255,.07) !important;border-color:transparent !important;}' +
-    '.tab.active,.nav-tab.active{background:#B6FF3D !important;color:#0A0B0F !important;border-color:#B6FF3D !important;box-shadow:0 5px 16px -5px rgba(182,255,61,.5) !important;}';
+    // ---- Volt left rail (Canva-style module switcher) — replaces the top tabs + account pill,
+    // centrally, so every page gets it. body padding-left clears the fixed rail; the three
+    // layout archetypes (Studio flex, centered .wrap, Email) all reflow cleanly. ----
+    'body{padding-left:76px !important;}' +
+    '.topbar,.nav-tabs,#va-badge{display:none !important;}' +
+    '#va-rail{position:fixed;left:0;top:0;bottom:0;width:76px;z-index:90000;background:linear-gradient(180deg,#0d0f15,#0a0b0f);border-right:1px solid rgba(255,255,255,.09);display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:4px;overflow-y:auto;overflow-x:hidden;font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
+    '#va-rail::-webkit-scrollbar{width:0;}' +
+    '#va-rail .r-logo{font-family:"Unbounded","Segoe UI",system-ui;font-weight:800;font-size:21px;color:#ECEEF3;margin-bottom:8px;text-decoration:none;}#va-rail .r-logo b{color:#B6FF3D;}' +
+    '.r-tile{width:52px;height:50px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#8A91A0;cursor:pointer;text-decoration:none;transition:background .15s,color .15s,box-shadow .15s;border:1px solid transparent;flex:none;}' +
+    '.r-tile .ic{font-size:18px;line-height:1;}.r-tile .lb{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:.02em;text-transform:uppercase;}' +
+    '.r-tile:hover{background:rgba(255,255,255,.06);color:#ECEEF3;}' +
+    '.r-tile.on{background:#B6FF3D;color:#0A0B0F;box-shadow:0 6px 16px -6px rgba(182,255,61,.5);}.r-tile.on .lb{color:#0A0B0F;}' +
+    '#va-rail .r-spacer{flex:1;min-height:8px;}' +
+    '#va-rail .r-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;font-weight:800;font-family:"Unbounded",sans-serif;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;margin-top:4px;flex:none;}' +
+    '@media(max-width:640px){body{padding-left:0 !important;}#va-rail{flex-direction:row;top:auto;bottom:0;width:100%;height:58px;padding:0 8px;border-right:none;border-top:1px solid rgba(255,255,255,.09);gap:2px;overflow-x:auto;}#va-rail .r-logo,#va-rail .r-spacer{display:none;}.r-tile{height:46px;width:48px;}}';
 
   function injectCSS() { if (document.getElementById("va-style")) return; var st = document.createElement("style"); st.id = "va-style"; st.textContent = CSS; document.head.appendChild(st); }
 
@@ -220,17 +229,38 @@
   }
 
   /* ---------- badge + toast ---------- */
-  function showBadge() {
+  var RAIL_TILES = [
+    { t: "Create", e: "✦", href: "home.html" },
+    { t: "Copy", e: "✍️", href: "index.html" },
+    { t: "Studio", e: "🎨", href: "studio.html" },
+    { t: "Video", e: "🎬", href: "video.html" },
+    { t: "Email", e: "✉️", href: "email.html" },
+    { t: "Audit", e: "🔍", href: "audit.html" },
+    { t: "Stats", e: "📊", href: "analytics.html" },
+  ];
+  function showBadge() { // now builds the left rail (the Canva-style module switcher)
     injectCSS();
-    var old = document.getElementById("va-badge"); if (old) old.remove();
-    var b = document.createElement("div"); b.id = "va-badge";
-    b.innerHTML = '<span class="who">' + esc(firstName(session && session.user && session.user.email)) + '</span>' +
-      '<button id="va-cmdk" title="Command menu">' + (isMac() ? "⌘K" : "Ctrl K") + '</button>' +
-      '<button id="va-refresh" title="Check for updates">↻</button><button id="va-gear" title="Settings">⚙</button>';
-    document.body.appendChild(b);
-    document.getElementById("va-gear").addEventListener("click", showSettings);
-    document.getElementById("va-refresh").addEventListener("click", function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); });
-    var ck = document.getElementById("va-cmdk"); if (ck) ck.addEventListener("click", function () { if (window.voltOpenCommand) window.voltOpenCommand(); });
+    var old = document.getElementById("va-rail"); if (old) old.remove();
+    var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+    if (here === "") here = "index.html";
+    var rail = document.createElement("aside"); rail.id = "va-rail";
+    var tiles = RAIL_TILES.map(function (x) {
+      return '<a class="r-tile' + (x.href.toLowerCase() === here ? " on" : "") + '" href="' + x.href + '"><span class="ic">' + x.e + '</span><span class="lb">' + x.t + '</span></a>';
+    }).join("");
+    rail.innerHTML =
+      '<a class="r-logo" href="home.html" title="Volt">V<b>.</b></a>' + tiles +
+      '<div class="r-spacer"></div>' +
+      '<div class="r-tile" id="r-cmdk" title="Command menu (' + (isMac() ? "⌘K" : "Ctrl K") + ')"><span class="ic">⌘</span><span class="lb">Menu</span></div>' +
+      '<a class="r-tile' + ("guide.html" === here ? " on" : "") + '" href="guide.html"><span class="ic">📖</span><span class="lb">Guide</span></a>' +
+      '<div class="r-tile" id="r-refresh" title="Check for updates"><span class="ic">↻</span><span class="lb">Update</span></div>' +
+      '<div class="r-tile" id="r-settings" title="Settings"><span class="ic">⚙️</span><span class="lb">Set</span></div>' +
+      '<div class="r-av" id="r-av" title="' + esc(session && session.user && session.user.email) + '">' + esc((firstName(session && session.user && session.user.email) || "?").charAt(0).toUpperCase()) + '</div>';
+    document.body.appendChild(rail);
+    var byId = function (id) { return document.getElementById(id); };
+    if (byId("r-settings")) byId("r-settings").addEventListener("click", showSettings);
+    if (byId("r-av")) byId("r-av").addEventListener("click", showSettings);
+    if (byId("r-cmdk")) byId("r-cmdk").addEventListener("click", function () { if (window.voltOpenCommand) window.voltOpenCommand(); });
+    if (byId("r-refresh")) byId("r-refresh").addEventListener("click", function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); });
   }
   function showToast(msg) {
     injectCSS();
