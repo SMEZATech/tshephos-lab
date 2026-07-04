@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<!-- Volt — VideoTok (video → title, description, tags, chapters). © 2026 Tshepho Joel. -->
+<html lang="en">
+<head>
+<script src="volt-auth.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — VideoTok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{ --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28; --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#8A91A0; --faint:#5B616D; --accent:#B6FF3D; --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui; --fb:'Plus Jakarta Sans',system-ui; --fm:'JetBrains Mono',monospace; }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fb);-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(900px 500px at 85% -10%,rgba(182,255,61,.05),transparent 60%);min-height:100vh;}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 30px 60px;}
+  h1{font-family:var(--fd);font-weight:800;font-size:clamp(24px,3.4vw,32px);letter-spacing:-.02em;margin:0 0 4px;}
+  .sub{color:var(--dim);font-size:14.5px;margin:0 0 24px;max-width:64ch;}
+  .lbl{display:block;font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:700;margin:0 0 8px;}
+  textarea,input[type=text]{width:100%;box-sizing:border-box;background:#0D0F15;border:1px solid var(--border-2);border-radius:12px;padding:12px 13px;color:var(--text);font-family:var(--fb);font-size:14px;outline:none;transition:border-color .15s;}
+  textarea:focus,input[type=text]:focus{border-color:var(--accent);}
+  input[type=file]{width:100%;font-size:12.5px;color:var(--dim);}
+  input[type=file]::file-selector-button{margin-right:12px;padding:8px 13px;border-radius:9px;border:1px solid var(--border-2);background:#0D0F15;color:var(--text);font-family:var(--fm);font-weight:700;font-size:11.5px;cursor:pointer;}
+  .panel{background:linear-gradient(180deg,var(--surface),#11141b);border:1px solid var(--border);border-radius:18px;padding:22px;}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .seg{display:inline-flex;background:#0D0F15;border:1px solid var(--border);border-radius:12px;padding:4px;gap:3px;}
+  .seg button{font-family:var(--fm);font-weight:700;font-size:12px;background:transparent;border:none;color:var(--dim);padding:8px 14px;border-radius:9px;cursor:pointer;}
+  .seg button.on{background:var(--accent);color:#0A0B0F;}
+  .btn{font-family:var(--fb);font-weight:800;font-size:14.5px;border:none;border-radius:12px;padding:13px 20px;cursor:pointer;background:var(--accent);color:#0A0B0F;display:inline-flex;align-items:center;gap:8px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .mini{font-family:var(--fm);font-weight:700;font-size:11.5px;background:transparent;border:1px solid var(--border-2);color:var(--text);border-radius:9px;padding:7px 11px;cursor:pointer;}
+  .mini:hover{background:var(--accent);color:#0A0B0F;border-color:var(--accent);}
+  .note{color:var(--faint);font-size:12px;margin:6px 0 0;}
+  .status{font-family:var(--fm);font-size:12.5px;color:var(--info);min-height:16px;margin-top:8px;}
+  .status.err{color:var(--low);} .status.ok{color:var(--good);}
+  /* results */
+  .res{margin-top:22px;display:flex;flex-direction:column;gap:14px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;}
+  .card .h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+  .card .h .lbl{margin:0;}
+  .titleopt{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border);}
+  .titleopt:first-of-type{border-top:none;}
+  .titleopt .t{flex:1;font-weight:600;font-size:15px;line-height:1.4;}
+  .desc{white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--text);}
+  .tags{display:flex;flex-wrap:wrap;gap:7px;}
+  .tag{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12.5px;color:var(--dim);font-family:var(--fm);}
+  .chap{display:flex;gap:12px;padding:7px 0;border-top:1px solid var(--border);font-size:14px;}
+  .chap:first-of-type{border-top:none;}
+  .chap .tm{font-family:var(--fm);color:var(--accent);font-size:13px;flex:none;width:52px;}
+  .hooks{margin:0;padding-left:18px;} .hooks li{font-size:14px;line-height:1.6;margin-bottom:4px;}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>🎬 VideoTok</h1>
+  <p class="sub">Drop in a transcript (or transcribe a clip), and Volt writes your <b style="color:var(--text)">titles, description, tags and chapters</b> for YouTube — or a scroll-stopping caption for TikTok / Reels.</p>
+
+  <div class="panel">
+    <label class="lbl" for="vtTranscript">Transcript</label>
+    <textarea id="vtTranscript" rows="8" placeholder="Paste your transcript here (YouTube auto-captions work great — they include timestamps for chapters)…"></textarea>
+    <div class="row" style="margin-top:10px;">
+      <input type="file" id="vtFile" accept="video/*" style="flex:1;min-width:200px;" />
+      <button class="mini" id="vtTranscribe" disabled>🎙 Transcribe video</button>
+    </div>
+    <p class="note">Transcribing plays the clip once in real time to read its audio — best for clips under a few minutes. For long videos, paste the transcript.</p>
+    <div class="status" id="vtStatus"></div>
+
+    <div class="row" style="margin-top:16px;justify-content:space-between;">
+      <div class="seg" id="vtPlat">
+        <button data-p="youtube" class="on">▶ YouTube</button>
+        <button data-p="tiktok">🎵 TikTok</button>
+        <button data-p="reels">📸 Reels</button>
+      </div>
+      <button class="btn" id="vtGen">✨ Generate</button>
+    </div>
+  </div>
+
+  <div class="res" id="vtResults"></div>
+</main>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const API = 'https://tshephos-lab.vercel.app/api';
+let platform = 'youtube', videoFile = null;
+function setStatus(m,k){ const s=$('#vtStatus'); if(s){ s.textContent=m||''; s.className='status'+(k?' '+k:''); } }
+function fmtT(s){ s=Math.max(0,s||0); const m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+String(ss).padStart(2,'0'); }
+async function copyText(t, btn){ try{ await navigator.clipboard.writeText(t); }catch(e){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } if(btn){ const o=btn.textContent; btn.textContent='Copied ✓'; setTimeout(()=>btn.textContent=o,1400); } }
+
+$('#vtPlat').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; platform=b.dataset.p; document.querySelectorAll('#vtPlat button').forEach(x=>x.classList.toggle('on', x===b)); });
+$('#vtFile').addEventListener('change', e=>{ videoFile = e.target.files && e.target.files[0]; $('#vtTranscribe').disabled = !videoFile; setStatus(videoFile ? 'Ready — hit “Transcribe video”.' : ''); });
+
+function blobToB64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(blob); }); }
+$('#vtTranscribe').addEventListener('click', async ()=>{
+  if(!videoFile){ setStatus('Upload a video first.','err'); return; }
+  const btn=$('#vtTranscribe'); btn.disabled=true;
+  setStatus('Transcribing — playing the video once to read the audio…');
+  let v, ac;
+  try{
+    v = document.createElement('video'); v.src = URL.createObjectURL(videoFile); v.muted = true;
+    await new Promise((r,e)=>{ v.addEventListener('loadedmetadata', r, {once:true}); v.addEventListener('error', ()=>e(new Error('Could not read that video.')), {once:true}); });
+    ac = new (window.AudioContext||window.webkitAudioContext)();
+    const src = ac.createMediaElementSource(v), dest = ac.createMediaStreamDestination(); src.connect(dest);
+    let mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) ? 'audio/webm;codecs=opus' : 'audio/webm';
+    const rec = new MediaRecorder(dest.stream, { mimeType: mime }); const chunks=[];
+    rec.ondataavailable=e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(r=>{ rec.onstop=r; });
+    v.currentTime=0; rec.start(); await v.play();
+    await new Promise(r=>{ v.addEventListener('ended', r, {once:true}); });
+    rec.stop(); await stopped;
+    const blob = new Blob(chunks, {type:'audio/webm'});
+    if(blob.size < 800) throw new Error('No audio captured — does this clip have sound?');
+    setStatus('Transcribing audio…');
+    const b64 = await blobToB64(blob);
+    const r = await fetch(API+'/transcribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ audio:b64, mime:'audio/webm', language:'en' }) });
+    let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the transcription service.'); }
+    if(r.status===401) throw new Error('Please sign in.');
+    if(!r.ok) throw new Error((d&&(d.message||d.error))||'Transcription failed.');
+    const words=(d.words||[]).filter(w=>w&&w.word);
+    if(!words.length) throw new Error('No speech detected.');
+    let out='', lastT=-30;
+    for(const w of words){ if((w.start||0)-lastT>=25){ out += (out?'\n':'')+'['+fmtT(w.start)+'] '; lastT=w.start||0; } out += w.word+' '; }
+    $('#vtTranscript').value = out.trim();
+    setStatus('Transcribed ✓ — review it, then Generate.','ok');
+  }catch(e){ setStatus((e&&e.message)||'Transcription failed.','err'); }
+  finally{ btn.disabled=false; try{ if(ac) ac.close(); }catch(_){} }
+});
+
+$('#vtGen').addEventListener('click', async ()=>{
+  const transcript = ($('#vtTranscript').value||'').trim();
+  if(transcript.length < 20){ setStatus('Add a transcript first (or transcribe a clip).','err'); return; }
+  const btn=$('#vtGen'); btn.disabled=true; setStatus('Generating…');
+  $('#vtResults').innerHTML='';
+  try{
+    const isYT = platform==='youtube';
+    const payload = isYT ? { task:'ytmeta', transcript } : { task:'videocopy', transcript, platform: platform==='tiktok'?'TikTok':'Instagram' };
+    const r = await fetch(API+'/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the generator.'); }
+    if(r.status===401) throw new Error('Please sign in.');
+    if(!r.ok) throw new Error((d&&d.error)||'Generation failed.');
+    if(isYT) renderYT(d.ytmeta); else renderSocial(d.videocopy);
+    setStatus('Done ✓','ok');
+  }catch(e){ setStatus((e&&e.message)||'Failed — try again.','err'); }
+  finally{ btn.disabled=false; }
+});
+
+function copyBtn(id){ return '<button class="mini" data-copy="'+id+'">Copy</button>'; }
+function renderYT(m){
+  if(!m){ return; }
+  const box=$('#vtResults');
+  const titles = (m.titles||[]).map((t,i)=>'<div class="titleopt"><span class="t">'+esc(t)+'</span><button class="mini" data-copytext="'+esc(t)+'">Copy</button></div>').join('');
+  const tags = (m.tags||[]).map(t=>'<span class="tag">'+esc(t)+'</span>').join('');
+  const chapters = (m.chapters||[]).map(c=>'<div class="chap"><span class="tm">'+esc(c.time)+'</span><span>'+esc(c.title)+'</span></div>').join('');
+  const chapText = (m.chapters||[]).map(c=>c.time+' '+c.title).join('\n');
+  box.innerHTML =
+    '<div class="card"><div class="h"><span class="lbl">Title options</span></div>'+titles+'</div>'
+    + '<div class="card"><div class="h"><span class="lbl">Description</span><button class="mini" data-copytext="'+esc(m.description||'')+'">Copy</button></div><div class="desc">'+esc(m.description||'')+'</div></div>'
+    + '<div class="card"><div class="h"><span class="lbl">Tags</span><button class="mini" data-copytext="'+esc((m.tags||[]).join(', '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>'
+    + (chapters ? '<div class="card"><div class="h"><span class="lbl">Chapters</span><button class="mini" data-copytext="'+esc(chapText)+'">Copy all</button></div>'+chapters+'</div>' : '');
+}
+function renderSocial(v){
+  if(!v){ return; }
+  const box=$('#vtResults');
+  const tags=(v.hashtags||[]).map(h=>'<span class="tag">#'+esc(h)+'</span>').join('');
+  const hooks=(v.hooks||[]).map(h=>'<li>'+esc(h)+'</li>').join('');
+  box.innerHTML =
+    '<div class="card"><div class="h"><span class="lbl">Caption</span><button class="mini" data-copytext="'+esc(v.caption||'')+'">Copy</button></div><div class="desc">'+esc(v.caption||'')+'</div></div>'
+    + '<div class="card"><div class="h"><span class="lbl">Hashtags</span><button class="mini" data-copytext="'+esc((v.hashtags||[]).map(h=>'#'+h).join(' '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>'
+    + (hooks ? '<div class="card"><div class="h"><span class="lbl">Hook ideas</span></div><ul class="hooks">'+hooks+'</ul></div>' : '');
+}
+$('#vtResults').addEventListener('click', e=>{ const b=e.target.closest('[data-copytext]'); if(b) copyText(b.getAttribute('data-copytext'), b); });
+</script>
+</body>
+</html>

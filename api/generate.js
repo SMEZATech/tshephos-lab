@@ -37,6 +37,11 @@ const SYSTEM_VIDEOCOPY =
   "You base the copy ONLY on the supplied transcript — never invent facts, names, statistics, dates, offers or links. " +
   "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
 
+const SYSTEM_YTMETA =
+  "You are a YouTube SEO strategist. From a video transcript you write metadata that maximises click-through and watch time WITHOUT clickbait or false claims. " +
+  "Base everything ONLY on the transcript — never invent facts, names, numbers or links. " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
 const SYSTEM_HIGHLIGHTS =
   "You are a senior short-form video editor who finds the most clip-worthy moments in long talks and webinars for vertical social shorts. " +
   "You pick self-contained, punchy moments that open on a strong hook and end on a satisfying payoff or punchline. " +
@@ -211,6 +216,22 @@ Return ONLY minified JSON with this exact shape:
 {"caption":"2 to 4 short punchy lines of post copy, value-first, using \\n for line breaks, ending with a soft CTA to watch or follow; do NOT put hashtags inside the caption","hashtags":["8 to 12 relevant hashtags, no # symbol and no spaces"],"hooks":["3 alternative on-screen hook lines, each 4 to 8 words, designed to stop the scroll if overlaid on the opening of the video"]}
 
 Platform guidance: ${hint}`;
+}
+
+function buildYtMetaPrompt({ transcript }) {
+  return `Below is a video transcript (it may include timestamps like [1:23] or "1:23").
+
+TRANSCRIPT:
+"""
+${transcript}
+"""
+
+Write YouTube metadata based ONLY on this transcript. Do not invent facts, names, numbers or links.
+
+Return ONLY minified JSON with this exact shape:
+{"titles":["3 title options, each under 70 characters, specific and curiosity-driven but honest — no ALL CAPS, no clickbait"],"description":"a 3 to 5 short-paragraph description: a strong first two lines that work as the search snippet, then what the video covers and who it's for; plain text with \\n line breaks; no hashtags block","tags":["12 to 15 lowercase keyword tags a viewer might search, no # symbol"],"chapters":[{"time":"M:SS","title":"chapter title"}]}
+
+Chapters: if the transcript has timestamps, use them for the chapter start times; otherwise infer 4 to 8 logical sections and estimate reasonable times. The FIRST chapter MUST be {"time":"0:00","title":"Intro"}. Order chapters by time.`;
 }
 
 function buildHighlightsPrompt({ transcript, count, minLen, maxLen, totalDur }) {
@@ -560,6 +581,27 @@ export default async function handler(req, res) {
         return res.status(502).json({ error: "Model returned empty copy — try again." });
       }
       return res.status(200).json({ videocopy });
+    }
+
+    // ---- VideoTok: YouTube metadata (titles/description/tags/chapters) from a transcript ----
+    if (task === "ytmeta") {
+      const { transcript } = body;
+      if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
+      const text = await callProvider(
+        buildYtMetaPrompt({ transcript: String(transcript).slice(0, 12000) }),
+        { system: SYSTEM_YTMETA, temperature: 0.6, maxTokens: 1800 }
+      );
+      const m = safeParse(text);
+      if (!m) return res.status(502).json({ error: "Model returned unusable metadata — try again." });
+      const ytmeta = {
+        titles: strList(m.titles, 3, 100),
+        description: String(m.description || "").slice(0, 5000),
+        tags: Array.isArray(m.tags) ? m.tags.slice(0, 15).map((t) => String(t).replace(/^#/, "").trim().slice(0, 40)).filter(Boolean) : [],
+        chapters: Array.isArray(m.chapters) ? m.chapters.slice(0, 20).map((c) => ({ time: String((c && c.time) || "").slice(0, 8), title: String((c && c.title) || "").slice(0, 100) })).filter((c) => c.title) : [],
+      };
+      if (!ytmeta.titles.length && !ytmeta.description) return res.status(502).json({ error: "Empty metadata — try again." });
+      await logContent(req.volt && req.volt.orgId, { tool: "ytmeta", input: { len: String(transcript).length }, output: ytmeta, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ ytmeta });
     }
 
     // ---- Auto-highlight: rank the most clip-worthy moments from a timestamped transcript ----
