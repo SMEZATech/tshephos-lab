@@ -4,7 +4,7 @@
 // Note: image generation needs a Gemini key with Imagen access (a paid tier). If the key
 // can't generate images, the provider's error is surfaced verbatim.
 
-import { blocked, meter } from "./_guard.js";
+import { blocked, meter, logContent } from "./_guard.js";
 
 const ASPECTS = { "1:1": 1, "3:4": 1, "4:3": 1, "9:16": 1, "16:9": 1 };
 
@@ -37,7 +37,11 @@ export default async function handler(req, res) {
     const b64 = pred && (pred.bytesBase64Encoded || pred.image);
     if (!b64) return res.status(502).json({ error: "No image came back — try rewording the prompt." });
     const mime = (pred && pred.mimeType) || "image/png";
-    return res.status(200).json({ image: "data:" + mime + ";base64," + b64 });
+    const contentId = await logContent(req.volt && req.volt.orgId, {
+      tool: "image", input: { prompt, aspect }, output: {}, provider: "gemini", model,
+      userId: req.volt && req.volt.user && req.volt.user.id,
+    });
+    return res.status(200).json({ image: "data:" + mime + ";base64," + b64, contentId });
   } catch (e) {
     return res.status(500).json({ error: String((e && e.message) || e) });
   }

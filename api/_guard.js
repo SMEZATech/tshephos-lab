@@ -240,4 +240,47 @@ async function meter(req, res, opts = {}) {
   } catch (e) { return false; } // fail OPEN — billing must never take the app down
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage };
+// ===== Volt Brain (data flywheel) — best-effort logging. NEVER throws / blocks the request. =====
+// Log one AI generation → content_item. Returns the new id (or null).
+async function logContent(orgId, item = {}) {
+  try {
+    if (!orgId) return null;
+    const rows = await sbWrite("content_item", {
+      org_id: orgId,
+      tool: String(item.tool || "").slice(0, 40),
+      brand_id: item.brandId || null,
+      input: item.input || {},
+      output: item.output || {},
+      model: item.model || null,
+      provider: item.provider || null,
+      created_by: item.userId || null,
+    });
+    return (rows && rows[0] && rows[0].id) || null;
+  } catch (e) { return null; }
+}
+// Log what the human did with a generation → content_event.
+async function logEvent(orgId, contentId, event, detail) {
+  try {
+    if (!orgId || !event) return;
+    await sbWrite("content_event", { org_id: orgId, content_id: contentId || null, event: String(event).slice(0, 40), detail: detail || {} });
+  } catch (e) {}
+}
+// Upsert a real-world outcome (from Postiz) → post_metric.
+async function recordMetric(orgId, m = {}) {
+  try {
+    if (!orgId || !m.external_id) return;
+    const svc = process.env.SUPABASE_SERVICE_KEY;
+    await fetch(sbBase() + "/rest/v1/post_metric", {
+      method: "POST",
+      headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({
+        org_id: orgId, platform: m.platform || null, external_id: String(m.external_id),
+        posted_text: (m.posted_text || "").slice(0, 4000),
+        likes: m.likes | 0, comments: m.comments | 0, shares: m.shares | 0, impressions: m.impressions | 0,
+        engagement: Number(m.engagement) || 0, published_at: m.published_at || null,
+      }),
+    });
+  } catch (e) {}
+}
+
+export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric };

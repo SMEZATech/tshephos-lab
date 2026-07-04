@@ -2,7 +2,7 @@
 // Serverless proxy. Keeps your API key on the server, never in the browser.
 // Provider is set with the LLM_PROVIDER env var: "gemini" (default) | "claude" | "groq".
 
-import { blocked, meter } from "./_guard.js";
+import { blocked, meter, logContent } from "./_guard.js";
 
 const SYSTEM =
   "You are an elite direct-response performance-marketing copywriter and a brutally honest creative strategist. " +
@@ -508,7 +508,11 @@ export default async function handler(req, res) {
       const text = await callProvider(buildEmailPrompt({ brief }) + voiceNote, { system: SYSTEM_EMAIL, json: false, temperature: 0.7, maxTokens: 3000 });
       let html = String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim();
       if (!html) return res.status(502).json({ error: "Model returned an empty body — try again." });
-      return res.status(200).json({ emailBody: html });
+      const contentId = await logContent(req.volt && req.volt.orgId, {
+        tool: "email", input: { brief: String(brief).slice(0, 2000) }, output: { emailBody: html.slice(0, 8000) },
+        provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id,
+      });
+      return res.status(200).json({ emailBody: html, contentId });
     }
 
     // ---- Video → social post copy ----
@@ -604,7 +608,14 @@ export default async function handler(req, res) {
       },
     }));
 
-    return res.status(200).json({ variations });
+    const contentId = await logContent(req.volt && req.volt.orgId, {
+      tool: "copy",
+      input: { offer, audience, platform, winnerAngle },
+      output: { variations },
+      provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+      userId: req.volt && req.volt.user && req.volt.user.id,
+    });
+    return res.status(200).json({ variations, contentId });
   } catch (err) {
     return res.status(500).json({ error: (err && err.message) || "Server error" });
   }

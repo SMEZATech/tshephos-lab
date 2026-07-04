@@ -9,7 +9,7 @@
 //
 // Docs: https://docs.postiz.com/public-api
 
-import { blocked } from "./_guard.js";
+import { blocked, recordMetric } from "./_guard.js";
 
 function baseUrl() {
   const b = process.env.POSTIZ_API_URL || "https://api.postiz.com/public/v1";
@@ -147,6 +147,20 @@ export default async function handler(req, res) {
         })
       );
       enriched.sort((a, b) => b.engagement - a.engagement);
+      // Volt Brain: persist these real-world outcomes so the Brain can learn what performs.
+      try {
+        const orgId = req.volt && req.volt.orgId;
+        if (orgId) {
+          const plat = String((req.query && req.query.id) || "postiz");
+          const pick = (m, re) => { const x = (m || []).find((k) => re.test(k.label)); return x && x.value != null ? x.value : 0; };
+          await Promise.all(enriched.slice(0, 25).map((p) => recordMetric(orgId, {
+            platform: plat, external_id: p.id, posted_text: p.content, published_at: p.publishDate || null,
+            likes: pick(p.metrics, /like|react/i), comments: pick(p.metrics, /comment|repl/i),
+            shares: pick(p.metrics, /share|repost|retweet/i), impressions: pick(p.metrics, /impression|view|reach/i),
+            engagement: p.engagement,
+          })));
+        }
+      } catch (e) { /* best-effort — never break analytics */ }
       return res.status(200).json({ days, topPosts: enriched });
     }
 

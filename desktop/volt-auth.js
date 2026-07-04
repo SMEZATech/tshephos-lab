@@ -25,6 +25,17 @@
 
   /* ---------- fetch patch: attach the session token (+ desktop keys) to backend calls ---------- */
   function ollamaCfg() { try { return JSON.parse(localStorage.getItem("volt_ollama") || "{}"); } catch (e) { return {}; } }
+  // Volt Brain beacon — record what the user does with generated content. Fire-and-forget,
+  // never blocks or errors a user action. Goes through the patched fetch (adds the Bearer).
+  window.voltEvent = function (contentId, event, detail) {
+    try {
+      fetch("https://tshephos-lab.vercel.app/api/events", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentId: contentId || null, event: event, detail: detail || {} }),
+        keepalive: true,
+      }).catch(function () {});
+    } catch (e) {}
+  };
   var _fetch = window.fetch ? window.fetch.bind(window) : null;
   if (_fetch) {
     // Local AI: when enabled on desktop, run Copy/Email generation on the user's Ollama.

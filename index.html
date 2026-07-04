@@ -247,6 +247,7 @@ async function run(winnerAngle){
   const svg = elGen.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner" style="border-color:rgba(10,11,15,.35);border-top-color:#0A0B0F"></span>';
   try{
     const data = await callApi({ offer:state.offer, audience:state.audience, platform:state.platform, count:5, winnerAngle, brandVoice:activeBrandVoice() });
+    state.contentId = data.contentId || null;
     state.variations = rank(data.variations.map(v => ({...v, _id:++_id})));
   }catch(err){ showErr(err.message); }
   finally{
@@ -279,6 +280,7 @@ function logUsedCopy(v){
 
 function sendToStudio(v){
   logUsedCopy(v);
+  window.voltEvent && window.voltEvent(state.contentId, 'handed_off', { to:'studio', headline: v.headline });
   try{
     sessionStorage.setItem('tl_handoff', JSON.stringify({ headline: v.headline, body: v.body, platform: state.platform }));
   }catch(e){}
@@ -286,6 +288,7 @@ function sendToStudio(v){
 }
 function sendToVideo(v){
   logUsedCopy(v);
+  window.voltEvent && window.voltEvent(state.contentId, 'handed_off', { to:'video', headline: v.headline });
   try{
     sessionStorage.setItem('tl_handoff_video', JSON.stringify({ hook: v.headline, platform: state.platform }));
   }catch(e){}
@@ -352,6 +355,7 @@ elRes.addEventListener('click', e => {
   if(copyBtn){
     const v = state.variations.find(x=>x._id==copyBtn.dataset.id); if(!v) return;
     logUsedCopy(v);
+    window.voltEvent && window.voltEvent(state.contentId, 'copied', { framework: v.framework, headline: v.headline });
     navigator.clipboard && navigator.clipboard.writeText(`${v.headline}\n\n${v.body}\n\n${v.cta}${tagText(v)}`);
     copyBtn.innerHTML = `${ICON.check} Copied`;
     setTimeout(()=>{ copyBtn.innerHTML = `${ICON.copy} Copy`; }, 1400);
