@@ -5,7 +5,7 @@
 // small, plain-English insight block. Costs ~one Gemini Flash call per refresh (pennies).
 // Everything is per-org, service-role only. This is the compounding, un-copyable asset.
 
-import { blocked, sbRest, sbBase } from "./_guard.js";
+import { blocked, sbRest, sbBase, logEvent } from "./_guard.js";
 
 const STALE_DAYS = 7;
 const MIN_POSTS = 5;
@@ -68,16 +68,27 @@ async function compute(orgId, key) {
 }
 
 export default async function handler(req, res) {
-  if (await blocked(req, res, { methods: "GET, POST, OPTIONS", method: req.method === "POST" ? "POST" : "GET", id: "brain", limit: 20, windowSec: 60 })) return;
+  if (await blocked(req, res, { methods: "GET, POST, OPTIONS", method: req.method === "POST" ? "POST" : "GET", id: "brain", limit: 200, windowSec: 60 })) return;
   try {
     const orgId = req.volt && req.volt.orgId;
+    const body = req.method === "POST" ? (typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {})) : {};
+
+    // Content-event beacon (folded in from the old /api/events). Best-effort, always 200.
+    if (req.method === "POST" && body.action === "event") {
+      try {
+        const ev = String(body.event || "").trim();
+        if (ev) await logEvent(orgId, body.contentId || null, ev, (body.detail && typeof body.detail === "object") ? body.detail : {});
+      } catch (e) {}
+      return res.status(200).json({ ok: true });
+    }
+
     const key = (req.headers["x-gemini-key"] && String(req.headers["x-gemini-key"])) || process.env.GEMINI_API_KEY;
     const enc = encodeURIComponent(orgId);
     const rows = (await sbRest("org_insight?select=data,updated_at&org_id=eq." + enc + "&kind=eq.summary&limit=1")) || [];
     const existing = rows[0];
     const ageDays = existing ? (Date.now() - new Date(existing.updated_at).getTime()) / 86400000 : Infinity;
 
-    const force = req.method === "POST";
+    const force = req.method === "POST" && body.action === "refresh";
     if ((force || !existing || ageDays > STALE_DAYS)) {
       if (!key) {
         if (existing) return res.status(200).json({ summary: existing.data, updatedAt: existing.updated_at });

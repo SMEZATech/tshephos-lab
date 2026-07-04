@@ -6,6 +6,11 @@
 const fs = require('fs'), path = require('path'), cp = require('child_process'), os = require('os');
 let fail = 0;
 
+// Vercel Hobby plan caps Serverless Functions at 12 (underscore-prefixed files don't count).
+const fnCount = fs.readdirSync('api').filter(n => n.endsWith('.js') && !n.startsWith('_')).length;
+console.log('Serverless functions: ' + fnCount + '/12' + (fnCount > 12 ? '  x OVER VERCEL HOBBY LIMIT — deploys will FAIL' : ''));
+if (fnCount > 12) fail++;
+
 console.log('Backend (api/*.js):');
 for (const f of fs.readdirSync('api').filter(n => n.endsWith('.js'))) {
   try { cp.execSync('node --check "api/' + f + '"', { stdio: 'pipe' }); console.log('  ok ' + f); }

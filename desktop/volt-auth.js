@@ -29,9 +29,9 @@
   // never blocks or errors a user action. Goes through the patched fetch (adds the Bearer).
   window.voltEvent = function (contentId, event, detail) {
     try {
-      fetch("https://tshephos-lab.vercel.app/api/events", {
+      fetch("https://tshephos-lab.vercel.app/api/brain", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentId: contentId || null, event: event, detail: detail || {} }),
+        body: JSON.stringify({ action: "event", contentId: contentId || null, event: event, detail: detail || {} }),
         keepalive: true,
       }).catch(function () {});
     } catch (e) {}
