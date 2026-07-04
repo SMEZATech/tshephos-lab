@@ -119,7 +119,13 @@
     '#va-badge .who{font-size:12.5px;font-weight:700;color:#ECEEF3;}' +
     '#va-refresh,#va-gear{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#0D0F15;color:#B6FF3D;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;}' +
     '#va-refresh:hover{background:#B6FF3D;color:#0A0B0F;transform:rotate(90deg);}#va-gear:hover{background:#B6FF3D;color:#0A0B0F;}' +
-    '#va-toast{position:fixed;top:58px;right:16px;z-index:99999;background:#14171F;border:1px solid rgba(182,255,61,.4);color:#ECEEF3;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;transition:opacity .2s;}#va-toast.show{opacity:1;}';
+    '#va-toast{position:fixed;top:58px;right:16px;z-index:99999;background:#14171F;border:1px solid rgba(182,255,61,.4);color:#ECEEF3;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;transition:opacity .2s;}#va-toast.show{opacity:1;}' +
+    // ---- Volt modern nav — restyles the existing .tab / .nav-tab centrally (appearance only,
+    // no markup/layout/position change) so every module gets a cohesive, Canva-clean bar. ----
+    '.topbar{gap:5px !important;padding:6px !important;background:rgba(20,23,31,.55);border:1px solid rgba(255,255,255,.09);border-radius:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 8px 24px -16px rgba(0,0,0,.7);}' +
+    '.tab,.nav-tab{border:1px solid transparent !important;background:transparent !important;color:#888F9D !important;padding:8px 14px !important;border-radius:11px !important;font-weight:700 !important;transition:background .16s ease,color .16s ease,box-shadow .16s ease !important;}' +
+    '.tab:hover,.nav-tab:hover{color:#ECEEF3 !important;background:rgba(255,255,255,.07) !important;border-color:transparent !important;}' +
+    '.tab.active,.nav-tab.active{background:#B6FF3D !important;color:#0A0B0F !important;border-color:#B6FF3D !important;box-shadow:0 5px 16px -5px rgba(182,255,61,.5) !important;}';
 
   function injectCSS() { if (document.getElementById("va-style")) return; var st = document.createElement("style"); st.id = "va-style"; st.textContent = CSS; document.head.appendChild(st); }
 
