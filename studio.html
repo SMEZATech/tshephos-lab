@@ -3160,6 +3160,7 @@ self.onmessage = async (e) => {
         +   '<button id="ff-add-logo" class="'+B+'">⭐ Brand logo</button>'
         +   '<input id="ff-file" type="file" accept="image/*" class="hidden">'
         +   '<button id="ff-removebg" class="'+B+'">🪄 Remove background</button>'
+        +   '<div class="flex gap-1.5"><input id="ff-ai-prompt" type="text" placeholder="Describe an image to generate…" class="flex-1 min-w-0 bg-slate-900 text-slate-100 rounded-lg px-2 py-2 text-xs border border-slate-700 focus:border-[#B6FF3D] outline-none"><button id="ff-ai-gen" class="text-sm font-bold px-3 rounded-lg shrink-0" style="background:#B6FF3D;color:#0A0B0F;" title="Generate image with AI">✨</button></div>'
         +   '<div id="ff-status" class="text-[11px] text-slate-400 mb-1" style="min-height:14px;"></div>'
         +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mt-3 mb-2">Colour <span class="text-slate-500">(selected / background)</span></p>'
         +   '<div class="flex flex-wrap gap-1.5 mb-2" id="ff-swatches">'+swHtml+'</div>'
@@ -3287,6 +3288,23 @@ self.onmessage = async (e) => {
         }catch(e){ ffStatus('Couldn’t remove background: '+((e&&e.message)||e)); }
       }
       $$('ff-removebg').addEventListener('click', removeBg);
+      // AI image generation → adds the result straight onto the freeform canvas.
+      async function aiImage(){
+        var p = ($$('ff-ai-prompt').value || '').trim();
+        if(!p){ ffStatus('Describe an image first.'); return; }
+        var aspect = fullW > fullH ? '16:9' : (fullW < fullH ? '9:16' : '1:1');
+        var btn = $$('ff-ai-gen'); btn.disabled = true; ffStatus('Generating image… (a few seconds)');
+        try{
+          var r = await fetch('/api/image', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ prompt:p, aspect:aspect }) });
+          var data = {}; try{ data = await r.json(); }catch(_){}
+          if(r.status === 503) throw new Error(data.error || 'Needs a Gemini key with image access.');
+          if(!r.ok || !data.image) throw new Error(data.error || 'Could not generate — try rewording.');
+          addImageFromURL(data.image);
+          ffStatus('Image added ✓');
+        }catch(e){ ffStatus('Couldn’t generate: ' + ((e && e.message) || e)); }
+        finally{ btn.disabled = false; }
+      }
+      $$('ff-ai-gen').addEventListener('click', aiImage);
       $$('ff-swatches').addEventListener('click', e=>{ const b=e.target.closest('.ff-sw'); if(b) applyFill(b.dataset.c); });
       $$('ff-fill').addEventListener('input', e=>applyFill(e.target.value));
       $$('ff-bg').addEventListener('input', e=>{ fc.setBackgroundColor(e.target.value, fc.renderAll.bind(fc)); });
