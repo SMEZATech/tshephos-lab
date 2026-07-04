@@ -171,6 +171,14 @@
     <div id="draftStatus" class="kit-status"></div>
   </section>
 
+  <section id="brainPanel" style="display:none; margin-top:20px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:16px; padding:18px 20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+      <span class="lbl" style="margin:0; color:var(--accent);">🧠 What Volt has learned about your brand</span>
+      <button class="mini" id="brainRefresh" title="Recompute from your latest performance">↻ Refresh</button>
+    </div>
+    <div id="brainBody"><p class="go-note" style="margin:0;">Loading…</p></div>
+  </section>
+
   <div class="error" id="error" hidden></div>
   <div id="results"></div>
 
@@ -444,6 +452,33 @@ async function deleteDraft(id){
   const dm=$('#draftsModal'); if(dm) dm.addEventListener('click', e=>{ if(e.target===dm) dm.style.display='none'; });
   const dl=$('#draftsList'); if(dl) dl.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadDraft(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteDraft(D.dataset.del); });
 }
+
+// ---- Volt Brain: show what the platform has learned from this org's real performance ----
+function renderBrain(s){
+  const body=$('#brainBody'), panel=$('#brainPanel');
+  if(!s){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  if(s.status==='learning'){ body.innerHTML='<p class="go-note" style="margin:0;">'+esc(s.note||'Volt is still learning — keep creating and checking Analytics.')+'</p>'; return; }
+  if(s.status!=='ready'){ body.innerHTML='<p class="go-note" style="margin:0;">No insights yet.</p>'; return; }
+  const list=(title,arr,col)=> (arr&&arr.length)? '<div style="margin-bottom:9px;"><span class="lbl" style="margin:0 0 4px; color:'+col+';">'+title+'</span><ul style="margin:0; padding-left:18px; font-size:13.5px; line-height:1.55; color:var(--text);">'+arr.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
+  let h=list('Do more ✓', s.do_more, 'var(--good)') + list('Avoid ✕', s.do_less, 'var(--low)') + list('Hooks that land', s.hooks, 'var(--info)');
+  if(s.hashtags&&s.hashtags.length) h+='<div class="tags" style="margin-top:6px;">'+s.hashtags.map(t=>'<span class="tag">#'+esc(String(t).replace(/^#/,''))+'</span>').join('')+'</div>';
+  if(s.evidence) h+='<p class="go-note" style="margin:9px 0 0;">'+esc(s.evidence)+'</p>';
+  body.innerHTML=h || '<p class="go-note" style="margin:0;">No clear patterns yet — keep publishing.</p>';
+}
+async function loadBrain(force){
+  try{
+    const opts = force ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'refresh' }) } : {};
+    const url = '/api/brain' + (force ? '' : '?action=insights');
+    const r = await fetch(url, opts);
+    if(!r.ok){ $('#brainPanel').style.display='none'; return; }
+    const d = await r.json();
+    renderBrain(d.summary);
+  }catch(e){ $('#brainPanel').style.display='none'; }
+}
+window.addEventListener('volt:ready', ()=>loadBrain(false));
+if(window.voltSession) loadBrain(false);
+{ const rb=$('#brainRefresh'); if(rb) rb.addEventListener('click', ()=>{ $('#brainBody').innerHTML='<p class="go-note" style="margin:0;">Recomputing from your latest posts…</p>'; loadBrain(true); }); }
 
 render();
 </script>

@@ -240,6 +240,34 @@ async function meter(req, res, opts = {}) {
   } catch (e) { return false; } // fail OPEN — billing must never take the app down
 }
 
+// ===== Org-scoped DB access (H1) — every call REQUIRES an orgId and injects org_id=eq.,
+// so an endpoint physically cannot issue an unscoped query. Use for ALL per-org tables. =====
+function db(orgId) {
+  if (!orgId) throw new Error("db() requires an orgId");
+  const svc = process.env.SUPABASE_SERVICE_KEY;
+  const H = { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json" };
+  const base = sbBase() + "/rest/v1/";
+  const scope = "org_id=eq." + encodeURIComponent(orgId);
+  return {
+    async select(table, query) {
+      const r = await fetch(base + table + "?" + scope + (query ? "&" + query : ""), { headers: H });
+      return r.ok ? r.json() : null;
+    },
+    async insert(table, row) {
+      const r = await fetch(base + table, { method: "POST", headers: Object.assign({}, H, { Prefer: "return=representation" }), body: JSON.stringify(Object.assign({ org_id: orgId }, row)) });
+      return r.ok ? r.json() : null;
+    },
+    async update(table, extra, patch) {
+      const r = await fetch(base + table + "?" + scope + (extra ? "&" + extra : ""), { method: "PATCH", headers: Object.assign({}, H, { Prefer: "return=representation" }), body: JSON.stringify(patch) });
+      return r.ok ? r.json() : null;
+    },
+    async remove(table, extra) {
+      const r = await fetch(base + table + "?" + scope + (extra ? "&" + extra : ""), { method: "DELETE", headers: H });
+      return r.ok;
+    },
+  };
+}
+
 // ===== Volt Brain (data flywheel) — best-effort logging. NEVER throws / blocks the request. =====
 // Log one AI generation → content_item. Returns the new id (or null).
 async function logContent(orgId, item = {}) {
@@ -283,4 +311,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric };
+export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db };

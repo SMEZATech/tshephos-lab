@@ -2,7 +2,7 @@
 // Serverless proxy. Keeps your API key on the server, never in the browser.
 // Provider is set with the LLM_PROVIDER env var: "gemini" (default) | "claude" | "groq".
 
-import { blocked, meter, logContent } from "./_guard.js";
+import { blocked, meter, logContent, sbRest } from "./_guard.js";
 
 const SYSTEM =
   "You are an elite direct-response performance-marketing copywriter and a brutally honest creative strategist. " +
@@ -395,11 +395,32 @@ export default async function handler(req, res) {
       ? "\n\nBRAND VOICE — write ALL copy in exactly this voice and tone (embody it, don't describe it): " + brandVoice
       : "";
 
+    // Volt Brain: inject what THIS org's real performance data has taught us (like voiceNote).
+    let brainNote = "";
+    try {
+      const oid = req.volt && req.volt.orgId;
+      if (oid && (task === "copy" || task === "email")) {
+        const rows = await sbRest("org_insight?select=data&org_id=eq." + encodeURIComponent(oid) + "&kind=eq.summary&limit=1");
+        const s = rows && rows[0] && rows[0].data;
+        if (s && s.status === "ready") {
+          const parts = [];
+          if (s.do_more && s.do_more.length) parts.push("DO MORE (proven for this audience): " + s.do_more.join("; "));
+          if (s.do_less && s.do_less.length) parts.push("AVOID (underperformed): " + s.do_less.join("; "));
+          if (s.hooks && s.hooks.length) parts.push("Hook styles that landed: " + s.hooks.join("; "));
+          if (parts.length) brainNote = "\n\nWHAT WORKS FOR THIS BRAND (from real performance data — weight heavily): " + parts.join(" | ");
+        }
+      }
+    } catch (e) {}
+    const promptExtras = voiceNote + brainNote;
+    // Per-org publication identity — so email/video copy isn't hardcoded to "SME South Africa".
+    const publication = String(body.publication || "").slice(0, 200).trim();
+    const pubNote = publication ? "\n\nPUBLICATION IDENTITY — write this AS \"" + publication + "\" for their own audience; do NOT reference any other company or publication." : "";
+
     // ---- Local AI (Ollama) two-phase: server builds the prompt + parses the result;
     // the desktop app runs the actual generation on the user's local Ollama (free, offline).
     // Cloud path below is completely untouched.
     if (body.mode === "build") {
-      const b = buildForTask(task, body, voiceNote);
+      const b = buildForTask(task, body, promptExtras);
       if (!b) return res.status(400).json({ error: "Local AI isn't wired for this tool yet." });
       if (b.error) return res.status(400).json({ error: b.error });
       return res.status(200).json(b);
@@ -505,7 +526,7 @@ export default async function handler(req, res) {
     if (task === "email") {
       const { brief } = body;
       if (!brief || !String(brief).trim()) return res.status(400).json({ error: "Missing brief" });
-      const text = await callProvider(buildEmailPrompt({ brief }) + voiceNote, { system: SYSTEM_EMAIL, json: false, temperature: 0.7, maxTokens: 3000 });
+      const text = await callProvider(buildEmailPrompt({ brief }) + promptExtras + pubNote, { system: SYSTEM_EMAIL, json: false, temperature: 0.7, maxTokens: 3000 });
       let html = String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim();
       if (!html) return res.status(502).json({ error: "Model returned an empty body — try again." });
       const contentId = await logContent(req.volt && req.volt.orgId, {
@@ -587,7 +608,7 @@ export default async function handler(req, res) {
     const { offer, audience, platform, count = 5, winnerAngle } = body;
     if (!offer || !String(offer).trim()) return res.status(400).json({ error: "Missing offer" });
 
-    const prompt = buildPrompt({ offer, audience, platform, count, winnerAngle }) + voiceNote;
+    const prompt = buildPrompt({ offer, audience, platform, count, winnerAngle }) + promptExtras;
     const text = await callProvider(prompt);
 
     const parsed = safeParse(text);
