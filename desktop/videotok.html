@@ -139,7 +139,10 @@ async function sendAudio(blob, mime){
 // Real-time fallback for undecodable formats: play once through Web Audio (NOT muted — muting the
 // element silences the graph, which is what fed Whisper silence before) and record speech-only.
 async function realtimeCapture(){
-  const v = document.createElement('video'); v.src = URL.createObjectURL(videoFile); v.muted = true; v.volume = 0;
+  // NOT muted: a muted element feeds the source node silence (that was the original bug). Once it's
+  // routed through createMediaElementSource and connected only to `dest`, it never reaches the
+  // speakers anyway, so leaving it unmuted is both correct and silent to the user.
+  const v = document.createElement('video'); v.src = URL.createObjectURL(videoFile);
   await new Promise((r,e)=>{ v.addEventListener('loadedmetadata', r, {once:true}); v.addEventListener('error', ()=>e(new Error('Could not read that video.')), {once:true}); });
   const ac = new (window.AudioContext||window.webkitAudioContext)();
   const src = ac.createMediaElementSource(v), dest = ac.createMediaStreamDestination();
