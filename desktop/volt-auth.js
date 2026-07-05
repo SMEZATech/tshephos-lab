@@ -235,7 +235,7 @@
     { t: "Studio", e: "🎨", href: "studio.html" },
     { t: "Freeform", e: "🖌️", href: "freeform.html" },
     { t: "Video", e: "🎬", href: "video.html" },
-    { t: "VideoTok", e: "📺", href: "videotok.html" },
+    { t: "Transcribe", e: "📝", href: "videotok.html" },
     { t: "Email", e: "✉️", href: "email.html" },
     { t: "Audit", e: "🔍", href: "audit.html" },
     { t: "Stats", e: "📊", href: "analytics.html" },
