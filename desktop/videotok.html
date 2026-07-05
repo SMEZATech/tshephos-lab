@@ -55,7 +55,7 @@
 <body>
 <main class="wrap">
   <h1>📝 Transcribe</h1>
-  <p class="sub">Drop in a transcript (or transcribe a clip), and Volt writes your <b style="color:var(--text)">titles, description, tags and chapters</b> for YouTube — or a scroll-stopping caption for TikTok / Reels.</p>
+  <p class="sub">Drop in a transcript (or transcribe a clip), and Volt repurposes it: <b style="color:var(--text)">YouTube titles, description, tags &amp; chapters</b>, a scroll-stopping <b style="color:var(--text)">TikTok / Reels</b> caption, a full <b style="color:var(--text)">article</b> (800+ words), or a ready-to-send <b style="color:var(--text)">email</b>.</p>
 
   <div class="panel">
     <label class="lbl" for="vtTranscript">Transcript</label>
@@ -72,6 +72,8 @@
         <button data-p="youtube" class="on">▶ YouTube</button>
         <button data-p="tiktok">🎵 TikTok</button>
         <button data-p="reels">📸 Reels</button>
+        <button data-p="article">📄 Article</button>
+        <button data-p="email">✉️ Email</button>
       </div>
       <button class="btn" id="vtGen">✨ Generate</button>
     </div>
@@ -195,16 +197,23 @@ $('#vtTranscribe').addEventListener('click', async ()=>{
 $('#vtGen').addEventListener('click', async ()=>{
   const transcript = ($('#vtTranscript').value||'').trim();
   if(transcript.length < 20){ setStatus('Add a transcript first (or transcribe a clip).','err'); return; }
-  const btn=$('#vtGen'); btn.disabled=true; setStatus('Generating…');
+  const btn=$('#vtGen'); btn.disabled=true;
+  setStatus(platform==='article' ? 'Writing your article…' : (platform==='email' ? 'Writing your email…' : 'Generating…'));
   $('#vtResults').innerHTML='';
   try{
-    const isYT = platform==='youtube';
-    const payload = isYT ? { task:'ytmeta', transcript } : { task:'videocopy', transcript, platform: platform==='tiktok'?'TikTok':'Instagram' };
+    let payload;
+    if(platform==='youtube') payload = { task:'ytmeta', transcript };
+    else if(platform==='article') payload = { task:'article', transcript };
+    else if(platform==='email') payload = { task:'transcriptemail', transcript };
+    else payload = { task:'videocopy', transcript, platform: platform==='tiktok'?'TikTok':'Instagram' };
     const r = await fetch(API+'/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the generator.'); }
     if(r.status===401) throw new Error('Please sign in.');
     if(!r.ok) throw new Error((d&&d.error)||'Generation failed.');
-    if(isYT) renderYT(d.ytmeta); else renderSocial(d.videocopy);
+    if(platform==='youtube') renderYT(d.ytmeta);
+    else if(platform==='article') renderArticle(d.article);
+    else if(platform==='email') renderEmail(d.email);
+    else renderSocial(d.videocopy);
     setStatus('Done ✓','ok');
   }catch(e){ setStatus((e&&e.message)||'Failed — try again.','err'); }
   finally{ btn.disabled=false; }
@@ -234,7 +243,39 @@ function renderSocial(v){
     + '<div class="card"><div class="h"><span class="lbl">Hashtags</span><button class="mini" data-copytext="'+esc((v.hashtags||[]).map(h=>'#'+h).join(' '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>'
     + (hooks ? '<div class="card"><div class="h"><span class="lbl">Hook ideas</span></div><ul class="hooks">'+hooks+'</ul></div>' : '');
 }
-$('#vtResults').addEventListener('click', e=>{ const b=e.target.closest('[data-copytext]'); if(b) copyText(b.getAttribute('data-copytext'), b); });
+// Server sanitises article/email `body` to a safe tag whitelist (<p>/<h2>/<blockquote>…), so it's
+// injected as HTML to render formatted; copy buttons offer the rendered text or the raw HTML source.
+function renderArticle(a){
+  if(!a){ return; }
+  const box=$('#vtResults');
+  const tags=(a.tags||[]).map(t=>'<span class="tag">#'+esc(t)+'</span>').join('');
+  const wc = a.words ? (' · '+a.words+' words') : '';
+  box.innerHTML =
+    '<div class="card"><div class="h"><span class="lbl">Article'+wc+'</span><span>'
+      + '<button class="mini" data-copyinner="#artBody">Copy text</button> '
+      + '<button class="mini" data-copyhtml="'+esc(a.body||'')+'">Copy HTML</button></span></div>'
+      + '<h2 style="font-family:var(--fd);font-size:22px;line-height:1.25;margin:.1em 0 .1em">'+esc(a.title||'')+'</h2>'
+      + (a.dek ? '<p class="note" style="font-size:14px;margin:.2em 0 1em">'+esc(a.dek)+'</p>' : '')
+      + '<div id="artBody" class="article-body" style="line-height:1.7">'+(a.body||'')+'</div></div>'
+    + (tags ? '<div class="card"><div class="h"><span class="lbl">Tags</span><button class="mini" data-copytext="'+esc((a.tags||[]).join(', '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>' : '');
+}
+function renderEmail(m){
+  if(!m){ return; }
+  const box=$('#vtResults');
+  box.innerHTML =
+    '<div class="card"><div class="h"><span class="lbl">Subject line</span><button class="mini" data-copytext="'+esc(m.subject||'')+'">Copy</button></div><div class="desc">'+esc(m.subject||'')+'</div></div>'
+    + (m.preview ? '<div class="card"><div class="h"><span class="lbl">Preview text</span><button class="mini" data-copytext="'+esc(m.preview)+'">Copy</button></div><div class="desc">'+esc(m.preview)+'</div></div>' : '')
+    + '<div class="card"><div class="h"><span class="lbl">Email body</span><span>'
+      + '<button class="mini" data-copyinner="#emBody">Copy text</button> '
+      + '<button class="mini" data-copyhtml="'+esc(m.body||'')+'">Copy HTML</button></span></div>'
+      + '<div id="emBody" class="article-body" style="line-height:1.7">'+(m.body||'')+'</div></div>';
+}
+$('#vtResults').addEventListener('click', e=>{
+  const t=e.target.closest('[data-copytext],[data-copyhtml],[data-copyinner]'); if(!t) return;
+  if(t.hasAttribute('data-copytext')) return copyText(t.getAttribute('data-copytext'), t);
+  if(t.hasAttribute('data-copyhtml')) return copyText(t.getAttribute('data-copyhtml'), t);
+  const el=document.querySelector(t.getAttribute('data-copyinner')); copyText(el?(el.innerText||el.textContent||''):'', t);
+});
 </script>
 </body>
 </html>

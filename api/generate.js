@@ -48,6 +48,19 @@ const SYSTEM_HIGHLIGHTS =
   "You base everything ONLY on the supplied transcript and timestamps — never invent words, and never return a time outside the transcript. " +
   "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
 
+const SYSTEM_ARTICLE =
+  "You are a skilled editor who turns spoken talks, sermons, webinars and interviews into clear, engaging written articles. " +
+  "You keep the speaker's subject matter, message and voice faithfully — you adopt the transcript's own topic and tone rather than forcing an unrelated agenda. " +
+  "You clean up speech (remove filler, repetition and transcription glitches), organise the ideas into a logical flow with subheadings, and write in polished, readable prose. " +
+  "You base everything ONLY on the supplied transcript — never invent facts, names, quotes, numbers, scripture references or links that are not supported by it. " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
+const SYSTEM_TXEMAIL =
+  "You are an email copywriter who turns a talk or sermon transcript into a warm, well-structured email that shares its core message with an audience who could not attend. " +
+  "You stay faithful to the transcript's topic, message and voice, and never invent facts, names, quotes, numbers, scripture references or links not supported by it. " +
+  "You write a compelling subject line and preheader and a clean, skimmable body. " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
 const PLATFORM_HINT = {
   Meta: "Meta feed (FB/IG): scroll-stopping, conversational, native, emotionally resonant.",
   Google: "Google Search: high-intent, benefit-led, concise; headline reads like the answer.",
@@ -232,6 +245,43 @@ Return ONLY minified JSON with this exact shape:
 {"titles":["3 title options, each under 70 characters, specific and curiosity-driven but honest — no ALL CAPS, no clickbait"],"description":"a 3 to 5 short-paragraph description: a strong first two lines that work as the search snippet, then what the video covers and who it's for; plain text with \\n line breaks; no hashtags block","tags":["12 to 15 lowercase keyword tags a viewer might search, no # symbol"],"chapters":[{"time":"M:SS","title":"chapter title"}]}
 
 Chapters: if the transcript has timestamps, use them for the chapter start times; otherwise infer 4 to 8 logical sections and estimate reasonable times. The FIRST chapter MUST be {"time":"0:00","title":"Intro"}. Order chapters by time.`;
+}
+
+function buildArticlePrompt({ transcript }) {
+  return `Below is a transcript of a spoken talk (it may include timestamps like [1:23]). Turn it into a polished written article.
+
+TRANSCRIPT:
+"""
+${transcript}
+"""
+
+Write a complete, publish-ready article that faithfully captures this talk's message, topic and voice. Remove filler, false starts, repetition and transcription glitches; fix grammar; organise the ideas into a clear flow with subheadings. Base everything ONLY on the transcript — do NOT invent facts, names, quotes, numbers, scripture references or links. Ignore the timestamps in the final prose.
+
+Requirements:
+- The body MUST be AT LEAST 800 words (aim for 900 to 1300). Do not pad with fluff — expand by fully developing the ideas actually present in the transcript.
+- Use simple HTML in the body: <p> paragraphs and <h2> subheadings only (no <html>, <head>, <h1>, inline styles, images or links).
+- Open with a strong hook, develop the key points under 3 to 6 subheadings, and end with a clear takeaway.
+
+Return ONLY minified JSON with this exact shape:
+{"title":"a compelling article title, under 80 characters","dek":"a one-sentence standfirst that summarises the article, under 160 characters","body":"the full article as HTML using only <p> and <h2> tags, at least 800 words","tags":["5 to 8 lowercase topic tags, no # symbol"]}`;
+}
+
+function buildTxEmailPrompt({ transcript }) {
+  return `Below is a transcript of a spoken talk (it may include timestamps like [1:23]). Turn it into an email that shares its message with people who could not attend.
+
+TRANSCRIPT:
+"""
+${transcript}
+"""
+
+Write a warm, skimmable email that faithfully conveys this talk's core message, topic and voice. Base everything ONLY on the transcript — do NOT invent facts, names, quotes, numbers, scripture references or links. Ignore the timestamps in the final copy.
+
+Requirements:
+- Body is simple HTML using only <p> paragraphs, <h2> subheadings and optionally one <blockquote> pull-quote (no <html>, <head>, images, inline styles or links).
+- Roughly 250 to 450 words: a friendly opening, 2 to 4 short sections covering the key points, and a closing line. Do not invent a call-to-action link or event details.
+
+Return ONLY minified JSON with this exact shape:
+{"subject":"a compelling subject line under 60 characters","preview":"a preheader / preview line, 40 to 90 characters","body":"the email body as HTML using only <p>, <h2> and optionally one <blockquote>"}`;
 }
 
 function buildHighlightsPrompt({ transcript, count, minLen, maxLen, totalDur }) {
@@ -602,6 +652,51 @@ export default async function handler(req, res) {
       if (!ytmeta.titles.length && !ytmeta.description) return res.status(502).json({ error: "Empty metadata — try again." });
       await logContent(req.volt && req.volt.orgId, { tool: "ytmeta", input: { len: String(transcript).length }, output: ytmeta, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
       return res.status(200).json({ ytmeta });
+    }
+
+    // ---- Transcribe: full written article (>=800 words) from a transcript ----
+    if (task === "article") {
+      const { transcript } = body;
+      if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
+      const cleanBody = (h) => String(h || "").replace(/```[a-z]*|```/gi, "").replace(/<(?!\/?(?:p|h2|h3|ul|ol|li|blockquote|strong|em|br)\b)[^>]*>/gi, "").trim();
+      const wordCount = (h) => (String(h || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().match(/\S+/g) || []).length;
+      const text = await callProvider(
+        buildArticlePrompt({ transcript: String(transcript).slice(0, 14000) }) + promptExtras,
+        { system: SYSTEM_ARTICLE, temperature: 0.6, maxTokens: 4096 }
+      );
+      const a = safeParse(text);
+      if (!a) return res.status(502).json({ error: "Model returned an unusable article — try again." });
+      const article = {
+        title: String(a.title || "").slice(0, 120),
+        dek: String(a.dek || "").slice(0, 200),
+        body: cleanBody(a.body).slice(0, 20000),
+        tags: Array.isArray(a.tags) ? a.tags.slice(0, 8).map((t) => String(t).replace(/^#/, "").trim().slice(0, 40)).filter(Boolean) : [],
+      };
+      article.words = wordCount(article.body);
+      if (!article.body || article.words < 200) return res.status(502).json({ error: "Article came back too short — try again." });
+      await logContent(req.volt && req.volt.orgId, { tool: "article", input: { len: String(transcript).length }, output: { title: article.title, words: article.words }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ article });
+    }
+
+    // ---- Transcribe: email newsletter from a transcript ----
+    if (task === "transcriptemail") {
+      const { transcript } = body;
+      if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
+      const cleanBody = (h) => String(h || "").replace(/```[a-z]*|```/gi, "").replace(/<(?!\/?(?:p|h2|h3|ul|ol|li|blockquote|strong|em|br)\b)[^>]*>/gi, "").trim();
+      const text = await callProvider(
+        buildTxEmailPrompt({ transcript: String(transcript).slice(0, 14000) }) + promptExtras,
+        { system: SYSTEM_TXEMAIL, temperature: 0.7, maxTokens: 2200 }
+      );
+      const e = safeParse(text);
+      if (!e) return res.status(502).json({ error: "Model returned an unusable email — try again." });
+      const email = {
+        subject: String(e.subject || "").slice(0, 120),
+        preview: String(e.preview || "").slice(0, 160),
+        body: cleanBody(e.body).slice(0, 12000),
+      };
+      if (!email.subject && !email.body) return res.status(502).json({ error: "Email came back empty — try again." });
+      await logContent(req.volt && req.volt.orgId, { tool: "transcriptemail", input: { len: String(transcript).length }, output: { subject: email.subject }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ email });
     }
 
     // ---- Auto-highlight: rank the most clip-worthy moments from a timestamped transcript ----
