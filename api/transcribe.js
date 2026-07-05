@@ -11,7 +11,9 @@
 import { blocked, meter } from "./_guard.js";
 
 export default async function handler(req, res) {
-  if (await blocked(req, res, { id: "transcribe", limit: 12, windowSec: 60 })) return;
+  // Long videos are transcribed as many ~90 s WAV chunks (Vercel's 4.5 MB body cap), so the
+  // limit is generous enough to cover a full sermon's worth of parts within a minute.
+  if (await blocked(req, res, { id: "transcribe", limit: 60, windowSec: 60 })) return;
   if (await meter(req, res, { kind: "transcribe" })) return;
 
   const key = process.env.GROQ_API_KEY;

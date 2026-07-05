@@ -64,7 +64,7 @@
       <input type="file" id="vtFile" accept="video/*" style="flex:1;min-width:200px;" />
       <button class="mini" id="vtTranscribe" disabled>🎙 Transcribe video</button>
     </div>
-    <p class="note">Transcribing plays the clip once in real time to read its audio — best for clips under a few minutes. For long videos, paste the transcript.</p>
+    <p class="note">Extracts the audio and transcribes it — long sermons are auto-split into parts. If a format won't decode, it falls back to reading the audio in real time. You can always paste a transcript instead.</p>
     <div class="status" id="vtStatus"></div>
 
     <div class="row" style="margin-top:16px;justify-content:space-between;">
@@ -94,39 +94,99 @@ $('#vtPlat').addEventListener('click', e=>{ const b=e.target.closest('button'); 
 $('#vtFile').addEventListener('change', e=>{ videoFile = e.target.files && e.target.files[0]; $('#vtTranscribe').disabled = !videoFile; setStatus(videoFile ? 'Ready — hit “Transcribe video”.' : ''); });
 
 function blobToB64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(blob); }); }
+
+// Transcription config: Whisper's native rate is 16 kHz mono. 16-bit mono @16k ≈ 1.83 MB/min,
+// and Vercel caps a serverless request body at 4.5 MB (base64 inflates ~1.37×), so a chunk must
+// stay ~3 MB of WAV → ≤90 s. We split long audio into 90 s parts and stitch the timestamps back.
+const TARGET_SR = 16000, CHUNK_SEC = 90;
+
+// Float32 mono samples → 16-bit PCM WAV Blob (the format Whisper/Groq want).
+function encodeWav(samples, sr){
+  const n = samples.length, buf = new ArrayBuffer(44 + n*2), dv = new DataView(buf);
+  const ws = (o,s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(o+i, s.charCodeAt(i)); };
+  ws(0,'RIFF'); dv.setUint32(4, 36+n*2, true); ws(8,'WAVE'); ws(12,'fmt ');
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+  dv.setUint32(24,sr,true); dv.setUint32(28,sr*2,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true);
+  ws(36,'data'); dv.setUint32(40, n*2, true);
+  let o=44; for(let i=0;i<n;i++){ let s=Math.max(-1,Math.min(1,samples[i])); dv.setInt16(o, s<0?s*0x8000:s*0x7FFF, true); o+=2; }
+  return new Blob([buf], {type:'audio/wav'});
+}
+
+// Fast path: decode the file's audio, downmix + resample to 16 kHz mono. Throws for containers
+// the browser's decodeAudioData can't handle (some .mov) — the caller then falls back to real time.
+async function decodeMono16k(file){
+  const ab = await file.arrayBuffer();
+  const ac = new (window.AudioContext||window.webkitAudioContext)();
+  let decoded;
+  try{ decoded = await ac.decodeAudioData(ab); } finally { try{ ac.close(); }catch(_){} }
+  const len = Math.max(1, Math.ceil(decoded.duration*TARGET_SR));
+  const off = new OfflineAudioContext(1, len, TARGET_SR);
+  const src = off.createBufferSource(); src.buffer = decoded; src.connect(off.destination); src.start();
+  return (await off.startRendering()).getChannelData(0);
+}
+
+// POST one audio blob to the server → {words:[{word,start,end}], text}.
+async function sendAudio(blob, mime){
+  const b64 = await blobToB64(blob);
+  const r = await fetch(API+'/transcribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ audio:b64, mime, language:'en' }) });
+  let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the transcription service.'); }
+  if(r.status===401) throw new Error('Please sign in.');
+  if(r.status===413) throw new Error('That part of the audio is too large — try a shorter clip or paste the transcript.');
+  if(!r.ok) throw new Error((d&&(d.message||d.error))||'Transcription failed.');
+  return d;
+}
+
+// Real-time fallback for undecodable formats: play once through Web Audio (NOT muted — muting the
+// element silences the graph, which is what fed Whisper silence before) and record speech-only.
+async function realtimeCapture(){
+  const v = document.createElement('video'); v.src = URL.createObjectURL(videoFile); v.muted = true; v.volume = 0;
+  await new Promise((r,e)=>{ v.addEventListener('loadedmetadata', r, {once:true}); v.addEventListener('error', ()=>e(new Error('Could not read that video.')), {once:true}); });
+  const ac = new (window.AudioContext||window.webkitAudioContext)();
+  const src = ac.createMediaElementSource(v), dest = ac.createMediaStreamDestination();
+  src.connect(dest); // graph → recorder only; deliberately NOT connected to ac.destination, so it stays silent to the user while still capturing real audio
+  const mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) ? 'audio/webm;codecs=opus' : 'audio/webm';
+  const rec = new MediaRecorder(dest.stream, { mimeType: mime }), chunks=[];
+  rec.ondataavailable=e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise(r=>{ rec.onstop=r; });
+  v.currentTime=0; rec.start(); await v.play();
+  await new Promise(r=>{ v.addEventListener('ended', r, {once:true}); });
+  rec.stop(); await stopped; try{ ac.close(); }catch(_){}
+  const blob = new Blob(chunks, {type:'audio/webm'});
+  if(blob.size < 800) throw new Error('No audio captured — does this clip have sound?');
+  return sendAudio(blob, 'audio/webm');
+}
+
 $('#vtTranscribe').addEventListener('click', async ()=>{
   if(!videoFile){ setStatus('Upload a video first.','err'); return; }
   const btn=$('#vtTranscribe'); btn.disabled=true;
-  setStatus('Transcribing — playing the video once to read the audio…');
-  let v, ac;
+  let words=[];
   try{
-    v = document.createElement('video'); v.src = URL.createObjectURL(videoFile); v.muted = true;
-    await new Promise((r,e)=>{ v.addEventListener('loadedmetadata', r, {once:true}); v.addEventListener('error', ()=>e(new Error('Could not read that video.')), {once:true}); });
-    ac = new (window.AudioContext||window.webkitAudioContext)();
-    const src = ac.createMediaElementSource(v), dest = ac.createMediaStreamDestination(); src.connect(dest);
-    let mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) ? 'audio/webm;codecs=opus' : 'audio/webm';
-    const rec = new MediaRecorder(dest.stream, { mimeType: mime }); const chunks=[];
-    rec.ondataavailable=e=>{ if(e.data && e.data.size) chunks.push(e.data); };
-    const stopped = new Promise(r=>{ rec.onstop=r; });
-    v.currentTime=0; rec.start(); await v.play();
-    await new Promise(r=>{ v.addEventListener('ended', r, {once:true}); });
-    rec.stop(); await stopped;
-    const blob = new Blob(chunks, {type:'audio/webm'});
-    if(blob.size < 800) throw new Error('No audio captured — does this clip have sound?');
-    setStatus('Transcribing audio…');
-    const b64 = await blobToB64(blob);
-    const r = await fetch(API+'/transcribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ audio:b64, mime:'audio/webm', language:'en' }) });
-    let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the transcription service.'); }
-    if(r.status===401) throw new Error('Please sign in.');
-    if(!r.ok) throw new Error((d&&(d.message||d.error))||'Transcription failed.');
-    const words=(d.words||[]).filter(w=>w&&w.word);
-    if(!words.length) throw new Error('No speech detected.');
+    let samples=null;
+    setStatus('Extracting audio…');
+    try{ samples = await decodeMono16k(videoFile); }
+    catch(_){ samples = null; } // format the browser can't decode → real-time fallback below
+    if(samples && samples.length > TARGET_SR*0.5){
+      const per = CHUNK_SEC*TARGET_SR, parts = Math.ceil(samples.length/per);
+      for(let i=0;i<parts;i++){
+        setStatus(parts>1 ? ('Transcribing part '+(i+1)+' of '+parts+'…') : 'Transcribing audio…');
+        const slice = samples.subarray(i*per, Math.min(samples.length,(i+1)*per));
+        const d = await sendAudio(encodeWav(slice, TARGET_SR), 'audio/wav');
+        const offset = i*CHUNK_SEC;
+        (d.words||[]).forEach(w=>{ if(w&&w.word) words.push({word:w.word, start:(w.start||0)+offset, end:(w.end||0)+offset}); });
+      }
+    } else {
+      setStatus('Reading the audio in real time (this format needs it)…');
+      const d = await realtimeCapture();
+      (d.words||[]).forEach(w=>{ if(w&&w.word) words.push({word:w.word, start:w.start||0, end:w.end||0}); });
+    }
+    words = words.filter(w=>w&&w.word && w.word.trim());
+    if(!words.length) throw new Error('No speech detected in that video.');
     let out='', lastT=-30;
-    for(const w of words){ if((w.start||0)-lastT>=25){ out += (out?'\n':'')+'['+fmtT(w.start)+'] '; lastT=w.start||0; } out += w.word+' '; }
+    for(const w of words){ if((w.start||0)-lastT>=25){ out += (out?'\n':'')+'['+fmtT(w.start)+'] '; lastT=w.start||0; } out += w.word.trim()+' '; }
     $('#vtTranscript').value = out.trim();
     setStatus('Transcribed ✓ — review it, then Generate.','ok');
   }catch(e){ setStatus((e&&e.message)||'Transcription failed.','err'); }
-  finally{ btn.disabled=false; try{ if(ac) ac.close(); }catch(_){} }
+  finally{ btn.disabled=false; }
 });
 
 $('#vtGen').addEventListener('click', async ()=>{
