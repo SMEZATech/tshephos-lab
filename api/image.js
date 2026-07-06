@@ -66,9 +66,10 @@ export default async function handler(req, res) {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        const msg = (data && data.error && data.error.message) || ("Image service error " + r.status);
-        if (notFound(r.status, msg)) { lastErr = msg; continue; } // wrong id for this key → try next
-        return res.status(r.status === 403 ? 403 : 502).json({ error: msg }); // real error (quota, safety) → surface
+        // ANY error (wrong id, quota, key not enabled…) → record and try the next candidate, then
+        // ultimately Pollinations. Never short-circuit, so the free fallback always gets a chance.
+        lastErr = (data && data.error && data.error.message) || ("Image service error " + r.status);
+        continue;
       }
       const parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
       const imgPart = parts.find((p) => p && p.inlineData && p.inlineData.data);
