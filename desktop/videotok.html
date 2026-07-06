@@ -50,6 +50,15 @@
   .chap:first-of-type{border-top:none;}
   .chap .tm{font-family:var(--fm);color:var(--accent);font-size:13px;flex:none;width:52px;}
   .hooks{margin:0;padding-left:18px;} .hooks li{font-size:14px;line-height:1.6;margin-bottom:4px;}
+  /* Native dropdown list: force a readable dark surface + light text (default was near-invisible) */
+  #vtLang{background:var(--surface-2);color:var(--text);border:1px solid var(--border-2);border-radius:9px;padding:7px 9px;}
+  #vtLang option{background:#14171F;color:#ECEEF3;}
+  .genimg-wrap{display:flex;flex-direction:column;gap:10px;}
+  .genimg{width:100%;max-width:420px;border-radius:12px;border:1px solid var(--border);display:block;}
+  .genimg-prompt{width:100%;background:#0D0F15;border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:13px;line-height:1.5;padding:10px;resize:vertical;}
+  .genimg-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .genimg-row select{background:var(--surface-2);color:var(--text);border:1px solid var(--border-2);border-radius:9px;padding:7px 9px;font-family:var(--fm);font-size:11.5px;cursor:pointer;}
+  .genimg-row select option{background:#14171F;color:#ECEEF3;}
 </style>
 </head>
 <body>
@@ -256,6 +265,32 @@ function renderYT(m){
     + '<div class="card"><div class="h"><span class="lbl">Tags</span><button class="mini" data-copytext="'+esc((m.tags||[]).join(', '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>'
     + (chapters ? '<div class="card"><div class="h"><span class="lbl">Chapters</span><button class="mini" data-copytext="'+esc(chapText)+'">Copy all</button></div>'+chapters+'</div>' : '');
 }
+const ASPECTS = ['1:1','4:3','3:4','9:16','16:9'];
+const ASPECT_DEFAULT = { tiktok:'9:16', reels:'9:16', linkedin:'1:1', facebook:'1:1', x:'16:9' };
+function aspectOpts(def){ return ASPECTS.map(a=>'<option value="'+a+'"'+(a===def?' selected':'')+'>'+a+'</option>').join(''); }
+function imgStatus(m,k){ const s=$('#vtImgStatus'); if(s){ s.textContent=m||''; s.style.color = k==='err'?'var(--low)':(k==='ok'?'var(--good)':'var(--dim)'); } }
+async function generateImage(){
+  const pEl=$('#vtImgPrompt'); const prompt=((pEl&&pEl.value)||'').trim();
+  if(prompt.length<8){ imgStatus('Add an image description first.','err'); return; }
+  const aspect=($('#vtImgAspect')&&$('#vtImgAspect').value)||'1:1';
+  const btn=$('#vtGenImg'); if(btn) btn.disabled=true; imgStatus('Generating image… (~10s)');
+  try{
+    const r=await fetch(API+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,aspect})});
+    let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the image service.'); }
+    if(r.status===401) throw new Error('Please sign in.');
+    if(r.status===403) throw new Error((d&&d.error)||'Your Gemini key needs Imagen (paid) access.');
+    if(!r.ok) throw new Error((d&&d.error)||'Image generation failed.');
+    const out=$('#vtImgOut');
+    if(out&&d.image){
+      out.innerHTML='<img class="genimg" src="'+d.image+'" alt="AI image supporting the post"/>'
+        +'<div class="genimg-row" style="margin-top:8px;"><a class="mini" href="'+d.image+'" download="volt-social-image.png">⬇ Download</a>'
+        +'<button class="mini" id="vtRegen">↻ Regenerate</button></div>';
+      const rg=$('#vtRegen'); if(rg) rg.addEventListener('click', generateImage);
+    }
+    imgStatus('Image ready ✓','ok');
+  }catch(e){ imgStatus((e&&e.message)||'Image failed — try again.','err'); }
+  finally{ if(btn) btn.disabled=false; }
+}
 function renderSocial(v){
   if(!v){ return; }
   const box=$('#vtResults');
@@ -264,13 +299,24 @@ function renderSocial(v){
   const hooks=(v.hooks||[]).map(h=>'<li>'+esc(h)+'</li>').join('');
   const caption = String(v.caption||'');
   const captionWithTags = caption + (hashList.length ? '\n\n'+hashList.join(' ') : ''); // ready to paste as one post
+  const defAspect = ASPECT_DEFAULT[platform] || '1:1';
   box.innerHTML =
     '<div class="card"><div class="h"><span class="lbl">Caption</span><span>'
       + '<button class="mini" data-copytext="'+esc(caption)+'">Copy</button> '
       + (hashList.length ? '<button class="mini" data-copytext="'+esc(captionWithTags)+'">Copy + hashtags</button>' : '')
       + '</span></div><div class="desc">'+esc(caption)+'</div></div>'
     + (tags ? '<div class="card"><div class="h"><span class="lbl">Hashtags ('+hashList.length+')</span><button class="mini" data-copytext="'+esc(hashList.join(' '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>' : '')
-    + (hooks ? '<div class="card"><div class="h"><span class="lbl">Hook ideas</span></div><ul class="hooks">'+hooks+'</ul></div>' : '');
+    + (hooks ? '<div class="card"><div class="h"><span class="lbl">Hook ideas</span></div><ul class="hooks">'+hooks+'</ul></div>' : '')
+    + '<div class="card"><div class="h"><span class="lbl">🎨 Supporting image</span></div>'
+      + '<div class="genimg-wrap">'
+      + '<p class="note" style="margin:0 0 2px">AI image to run with the post. Tweak the description, pick a shape, and generate.</p>'
+      + '<textarea id="vtImgPrompt" class="genimg-prompt" rows="3">'+esc(v.imagePrompt||'')+'</textarea>'
+      + '<div class="genimg-row"><select id="vtImgAspect" title="Image shape">'+aspectOpts(defAspect)+'</select>'
+        + '<button class="mini" id="vtGenImg" style="background:var(--accent);color:#0A0B0F;border-color:var(--accent);">🎨 Generate image</button>'
+        + '<span class="note" id="vtImgStatus" style="margin:0;"></span></div>'
+      + '<div id="vtImgOut"></div>'
+      + '</div></div>';
+  const gi=$('#vtGenImg'); if(gi) gi.addEventListener('click', generateImage);
 }
 // Server sanitises article/email `body` to a safe tag whitelist (<p>/<h2>/<blockquote>…), so it's
 // injected as HTML to render formatted; copy buttons offer the rendered text or the raw HTML source.

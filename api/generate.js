@@ -226,7 +226,7 @@ ${transcript}
 Write a social post to publish ALONGSIDE this video on ${p}. Audience: South African business owners and entrepreneurs. Tone: practical, energetic, credible, low hype. Write the caption in the SAME language as the transcript (do not translate to English); keep hashtags conventional. Base everything ONLY on the transcript — do not invent facts, names, numbers, dates, offers or links.
 
 Return ONLY minified JSON with this exact shape:
-{"caption":"2 to 4 short punchy lines of post copy, value-first, using \\n for line breaks, ending with a soft CTA to watch or follow; do NOT put hashtags inside the caption","hashtags":["8 to 12 relevant hashtags, no # symbol and no spaces"],"hooks":["3 alternative on-screen hook lines, each 4 to 8 words, designed to stop the scroll if overlaid on the opening of the video"]}
+{"caption":"2 to 4 short punchy lines of post copy, value-first, using \\n for line breaks, ending with a soft CTA to watch or follow; do NOT put hashtags inside the caption","hashtags":["8 to 12 relevant hashtags, no # symbol and no spaces"],"hooks":["3 alternative on-screen hook lines, each 4 to 8 words, designed to stop the scroll if overlaid on the opening of the video"],"imagePrompt":"a vivid, detailed prompt IN ENGLISH for an AI image generator to create one scroll-stopping visual that supports this post — describe the subject, setting, composition, style (default: photorealistic editorial photography), mood and lighting; feature South African people/context where relevant; the image must contain NO text, words, logos or watermarks"}
 
 Platform guidance: ${hint}`;
 }
@@ -626,6 +626,7 @@ export default async function handler(req, res) {
         caption: String(vp.caption || "").slice(0, 1200),
         hashtags,
         hooks: strList(vp.hooks, 4, 80),
+        imagePrompt: String(vp.imagePrompt || "").slice(0, 800),
       };
       if (!videocopy.caption && !videocopy.hashtags.length) {
         return res.status(502).json({ error: "Model returned empty copy — try again." });
