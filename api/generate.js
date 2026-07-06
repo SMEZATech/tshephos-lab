@@ -33,6 +33,13 @@ const SYSTEM_EMAIL =
   "CRITICAL: NEVER invent or guess URLs, links, dates, prices, statistics or Related Reading titles. Use ONLY links and facts present in the user's brief. If a section has no link, simply omit the link and the Related Reading box. " +
   "Do NOT write a greeting or sign-off. Return ONLY the raw HTML fragment starting with the intro paragraph — no markdown, no code fences, no commentary.";
 
+const SYSTEM_SUBJECTS =
+  "You are an email subject-line strategist for SME South Africa's weekly newsletter to South African small-business owners. " +
+  "The list is ~50% cold/fatigued, so your job is to WIN THE OPEN and re-earn attention — high curiosity and clear value, never clickbait or false promises. " +
+  "You write in warm, plain, credible South African English. " +
+  "CRITICAL: base every subject ONLY on the actual email content provided — never invent facts, numbers, names, offers or urgency that isn't in the content. " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
 const SYSTEM_VIDEOCOPY =
   "You are a senior social media copywriter for SME South Africa, a platform for South African small-business owners and entrepreneurs. " +
   "You write scroll-stopping copy to accompany short vertical video clips repurposed from webinars. " +
@@ -196,6 +203,34 @@ REQUIREMENTS:
 - doMore: 2 to 3 concrete things to repeat, each <= 20 words.
 - doLess: 1 to 3 things to stop or fix, each <= 20 words.
 - nextPosts: 2 to 3 ready-to-make post ideas modelled on the winners, each <= 18 words.`;
+}
+
+function buildSubjectsPrompt({ theme, content }) {
+  return `Here is the email that is about to go out (theme first, then the body text).
+
+THEME / BRIEF:
+"""
+${theme || "(not supplied — infer from the body)"}
+"""
+
+EMAIL BODY:
+"""
+${content}
+"""
+
+Write 5 subject-line options for this exact email, each a DIFFERENT angle so the user can pick the vibe:
+1. curiosity — an open loop that makes them need to know
+2. clear-benefit — the concrete win, stated plainly
+3. question — a question the reader would answer "yes, that's me"
+4. number/list — a specific number or list framing
+5. contrarian — a mild pattern-interrupt or myth-bust
+
+For EACH subject also write a matching preview text (the inbox snippet) that COMPLEMENTS the subject — it must add new information, never just repeat the subject.
+
+Rules: base everything ONLY on the email content above — never invent facts, numbers, names or urgency. Warm, credible South African English. No clickbait. Subjects ideally 40-55 characters; preview text ideally 85-100 characters. Emojis optional and sparing (at most one).
+
+Return ONLY minified JSON with this exact shape:
+{"subjects":[{"angle":"curiosity","text":"the subject line","preview":"the complementary preview text"}]}`;
 }
 
 function buildEmailPrompt({ brief }) {
@@ -550,6 +585,23 @@ export default async function handler(req, res) {
         provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id,
       });
       return res.status(200).json({ emailBody: html, contentId });
+    }
+
+    // ---- Newsletter subject-line + preview-text options (re-engagement) ----
+    if (task === "subjects") {
+      const theme = String(body.theme || body.brief || "").slice(0, 2000);
+      const content = String(body.content || body.body || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 6000);
+      if (!content && !theme) return res.status(400).json({ error: "Build the email first, then suggest subjects." });
+      const text = await callProvider(buildSubjectsPrompt({ theme, content }) + promptExtras, { system: SYSTEM_SUBJECTS, temperature: 0.85, maxTokens: 1200 });
+      const sp = safeParse(text);
+      const arr = Array.isArray(sp && sp.subjects) ? sp.subjects : [];
+      const subjects = arr.map((s) => ({
+        angle: String((s && s.angle) || "").slice(0, 24),
+        text: String((s && s.text) || "").slice(0, 140),
+        preview: String((s && s.preview) || "").slice(0, 160),
+      })).filter((s) => s.text).slice(0, 6);
+      if (!subjects.length) return res.status(502).json({ error: "Couldn't draft subject lines — try again." });
+      return res.status(200).json({ subjects });
     }
 
     // ---- Video → social post copy ----

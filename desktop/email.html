@@ -162,11 +162,18 @@ Keep it warm and practical."></textarea>
       <div class="field">
         <label class="lbl">Email subject <span class="opt">— used when you send to Kit</span></label>
         <input id="subject" placeholder="e.g. Networking your way to growth 🤝" />
+        <div class="charhint" id="subjectHint"></div>
       </div>
       <div class="field">
         <label class="lbl">Preview text <span class="opt">— the inbox snippet</span></label>
         <input id="previewText" placeholder="One-line teaser shown next to the subject" />
+        <div class="charhint" id="previewHint"></div>
       </div>
+    </div>
+    <div style="margin-top:10px;">
+      <button type="button" class="addlink" id="suggestSubjects">✨ Suggest subject lines</button>
+      <span class="opt" id="subjectsStatus" style="margin-left:8px;"></span>
+      <div id="subjectChips" style="margin-top:10px;display:none;"></div>
     </div>
 
     <div class="promos">
@@ -230,8 +237,11 @@ Keep it warm and practical."></textarea>
           <span class="sw"></span>
         </div>
         <div class="promo-fields">
+          <input id="tk-ritual" value="The Tuesday Move" placeholder="Ritual name — readers look for it each week (e.g. The Tuesday Move)" />
+          <input id="tk-shout" placeholder="Last week's shout-out (optional) — e.g. Thabo replied and landed his first retainer 🎉" />
           <input id="tk-title" placeholder="Action title — e.g. Your 5-Minute Action This Week" />
           <textarea id="tk-body" rows="2" placeholder="The task — what should they actually do this week?"></textarea>
+          <textarea id="tk-poll" rows="2" placeholder="Optional one-tap poll — one option per line (2-4). Each becomes a tappable reply button."></textarea>
           <input id="tk-cta" placeholder="Optional reply prompt — e.g. Hit reply and tell us how it goes 👇" />
         </div>
       </div>
@@ -373,7 +383,7 @@ const SHELL_TOP = `<div id="body" style="background-color: #f0f2f5; padding: 20p
                 </tr>
             </table>
             <div class="content-padding mobile-padding" style="padding: 25px 35px;">
-                <p style="margin-top: 0; font-weight: 600;">Good morning 👋 {{ subscriber.first_name | default: "Entrepreneur" }},</p>
+                <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Entrepreneur" }},</p>
 `;
 
 const SHELL_BOTTOM = `
@@ -391,7 +401,7 @@ const SHELL_BOTTOM = `
                         <td style="padding: 0 6px;"><a href="https://whatsapp.com/channel/0029VafRQykBA1etEjbSak3J" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384007.png" width="16" alt="WhatsApp" style="display: block; opacity: 0.8; border: none;"></a></td>
                         <td style="padding: 0 6px;"><a href="https://www.youtube.com/@SMESouthAfricaOfficial" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384012.png" width="16" alt="YouTube" style="display: block; opacity: 0.8; border: none;"></a></td>
                     </tr></table>
-                    <p style="margin: 0; font-family: 'Roboto', sans-serif; font-size: 11px; color: #94a3b8; line-height: 1.4; text-align: center;">If you no longer wish to receive these emails, you can <a href="{{ unsubscribe_url }}" style="color: #64748b !important; text-decoration: underline; border: none; font-weight: normal;">unsubscribe here</a>.</p>
+                    <p style="margin: 0; font-family: 'Roboto', sans-serif; font-size: 11px; color: #94a3b8; line-height: 1.4; text-align: center;">Too many emails? <a href="mailto:info@smesouthafrica.co.za?subject=Send%20me%20the%20monthly%20digest%20instead" style="color: #64748b !important; text-decoration: underline; border: none; font-weight: normal;">Get just the monthly digest</a> &nbsp;·&nbsp; or <a href="{{ unsubscribe_url }}" style="color: #64748b !important; text-decoration: underline; border: none; font-weight: normal;">unsubscribe here</a>.</p>
                 </div>
             </div>
         </td></tr>
@@ -451,13 +461,22 @@ function sponsoredBlock(p){
 }
 
 function taskBlock(p){
+  const ritual = esc((p.ritual || "This Week's Action").trim());
+  const shout = p.shout ? `<p style="margin: 0 0 14px 0; padding: 9px 13px; background-color: rgba(255,255,255,0.08); border-radius: 8px; font-family: 'Roboto', sans-serif; color: #ffe1e1; font-size: 13px; line-height: 1.5;">🎉 ${esc(p.shout)}</p>` : '';
+  // One-tap poll: each option becomes a bulletproof (table-based) reply button — lowest-friction ask.
+  const opts = Array.isArray(p.poll) ? p.poll.filter(Boolean).slice(0, 4) : [];
+  const poll = opts.length ? `<div style="margin: 18px 0 0 0;">${opts.map(o =>
+    `<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="display: inline-block; margin: 0 8px 8px 0;"><tr><td align="center" bgcolor="#ffb1b1" style="border-radius: 8px;"><a href="mailto:info@smesouthafrica.co.za?subject=${encodeURIComponent('My answer: ' + o)}" target="_blank" style="display: inline-block; padding: 10px 18px; font-family: 'Roboto', sans-serif; font-size: 14px; font-weight: 700; color: #0a2c3d; text-decoration: none; border-radius: 8px;">${esc(o)}</a></td></tr></table>`
+  ).join('')}</div>` : '';
   return `
                 ${HR}
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #061f2b 100%); border-radius: 14px; margin: 25px 0; box-shadow: 0 10px 25px rgba(10,44,61,0.2);">
                     <tr><td style="padding: 30px 28px;">
-                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #ffb1b1; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">👉 This Week's Action</p>
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #ffb1b1; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">👉 ${ritual}</p>
+                        ${shout}
                         <h3 style="margin: 0 0 12px 0; font-family: 'Oswald', sans-serif; font-size: 22px; color: #ffffff; font-weight: 900; line-height: 1.25;">${esc(p.title)}</h3>
                         <p style="margin: 0; font-family: 'Roboto', sans-serif; color: rgba(255,255,255,0.88); line-height: 1.6; font-size: 15px;">${esc(p.body)}</p>
+                        ${poll}
                         ${p.cta ? `<p style="margin: 16px 0 0 0; font-family: 'Roboto', sans-serif; color: #ffffff; line-height: 1.5; font-size: 14px; font-weight: 700;">${esc(p.cta)}</p>` : ''}
                     </td></tr>
                 </table>`;
@@ -572,7 +591,8 @@ function collectPromos(){
   }
   if(state.promos.task.on){
     const title = $('#tk-title').value.trim();
-    if(title) blocks.push(taskBlock({ title, body:$('#tk-body').value.trim(), cta:$('#tk-cta').value.trim() }));
+    const poll = ($('#tk-poll') ? $('#tk-poll').value : '').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4);
+    if(title) blocks.push(taskBlock({ ritual:($('#tk-ritual')?$('#tk-ritual').value.trim():''), shout:($('#tk-shout')?$('#tk-shout').value.trim():''), title, body:$('#tk-body').value.trim(), poll, cta:$('#tk-cta').value.trim() }));
   }
   if(state.promos.custom && state.promos.custom.on){
     const html = ($('#cs-html') ? $('#cs-html').value : '').trim();
@@ -858,9 +878,58 @@ async function run(){
 
 elRun.addEventListener('click', run);
 
+// ---- Subject line + preview-text AI assistant (re-engagement: win the open) ----
+function charHint(inputId, hintId, lo, hi){
+  const inp = document.getElementById(inputId), h = document.getElementById(hintId);
+  if(!inp || !h) return;
+  const upd = ()=>{ const n=(inp.value||'').length; if(!n){ h.textContent=''; return; } const ok = n>=lo && n<=hi; h.textContent = n+' chars · ideal '+lo+'–'+hi; h.style.color = ok ? '#16a34a' : '#94a3b8'; };
+  inp.addEventListener('input', upd); upd();
+}
+charHint('subject','subjectHint',40,55);
+charHint('previewText','previewHint',85,100);
+
+const ANGLE_LABEL = { curiosity:'Curiosity', 'clear-benefit':'Benefit', benefit:'Benefit', question:'Question', 'number/list':'Number', number:'Number', list:'List', contrarian:'Contrarian' };
+async function suggestSubjects(){
+  const btn = document.getElementById('suggestSubjects'), status = document.getElementById('subjectsStatus'), wrap = document.getElementById('subjectChips');
+  const theme = (state.brief||'').trim();
+  const content = (state.body||'').trim();
+  if(!theme && !content){ if(status){ status.textContent='Build the email first (or add a brief), then I can suggest subjects.'; status.style.color='#ef4444'; } return; }
+  if(btn) btn.disabled = true;
+  if(status){ status.textContent='Thinking up angles…'; status.style.color='#94a3b8'; }
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'subjects', theme, content }) });
+    let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the assistant.'); }
+    if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
+    const subs = (data && data.subjects) || [];
+    if(!subs.length) throw new Error('No subject lines came back — try again.');
+    if(wrap){
+      wrap.style.display='block';
+      wrap.innerHTML = subs.map((s,i)=>{
+        const label = ANGLE_LABEL[(s.angle||'').toLowerCase()] || (s.angle||'Option');
+        return '<button type="button" class="subj-chip" data-i="'+i+'" style="display:block;width:100%;text-align:left;margin:0 0 8px;padding:10px 12px;border:1px solid #d7dde5;border-radius:10px;background:#fff;cursor:pointer;">'
+          + '<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#9c1c1f;margin-bottom:3px;">'+label+'</span>'
+          + '<span style="display:block;font-weight:600;color:#0a2c3d;">'+esc(s.text)+'</span>'
+          + (s.preview ? '<span style="display:block;font-size:12px;color:#64748b;margin-top:3px;">'+esc(s.preview)+'</span>' : '')
+          + '</button>';
+      }).join('');
+      wrap.querySelectorAll('.subj-chip').forEach(b=>b.addEventListener('click', ()=>{
+        const s = subs[parseInt(b.dataset.i,10)]; if(!s) return;
+        const su=document.getElementById('subject'), pv=document.getElementById('previewText');
+        if(su){ su.value = s.text; su.dispatchEvent(new Event('input')); }
+        if(pv && s.preview){ pv.value = s.preview; pv.dispatchEvent(new Event('input')); }
+        wrap.querySelectorAll('.subj-chip').forEach(x=>x.style.borderColor='#d7dde5');
+        b.style.borderColor='#9c1c1f';
+      }));
+    }
+    if(status){ status.textContent='Pick one to fill the fields ↓'; status.style.color='#16a34a'; }
+  }catch(err){ if(status){ status.textContent=err.message; status.style.color='#ef4444'; } }
+  finally{ if(btn) btn.disabled=false; }
+}
+(function(){ const b=document.getElementById('suggestSubjects'); if(b) b.addEventListener('click', suggestSubjects); })();
+
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-title','tk-body','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
