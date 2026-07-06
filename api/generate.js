@@ -660,20 +660,27 @@ export default async function handler(req, res) {
       if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
       const cleanBody = (h) => String(h || "").replace(/```[a-z]*|```/gi, "").replace(/<(?!\/?(?:p|h2|h3|ul|ol|li|blockquote|strong|em|br)\b)[^>]*>/gi, "").trim();
       const wordCount = (h) => (String(h || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().match(/\S+/g) || []).length;
-      const text = await callProvider(
-        buildArticlePrompt({ transcript: String(transcript).slice(0, 14000) }) + promptExtras,
-        { system: SYSTEM_ARTICLE, temperature: 0.6, maxTokens: 4096 }
-      );
-      const a = safeParse(text);
-      if (!a) return res.status(502).json({ error: "Model returned an unusable article — try again." });
-      const article = {
-        title: String(a.title || "").slice(0, 120),
-        dek: String(a.dek || "").slice(0, 200),
-        body: cleanBody(a.body).slice(0, 20000),
-        tags: Array.isArray(a.tags) ? a.tags.slice(0, 8).map((t) => String(t).replace(/^#/, "").trim().slice(0, 40)).filter(Boolean) : [],
-      };
-      article.words = wordCount(article.body);
-      if (!article.body || article.words < 200) return res.status(502).json({ error: "Article came back too short — try again." });
+      const basePrompt = buildArticlePrompt({ transcript: String(transcript).slice(0, 14000) });
+      // Up to 2 attempts: if the model under-runs the 800-word floor, retry once with an explicit nudge.
+      let article = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const shortNote = attempt === 0 ? "" :
+          `\n\nYOUR PREVIOUS ATTEMPT WAS ONLY ${article.words} WORDS — TOO SHORT. Rewrite it LONGER, at least 800 words (aim 1000+), by more fully developing the ideas already in the transcript. Do not add invented facts.`;
+        const text = await callProvider(basePrompt + shortNote + promptExtras, { system: SYSTEM_ARTICLE, temperature: 0.6, maxTokens: 4096 });
+        const a = safeParse(text);
+        if (!a) { if (attempt) break; else continue; }
+        const cand = {
+          title: String(a.title || "").slice(0, 120),
+          dek: String(a.dek || "").slice(0, 200),
+          body: cleanBody(a.body).slice(0, 20000),
+          tags: Array.isArray(a.tags) ? a.tags.slice(0, 8).map((t) => String(t).replace(/^#/, "").trim().slice(0, 40)).filter(Boolean) : [],
+        };
+        cand.words = wordCount(cand.body);
+        // Keep the longer of the two attempts so a retry never makes things worse.
+        if (!article || cand.words > article.words) article = cand;
+        if (cand.words >= 800) break;
+      }
+      if (!article || !article.body || article.words < 200) return res.status(502).json({ error: "Article came back too short — try again." });
       await logContent(req.volt && req.volt.orgId, { tool: "article", input: { len: String(transcript).length }, output: { title: article.title, words: article.words }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
       return res.status(200).json({ article });
     }
