@@ -64,11 +64,17 @@
       <input type="file" id="vtFile" accept="video/*" style="flex:1;min-width:180px;" />
       <select id="vtLang" class="mini" title="Spoken language" style="cursor:pointer;">
         <option value="auto">🌍 Auto-detect</option>
-        <option value="en">English</option>
         <option value="af">Afrikaans</option>
-        <option value="pt">Portuguese</option>
-        <option value="fr">French</option>
-        <option value="sw">Swahili</option>
+        <option value="en">English</option>
+        <option value="nr">isiNdebele</option>
+        <option value="xh">isiXhosa</option>
+        <option value="zu">isiZulu</option>
+        <option value="nso">Sepedi</option>
+        <option value="st">Sesotho</option>
+        <option value="ss">siSwati</option>
+        <option value="tn">Setswana</option>
+        <option value="ts">Xitsonga</option>
+        <option value="ve">Tshivenda</option>
       </select>
       <button class="mini" id="vtTranscribe" disabled>🎙 Transcribe video</button>
     </div>
@@ -172,8 +178,11 @@ async function realtimeCapture(lang){
 $('#vtTranscribe').addEventListener('click', async ()=>{
   if(!videoFile){ setStatus('Upload a video first.','err'); return; }
   const btn=$('#vtTranscribe'); btn.disabled=true;
+  // Whisper can only PIN Afrikaans & English; the other 9 SA languages aren't in its language set,
+  // so we send '' and let it auto-detect (its best available path for them) instead of erroring.
+  const WHISPER_PINNABLE = { af:1, en:1 };
   const langSel = ($('#vtLang') && $('#vtLang').value) || 'auto';
-  const lang = langSel==='auto' ? '' : langSel; // '' → server lets Whisper auto-detect
+  const lang = WHISPER_PINNABLE[langSel] ? langSel : '';
   let words=[];
   try{
     let samples=null;
