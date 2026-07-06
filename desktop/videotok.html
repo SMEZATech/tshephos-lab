@@ -278,7 +278,6 @@ async function generateImage(){
     const r=await fetch(API+'/image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,aspect})});
     let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the image service.'); }
     if(r.status===401) throw new Error('Please sign in.');
-    if(r.status===403) throw new Error((d&&d.error)||'Your Gemini key needs Imagen (paid) access.');
     if(!r.ok) throw new Error((d&&d.error)||'Image generation failed.');
     const out=$('#vtImgOut');
     if(out&&d.image){
