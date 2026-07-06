@@ -225,6 +225,32 @@ Keep it warm and practical."></textarea>
         </div>
       </div>
 
+      <div class="promo" id="promo-podcast">
+        <div class="promo-head" data-toggle="podcast">
+          <span class="em">🎧</span>
+          <span class="nm">Podcast episode</span>
+          <span class="hint">latest episode</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="pc-title" placeholder="Episode title — e.g. Scaling Without Losing Your Culture" />
+          <div class="row">
+            <input class="field-sm" id="pc-ep" placeholder="Episode label — e.g. Episode 42 · 34 min" />
+            <input class="field-sm" id="pc-cover" placeholder="Cover art image URL (optional)" />
+          </div>
+          <textarea id="pc-desc" rows="2" placeholder="One or two lines — what the episode covers, or the guest."></textarea>
+          <div class="row">
+            <input class="field-sm" id="pc-link" placeholder="Listen link — full URL" />
+            <input class="field-sm" id="pc-btn" placeholder="Button text — e.g. Listen now" />
+          </div>
+          <div class="row">
+            <input class="field-sm" id="pc-spotify" placeholder="Spotify URL (optional)" />
+            <input class="field-sm" id="pc-apple" placeholder="Apple Podcasts URL (optional)" />
+          </div>
+          <input id="pc-youtube" placeholder="YouTube URL (optional)" />
+        </div>
+      </div>
+
       <div class="promo" id="promo-sponsored">
         <div class="promo-head" data-toggle="sponsored">
           <span class="em">✦</span>
@@ -492,6 +518,36 @@ function resourceBlock(p){
                 </table>`;
 }
 
+function podcastBlock(p){
+  // Cover art, or a branded fallback tile if none supplied.
+  const cover = p.cover
+    ? `<img src="${escAttr(p.cover)}" width="110" alt="Podcast cover" style="display:block;width:110px;height:110px;border-radius:12px;border:0;box-shadow:0 8px 20px rgba(0,0,0,0.35);">`
+    : `<table border="0" cellspacing="0" cellpadding="0" style="width:110px;height:110px;background-color:#9c1c1f;background:linear-gradient(135deg,#9c1c1f 0%,#6f1315 100%);border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,0.35);"><tr><td align="center" valign="middle" style="font-size:44px;line-height:1;">🎧</td></tr></table>`;
+  const plat = [];
+  if(p.spotify) plat.push(`<a href="${escAttr(p.spotify)}" target="_blank" style="color:#ffb1b1 !important;text-decoration:none;border:none;font-weight:700;">Spotify</a>`);
+  if(p.apple) plat.push(`<a href="${escAttr(p.apple)}" target="_blank" style="color:#ffb1b1 !important;text-decoration:none;border:none;font-weight:700;">Apple Podcasts</a>`);
+  if(p.youtube) plat.push(`<a href="${escAttr(p.youtube)}" target="_blank" style="color:#ffb1b1 !important;text-decoration:none;border:none;font-weight:700;">YouTube</a>`);
+  const platHtml = plat.length ? `<p style="margin:18px 0 0 0;font-family:'Roboto',sans-serif;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.5;">Also on: ${plat.join(' &nbsp;·&nbsp; ')}</p>` : '';
+  const btn = p.link ? `<table border="0" cellspacing="0" cellpadding="0" style="margin:16px 0 0 0;"><tr><td align="center" bgcolor="#ffb1b1" style="border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,0.25);"><a href="${escAttr(p.link)}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:#0a2c3d !important;text-decoration:none;border-radius:8px;text-transform:uppercase;letter-spacing:1px;border:none;">▶&nbsp;&nbsp;${esc(p.btn || 'Listen now')}</a></td></tr></table>` : '';
+  return `
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#0a2c3d;background:linear-gradient(135deg,#0a2c3d 0%,#061f2b 100%);border-radius:14px;margin:25px 0;box-shadow:0 10px 25px rgba(10,44,61,0.2);">
+                    <tr><td style="padding:28px 26px;">
+                        <p style="margin:0 0 16px 0;font-family:'Oswald',sans-serif;font-size:12px;color:#ffb1b1;font-weight:900;text-transform:uppercase;letter-spacing:2px;">🎧 On The Podcast</p>
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+                            <td class="col" width="122" valign="top" style="padding-right:18px;">${cover}</td>
+                            <td class="col" valign="top">
+                                ${p.ep ? `<p style="margin:0 0 6px 0;font-family:'Roboto',sans-serif;font-size:12px;font-weight:700;color:#ffb1b1;text-transform:uppercase;letter-spacing:1px;">${esc(p.ep)}</p>` : ''}
+                                <h3 style="margin:0 0 8px 0;font-family:'Oswald',sans-serif;font-size:21px;color:#ffffff;font-weight:900;line-height:1.25;">${esc(p.title)}</h3>
+                                ${p.desc ? `<p style="margin:0;font-family:'Roboto',sans-serif;color:rgba(255,255,255,0.85);line-height:1.6;font-size:14px;">${esc(p.desc)}</p>` : ''}
+                                ${btn}
+                            </td>
+                        </tr></table>
+                        ${platHtml}
+                    </td></tr>
+                </table>`;
+}
+
 function sponsoredBlock(p){
   const bl = (p.bullets || '').split('\n').map(s => s.trim()).filter(Boolean);
   const bulletsHtml = bl.length
@@ -553,7 +609,7 @@ const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a b
                 <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/" class="related-link">5 Networking Tips To Help Your Business Grow</a></div>`;
 
 const state = { brief:'', loading:false, body:null, previewMode:'desktop',
-  promos:{ webinar:{on:false}, resource:{on:false}, sponsored:{on:false}, task:{on:false}, custom:{on:false} } };
+  promos:{ webinar:{on:false}, resource:{on:false}, podcast:{on:false}, sponsored:{on:false}, task:{on:false}, custom:{on:false} } };
 
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
 let lastFragment = '';
@@ -638,6 +694,11 @@ function collectPromos(){
   if(state.promos.resource.on){
     const title = $('#rs-title').value.trim();
     if(title) blocks.push(resourceBlock({ title, desc:$('#rs-desc').value.trim(), link:$('#rs-link').value.trim(), btn:$('#rs-btn').value.trim() }));
+  }
+  if(state.promos.podcast && state.promos.podcast.on){
+    const title = $('#pc-title') ? $('#pc-title').value.trim() : '';
+    const g = id => { const el=$('#'+id); return el ? el.value.trim() : ''; };
+    if(title) blocks.push(podcastBlock({ title, ep:g('pc-ep'), cover:g('pc-cover'), desc:g('pc-desc'), link:g('pc-link'), btn:g('pc-btn'), spotify:g('pc-spotify'), apple:g('pc-apple'), youtube:g('pc-youtube') }));
   }
   if(state.promos.sponsored.on){
     const title = $('#sp-title').value.trim();
@@ -1012,7 +1073,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-ep','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = '/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
