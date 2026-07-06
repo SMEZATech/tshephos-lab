@@ -35,7 +35,10 @@ export default async function handler(req, res) {
     form.append("model", process.env.GROQ_STT_MODEL || "whisper-large-v3-turbo");
     form.append("response_format", "verbose_json");
     form.append("timestamp_granularities[]", "word");
-    form.append("language", language || "en");
+    // Only pin a language when the client asked for one; otherwise let Whisper auto-detect
+    // (best for Setswana/Zulu/Xhosa and code-switched sermons). ISO-639-1 codes only.
+    const lang = String(language || "").trim().toLowerCase();
+    if (/^[a-z]{2}$/.test(lang)) form.append("language", lang);
     form.append("temperature", "0");
 
     const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {

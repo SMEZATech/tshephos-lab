@@ -223,7 +223,7 @@ TRANSCRIPT:
 ${transcript}
 """
 
-Write a social post to publish ALONGSIDE this video on ${p}. Audience: South African business owners and entrepreneurs. Tone: practical, energetic, credible, plain English, low hype. Base everything ONLY on the transcript — do not invent facts, names, numbers, dates, offers or links.
+Write a social post to publish ALONGSIDE this video on ${p}. Audience: South African business owners and entrepreneurs. Tone: practical, energetic, credible, low hype. Write the caption in the SAME language as the transcript (do not translate to English); keep hashtags conventional. Base everything ONLY on the transcript — do not invent facts, names, numbers, dates, offers or links.
 
 Return ONLY minified JSON with this exact shape:
 {"caption":"2 to 4 short punchy lines of post copy, value-first, using \\n for line breaks, ending with a soft CTA to watch or follow; do NOT put hashtags inside the caption","hashtags":["8 to 12 relevant hashtags, no # symbol and no spaces"],"hooks":["3 alternative on-screen hook lines, each 4 to 8 words, designed to stop the scroll if overlaid on the opening of the video"]}
@@ -239,7 +239,7 @@ TRANSCRIPT:
 ${transcript}
 """
 
-Write YouTube metadata based ONLY on this transcript. Do not invent facts, names, numbers or links.
+Write YouTube metadata based ONLY on this transcript. Do not invent facts, names, numbers or links. Write titles, description and chapter titles in the SAME language as the transcript (do not translate to English).
 
 Return ONLY minified JSON with this exact shape:
 {"titles":["3 title options, each under 70 characters, specific and curiosity-driven but honest — no ALL CAPS, no clickbait"],"description":"a 3 to 5 short-paragraph description: a strong first two lines that work as the search snippet, then what the video covers and who it's for; plain text with \\n line breaks; no hashtags block","tags":["12 to 15 lowercase keyword tags a viewer might search, no # symbol"],"chapters":[{"time":"M:SS","title":"chapter title"}]}
@@ -255,7 +255,7 @@ TRANSCRIPT:
 ${transcript}
 """
 
-Write a complete, publish-ready article that faithfully captures this talk's message, topic and voice. Remove filler, false starts, repetition and transcription glitches; fix grammar; organise the ideas into a clear flow with subheadings. Base everything ONLY on the transcript — do NOT invent facts, names, quotes, numbers, scripture references or links. Ignore the timestamps in the final prose.
+Write a complete, publish-ready article that faithfully captures this talk's message, topic and voice. Remove filler, false starts, repetition and transcription glitches; fix grammar; organise the ideas into a clear flow with subheadings. Base everything ONLY on the transcript — do NOT invent facts, names, quotes, numbers, scripture references or links. Ignore the timestamps in the final prose. Write the article in the SAME language as the transcript (do not translate to English).
 
 Requirements:
 - The body MUST be AT LEAST 800 words (aim for 900 to 1300). Do not pad with fluff — expand by fully developing the ideas actually present in the transcript.
@@ -274,7 +274,7 @@ TRANSCRIPT:
 ${transcript}
 """
 
-Write a warm, skimmable email that faithfully conveys this talk's core message, topic and voice. Base everything ONLY on the transcript — do NOT invent facts, names, quotes, numbers, scripture references or links. Ignore the timestamps in the final copy.
+Write a warm, skimmable email that faithfully conveys this talk's core message, topic and voice. Base everything ONLY on the transcript — do NOT invent facts, names, quotes, numbers, scripture references or links. Ignore the timestamps in the final copy. Write the email in the SAME language as the transcript (do not translate to English).
 
 Requirements:
 - Body is simple HTML using only <p> paragraphs, <h2> subheadings and optionally one <blockquote> pull-quote (no <html>, <head>, images, inline styles or links).

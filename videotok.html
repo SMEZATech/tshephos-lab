@@ -61,10 +61,18 @@
     <label class="lbl" for="vtTranscript">Transcript</label>
     <textarea id="vtTranscript" rows="8" placeholder="Paste your transcript here (YouTube auto-captions work great — they include timestamps for chapters)…"></textarea>
     <div class="row" style="margin-top:10px;">
-      <input type="file" id="vtFile" accept="video/*" style="flex:1;min-width:200px;" />
+      <input type="file" id="vtFile" accept="video/*" style="flex:1;min-width:180px;" />
+      <select id="vtLang" class="mini" title="Spoken language" style="cursor:pointer;">
+        <option value="auto">🌍 Auto-detect</option>
+        <option value="en">English</option>
+        <option value="af">Afrikaans</option>
+        <option value="pt">Portuguese</option>
+        <option value="fr">French</option>
+        <option value="sw">Swahili</option>
+      </select>
       <button class="mini" id="vtTranscribe" disabled>🎙 Transcribe video</button>
     </div>
-    <p class="note">Extracts the audio and transcribes it — long sermons are auto-split into parts. If a format won't decode, it falls back to reading the audio in real time. You can always paste a transcript instead.</p>
+    <p class="note">Extracts the audio and transcribes it — long sermons are auto-split into parts. <b style="color:var(--text)">Auto-detect</b> works best for Setswana / Zulu / Xhosa and code-switching. If a format won't decode, it falls back to reading the audio in real time. You can always paste a transcript instead.</p>
     <div class="status" id="vtStatus"></div>
 
     <div class="row" style="margin-top:16px;justify-content:space-between;">
@@ -127,10 +135,10 @@ async function decodeMono16k(file){
   return (await off.startRendering()).getChannelData(0);
 }
 
-// POST one audio blob to the server → {words:[{word,start,end}], text}.
-async function sendAudio(blob, mime){
+// POST one audio blob to the server → {words:[{word,start,end}], text}. lang '' = auto-detect.
+async function sendAudio(blob, mime, lang){
   const b64 = await blobToB64(blob);
-  const r = await fetch(API+'/transcribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ audio:b64, mime, language:'en' }) });
+  const r = await fetch(API+'/transcribe', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ audio:b64, mime, language: lang||'' }) });
   let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the transcription service.'); }
   if(r.status===401) throw new Error('Please sign in.');
   if(r.status===413) throw new Error('That part of the audio is too large — try a shorter clip or paste the transcript.');
@@ -140,7 +148,7 @@ async function sendAudio(blob, mime){
 
 // Real-time fallback for undecodable formats: play once through Web Audio (NOT muted — muting the
 // element silences the graph, which is what fed Whisper silence before) and record speech-only.
-async function realtimeCapture(){
+async function realtimeCapture(lang){
   // NOT muted: a muted element feeds the source node silence (that was the original bug). Once it's
   // routed through createMediaElementSource and connected only to `dest`, it never reaches the
   // speakers anyway, so leaving it unmuted is both correct and silent to the user.
@@ -158,12 +166,14 @@ async function realtimeCapture(){
   rec.stop(); await stopped; try{ ac.close(); }catch(_){}
   const blob = new Blob(chunks, {type:'audio/webm'});
   if(blob.size < 800) throw new Error('No audio captured — does this clip have sound?');
-  return sendAudio(blob, 'audio/webm');
+  return sendAudio(blob, 'audio/webm', lang);
 }
 
 $('#vtTranscribe').addEventListener('click', async ()=>{
   if(!videoFile){ setStatus('Upload a video first.','err'); return; }
   const btn=$('#vtTranscribe'); btn.disabled=true;
+  const langSel = ($('#vtLang') && $('#vtLang').value) || 'auto';
+  const lang = langSel==='auto' ? '' : langSel; // '' → server lets Whisper auto-detect
   let words=[];
   try{
     let samples=null;
@@ -175,13 +185,13 @@ $('#vtTranscribe').addEventListener('click', async ()=>{
       for(let i=0;i<parts;i++){
         setStatus(parts>1 ? ('Transcribing part '+(i+1)+' of '+parts+'…') : 'Transcribing audio…');
         const slice = samples.subarray(i*per, Math.min(samples.length,(i+1)*per));
-        const d = await sendAudio(encodeWav(slice, TARGET_SR), 'audio/wav');
+        const d = await sendAudio(encodeWav(slice, TARGET_SR), 'audio/wav', lang);
         const offset = i*CHUNK_SEC;
         (d.words||[]).forEach(w=>{ if(w&&w.word) words.push({word:w.word, start:(w.start||0)+offset, end:(w.end||0)+offset}); });
       }
     } else {
       setStatus('Reading the audio in real time (this format needs it)…');
-      const d = await realtimeCapture();
+      const d = await realtimeCapture(lang);
       (d.words||[]).forEach(w=>{ if(w&&w.word) words.push({word:w.word, start:w.start||0, end:w.end||0}); });
     }
     words = words.filter(w=>w&&w.word && w.word.trim());
