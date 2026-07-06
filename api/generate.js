@@ -31,6 +31,7 @@ const SYSTEM_EMAIL =
   "<hr style=\"border: 0; border-top: 2px dashed #e2e8f0; margin: 25px 0;\">. " +
   "Structure: one intro paragraph, then 2-3 sections, each = <h2> + optional image + 1-2 <p> + optional Related Reading box, separated by the dashed <hr>. " +
   "CRITICAL: NEVER invent or guess URLs, links, dates, prices, statistics or Related Reading titles. Use ONLY links and facts present in the user's brief. If a section has no link, simply omit the link and the Related Reading box. " +
+  "If the brief contains Kit merge fields written as {{ ... }} (e.g. {{ subscriber.industry }}), reproduce them EXACTLY and unchanged in the body — treat them as literal placeholders; never alter, translate, remove, or wrap them. " +
   "Do NOT write a greeting or sign-off. Return ONLY the raw HTML fragment starting with the intro paragraph — no markdown, no code fences, no commentary.";
 
 const SYSTEM_SUBJECTS =

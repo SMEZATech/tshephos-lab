@@ -176,6 +176,20 @@ Keep it warm and practical."></textarea>
       <div id="subjectChips" style="margin-top:10px;display:none;"></div>
     </div>
 
+    <div class="row" style="margin-top:22px;">
+      <div class="field">
+        <label class="lbl">Header style <span class="opt">— per send</span></label>
+        <select id="shellVariant">
+          <option value="full">Full branded (warm / Tuesday newsletter)</option>
+          <option value="light">Light &amp; personal (win-back / cold segment)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lbl">Personalize <span class="opt">— insert a Kit merge field into the focused box</span></label>
+        <div id="mergeChips"></div>
+      </div>
+    </div>
+
     <div class="promos">
       <label class="lbl">Add promo blocks <span class="opt">— optional, you fill the details so they're always accurate</span></label>
 
@@ -384,6 +398,46 @@ const SHELL_TOP = `<div id="body" style="background-color: #f0f2f5; padding: 20p
             </table>
             <div class="content-padding mobile-padding" style="padding: 25px 35px;">
                 <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Entrepreneur" }},</p>
+`;
+
+// Lighter "win-back / cold-segment" header: text-forward, no heavy image banner (higher
+// text-to-image ratio lands better in Promotions). Opens the EXACT same wrapper + content-padding
+// as SHELL_TOP so SHELL_BOTTOM closes it identically. The full branded shell stays the default.
+const SHELL_TOP_LIGHT = `<div id="body" style="background-color: #f0f2f5; padding: 20px 0; font-family: 'Roboto', Arial, sans-serif;">
+    <style>
+        table { border-collapse: collapse !important; }
+        h2 { font-family: 'Oswald', sans-serif; color: #0a2c3d; font-size: 22px; font-weight: 700; margin: 20px 0 10px 0; letter-spacing: 0.5px; line-height: 1.35; display: block; word-wrap: break-word; }
+        p { font-family: 'Roboto', sans-serif; color: #444444; line-height: 1.6; font-size: 15px; margin-bottom: 12px; margin-top: 0; }
+        a { color: #9c1c1f !important; text-decoration: none; font-weight: bold; border-bottom: 1px solid rgba(156,28,31,0.3); }
+        .newsletter-image { width: 100%; height: auto; display: block; margin: 15px 0; border-radius: 8px; border: 1px solid #eeeeee; box-shadow: 0 6px 15px rgba(0,0,0,0.06); }
+        .related-reading { background-color: #f8fafc; padding: 15px 18px; border-left: 4px solid #9c1c1f; margin: 12px 0 20px 0; font-size: 14px; line-height: 1.5; border-radius: 0 8px 8px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        .related-reading span { font-family: 'Oswald', sans-serif; color: #64748b; text-transform: uppercase; font-size: 12px; font-weight: 900; margin-right: 5px; letter-spacing: 0.5px; }
+        .related-link { font-style: normal; font-weight: 700; color: #0a2c3d !important; text-decoration: none; border-bottom: 1px solid transparent; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
+        u + #body a { color: inherit !important; text-decoration: none !important; }
+        #MessageViewBody a { color: inherit !important; text-decoration: none !important; }
+        @media only screen and (max-width: 480px) {
+            .main-wrapper { width: 100% !important; margin: 0 !important; border-radius: 0 !important; border: none !important; }
+            .content-padding, .mobile-padding, .related-reading { padding: 15px !important; }
+            h2 { font-size: 18px !important; }
+            .col { display: block !important; width: 100% !important; padding: 0 0 14px 0 !important; }
+        }
+    </style>
+    <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+    <table class="main-wrapper" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; border: 1px solid #eaeaef; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; border-collapse: separate;">
+        <tr><td style="padding: 0;">
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="background-color: #ffffff; border-bottom: 3px solid #9c1c1f;">
+                <tr><td align="left" style="padding: 26px 35px 18px 35px;">
+                    <p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #9c1c1f; line-height: 1.2; border: none;">SME South Africa</p>
+                    <p style="margin: 6px 0 0 0; font-family: 'Roboto', sans-serif; font-size: 11px; color: #64748b; letter-spacing: 0.5px;">The weekly newsletter for South African entrepreneurs</p>
+                </td></tr>
+            </table>
+            <div class="content-padding mobile-padding" style="padding: 25px 35px;">
+                <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Entrepreneur" }},</p>
+`;
+
+// Tiny "view in browser" preheader — deliverability insurance; prepended above whichever shell is used.
+const VIEW_IN_BROWSER = `<div style="max-width: 600px; margin: 0 auto 8px auto; text-align: center; font-family: 'Roboto', Arial, sans-serif; font-size: 11px; color: #94a3b8;"><a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="color: #94a3b8 !important; text-decoration: underline; font-weight: normal; border: none;">View in your browser</a></div>
 `;
 
 const SHELL_BOTTOM = `
@@ -608,7 +662,9 @@ function assemble(bodyHtml, editable){
   // Imported (pasted) HTML already carries its own header/footer — protect it as-is
   // rather than re-adding Volt's branded shell (which would duplicate them).
   if(state.imported) return protectiveWrap(body);
-  return SHELL_TOP + '\n' + body + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
+  const useLight = $('#shellVariant') && $('#shellVariant').value === 'light';
+  const top = useLight ? SHELL_TOP_LIGHT : SHELL_TOP;
+  return VIEW_IN_BROWSER + top + '\n' + body + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
 }
 // Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
 // centred container with safe defaults. Used for pasted/imported HTML.
@@ -927,9 +983,36 @@ async function suggestSubjects(){
 }
 (function(){ const b=document.getElementById('suggestSubjects'); if(b) b.addEventListener('click', suggestSubjects); })();
 
+// ---- Header-style variant: re-render when the user switches full/light shell ----
+(function(){ const sv=document.getElementById('shellVariant'); if(sv) sv.addEventListener('change', ()=> renderPreview(state.body)); })();
+
+// ---- Merge-field helper: insert a Kit token into the last-focused text box (subject/preview/brief/etc.) ----
+const MERGE_FIELDS = [
+  { label:'First name', token:'{{ subscriber.first_name }}' },
+  { label:'Industry', token:'{{ subscriber.industry }}' },
+  { label:'Business', token:'{{ subscriber.business_name }}' },
+  { label:'City', token:'{{ subscriber.city }}' },
+];
+let lastField = null;
+document.addEventListener('focusin', e=>{ const t=e.target; if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA')) lastField=t; });
+function insertToken(tok){
+  const el = lastField || document.getElementById('brief');
+  if(!el) return;
+  el.focus();
+  const s = (el.selectionStart!=null) ? el.selectionStart : el.value.length;
+  const e = (el.selectionEnd!=null) ? el.selectionEnd : el.value.length;
+  el.value = el.value.slice(0,s) + tok + el.value.slice(e);
+  const pos = s + tok.length; try{ el.selectionStart = el.selectionEnd = pos; }catch(_){}
+  el.dispatchEvent(new Event('input'));
+}
+(function(){ const wrap=document.getElementById('mergeChips'); if(!wrap) return;
+  wrap.innerHTML = MERGE_FIELDS.map((m,i)=>'<button type="button" class="addlink merge-chip" data-i="'+i+'" style="margin:0 6px 6px 0;padding:5px 10px;font-size:12px;">+ '+m.label+'</button>').join('');
+  wrap.querySelectorAll('.merge-chip').forEach(b=>b.addEventListener('click', ()=> insertToken(MERGE_FIELDS[parseInt(b.dataset.i,10)].token) ));
+})();
+
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = '/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
