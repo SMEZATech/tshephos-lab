@@ -1,8 +1,10 @@
 // Tshepho's Lab — © 2026 Tshepho Joel. All rights reserved.
 // Serverless proxy. Keeps your API key on the server, never in the browser.
-// Provider is set with the LLM_PROVIDER env var: "gemini" (default) | "claude" | "groq".
+// Providers auto-fail-over across every configured free AI key (see _ai.js). Order is set with
+// LLM_ORDER (comma list) or the legacy single LLM_PROVIDER; unlisted providers are appended.
 
 import { blocked, meter, logContent, sbRest } from "./_guard.js";
+import { chatComplete, resolveLlmKeys, llmOrder } from "./_ai.js";
 
 const SYSTEM =
   "You are an elite direct-response performance-marketing copywriter and a brutally honest creative strategist. " +
@@ -341,73 +343,7 @@ const clamp100 = (n) => {
 const strList = (a, n, len) =>
   Array.isArray(a) ? a.slice(0, n).map((s) => String(s == null ? "" : s).trim().slice(0, len)).filter(Boolean) : [];
 
-// ---- providers ----
-async function callGemini(prompt, opts = {}) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY is not set");
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  const payload = JSON.stringify({
-    systemInstruction: { parts: [{ text: opts.system || SYSTEM }] },
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: Object.assign(
-      { temperature: opts.temperature != null ? opts.temperature : 0.9, maxOutputTokens: opts.maxTokens || 4096, thinkingConfig: { thinkingBudget: 0 } },
-      opts.json === false ? {} : { responseMimeType: "application/json" }
-    ),
-  });
-  let lastErr;
-  // Gemini occasionally returns 503 "overloaded / high demand". Retry a couple of times before surfacing it.
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt) await new Promise((res) => setTimeout(res, 700 * attempt));
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: payload,
-    });
-    const data = await r.json().catch(() => ({}));
-    if (r.ok) {
-      const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
-      return parts.map((p) => p.text || "").join("");
-    }
-    const msg = (data && data.error && data.error.message) || ("Gemini request failed (" + r.status + ")");
-    lastErr = new Error(msg);
-    if (!(r.status === 503 || r.status === 429 || /overload|high demand|unavailable|try again/i.test(msg))) break;
-  }
-  throw lastErr || new Error("Gemini request failed");
-}
-
-async function callClaude(prompt, opts = {}) {
-  const key = process.env.CLAUDE_API_KEY;
-  if (!key) throw new Error("CLAUDE_API_KEY is not set");
-  const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model, max_tokens: opts.maxTokens || 2000, system: opts.system || SYSTEM, messages: [{ role: "user", content: prompt }] }),
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error((data && data.error && data.error.message) || "Claude request failed");
-  return (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
-}
-
-async function callGroq(prompt, opts = {}) {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) throw new Error("GROQ_API_KEY is not set");
-  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model,
-      temperature: opts.temperature != null ? opts.temperature : 0.9,
-      response_format: { type: "json_object" },
-      messages: [{ role: "system", content: opts.system || SYSTEM }, { role: "user", content: prompt }],
-    }),
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error((data && data.error && data.error.message) || "Groq request failed");
-  return data?.choices?.[0]?.message?.content || "";
-}
+// ---- Providers live in _ai.js (multi-provider failover chain). ----
 
 // ---- Local AI (Ollama) helpers: build the prompt for a task, and parse a raw completion.
 // These reuse the SAME builders + sanitisers as the cloud path (single source of truth).
@@ -452,11 +388,20 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const provider = (process.env.LLM_PROVIDER || "gemini").toLowerCase();
-    const callProvider = (prompt, opts) =>
-      provider === "claude" ? callClaude(prompt, opts)
-      : provider === "groq" ? callGroq(prompt, opts)
-      : callGemini(prompt, opts);
+    // Multi-provider failover: try every configured free AI key in order; if one is rate-limited,
+    // out of quota or down, fall over to the next. `provider` tracks whichever one actually served
+    // (used for usage logging below).
+    const llmKeys = resolveLlmKeys(req);
+    const order = llmOrder();
+    let provider = order.find((p) => llmKeys[p]) || "gemini";
+    const callProvider = async (prompt, opts = {}) => {
+      const out = await chatComplete(
+        { system: opts.system || SYSTEM, prompt, temperature: opts.temperature, maxTokens: opts.maxTokens, json: opts.json },
+        llmKeys, order
+      );
+      provider = out.provider;
+      return out.text;
+    };
 
     const task = String(body.task || "copy").toLowerCase();
 

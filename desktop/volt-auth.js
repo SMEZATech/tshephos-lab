@@ -11,11 +11,17 @@
   var sb = null, session = null;
 
   var KEYS = {
-    gemini: { label: "Google Gemini", sub: "Powers Copy, Audit, Analytics, Email & video copy", url: "https://aistudio.google.com/apikey" },
-    groq:   { label: "Groq", sub: "Powers auto-captions in Video", url: "https://console.groq.com/keys" },
-    postiz: { label: "Postiz", sub: "Live analytics & top posts", url: "https://postiz.com" },
-    kit:    { label: "Kit", sub: "Send newsletters to Kit as drafts", url: "https://app.kit.com/account_settings/developer_settings" },
+    gemini:     { label: "Google Gemini", sub: "Primary AI + captions + images · free", url: "https://aistudio.google.com/apikey" },
+    groq:       { label: "Groq", sub: "Fast AI fallback + Whisper captions · free", url: "https://console.groq.com/keys" },
+    cerebras:   { label: "Cerebras", sub: "Very fast AI fallback · free tier", url: "https://cloud.cerebras.ai/" },
+    openrouter: { label: "OpenRouter", sub: "AI fallback, many free models · free key", url: "https://openrouter.ai/keys" },
+    mistral:    { label: "Mistral", sub: "AI fallback · free tier", url: "https://console.mistral.ai/api-keys/" },
+    openai:     { label: "OpenAI", sub: "AI fallback (uses your credits)", url: "https://platform.openai.com/api-keys" },
+    postiz:     { label: "Postiz", sub: "Live analytics & top posts", url: "https://postiz.com" },
+    kit:        { label: "Kit", sub: "Send newsletters to Kit as drafts", url: "https://app.kit.com/account_settings/developer_settings" },
   };
+  // Providers that feed the AI failover chain (order = try order). Others (postiz/kit) are service keys.
+  var AI_PROVIDERS = ["gemini", "groq", "cerebras", "openrouter", "mistral", "openai"];
 
   function isDesktop() { return !!window.voltNative; }
   function getKeys() { try { return JSON.parse(localStorage.getItem(KEYS_LS) || "{}"); } catch (e) { return {}; } }
@@ -73,6 +79,10 @@
           var k = getKeys();
           if (k.gemini) h.set("x-gemini-key", String(k.gemini).trim());
           if (k.groq) h.set("x-groq-key", String(k.groq).trim());
+          if (k.cerebras) h.set("x-cerebras-key", String(k.cerebras).trim());
+          if (k.openrouter) h.set("x-openrouter-key", String(k.openrouter).trim());
+          if (k.mistral) h.set("x-mistral-key", String(k.mistral).trim());
+          if (k.openai) h.set("x-openai-key", String(k.openai).trim());
           if (k.postiz) h.set("x-postiz-key", String(k.postiz).trim());
           if (k.postizUrl) h.set("x-postiz-url", String(k.postizUrl).trim());
           if (k.kit) h.set("x-kit-key", String(k.kit).trim());
@@ -326,8 +336,8 @@
   /* ---------- settings (keys on desktop + sign out) ---------- */
   function keyFieldsHTML() {
     var k = getKeys();
-    var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Each other tool uses its matching key.</p>';
-    ["gemini", "groq", "postiz", "kit"].forEach(function (id) {
+    var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Add as many AI keys as you like — Volt tries them top-to-bottom and auto-falls-over to the next when one is rate-limited or out of quota. More keys = fewer interruptions.</p>';
+    ["gemini", "groq", "cerebras", "openrouter", "mistral", "openai", "postiz", "kit"].forEach(function (id) {
       var i = KEYS[id];
       out += '<div class="va-field"><div><span class="nm">' + i.label + ' <span class="pw">· ' + esc(i.sub) + '</span></span><a class="va-get" href="' + i.url + '" target="_blank" rel="noopener">Get key ↗</a></div>' +
         '<input class="va-input" id="va-k-' + id + '" type="text" autocomplete="off" spellcheck="false" placeholder="Paste your ' + i.label + ' key" value="' + esc(k[id] || "") + '" style="margin-top:6px;" /></div>';
@@ -404,7 +414,7 @@
     var save = document.getElementById("va-save");
     if (save) save.addEventListener("click", function () {
       function v(id) { var el = document.getElementById("va-k-" + id); return el ? el.value.trim() : ""; }
-      saveKeys({ gemini: v("gemini"), groq: v("groq"), postiz: v("postiz"), postizUrl: v("postizUrl"), kit: v("kit"), wpUrl: getKeys().wpUrl, wpUser: getKeys().wpUser, wpKey: getKeys().wpKey });
+      saveKeys({ gemini: v("gemini"), groq: v("groq"), cerebras: v("cerebras"), openrouter: v("openrouter"), mistral: v("mistral"), openai: v("openai"), postiz: v("postiz"), postizUrl: v("postizUrl"), kit: v("kit"), wpUrl: getKeys().wpUrl, wpUser: getKeys().wpUser, wpKey: getKeys().wpKey });
       var s = document.getElementById("va-saved"); if (s) { s.textContent = "Saved ✓"; setTimeout(function () { s.textContent = ""; }, 1500); }
     });
     document.getElementById("va-close").addEventListener("click", function () { m.remove(); });

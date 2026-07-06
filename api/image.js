@@ -76,23 +76,27 @@ export default async function handler(req, res) {
       lastErr = "the model replied without an image";
     }
 
+    // No free Gemini image model on this key → fall over to Pollinations (free, no key needed).
     if (!b64) {
-      // Help pin the right model: report the image-capable models this key actually exposes.
-      let available = [];
       try {
-        const lr = await fetch("https://generativelanguage.googleapis.com/v1beta/models", { headers: { "x-goog-api-key": key } });
-        const ld = await lr.json().catch(() => ({}));
-        available = (ld.models || [])
-          .filter((mm) => /image/i.test(mm.name || "") && (mm.supportedGenerationMethods || []).some((x) => /generateContent|predict/i.test(x)))
-          .map((mm) => String(mm.name || "").replace("models/", ""))
-          .slice(0, 10);
+        const dims = { "1:1": [1024, 1024], "4:3": [1024, 768], "3:4": [768, 1024], "9:16": [768, 1344], "16:9": [1344, 768] }[aspect] || [1024, 1024];
+        const seed = Math.floor(Math.random() * 1e9);
+        const pUrl = "https://image.pollinations.ai/prompt/" + encodeURIComponent(steered) +
+          "?width=" + dims[0] + "&height=" + dims[1] + "&nologo=true&model=flux&seed=" + seed;
+        const pr = await fetch(pUrl);
+        if (pr.ok) {
+          const arr = Buffer.from(await pr.arrayBuffer());
+          if (arr.length > 1000) { b64 = arr.toString("base64"); mime = pr.headers.get("content-type") || "image/jpeg"; usedModel = "pollinations/flux"; }
+        }
       } catch (_) {}
-      const hint = available.length ? (" Set IMAGE_MODEL in Vercel to one of: " + available.join(", ")) : " No image-capable model is enabled on this Gemini key.";
-      return res.status(502).json({ error: "Couldn't generate an image (" + (lastErr || "no model worked") + ")." + hint, availableImageModels: available });
+    }
+
+    if (!b64) {
+      return res.status(502).json({ error: "Couldn't generate an image right now — please try again in a moment." });
     }
 
     const contentId = await logContent(req.volt && req.volt.orgId, {
-      tool: "image", input: { prompt, aspect }, output: {}, provider: "gemini", model: usedModel,
+      tool: "image", input: { prompt, aspect }, output: {}, provider: /pollinations/.test(usedModel) ? "pollinations" : "gemini", model: usedModel,
       userId: req.volt && req.volt.user && req.volt.user.id,
     });
     return res.status(200).json({ image: "data:" + mime + ";base64," + b64, contentId, model: usedModel });
