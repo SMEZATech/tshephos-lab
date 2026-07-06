@@ -236,11 +236,17 @@ function renderYT(m){
 function renderSocial(v){
   if(!v){ return; }
   const box=$('#vtResults');
+  const hashList = (v.hashtags||[]).map(h=>'#'+h);
   const tags=(v.hashtags||[]).map(h=>'<span class="tag">#'+esc(h)+'</span>').join('');
   const hooks=(v.hooks||[]).map(h=>'<li>'+esc(h)+'</li>').join('');
+  const caption = String(v.caption||'');
+  const captionWithTags = caption + (hashList.length ? '\n\n'+hashList.join(' ') : ''); // ready to paste as one post
   box.innerHTML =
-    '<div class="card"><div class="h"><span class="lbl">Caption</span><button class="mini" data-copytext="'+esc(v.caption||'')+'">Copy</button></div><div class="desc">'+esc(v.caption||'')+'</div></div>'
-    + '<div class="card"><div class="h"><span class="lbl">Hashtags</span><button class="mini" data-copytext="'+esc((v.hashtags||[]).map(h=>'#'+h).join(' '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>'
+    '<div class="card"><div class="h"><span class="lbl">Caption</span><span>'
+      + '<button class="mini" data-copytext="'+esc(caption)+'">Copy</button> '
+      + (hashList.length ? '<button class="mini" data-copytext="'+esc(captionWithTags)+'">Copy + hashtags</button>' : '')
+      + '</span></div><div class="desc">'+esc(caption)+'</div></div>'
+    + (tags ? '<div class="card"><div class="h"><span class="lbl">Hashtags ('+hashList.length+')</span><button class="mini" data-copytext="'+esc(hashList.join(' '))+'">Copy all</button></div><div class="tags">'+tags+'</div></div>' : '')
     + (hooks ? '<div class="card"><div class="h"><span class="lbl">Hook ideas</span></div><ul class="hooks">'+hooks+'</ul></div>' : '');
 }
 // Server sanitises article/email `body` to a safe tag whitelist (<p>/<h2>/<blockquote>…), so it's

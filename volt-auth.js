@@ -272,6 +272,57 @@
     setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 3000);
   }
 
+  /* ---------- desktop update notifier (WP-plugin style) ---------- */
+  var VERSION_URL = "https://tshephos-lab.vercel.app/version.json";
+  function cmpVer(a, b) { // -1 a<b, 0 equal, 1 a>b (major.minor.patch)
+    var pa = String(a || "0").split("."), pb = String(b || "0").split(".");
+    for (var i = 0; i < 3; i++) { var x = parseInt(pa[i], 10) || 0, y = parseInt(pb[i], 10) || 0; if (x > y) return 1; if (x < y) return -1; }
+    return 0;
+  }
+  function maybeUpdateCheck() {
+    // Only the desktop shell needs manual updating — web pages are always live from Vercel.
+    if (!isDesktop() || typeof window.voltNative.getVersion !== "function") return;
+    var cur = null;
+    Promise.resolve(window.voltNative.getVersion())
+      .then(function (v) { cur = v; return fetch(VERSION_URL + "?ts=" + Date.now(), { cache: "no-store" }); })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (info) {
+        if (!info || !cur || !info.desktopVersion) return;
+        if (cmpVer(info.desktopVersion, cur) <= 0) return; // already current
+        var dis = null; try { dis = localStorage.getItem("volt_update_dismissed"); } catch (e) {}
+        if (dis === info.desktopVersion) return; // user chose "Later" for this exact version
+        showUpdateBanner(cur, info.desktopVersion, info.download || "", info.notes || "");
+      })
+      .catch(function () {});
+  }
+  function showUpdateBanner(cur, latest, url, notes) {
+    if (document.getElementById("va-update-bar")) return;
+    if (!document.getElementById("va-ub-style")) {
+      var st = document.createElement("style"); st.id = "va-ub-style";
+      st.textContent =
+        "#va-update-bar{position:fixed;top:0;left:76px;right:0;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;background:linear-gradient(90deg,#1A1E28,#14171F);border-bottom:1px solid var(--border-2,rgba(255,255,255,.14));font-family:var(--fb,system-ui);font-size:13px;color:var(--text,#ECEEF3)}" +
+        "body.va-has-update{padding-top:42px}" +
+        "#va-update-bar .va-ub-cur{color:var(--faint,#5B616D)}" +
+        "#va-update-bar .va-ub-actions{display:flex;align-items:center;gap:8px;flex:none}" +
+        "#va-update-bar .va-ub-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+        "#va-update-bar .va-ub-btn{background:var(--accent,#B6FF3D);color:#0A0B0F;text-decoration:none;font-weight:600;padding:5px 12px;border-radius:8px;font-size:12px;white-space:nowrap}" +
+        "#va-update-bar .va-ub-x{background:transparent;border:1px solid var(--border-2,rgba(255,255,255,.14));color:var(--dim,#888F9D);padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px}" +
+        "@media(max-width:760px){#va-update-bar{left:0}}";
+      document.head.appendChild(st);
+    }
+    var bar = document.createElement("div"); bar.id = "va-update-bar";
+    bar.innerHTML =
+      '<span class="va-ub-txt">✨ Volt <b>' + esc(latest) + "</b> is available" + (notes ? " — " + esc(notes) : "") + ' <span class="va-ub-cur">(you have ' + esc(cur) + ")</span></span>" +
+      '<span class="va-ub-actions">' +
+        (url ? '<a class="va-ub-btn" href="' + esc(url) + '" target="_blank" rel="noopener">Download update ↗</a>' : "") +
+        '<button class="va-ub-x" id="va-ub-x">Later</button>' +
+      "</span>";
+    document.body.appendChild(bar);
+    document.body.classList.add("va-has-update");
+    var x = document.getElementById("va-ub-x");
+    if (x) x.addEventListener("click", function () { try { localStorage.setItem("volt_update_dismissed", latest); } catch (e) {} bar.remove(); document.body.classList.remove("va-has-update"); });
+  }
+
   /* ---------- settings (keys on desktop + sign out) ---------- */
   function keyFieldsHTML() {
     var k = getKeys();
@@ -544,6 +595,7 @@
     initCmdK();
     initAutosave();
     maybeOnboard();
+    maybeUpdateCheck();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
     window.voltSession = session;
     try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}
