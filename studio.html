@@ -216,6 +216,9 @@
                     <button onclick="setCampaign('quote')" id="camp-quote" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
                         ❝ Quote
                     </button>
+                    <button onclick="setCampaign('meme')" id="camp-meme" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
+                        😂 Meme
+                    </button>
                 </div>
             </div>
 
@@ -280,11 +283,11 @@
             <!-- Content Inputs -->
             <div class="space-y-4">
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">6. Content Adjustment</label>
-                <div>
+                <div id="tag-group">
                     <label class="text-xs text-slate-400 block mb-1">Tag</label>
                     <input type="text" id="in-tag" value="SME Knowledge HUB" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
                 </div>
-                <div>
+                <div id="title-group">
                     <label class="text-xs text-slate-400 block mb-1" id="lbl-title">Main Headline</label>
                     <textarea id="in-title" rows="3" class="w-full bg-slate-800 text-white rounded-lg p-3 text-lg font-bold border border-slate-700 outline-none focus:ring-2 focus:ring-red-500 resize-none transition-shadow" oninput="syncDOM()">Four Business Ideas To Solve Socio-Economic Issues</textarea>
                 </div>
@@ -303,6 +306,13 @@
                     <label class="text-xs text-slate-400 block mb-1">Attribution</label>
                     <input type="text" id="in-author" value="Thabo M., SME Founder" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
                     <p class="text-[10px] text-slate-500 leading-snug">The headline above is the quote. Add who said it here (name, role).</p>
+                </div>
+                <div id="meme-controls" class="hidden space-y-2 mt-4">
+                    <label class="text-xs text-slate-400 block mb-1">Top text</label>
+                    <input type="text" id="in-meme-top" value="WHEN THE VAT THRESHOLD" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm font-bold border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
+                    <label class="text-xs text-slate-400 block mb-1 mt-2">Bottom text</label>
+                    <input type="text" id="in-meme-bottom" value="JUMPS TO R2.3 MILLION" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm font-bold border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
+                    <p class="text-[10px] text-slate-500 leading-snug">Upload your image below, then add classic top/bottom meme text (white with a black outline). Great for the Friday post. Leave either line blank to skip it.</p>
                 </div>
                 <div id="image-upload-wrapper">
                     <label class="text-xs text-slate-400 block mb-1">Featured Image</label>
@@ -773,12 +783,14 @@ class CanvasRenderer {
             ctx.shadowOffsetX = opts.shadow.x || 0;
             ctx.shadowOffsetY = opts.shadow.y || 0;
         }
+        if (opts.stroke) { ctx.strokeStyle = opts.stroke; ctx.lineWidth = opts.strokeWidth || 6; ctx.lineJoin = 'round'; ctx.miterLimit = 2; }
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const w = ctx.measureText(line).width;
             let lx = x;
             if (align === 'center') lx = x + (boxW - w) / 2;
             else if (align === 'right') lx = x + boxW - w;
+            if (opts.stroke) ctx.strokeText(line, lx, y + i * lineH); // outline first, fill on top (meme style)
             ctx.fillText(line, lx, y + i * lineH);
         }
         ctx.restore();
@@ -1423,6 +1435,30 @@ const Layouts = {
             r.drawIconPath(ICON.globe, pad, footerY + 22, 24, BRAND.white, 2.5);
             r.drawLines([urlText], urlFont, pad + 34, footerY + 24, urlW, { color: BRAND.white });
         }
+    },
+
+    // ----- MEME (full-frame photo + classic white/black-outline top & bottom text) -----
+    meme(r, s, assets) {
+        const W = r.w, H = r.h;
+        if (assets.featured) r.drawCover(assets.featured, 0, 0, W, H, s.focalX, s.focalY, 0, 1);
+        else r.fillBg('#111111');
+        const pad = Math.round(W * 0.05);
+        const boxW = W - pad * 2;
+        const boxH = Math.round(H * 0.26);
+        const fontBase = { family: 'Oswald', weight: '900' };
+        const drawBand = (text, atBottom) => {
+            if (!text || !text.trim()) return;
+            const fit = r.fitFontSize(String(text).toUpperCase(), fontBase, boxW, boxH, 1.05, { max: Math.round(H * 0.13), min: 24 });
+            if (!fit.lines.length) return;
+            const y0 = atBottom ? (H - pad - fit.totalH + fit.size * 0.82) : (pad + fit.size * 0.82);
+            r.drawLines(fit.lines, { ...fontBase, size: fit.size }, pad, y0, boxW, {
+                align: 'center', color: '#ffffff',
+                stroke: '#000000', strokeWidth: Math.max(6, Math.round(fit.size * 0.14)),
+                shadow: { color: 'rgba(0,0,0,0.5)', blur: 12, x: 0, y: 4 }, lineHeight: 1.05
+            });
+        };
+        drawBand(s.memeTop, false);
+        drawBand(s.memeBottom, true);
     }
 };
 
@@ -1459,6 +1495,8 @@ function renderSlide(state, slideIdx, assets, scale) {
         Layouts.statSpotlight(r, state, assets);
     } else if (state.campaign === 'quote') {
         Layouts.quote(r, state, assets);
+    } else if (state.campaign === 'meme') {
+        Layouts.meme(r, state, assets);
     }
 
     return r;
@@ -2220,6 +2258,14 @@ self.onmessage = async (e) => {
                     ? '<div class="z-10 border-t border-white/20 pt-5 flex items-center gap-3 text-white shrink-0"><svg class="w-5 h-5 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg><span class="font-roboto font-bold text-lg tracking-wide">smesouthafrica.co.za</span></div>'
                     : '')
               + '</div>';
+        } else if (state.campaign === 'meme') {
+            const memeTxt = 'font-oswald font-bold text-white text-center uppercase leading-[1.05]';
+            const memeStyle = '-webkit-text-stroke:3px #000;text-shadow:0 3px 10px rgba(0,0,0,.55);word-break:break-word;';
+            html = '<div class="relative w-full h-full bg-black overflow-hidden">'
+              +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
+              +   '<div class="absolute inset-x-0 top-0 flex justify-center" style="padding:5%;"><div id="meme-top" class="' + memeTxt + '" style="' + memeStyle + '"></div></div>'
+              +   '<div class="absolute inset-x-0 bottom-0 flex justify-center" style="padding:5%;"><div id="meme-bottom" class="' + memeTxt + '" style="' + memeStyle + '"></div></div>'
+              + '</div>';
         }
 
         // Brand Kit: swap the seeded SME logo/URL/CTA in the preview for the active brand.
@@ -2281,6 +2327,12 @@ self.onmessage = async (e) => {
         }
         const rAuthor = document.getElementById('render-author');
         if (rAuthor) rAuthor.innerHTML = sanitizeHTML(document.getElementById('in-author')?.value || '');
+
+        const memeSize = Math.round(64 * ((fontInput?.value || 100) / 100)) + 'px';
+        const rMemeTop = document.getElementById('meme-top');
+        if (rMemeTop) { rMemeTop.innerHTML = sanitizeHTML(document.getElementById('in-meme-top')?.value || '').replace(/\n/g, '<br>'); rMemeTop.style.fontSize = memeSize; }
+        const rMemeBottom = document.getElementById('meme-bottom');
+        if (rMemeBottom) { rMemeBottom.innerHTML = sanitizeHTML(document.getElementById('in-meme-bottom')?.value || '').replace(/\n/g, '<br>'); rMemeBottom.style.fontSize = memeSize; }
 
         if (state.campaign === 'poll') {
             for (let i = 1; i <= 3; i++) {
@@ -2352,6 +2404,8 @@ self.onmessage = async (e) => {
         // optional control groups default off; the active branch re-enables what it needs
         tog('stat-controls', false);
         tog('quote-controls', false);
+        tog('meme-controls', false);
+        tog('tag-group', true); tog('title-group', true); // meme hides these; restore for everyone else
         if (lblTitle) lblTitle.innerText = 'Main Headline';
 
         if (campType === 'carousel') {
@@ -2385,6 +2439,14 @@ self.onmessage = async (e) => {
             tog('btn-download-zip', false);
             if (btnDown) btnDown.innerText = 'Download Quote Graphic';
             if (lblTitle) lblTitle.innerText = 'Quote text';
+            setFormat(state.format);
+        } else if (campType === 'meme') {
+            tog('theme-controls', false); tog('size-controls', true);
+            tog('carousel-controls', false); tog('poll-controls', false);
+            tog('meme-controls', true); tog('image-upload-wrapper', true); tog('framing-controls', true);
+            tog('tag-group', false); tog('title-group', false); // meme uses its own top/bottom text
+            tog('btn-download-zip', false);
+            if (btnDown) btnDown.innerText = 'Download Meme';
             setFormat(state.format);
         } else {
             tog('theme-controls', true); tog('size-controls', true);
@@ -2460,6 +2522,8 @@ self.onmessage = async (e) => {
             stat: stat,
             author: author,
             pollOpts: pollOpts,
+            memeTop: document.getElementById('in-meme-top')?.value || '',
+            memeBottom: document.getElementById('in-meme-bottom')?.value || '',
             focalX: focalX,
             focalY: focalY,
             userScale: userScale
