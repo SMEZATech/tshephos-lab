@@ -191,7 +191,26 @@ Keep it warm and practical."></textarea>
     </div>
 
     <div class="promos">
-      <label class="lbl">Add promo blocks <span class="opt">— optional, you fill the details so they're always accurate</span></label>
+      <label class="lbl">Add sections <span class="opt">— optional. Use the ▲▼ arrows to place any section anywhere in the email.</span></label>
+
+      <div class="promo" id="promo-content">
+        <div class="promo-head" data-toggle="content">
+          <span class="em">📝</span>
+          <span class="nm">Content section</span>
+          <span class="hint">same design as the top — place it anywhere</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="ct-heading" placeholder="Section heading — e.g. Budget 2026: VAT Threshold Increased" />
+          <textarea id="ct-body" rows="4" placeholder="Body text. Leave a blank line between paragraphs. For an in-text link use [text](https://…)."></textarea>
+          <input id="ct-image" placeholder="Image URL (optional) — shown under the heading" />
+          <div class="row">
+            <input class="field-sm" id="ct-rr-title" placeholder="Related Reading title (optional)" />
+            <input class="field-sm" id="ct-rr-link" placeholder="Related Reading link — full URL" />
+          </div>
+          <p style="font-size:12.5px; color:var(--faint); margin:8px 0 0; line-height:1.5;">This renders in the same style as the top section (heading, paragraphs, Related Reading). Add it between promos so your email reads organically, not like a wall of ads.</p>
+        </div>
+      </div>
 
       <div class="promo" id="promo-webinar">
         <div class="promo-head" data-toggle="webinar">
@@ -486,6 +505,25 @@ const SHELL_BOTTOM = `
 const HR = `<hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 25px 0;">`;
 
 // Promo block templates — filled from the form fields.
+// Escape text, then turn [label](https://url) into a safe in-text link (matches the top body style).
+function mdLinks(t){
+  return esc(String(t||'')).replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+}
+// A body-style content section (heading + paragraphs + optional image + optional Related Reading),
+// identical styling to the top section — but reorderable, so it can sit anywhere in the email.
+function contentBlock(p){
+  const paras = String(p.body||'').split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean)
+    .map(t => `<p>${mdLinks(t).replace(/\n/g,'<br>')}</p>`).join('');
+  const img = p.image ? `<img src="${escAttr(p.image)}" alt="${escAttr(p.heading||'')}" class="newsletter-image">` : '';
+  const rr = (p.rrTitle && p.rrLink) ? `<div class="related-reading"><span>📚 Related Reading:</span> <a href="${escAttr(p.rrLink)}" target="_blank" class="related-link">${esc(p.rrTitle)}</a></div>` : '';
+  return `
+                ${HR}
+                ${p.heading ? `<h2>${esc(p.heading)}</h2>` : ''}
+                ${img}
+                ${paras}
+                ${rr}`;
+}
+
 function webinarBlock(p){
   return `
                 ${HR}
@@ -604,7 +642,7 @@ const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a b
                 <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/" class="related-link">5 Networking Tips To Help Your Business Grow</a></div>`;
 
 const state = { brief:'', loading:false, body:null, previewMode:'desktop',
-  promos:{ webinar:{on:false}, resource:{on:false}, podcast:{on:false}, sponsored:{on:false}, task:{on:false}, custom:{on:false} } };
+  promos:{ content:{on:false}, webinar:{on:false}, resource:{on:false}, podcast:{on:false}, sponsored:{on:false}, task:{on:false}, custom:{on:false} } };
 
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
 let lastFragment = '';
@@ -709,6 +747,7 @@ function collectLinks(){
 // order of the .promo cards, so moving a card up/down moves the section in the email.
 function promoVal(id){ const el = document.getElementById(id); return el ? el.value.trim() : ''; }
 const PROMO_BUILDERS = {
+  content: () => { const h = promoVal('ct-heading'), b = promoVal('ct-body'); return (h || b) ? contentBlock({ heading:h, body:b, image:promoVal('ct-image'), rrTitle:promoVal('ct-rr-title'), rrLink:promoVal('ct-rr-link') }) : ''; },
   webinar: () => { const t = promoVal('wb-title'); return t ? webinarBlock({ title:t, desc:promoVal('wb-desc'), date:promoVal('wb-date'), link:promoVal('wb-link'), btn:promoVal('wb-btn') }) : ''; },
   resource: () => { const t = promoVal('rs-title'); return t ? resourceBlock({ title:t, desc:promoVal('rs-desc'), link:promoVal('rs-link'), btn:promoVal('rs-btn') }) : ''; },
   podcast: () => { const t = promoVal('pc-title'); return t ? podcastBlock({ title:t, ep:promoVal('pc-ep'), cover:promoVal('pc-cover'), desc:promoVal('pc-desc'), link:promoVal('pc-link'), btn:promoVal('pc-btn'), spotify:promoVal('pc-spotify'), apple:promoVal('pc-apple'), youtube:promoVal('pc-youtube') }) : ''; },
@@ -1152,7 +1191,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-ep','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-ep','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
