@@ -34,6 +34,12 @@ const SYSTEM_EMAIL =
   "If the brief contains Kit merge fields written as {{ ... }} (e.g. {{ subscriber.industry }}), reproduce them EXACTLY and unchanged in the body — treat them as literal placeholders; never alter, translate, remove, or wrap them. " +
   "Do NOT write a greeting or sign-off. Return ONLY the raw HTML fragment starting with the intro paragraph — no markdown, no code fences, no commentary.";
 
+const SYSTEM_WEEKLYACTION =
+  "You are an engagement strategist for SME South Africa's weekly newsletter to South African small-business owners. " +
+  "You design the 'Weekly Action' — one small, concrete step a reader can take THIS WEEK, drawn directly from the email's content, plus a low-friction one-tap poll to spark replies from a fatigued list. " +
+  "Keep it practical, encouraging, plain South African English; base it ONLY on the email content (never invent facts, figures, deadlines or offers). " +
+  "You ALWAYS return only valid, minified JSON matching the requested schema exactly — never any prose, markdown, or code fences.";
+
 const SYSTEM_SUBJECTS =
   "You are an email subject-line strategist for SME South Africa's weekly newsletter to South African small-business owners. " +
   "The list is ~50% cold/fatigued, so your job is to WIN THE OPEN and re-earn attention — high curiosity and clear value, never clickbait or false promises. " +
@@ -204,6 +210,22 @@ REQUIREMENTS:
 - doMore: 2 to 3 concrete things to repeat, each <= 20 words.
 - doLess: 1 to 3 things to stop or fix, each <= 20 words.
 - nextPosts: 2 to 3 ready-to-make post ideas modelled on the winners, each <= 18 words.`;
+}
+
+function buildWeeklyActionPrompt({ content }) {
+  return `Here is the email that is going out to South African small-business owners.
+
+EMAIL CONTENT:
+"""
+${content}
+"""
+
+Design ONE "Weekly Action" for this email — a single small step the reader can take this week, drawn straight from the content above. Make it genuinely doable in a few minutes, not a big project.
+
+Rules: base it ONLY on the content — never invent facts, numbers, deadlines or offers. Warm, practical South African English. The poll options are for a one-tap reply (lowest friction), so keep them short.
+
+Return ONLY minified JSON with this exact shape:
+{"title":"a short action title, under 60 characters (e.g. Check your VAT registration status)","body":"1 to 2 sentences telling them exactly what to do this week and why it matters","poll":["2 to 4 very short one-tap reply options a reader could pick, each under 22 characters"]}`;
 }
 
 function buildSubjectsPrompt({ theme, content }) {
@@ -603,6 +625,21 @@ export default async function handler(req, res) {
       })).filter((s) => s.text).slice(0, 6);
       if (!subjects.length) return res.status(502).json({ error: "Couldn't draft subject lines — try again." });
       return res.status(200).json({ subjects });
+    }
+
+    // ---- Newsletter Weekly Action suggestion (reads the email, proposes the ritual) ----
+    if (task === "weeklyaction") {
+      const content = String(body.content || body.body || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 6000);
+      if (!content) return res.status(400).json({ error: "Build the email first, then suggest a Weekly Action." });
+      const text = await callProvider(buildWeeklyActionPrompt({ content }) + promptExtras, { system: SYSTEM_WEEKLYACTION, temperature: 0.7, maxTokens: 600 });
+      const wa = safeParse(text);
+      if (!wa || !wa.title) return res.status(502).json({ error: "Couldn't draft a Weekly Action — try again." });
+      const weeklyAction = {
+        title: String(wa.title || "").slice(0, 100),
+        body: String(wa.body || "").slice(0, 400),
+        poll: strList(wa.poll, 4, 30),
+      };
+      return res.status(200).json({ weeklyAction });
     }
 
     // ---- Video → social post copy ----

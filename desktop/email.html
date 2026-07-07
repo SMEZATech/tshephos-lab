@@ -201,6 +201,7 @@ Keep it warm and practical."></textarea>
         </div>
         <div class="promo-fields">
           <input id="wb-title" placeholder="Webinar title — e.g. How To Scale A Business With Minimal Capital" />
+          <textarea id="wb-desc" rows="2" placeholder="Short description (optional) — one line on what attendees will learn."></textarea>
           <div class="row">
             <input class="field-sm" id="wb-date" placeholder="Date / time — e.g. 28 May 2026, 11:00 AM SAST" />
             <input class="field-sm" id="wb-btn" placeholder="Button text — e.g. SECURE YOUR SPOT" />
@@ -254,13 +255,14 @@ Keep it warm and practical."></textarea>
       <div class="promo" id="promo-sponsored">
         <div class="promo-head" data-toggle="sponsored">
           <span class="em">✦</span>
-          <span class="nm">Sponsored mention</span>
-          <span class="hint">client feature</span>
+          <span class="nm">In partnership with</span>
+          <span class="hint">partner feature</span>
           <span class="sw"></span>
         </div>
         <div class="promo-fields">
+          <input id="sp-brand" placeholder="Partner / brand name — e.g. Sage, FNB, Xero" />
           <input id="sp-title" placeholder="Feature title — e.g. Be the Answer AI Recommends" />
-          <textarea id="sp-body" rows="2" placeholder="What to say about the client (your words — keep all claims accurate)."></textarea>
+          <textarea id="sp-body" rows="2" placeholder="What to say about the partner (your words — keep all claims accurate)."></textarea>
           <textarea id="sp-bullets" rows="2" placeholder="Optional bullet points — one per line."></textarea>
           <div class="row">
             <input class="field-sm" id="sp-link" placeholder="Button link — full URL" />
@@ -283,6 +285,10 @@ Keep it warm and practical."></textarea>
           <textarea id="tk-body" rows="2" placeholder="The task — what should they actually do this week?"></textarea>
           <textarea id="tk-poll" rows="2" placeholder="Optional one-tap poll — one option per line (2-4). Each becomes a tappable reply button."></textarea>
           <input id="tk-cta" placeholder="Optional reply prompt — e.g. Hit reply and tell us how it goes 👇" />
+          <div style="margin-top:8px;">
+            <button type="button" class="addlink" id="suggestAction">✨ Suggest from email</button>
+            <span class="opt" id="actionStatus" style="margin-left:8px;"></span>
+          </div>
         </div>
       </div>
 
@@ -403,27 +409,15 @@ const SHELL_TOP = `<div id="body" style="background-color: #f0f2f5; padding: 20p
     <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
     <table class="main-wrapper" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; border: 1px solid #eaeaef; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; border-collapse: separate;">
         <tr><td style="padding: 0;">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="background-color: #9c1c1f; background: linear-gradient(135deg, #8a171a 0%, #9c1c1f 100%); border-bottom: 6px solid #0a2c3d; table-layout: fixed;">
-                <tr>
-                    <td class="logo-cell" width="150" align="left" valign="middle" style="padding: 35px 0 25px 35px;">
-                        <a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="text-decoration: none; border: none;">
-                            <table border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 10px; box-shadow: 0 6px 15px rgba(0,0,0,0.25);"><tr><td style="padding: 10px;"><img src="https://smesouthafrica.co.za/wp-content/uploads/2026/04/Funding-Summit-Logo-1.png" width="85" alt="SME Logo" class="logo-img" style="display: block; border: 0;"></td></tr></table>
-                        </a>
-                    </td>
-                    <td align="left" valign="middle" style="padding-left: 20px; padding-top: 40px; padding-bottom: 25px;">
-                        <table border="0" cellspacing="0" cellpadding="0">
-                            <tr><td align="left"><h1 class="banner-text-h1" style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 26px; line-height: 1.1; letter-spacing: 0.5px; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.2); text-transform: uppercase;"><a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important;">#1 NEWSLETTER FOR<br>SMES IN SOUTH AFRICA</span></a></h1></td></tr>
-                            <tr><td style="padding-top: 10px; padding-bottom: 10px;"><table border="0" cellspacing="0" cellpadding="0"><tr><td bgcolor="#ffb1b1" height="3" width="60" style="font-size: 1px; line-height: 1px; border-radius: 2px;">&nbsp;</td></tr></table></td></tr>
-                            <tr><td align="left"><p class="banner-subtext" style="margin: 0; font-family: 'Roboto', sans-serif; color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.95;">Empowering Your Entrepreneurial Journey</p></td></tr>
-                        </table>
-                    </td>
-                    <td class="sidebar-cell" width="45" align="center" valign="middle" style="background-color: rgba(0,0,0,0.1); border-left: 1px solid rgba(255,255,255,0.15); padding: 15px 0;">
-                        <div class="sidebar-text" style="writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); font-family: 'Oswald', sans-serif; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2.5px; white-space: nowrap; line-height: 45px; text-align: center;"><a href="https://smesouthafrica.co.za" target="_blank" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important; opacity: 0.9;">smesouthafrica.co.za</span></a></div>
-                    </td>
-                </tr>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+                <tr><td align="center" style="padding: 0; line-height: 0;">
+                    <a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="text-decoration: none; border: none;">
+                        <img src="https://smesouthafrica.co.za/wp-content/uploads/2026/07/1-NEWSLETTER-FOR-SMES-IN-SOUTH-AFRICA-2.png" alt="#1 Newsletter for SMEs in South Africa" width="600" style="width: 100%; max-width: 600px; height: auto; display: block; border: 0;">
+                    </a>
+                </td></tr>
             </table>
             <div class="content-padding mobile-padding" style="padding: 25px 35px;">
-                <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Entrepreneur" }},</p>
+                <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Boss" }},</p>
 `;
 
 // Lighter "win-back / cold-segment" header: text-forward, no heavy image banner (higher
@@ -459,7 +453,7 @@ const SHELL_TOP_LIGHT = `<div id="body" style="background-color: #f0f2f5; paddin
                 </td></tr>
             </table>
             <div class="content-padding mobile-padding" style="padding: 25px 35px;">
-                <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Entrepreneur" }},</p>
+                <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Boss" }},</p>
 `;
 
 // Tiny "view in browser" preheader — deliverability insurance; prepended above whichever shell is used.
@@ -495,12 +489,13 @@ const HR = `<hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 25px 0
 function webinarBlock(p){
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #000000; background: linear-gradient(135deg, #000000 0%, #330000 40%, #9c1c1f 100%); border-radius: 16px; overflow: hidden; box-shadow: 0 15px 35px rgba(156,28,31,0.3); margin: 25px 0; border: 1px solid rgba(255,255,255,0.1);">
-                    <tr><td class="webinar-banner-td" style="padding: 50px 35px; text-align: center;">
-                        <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto 15px auto;"><tr><td bgcolor="#9c1c1f" style="padding: 5px 15px; border-radius: 4px;"><p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #ffffff; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">▶ WEBINAR</p></td></tr></table>
-                        <h2 class="webinar-title" style="margin: 0 0 15px 0; font-family: 'Oswald', Arial, sans-serif; font-size: 30px; color: #ffffff; font-weight: 900; line-height: 1.2; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5); border: none;">${esc(p.title)}</h2>
-                        ${p.date ? `<p style="margin: 0 auto 25px auto; font-family: 'Roboto', sans-serif; font-size: 16px; color: rgba(255,255,255,0.85); line-height: 1.5; max-width: 480px;">${esc(p.date)}</p>` : ''}
-                        <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;"><tr><td align="center" style="border-radius: 50px; background-color: #ffffff; box-shadow: 0 8px 25px rgba(0,0,0,0.4);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 15px; font-family: 'Oswald', sans-serif; font-weight: 900; color: #9c1c1f !important; text-decoration: none; padding: 16px 45px; border-radius: 50px; display: inline-block; text-transform: uppercase; letter-spacing: 1.5px; border: none;">${esc(p.btn || 'REGISTER NOW')}</a></td></tr></table>
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #071f2b 55%, #6f1315 135%); border-radius: 16px; overflow: hidden; box-shadow: 0 15px 35px rgba(10,44,61,0.35); margin: 25px 0; border: 1px solid rgba(255,255,255,0.1);">
+                    <tr><td class="webinar-banner-td" style="padding: 42px 36px;">
+                        <table border="0" cellspacing="0" cellpadding="0"><tr><td bgcolor="#9c1c1f" style="padding: 6px 15px; border-radius: 30px;"><p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #ffffff; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">🔴 Live Webinar</p></td></tr></table>
+                        <h2 class="webinar-title" style="margin: 18px 0 0 0; font-family: 'Oswald', Arial, sans-serif; font-size: 30px; color: #ffffff; font-weight: 900; line-height: 1.15; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.4); border: none;">${esc(p.title)}</h2>
+                        ${p.desc ? `<p style="margin: 14px 0 0 0; font-family: 'Roboto', sans-serif; font-size: 15px; color: rgba(255,255,255,0.82); line-height: 1.6;">${esc(p.desc)}</p>` : ''}
+                        ${p.date ? `<table border="0" cellspacing="0" cellpadding="0" style="margin: 22px 0 0 0;"><tr><td style="background-color: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 12px 18px;"><p style="margin: 0; font-family: 'Roboto', sans-serif; font-size: 15px; color: #ffb1b1; font-weight: 700;">🗓️&nbsp;&nbsp;${esc(p.date)}</p></td></tr></table>` : ''}
+                        <table border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 0 0;"><tr><td align="center" style="border-radius: 50px; background-color: #ffffff; box-shadow: 0 8px 22px rgba(0,0,0,0.35);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 15px; font-family: 'Oswald', sans-serif; font-weight: 900; color: #9c1c1f !important; text-decoration: none; padding: 15px 42px; border-radius: 50px; display: inline-block; text-transform: uppercase; letter-spacing: 1.2px; border: none;">${esc(p.btn || 'Register Now')}</a></td></tr></table>
                     </td></tr>
                 </table>`;
 }
@@ -510,7 +505,7 @@ function resourceBlock(p){
                 ${HR}
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 2px dashed #9c1c1f; border-radius: 12px; margin: 30px 0; box-shadow: 0 8px 20px rgba(156,28,31,0.08); overflow: hidden;">
                     <tr><td style="padding: 35px 25px; text-align: center; background-image: radial-gradient(circle at 50% 0%, rgba(156,28,31,0.04) 0%, transparent 70%);">
-                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #9c1c1f; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">FREE RESOURCE</p>
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #9c1c1f; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">SME RESOURCE</p>
                         <h3 style="margin: 0 0 15px 0; font-family: 'Oswald', sans-serif; font-size: 24px; color: #0a2c3d; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 900; line-height: 1.2;">${esc(p.title)}</h3>
                         ${p.desc ? `<p style="font-family: 'Roboto', sans-serif; font-size: 15px; color: #444444; line-height: 1.6; margin: 0 auto 25px auto; max-width: 450px;">${esc(p.desc)}</p>` : ''}
                         <table border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 0 auto;"><tr><td align="center" style="border-radius: 6px; background-color: #9c1c1f; box-shadow: 0 5px 12px rgba(156,28,31,0.25);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 14px; font-family: 'Oswald', sans-serif; font-weight: 700; color: #ffffff !important; text-decoration: none; padding: 15px 30px; border-radius: 6px; display: inline-block; text-transform: uppercase; letter-spacing: 1.5px; border: none;">${esc(p.btn || 'DOWNLOAD NOW')}</a></td></tr></table>
@@ -561,7 +556,7 @@ function sponsoredBlock(p){
                 ${HR}
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fafbfc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 25px 0;">
                     <tr><td style="padding: 28px 26px;">
-                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">✦ Sponsored</p>
+                        <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">✦ In Partnership With${p.brand ? ' ' + esc(p.brand) : ''}</p>
                         <h2 style="margin: 0 0 12px 0;">${esc(p.title)}</h2>
                         ${p.body ? `<p style="margin: 0 0 14px 0;">${esc(p.body)}</p>` : ''}
                         ${bulletsHtml}
@@ -627,6 +622,31 @@ document.querySelectorAll('.promo-head').forEach(h => {
   });
 });
 
+// Reorder promos — ▲▼ on each card; DOM order is the email order (collectPromos reads it).
+function movePromo(promo, dir){
+  const sib = dir < 0 ? promo.previousElementSibling : promo.nextElementSibling;
+  if(!sib || !sib.classList.contains('promo')) return;
+  if(dir < 0) promo.parentElement.insertBefore(promo, sib);
+  else promo.parentElement.insertBefore(sib, promo);
+  renderPreview(state.body);
+}
+function initPromoReorder(){
+  document.querySelectorAll('.promos .promo').forEach(promo => {
+    const head = promo.querySelector('.promo-head'); if(!head || head.querySelector('.promo-move')) return;
+    const sw = head.querySelector('.sw');
+    const wrap = document.createElement('span');
+    wrap.className = 'promo-move';
+    wrap.style.cssText = 'display:inline-flex;gap:4px;margin-left:auto;margin-right:8px;';
+    const mk = (arrow, title) => { const b=document.createElement('button'); b.type='button'; b.textContent=arrow; b.title=title; b.style.cssText='background:transparent;border:1px solid var(--border-2);color:var(--dim);border-radius:6px;width:22px;height:22px;line-height:1;font-size:10px;padding:0;cursor:pointer;'; return b; };
+    const up = mk('▲','Move up'), down = mk('▼','Move down');
+    up.addEventListener('click', e => { e.stopPropagation(); movePromo(promo, -1); });
+    down.addEventListener('click', e => { e.stopPropagation(); movePromo(promo, 1); });
+    wrap.appendChild(up); wrap.appendChild(down);
+    head.insertBefore(wrap, sw); // sits just left of the on/off switch
+  });
+}
+initPromoReorder();
+
 // Link rows — easy structured link adding
 const elLinks = $('#links');
 function addLinkRow(text, url){
@@ -685,34 +705,26 @@ function collectLinks(){
   })).filter(l => l.text && l.url);
 }
 
+// Each promo's builder returns its HTML (or '' if not filled in). Order comes from the DOM
+// order of the .promo cards, so moving a card up/down moves the section in the email.
+function promoVal(id){ const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+const PROMO_BUILDERS = {
+  webinar: () => { const t = promoVal('wb-title'); return t ? webinarBlock({ title:t, desc:promoVal('wb-desc'), date:promoVal('wb-date'), link:promoVal('wb-link'), btn:promoVal('wb-btn') }) : ''; },
+  resource: () => { const t = promoVal('rs-title'); return t ? resourceBlock({ title:t, desc:promoVal('rs-desc'), link:promoVal('rs-link'), btn:promoVal('rs-btn') }) : ''; },
+  podcast: () => { const t = promoVal('pc-title'); return t ? podcastBlock({ title:t, ep:promoVal('pc-ep'), cover:promoVal('pc-cover'), desc:promoVal('pc-desc'), link:promoVal('pc-link'), btn:promoVal('pc-btn'), spotify:promoVal('pc-spotify'), apple:promoVal('pc-apple'), youtube:promoVal('pc-youtube') }) : ''; },
+  sponsored: () => { const t = promoVal('sp-title'); return t ? sponsoredBlock({ brand:promoVal('sp-brand'), title:t, body:promoVal('sp-body'), bullets:($('#sp-bullets')?$('#sp-bullets').value:''), link:promoVal('sp-link'), btn:promoVal('sp-btn') }) : ''; },
+  task: () => { const t = promoVal('tk-title'); if(!t) return ''; const poll = ($('#tk-poll')?$('#tk-poll').value:'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4); return taskBlock({ ritual:promoVal('tk-ritual'), shout:promoVal('tk-shout'), title:t, body:promoVal('tk-body'), poll, cta:promoVal('tk-cta') }); },
+  custom: () => promoVal('cs-html')
+};
 function collectPromos(){
   const blocks = [];
-  if(state.promos.webinar.on){
-    const title = $('#wb-title').value.trim();
-    if(title) blocks.push(webinarBlock({ title, date:$('#wb-date').value.trim(), link:$('#wb-link').value.trim(), btn:$('#wb-btn').value.trim() }));
-  }
-  if(state.promos.resource.on){
-    const title = $('#rs-title').value.trim();
-    if(title) blocks.push(resourceBlock({ title, desc:$('#rs-desc').value.trim(), link:$('#rs-link').value.trim(), btn:$('#rs-btn').value.trim() }));
-  }
-  if(state.promos.podcast && state.promos.podcast.on){
-    const title = $('#pc-title') ? $('#pc-title').value.trim() : '';
-    const g = id => { const el=$('#'+id); return el ? el.value.trim() : ''; };
-    if(title) blocks.push(podcastBlock({ title, ep:g('pc-ep'), cover:g('pc-cover'), desc:g('pc-desc'), link:g('pc-link'), btn:g('pc-btn'), spotify:g('pc-spotify'), apple:g('pc-apple'), youtube:g('pc-youtube') }));
-  }
-  if(state.promos.sponsored.on){
-    const title = $('#sp-title').value.trim();
-    if(title) blocks.push(sponsoredBlock({ title, body:$('#sp-body').value.trim(), bullets:$('#sp-bullets').value, link:$('#sp-link').value.trim(), btn:$('#sp-btn').value.trim() }));
-  }
-  if(state.promos.task.on){
-    const title = $('#tk-title').value.trim();
-    const poll = ($('#tk-poll') ? $('#tk-poll').value : '').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4);
-    if(title) blocks.push(taskBlock({ ritual:($('#tk-ritual')?$('#tk-ritual').value.trim():''), shout:($('#tk-shout')?$('#tk-shout').value.trim():''), title, body:$('#tk-body').value.trim(), poll, cta:$('#tk-cta').value.trim() }));
-  }
-  if(state.promos.custom && state.promos.custom.on){
-    const html = ($('#cs-html') ? $('#cs-html').value : '').trim();
+  document.querySelectorAll('.promos .promo').forEach(promo => {
+    const head = promo.querySelector('.promo-head'); if(!head) return;
+    const key = head.getAttribute('data-toggle');
+    if(!key || !state.promos[key] || !state.promos[key].on) return;
+    const html = PROMO_BUILDERS[key] ? PROMO_BUILDERS[key]() : '';
     if(html) blocks.push(html);
-  }
+  });
   return blocks.join('\n');
 }
 
@@ -1086,6 +1098,31 @@ async function suggestSubjects(){
 }
 (function(){ const b=document.getElementById('suggestSubjects'); if(b) b.addEventListener('click', suggestSubjects); })();
 
+// ---- Weekly Action assistant: read the built email and suggest the action + poll ----
+async function suggestWeeklyAction(){
+  const btn = document.getElementById('suggestAction'), status = document.getElementById('actionStatus');
+  const content = (state.body||'').trim() || (state.brief||'').trim();
+  if(!content){ if(status){ status.textContent='Build the email first, then I can suggest an action.'; status.style.color='#ef4444'; } return; }
+  if(btn) btn.disabled = true;
+  if(status){ status.textContent='Reading the email…'; status.style.color='#94a3b8'; }
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'weeklyaction', content }) });
+    let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the assistant.'); }
+    if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
+    const wa = data && data.weeklyAction;
+    if(!wa || !wa.title) throw new Error('No action came back — try again.');
+    if($('#tk-title')) $('#tk-title').value = wa.title || '';
+    if($('#tk-body')) $('#tk-body').value = wa.body || '';
+    if($('#tk-poll') && Array.isArray(wa.poll) && wa.poll.length) $('#tk-poll').value = wa.poll.join('\n');
+    const box = document.getElementById('promo-task'); // make sure the section is on so it shows
+    if(box && !box.classList.contains('on')){ box.classList.add('on'); if(state.promos.task) state.promos.task.on = true; }
+    renderPreview(state.body);
+    if(status){ status.textContent='Filled in ✓ — tweak as needed.'; status.style.color='#16a34a'; }
+  }catch(err){ if(status){ status.textContent=err.message; status.style.color='#ef4444'; } }
+  finally{ if(btn) btn.disabled=false; }
+}
+(function(){ const b=document.getElementById('suggestAction'); if(b) b.addEventListener('click', suggestWeeklyAction); })();
+
 // ---- Header-style variant: re-render when the user switches full/light shell ----
 (function(){ const sv=document.getElementById('shellVariant'); if(sv) sv.addEventListener('change', ()=> renderPreview(state.body)); })();
 
@@ -1115,7 +1152,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','wb-title','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-ep','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-ep','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
