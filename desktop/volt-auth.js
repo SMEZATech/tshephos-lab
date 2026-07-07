@@ -600,7 +600,7 @@
   /* ---------- personalized "Jarvis" welcome (owner-only for now) ---------- */
   // Roll-out: add more emails here (lowercase) → each gets their own greeting. Empty title = plain "Welcome back".
   var OWNERS = {
-    "adops@adclickafrica.com": { name: "Joel", title: "Master" },
+    "joel@smesouthafrica.co.za": { name: "Joel", title: "Master" },
   };
   function maybeGreetOwner() {
     try {

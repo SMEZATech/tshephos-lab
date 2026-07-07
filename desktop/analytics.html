@@ -103,6 +103,19 @@
   .bt-track{flex:1; height:14px; background:#0D0F15; border:1px solid var(--border); border-radius:7px; overflow:hidden;}
   .bt-fill{display:block; height:100%; background:var(--surface-2); border-radius:7px; transition:width .5s ease;}
   .bt-fill.on{background:var(--accent);}
+  .ov-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px;}
+  .ov-card{background:#0D0F15; border:1px solid var(--border); border-radius:16px; padding:16px 17px; cursor:pointer; transition:border-color .15s, transform .15s;}
+  .ov-card:hover{border-color:var(--accent); transform:translateY(-2px);}
+  .ov-card.ov-dim{opacity:.6; cursor:default;} .ov-card.ov-dim:hover{border-color:var(--border); transform:none;}
+  .ov-head{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:12px;}
+  .ov-name{font-family:var(--fd); font-weight:800; font-size:16px; color:var(--text);}
+  .ov-plat{font-family:var(--fm); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint);}
+  .ov-metrics{display:flex; flex-direction:column; gap:9px;}
+  .ov-metric{display:flex; align-items:baseline; gap:8px;}
+  .ov-m-lbl{font-family:var(--fm); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--dim); flex:1;}
+  .ov-m-val{font-family:var(--fd); font-weight:800; font-size:17px; color:var(--text);}
+  .ov-d{font-family:var(--fm); font-size:11px; font-weight:700;} .ov-d.up{color:var(--good);} .ov-d.down{color:var(--low);}
+  .ov-go{display:inline-block; margin-top:13px; font-family:var(--fm); font-size:11px; color:var(--accent); letter-spacing:.03em;}
 
   .grade{display:flex; align-items:center; gap:20px;}
   .grade .ring{width:90px; height:90px; border-radius:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--fd); font-weight:800; font-size:40px;}
@@ -269,7 +282,7 @@ const METRICS = [
 
 // App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
 const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
-const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'live', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'' };
+const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'live', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'', channels:[], overview:null };
 METRICS.forEach(m => state.metrics[m.key] = { this:'', prev:'' });
 
 const $ = s => document.querySelector(s);
@@ -357,7 +370,9 @@ async function fetchChannels(force){
       status.innerHTML = '<p class="ls-msg">No channels connected in Postiz yet. Connect your accounts in the Postiz dashboard, then retry.</p>' + refreshBtnHtml();
       wireRefresh(); return;
     }
-    sel.innerHTML = channels.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.platform ? (' · ' + esc(c.platform)) : '') + '</option>').join('');
+    state.channels = channels;
+    const allOpt = channels.length > 1 ? '<option value="__ALL__">🌐 All channels — overview</option>' : '';
+    sel.innerHTML = allOpt + channels.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.platform ? (' · ' + esc(c.platform)) : '') + '</option>').join('');
     status.innerHTML = '';
     controls.style.display = '';
     _channelsLoaded = true;
@@ -396,6 +411,41 @@ function dashFromLive(metrics, days){
   return { kpis, rate:null, basis:'', perPost:null, summary: lines.join('\n'), live:true, days };
 }
 
+// Pull a compact snapshot for EVERY connected channel (one call each, sequential to be gentle on
+// Postiz's rate limit). Returns { channels:[{name,platform,metrics,ok}], days }.
+async function pullAllChannels(){
+  const chans = state.channels || [];
+  if(!chans.length) throw new Error('No channels to overview yet.');
+  const days = parseInt((document.getElementById('liveDays') || {}).value || '30', 10) || 30;
+  const out = [];
+  for(const c of chans){
+    try{
+      const r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=analytics&id=' + encodeURIComponent(c.id) + '&days=' + days, { headers:{'x-app-key':APP_KEY} });
+      const data = await r.json().catch(() => ({}));
+      const metrics = (r.ok && data && data.metrics) || [];
+      out.push({ id:c.id, name:c.name, platform:c.platform, metrics, ok:metrics.length > 0, err:(!r.ok && data && (data.message || data.error)) || '' });
+    }catch(e){ out.push({ id:c.id, name:c.name, platform:c.platform, metrics:[], ok:false, err:'unreachable' }); }
+  }
+  return { channels: out, days };
+}
+function renderOverview(ov){
+  const cards = (ov.channels || []).map(c => {
+    const head = '<div class="ov-head"><span class="ov-name">' + esc(c.name || 'Channel') + '</span>' + (c.platform ? '<span class="ov-plat">' + esc(c.platform) + '</span>' : '') + '</div>';
+    if(!c.ok){
+      return '<div class="ov-card ov-dim">' + head + '<p class="ls-msg" style="margin:10px 0 0;">' + (c.err ? esc(c.err) : 'No data for this window yet.') + '</p></div>';
+    }
+    const mets = c.metrics.filter(m => m.latest != null).slice(0, 3).map(m => {
+      const dv = (m.percentageChange != null)
+        ? '<span class="ov-d ' + (m.percentageChange >= 0 ? 'up' : 'down') + '">' + (m.percentageChange >= 0 ? '▲' : '▼') + ' ' + Math.abs(Number(m.percentageChange)).toFixed(1) + '%</span>'
+        : '';
+      return '<div class="ov-metric"><span class="ov-m-lbl">' + esc(m.label) + '</span><span class="ov-m-val">' + fmt(m.latest) + '</span>' + dv + '</div>';
+    }).join('');
+    return '<div class="ov-card" data-chan="' + esc(c.id) + '">' + head + '<div class="ov-metrics">' + mets + '</div><span class="ov-go">Open dashboard →</span></div>';
+  }).join('');
+  return '<div class="report"><div class="sec" style="margin-top:0"><h3 class="sec-h">🌐 All channels — last ' + ov.days + ' days</h3><div class="ov-grid">' + cards + '</div></div>'
+    + '<p class="trk">A live snapshot across every connected channel. Click a channel to open its full dashboard, top posts and best-time insight.</p></div>';
+}
+
 function buildDash(){
   const m = state.metrics;
   const get = k => ({ cur:num(m[k].this), prev:num(m[k].prev) });
@@ -423,12 +473,22 @@ async function callApi(payload){
   return data;
 }
 
+function isAllChannels(){ const sel = document.getElementById('liveChannel'); return !!(sel && sel.value === '__ALL__'); }
+
 async function run(){
   state.loading = true; syncRun(); hideErr(); state.analysis = null; state.dashData = null;
-  state.topPosts = null; state.bestposts = null; state.topError = '';
+  state.topPosts = null; state.bestposts = null; state.topError = ''; state.overview = null;
   render();
   elRunLabel.textContent = state.mode === 'live' ? 'Pulling…' : 'Analyzing…';
   const svg = elRun.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner"></span>';
+
+  // Multi-channel overview: pull a snapshot for every connected channel, no single-channel AI read.
+  if(state.mode === 'live' && isAllChannels()){
+    try{ state.overview = await pullAllChannels(); }
+    catch(err){ showErr(err.message); }
+    finally{ state.loading = false; restoreRunBtn(); syncRun(); render(); }
+    return;
+  }
 
   let dash = null;
   try{
@@ -611,7 +671,8 @@ function topPostsSection(){
 }
 
 function render(){
-  if(state.loading && !state.dashData){ elRes.innerHTML = `<div class="report"><div class="skel"></div></div>`; return; }
+  if(state.overview){ elRes.innerHTML = renderOverview(state.overview); return; }
+  if(state.loading && !state.overview && !state.dashData){ elRes.innerHTML = `<div class="report"><div class="skel"></div></div>`; return; }
   if(!state.dashData){
     elRes.innerHTML = `<div class="empty">${ICON.chart}<p>Your KPI dashboard and analyst read will appear here.</p></div>`;
     return;
@@ -634,7 +695,11 @@ function render(){
   elRes.innerHTML = html;
 }
 
-elRes.addEventListener('click', e => { if(e.target.closest('#topBtn')) runTopPosts(); });
+elRes.addEventListener('click', e => {
+  if(e.target.closest('#topBtn')){ runTopPosts(); return; }
+  const card = e.target.closest('.ov-card[data-chan]'); // drill into a channel from the overview
+  if(card){ const sel = document.getElementById('liveChannel'); if(sel){ sel.value = card.getAttribute('data-chan'); state.overview = null; run(); } }
+});
 
 render();
 </script>
