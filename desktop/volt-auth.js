@@ -335,7 +335,14 @@
   }
 
   /* ---------- Sleep mode (Jarvis-style ambient screen after inactivity) ---------- */
-  var _sleepT = null, _sleepClockT = null, _sleepWired = false;
+  var _sleepT = null, _sleepClockT = null, _sleepCardT = null, _sleepWired = false, _sleepCardI = 0;
+  var SLEEP_CARDS = [
+    { e: "◇", t: "Volt Intelligence", s: "All systems on standby" },
+    { e: "📅", t: "Newsletter · Tuesdays", s: "The #1 newsletter for SMEs in SA" },
+    { e: "🎨", t: "One creative suite", s: "Copy · Design · Video · Email · Stats" },
+    { e: "🧠", t: "Volt is learning", s: "Getting smarter from what performs" },
+    { e: "⚡", t: "SME South Africa", s: "Built to help you start, grow & scale" }
+  ];
   function getSleepCfg() { try { return JSON.parse(localStorage.getItem("volt_sleep") || "{}"); } catch (e) { return {}; } }
   function setSleepCfg(c) { try { localStorage.setItem("volt_sleep", JSON.stringify(c)); } catch (e) {} }
   function initSleep() {
@@ -381,6 +388,11 @@
         "#va-sleep .vs-date{font-family:var(--fm,monospace);font-size:14px;letter-spacing:5px;text-transform:uppercase;color:var(--dim,#888F9D);margin-top:16px;}" +
         "#va-sleep .vs-brand{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:26px;color:#fff;margin-top:36px;letter-spacing:1px;}#va-sleep .vs-brand span{color:var(--accent,#B6FF3D);}" +
         "#va-sleep .vs-standby{font-family:var(--fm,monospace);font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--accent,#B6FF3D);margin-top:12px;opacity:.75;animation:vspulse 3s ease-in-out infinite;}" +
+        "#va-sleep .vs-card{margin-top:40px;display:flex;align-items:center;gap:14px;padding:14px 22px;min-width:300px;max-width:88vw;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(20,23,31,.55);box-shadow:0 10px 40px rgba(0,0,0,.4);transition:opacity .7s ease,transform .7s ease;}" +
+        "#va-sleep .vs-card.fade{opacity:0;transform:translateY(8px);}" +
+        "#va-sleep .vs-card .vs-c-e{font-size:26px;line-height:1;}" +
+        "#va-sleep .vs-card .vs-c-t{font-family:var(--fd,'Unbounded',system-ui);font-weight:700;font-size:15px;color:#fff;}" +
+        "#va-sleep .vs-card .vs-c-s{font-family:var(--fb,system-ui);font-size:12.5px;color:var(--dim,#888F9D);margin-top:2px;}" +
         "@keyframes vspulse{0%,100%{opacity:.4;}50%{opacity:.85;}}" +
         "@keyframes vjspin{to{transform:rotate(360deg);}}@keyframes vjpulse{0%,100%{opacity:.6;}50%{opacity:1;}}";
       document.head.appendChild(st);
@@ -395,11 +407,24 @@
       '<div class="vs-clock" id="va-sleep-clock">--:--</div>' +
       '<div class="vs-date" id="va-sleep-date"></div>' +
       '<div class="vs-brand">Volt<span>.</span></div>' +
-      '<div class="vs-standby">◇ Standby — move to wake</div>';
+      '<div class="vs-standby">◇ Standby — move to wake</div>' +
+      '<div class="vs-card" id="va-sleep-card"></div>';
     document.body.appendChild(o);
     tickClock();
     _sleepClockT = setInterval(tickClock, 1000);
+    _sleepCardI = 0; renderSleepCard();
+    _sleepCardT = setInterval(cycleSleepCard, 6000);
     requestAnimationFrame(function () { o.classList.add("on"); });
+  }
+  function renderSleepCard() {
+    var el = document.getElementById("va-sleep-card"); if (!el) return;
+    var c = SLEEP_CARDS[_sleepCardI % SLEEP_CARDS.length];
+    el.innerHTML = '<span class="vs-c-e">' + c.e + '</span><div><div class="vs-c-t">' + esc(c.t) + '</div><div class="vs-c-s">' + esc(c.s) + "</div></div>";
+  }
+  function cycleSleepCard() {
+    var el = document.getElementById("va-sleep-card"); if (!el) return;
+    el.classList.add("fade");
+    setTimeout(function () { _sleepCardI++; renderSleepCard(); el.classList.remove("fade"); }, 700);
   }
   function tickClock() {
     var c = document.getElementById("va-sleep-clock"); if (!c) return;
@@ -411,6 +436,7 @@
   function hideSleep() {
     var o = document.getElementById("va-sleep"); if (!o) return;
     clearInterval(_sleepClockT); _sleepClockT = null;
+    clearInterval(_sleepCardT); _sleepCardT = null;
     o.style.opacity = "0"; setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 800);
   }
 
@@ -521,6 +547,15 @@
       '<div class="va-info-row"><span class="l">Email</span><span class="r">' + esc(email) + '</span></div>' +
       (org ? '<div class="va-info-row"><span class="l">Organisation</span><span class="r">' + esc(org) + '</span></div>' : "") +
       '<div class="va-info-row"><span class="l">Running on</span><span class="r">' + appv + '</span></div>' +
+      '<div style="margin-top:20px;border-top:1px solid var(--border,rgba(255,255,255,.09));padding-top:18px;">' +
+        '<button class="va-btn va-ghost" id="va-cp-toggle" style="width:100%;">🔒 Change password</button>' +
+        '<div id="va-cp-fields" hidden style="margin-top:12px;">' +
+          '<input class="va-input" id="va-cp-new" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" spellcheck="false" style="margin-bottom:8px;">' +
+          '<input class="va-input" id="va-cp-confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" spellcheck="false">' +
+          '<button class="va-btn va-primary" id="va-cp-save" style="width:100%;margin-top:10px;">Update password</button>' +
+          '<div class="va-saved" id="va-cp-msg" style="margin-top:8px;"></div>' +
+        '</div>' +
+      '</div>' +
       '<div class="va-row" style="margin-top:22px;"><button class="va-btn va-primary" id="va-signout-2" style="background:var(--low,#FF7C7C);border-color:var(--low,#FF7C7C);color:#0A0B0F;">🚪 Sign out</button></div>';
   }
   function showSettings(initialTab) {
@@ -574,6 +609,25 @@
     function doSignOut() { if (sb) sb.auth.signOut(); m.remove(); }
     document.getElementById("va-signout").addEventListener("click", doSignOut);
     var so2 = document.getElementById("va-signout-2"); if (so2) so2.addEventListener("click", doSignOut);
+    // Change password.
+    var cpT = document.getElementById("va-cp-toggle");
+    if (cpT) cpT.addEventListener("click", function () { var f = document.getElementById("va-cp-fields"); if (f) { f.hidden = !f.hidden; if (!f.hidden) { var n = document.getElementById("va-cp-new"); if (n) n.focus(); } } });
+    var cpS = document.getElementById("va-cp-save");
+    if (cpS) cpS.addEventListener("click", function () {
+      var np = document.getElementById("va-cp-new"), cf = document.getElementById("va-cp-confirm"), msg = document.getElementById("va-cp-msg");
+      var p = (np && np.value) || "", c = (cf && cf.value) || "";
+      function setMsg(t, ok) { if (msg) { msg.textContent = t; msg.style.color = ok ? "#57E39A" : "#FF7C7C"; } }
+      if (p.length < 6) return setMsg("Password must be at least 6 characters.");
+      if (p !== c) return setMsg("Those passwords don’t match.");
+      if (!sb) return setMsg("Not connected — try again.");
+      cpS.disabled = true; setMsg("Updating…", true);
+      sb.auth.updateUser({ password: p }).then(function (r) {
+        cpS.disabled = false;
+        if (r && r.error) return setMsg(r.error.message || "Couldn’t update password.");
+        setMsg("✓ Password updated.", true);
+        if (np) np.value = ""; if (cf) cf.value = "";
+      }).catch(function (e) { cpS.disabled = false; setMsg((e && e.message) || "Something went wrong."); });
+    });
   }
 
   /* ---------- app shown / hidden ---------- */
