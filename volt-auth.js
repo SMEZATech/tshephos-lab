@@ -334,6 +334,86 @@
     if (x) x.addEventListener("click", function () { try { localStorage.setItem("volt_update_dismissed", latest); } catch (e) {} bar.remove(); document.body.classList.remove("va-has-update"); });
   }
 
+  /* ---------- Sleep mode (Jarvis-style ambient screen after inactivity) ---------- */
+  var _sleepT = null, _sleepClockT = null, _sleepWired = false;
+  function getSleepCfg() { try { return JSON.parse(localStorage.getItem("volt_sleep") || "{}"); } catch (e) { return {}; } }
+  function setSleepCfg(c) { try { localStorage.setItem("volt_sleep", JSON.stringify(c)); } catch (e) {} }
+  function initSleep() {
+    if (!_sleepWired) {
+      _sleepWired = true;
+      ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "wheel"].forEach(function (ev) {
+        window.addEventListener(ev, onActivity, true);
+      });
+    }
+    scheduleSleep();
+  }
+  function scheduleSleep() {
+    clearTimeout(_sleepT);
+    var cfg = getSleepCfg();
+    if (!cfg.on) return;
+    var ms = Math.max(1, parseInt(cfg.mins, 10) || 5) * 60000;
+    _sleepT = setTimeout(showSleep, ms);
+  }
+  function onActivity() {
+    if (document.getElementById("va-sleep")) hideSleep();
+    else scheduleSleep();
+  }
+  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  function showSleep(force) {
+    var cfg = getSleepCfg(); if ((!cfg.on && force !== true) || document.getElementById("va-sleep")) return;
+    if (document.getElementById("vk-ov") && document.getElementById("vk-ov").classList.contains("open")) return; // don't cover the command palette
+    if (!document.getElementById("va-sleep-style")) {
+      var st = document.createElement("style"); st.id = "va-sleep-style";
+      st.textContent =
+        "#va-sleep{position:fixed;inset:0;z-index:100010;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:none;opacity:0;transition:opacity .8s ease;" +
+          "background:radial-gradient(circle at 50% 44%,rgba(10,17,14,.96),rgba(6,7,10,1) 70%),repeating-linear-gradient(0deg,rgba(182,255,61,.04) 0 1px,transparent 1px 46px),repeating-linear-gradient(90deg,rgba(182,255,61,.04) 0 1px,transparent 1px 46px);}" +
+        "#va-sleep.on{opacity:1;}" +
+        "#va-sleep .vs-corner{position:fixed;width:52px;height:52px;border:2px solid rgba(182,255,61,.5);}" +
+        "#va-sleep .vs-corner.tl{top:30px;left:30px;border-right:0;border-bottom:0;}#va-sleep .vs-corner.tr{top:30px;right:30px;border-left:0;border-bottom:0;}" +
+        "#va-sleep .vs-corner.bl{bottom:30px;left:30px;border-right:0;border-top:0;}#va-sleep .vs-corner.br{bottom:30px;right:30px;border-left:0;border-top:0;}" +
+        "#va-sleep .vs-reactor{width:120px;height:120px;filter:drop-shadow(0 0 26px rgba(182,255,61,.45));margin-bottom:8px;}" +
+        "#va-sleep .ring{fill:none;transform-origin:100px 100px;}" +
+        "#va-sleep .r1{stroke:rgba(182,255,61,.55);stroke-width:1.5;stroke-dasharray:6 10;animation:vjspin 9s linear infinite;}" +
+        "#va-sleep .r2{stroke:rgba(127,200,255,.6);stroke-width:1.5;stroke-dasharray:2 7;animation:vjspin 5s linear infinite reverse;}" +
+        "#va-sleep .r3{stroke:rgba(182,255,61,.7);stroke-width:2;stroke-dasharray:46 14;animation:vjspin 16s linear infinite;}" +
+        "#va-sleep .core{fill:rgba(182,255,61,.1);stroke:rgba(182,255,61,.95);stroke-width:2;transform-origin:100px 100px;animation:vjpulse 2s ease-in-out infinite;}" +
+        "#va-sleep .vs-clock{font-family:var(--fm,monospace);font-weight:700;font-size:clamp(56px,13vw,140px);color:#fff;line-height:1;letter-spacing:2px;text-shadow:0 0 34px rgba(182,255,61,.4);}" +
+        "#va-sleep .vs-date{font-family:var(--fm,monospace);font-size:14px;letter-spacing:5px;text-transform:uppercase;color:var(--dim,#888F9D);margin-top:16px;}" +
+        "#va-sleep .vs-brand{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:26px;color:#fff;margin-top:36px;letter-spacing:1px;}#va-sleep .vs-brand span{color:var(--accent,#B6FF3D);}" +
+        "#va-sleep .vs-standby{font-family:var(--fm,monospace);font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--accent,#B6FF3D);margin-top:12px;opacity:.75;animation:vspulse 3s ease-in-out infinite;}" +
+        "@keyframes vspulse{0%,100%{opacity:.4;}50%{opacity:.85;}}" +
+        "@keyframes vjspin{to{transform:rotate(360deg);}}@keyframes vjpulse{0%,100%{opacity:.6;}50%{opacity:1;}}";
+      document.head.appendChild(st);
+    }
+    var o = document.createElement("div"); o.id = "va-sleep";
+    o.innerHTML =
+      '<div class="vs-corner tl"></div><div class="vs-corner tr"></div><div class="vs-corner bl"></div><div class="vs-corner br"></div>' +
+      '<svg class="vs-reactor" viewBox="0 0 200 200" aria-hidden="true">' +
+        '<circle class="ring r3" cx="100" cy="100" r="86"></circle><circle class="ring r1" cx="100" cy="100" r="68"></circle>' +
+        '<circle class="ring r2" cx="100" cy="100" r="50"></circle><circle class="core" cx="100" cy="100" r="30"></circle>' +
+        '<circle cx="100" cy="100" r="6" fill="var(--accent,#B6FF3D)"></circle></svg>' +
+      '<div class="vs-clock" id="va-sleep-clock">--:--</div>' +
+      '<div class="vs-date" id="va-sleep-date"></div>' +
+      '<div class="vs-brand">Volt<span>.</span></div>' +
+      '<div class="vs-standby">◇ Standby — move to wake</div>';
+    document.body.appendChild(o);
+    tickClock();
+    _sleepClockT = setInterval(tickClock, 1000);
+    requestAnimationFrame(function () { o.classList.add("on"); });
+  }
+  function tickClock() {
+    var c = document.getElementById("va-sleep-clock"); if (!c) return;
+    var d = new Date();
+    c.textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+    var dt = document.getElementById("va-sleep-date");
+    if (dt) dt.textContent = d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  }
+  function hideSleep() {
+    var o = document.getElementById("va-sleep"); if (!o) return;
+    clearInterval(_sleepClockT); _sleepClockT = null;
+    o.style.opacity = "0"; setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 800);
+  }
+
   /* ---------- settings (keys on desktop + sign out) ---------- */
   function keyFieldsHTML() {
     var k = getKeys();
@@ -398,28 +478,102 @@
         else if (st) st.textContent = (j && j.error) || "Could not start checkout.";
       }).catch(function () { if (st) st.textContent = "Network error — try again."; });
   }
-  function showSettings() {
-    injectCSS();
+  function ensureAcctStyle() {
+    if (document.getElementById("va-acct-style")) return;
+    var st = document.createElement("style"); st.id = "va-acct-style";
+    st.textContent =
+      "#va-modal .va-acct{display:flex;width:min(760px,94vw);height:min(560px,88vh);background:var(--surface,#14171F);border:1px solid var(--border-2,rgba(255,255,255,.14));border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.55);font-family:var(--fb,system-ui);}" +
+      ".va-acct-nav{width:210px;flex:none;background:#0D0F15;border-right:1px solid var(--border,rgba(255,255,255,.09));padding:18px 14px;display:flex;flex-direction:column;gap:4px;}" +
+      ".va-acct-me{display:flex;align-items:center;gap:11px;padding:6px 6px 16px;margin-bottom:8px;border-bottom:1px solid var(--border,rgba(255,255,255,.09));}" +
+      ".va-acct-av{width:40px;height:40px;flex:none;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;font-family:var(--fd,system-ui);font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center;}" +
+      ".va-acct-me .nm{font-weight:700;font-size:14px;color:var(--text,#ECEEF3);}.va-acct-me .em{font-size:11px;color:var(--dim,#888F9D);overflow:hidden;text-overflow:ellipsis;max-width:130px;white-space:nowrap;}" +
+      ".va-tab{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:transparent;border:0;color:var(--dim,#888F9D);font-family:var(--fb,system-ui);font-size:13.5px;font-weight:600;padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .14s;}" +
+      ".va-tab:hover{background:rgba(255,255,255,.05);color:var(--text,#ECEEF3);}" +
+      ".va-tab.active{background:rgba(182,255,61,.12);color:var(--accent,#B6FF3D);}" +
+      ".va-tab-out{margin-top:auto;color:var(--low,#FF7C7C);}.va-tab-out:hover{background:rgba(255,124,124,.1);color:var(--low,#FF7C7C);}" +
+      ".va-acct-body{flex:1;padding:26px 28px;overflow-y:auto;position:relative;}" +
+      ".va-acct-x{position:absolute;top:16px;right:18px;background:transparent;border:0;color:var(--dim,#888F9D);font-size:18px;cursor:pointer;line-height:1;}" +
+      ".va-acct-x:hover{color:var(--text,#ECEEF3);}" +
+      ".va-pane[hidden]{display:none;}" +
+      ".va-pane-h{font-family:var(--fd,system-ui);font-weight:800;font-size:20px;color:var(--text,#ECEEF3);margin:0 0 4px;}" +
+      ".va-pane-sub{font-size:13px;color:var(--dim,#888F9D);margin:0 0 20px;line-height:1.5;}" +
+      ".va-info-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.09));font-size:13.5px;}" +
+      ".va-info-row .l{color:var(--dim,#888F9D);}.va-info-row .r{color:var(--text,#ECEEF3);font-weight:600;}" +
+      ".va-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;font-size:14px;color:var(--text,#ECEEF3);}" +
+      "@media(max-width:640px){#va-modal .va-acct{flex-direction:column;height:min(90vh,760px);}.va-acct-nav{width:auto;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--border,rgba(255,255,255,.09));}.va-tab-out{margin-top:0;}.va-acct-me{width:100%;}}";
+    document.head.appendChild(st);
+  }
+  function acctVal(id) { var el = document.getElementById("va-k-" + id); return el ? el.value.trim() : ""; }
+  function sleepPaneHTML() {
+    var cfg = getSleepCfg();
+    var opts = [1, 2, 5, 10, 15, 30].map(function (n) { return '<option value="' + n + '"' + ((parseInt(cfg.mins, 10) || 5) === n ? " selected" : "") + '>' + n + " minute" + (n > 1 ? "s" : "") + "</option>"; }).join("");
+    return '<p class="va-pane-h">🌙 Sleep mode</p>' +
+      '<p class="va-pane-sub">When you go idle, Volt drops into an ambient standby screen — a live clock and glowing reactor, great as a desk display. Any mouse move or key press wakes it instantly.</p>' +
+      '<label class="va-toggle-row"><span>Enable sleep mode</span><input type="checkbox" id="va-sleep-on"' + (cfg.on ? " checked" : "") + ' style="width:18px;height:18px;accent-color:#B6FF3D;cursor:pointer;"></label>' +
+      '<div class="va-field" style="margin-top:6px;"><span class="nm">Sleep after</span><select class="va-input" id="va-sleep-mins" style="margin-top:6px;cursor:pointer;">' + opts + "</select></div>" +
+      '<button class="va-btn va-ghost" id="va-sleep-preview" style="margin-top:14px;">▶ Preview standby screen</button>';
+  }
+  function accountPaneHTML(email) {
+    var org = (session && session.user && (session.user.user_metadata && session.user.user_metadata.org)) || "";
+    var appv = (isDesktop() && window.voltNative && window.voltNative.isDesktop) ? "Desktop app" : "Web";
+    return '<p class="va-pane-h">👤 Account</p>' +
+      '<p class="va-pane-sub">You\'re signed in to Volt. Manage your keys, sleep mode and usage from the tabs on the left.</p>' +
+      '<div class="va-info-row"><span class="l">Email</span><span class="r">' + esc(email) + '</span></div>' +
+      (org ? '<div class="va-info-row"><span class="l">Organisation</span><span class="r">' + esc(org) + '</span></div>' : "") +
+      '<div class="va-info-row"><span class="l">Running on</span><span class="r">' + appv + '</span></div>' +
+      '<div class="va-row" style="margin-top:22px;"><button class="va-btn va-primary" id="va-signout-2" style="background:var(--low,#FF7C7C);border-color:var(--low,#FF7C7C);color:#0A0B0F;">🚪 Sign out</button></div>';
+  }
+  function showSettings(initialTab) {
+    injectCSS(); ensureAcctStyle();
     if (document.getElementById("va-modal")) return;
+    var email = esc(session && session.user && session.user.email || "");
+    var initial = ((email.charAt(0) || "V")).toUpperCase();
     var m = document.createElement("div"); m.id = "va-modal";
-    m.innerHTML = '<div class="va-card"><p class="va-logo" style="font-size:22px;">Settings</p>' +
-      '<p class="va-sub" style="margin-bottom:14px;">Signed in as <b style="color:#ECEEF3;">' + esc(session && session.user && session.user.email) + '</b></p>' +
-      (isDesktop() ? keyFieldsHTML() + '<button class="va-btn va-primary" id="va-save" style="width:100%;margin-top:8px;">Save keys</button><div class="va-saved" id="va-saved"></div>' : '<p class="va-keys-note" style="margin:0 0 8px;">Keys are managed centrally on the web app.</p>') +
-      (isDesktop() ? ollamaFieldsHTML() : '') +
-      '<div id="va-bill"></div>' +
-      '<div class="va-row"><button class="va-btn va-ghost" id="va-signout">Sign out</button><button class="va-btn va-ghost" id="va-close" style="color:#888F9D;">Close</button></div></div>';
+    m.innerHTML =
+      '<div class="va-acct">' +
+        '<div class="va-acct-nav">' +
+          '<div class="va-acct-me"><div class="va-acct-av">' + initial + '</div><div class="va-acct-meta"><div class="nm">' + (esc(firstName(email)) || "Your account") + '</div><div class="em">' + email + "</div></div></div>" +
+          '<button class="va-tab active" data-tab="account">👤 Account</button>' +
+          (isDesktop() ? '<button class="va-tab" data-tab="keys">🔑 API Keys</button>' : "") +
+          '<button class="va-tab" data-tab="sleep">🌙 Sleep Mode</button>' +
+          '<button class="va-tab" data-tab="billing">💳 Usage &amp; Billing</button>' +
+          '<button class="va-tab va-tab-out" id="va-signout">🚪 Sign out</button>' +
+        "</div>" +
+        '<div class="va-acct-body">' +
+          '<button class="va-acct-x" id="va-close">✕</button>' +
+          '<div class="va-pane" data-pane="account">' + accountPaneHTML(email) + "</div>" +
+          (isDesktop() ? '<div class="va-pane" data-pane="keys" hidden><p class="va-pane-h">🔑 API Keys</p>' + keyFieldsHTML() + '<button class="va-btn va-primary" id="va-save" style="width:100%;margin-top:8px;">Save keys</button><div class="va-saved" id="va-saved"></div>' + ollamaFieldsHTML() + "</div>" : "") +
+          '<div class="va-pane" data-pane="sleep" hidden>' + sleepPaneHTML() + "</div>" +
+          '<div class="va-pane" data-pane="billing" hidden><p class="va-pane-h">💳 Usage &amp; Billing</p><div id="va-bill"></div></div>' +
+        "</div>" +
+      "</div>";
     document.body.appendChild(m);
     loadBilling();
+    // Tab switching.
+    function selectTab(name) {
+      m.querySelectorAll(".va-tab[data-tab]").forEach(function (t) { t.classList.toggle("active", t.getAttribute("data-tab") === name); });
+      m.querySelectorAll(".va-pane[data-pane]").forEach(function (p) { p.hidden = p.getAttribute("data-pane") !== name; });
+    }
+    m.querySelectorAll(".va-tab[data-tab]").forEach(function (t) { t.addEventListener("click", function () { selectTab(t.getAttribute("data-tab")); }); });
+    if (initialTab) selectTab(initialTab);
+    // Keys save + Ollama.
     ["va-oll-on", "va-oll-model", "va-oll-url"].forEach(function (id) { var el = document.getElementById(id); if (el) el.addEventListener("change", saveOllama); });
-    m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
     var save = document.getElementById("va-save");
     if (save) save.addEventListener("click", function () {
-      function v(id) { var el = document.getElementById("va-k-" + id); return el ? el.value.trim() : ""; }
-      saveKeys({ gemini: v("gemini"), gemini2: v("gemini2"), groq: v("groq"), cerebras: v("cerebras"), openrouter: v("openrouter"), mistral: v("mistral"), openai: v("openai"), postiz: v("postiz"), postizUrl: v("postizUrl"), kit: v("kit"), wpUrl: getKeys().wpUrl, wpUser: getKeys().wpUser, wpKey: getKeys().wpKey });
+      saveKeys({ gemini: acctVal("gemini"), gemini2: acctVal("gemini2"), groq: acctVal("groq"), cerebras: acctVal("cerebras"), openrouter: acctVal("openrouter"), mistral: acctVal("mistral"), openai: acctVal("openai"), postiz: acctVal("postiz"), postizUrl: acctVal("postizUrl"), kit: acctVal("kit"), wpUrl: getKeys().wpUrl, wpUser: getKeys().wpUser, wpKey: getKeys().wpKey });
       var s = document.getElementById("va-saved"); if (s) { s.textContent = "Saved ✓"; setTimeout(function () { s.textContent = ""; }, 1500); }
     });
+    // Sleep controls.
+    function saveSleep() { var on = document.getElementById("va-sleep-on"), mn = document.getElementById("va-sleep-mins"); setSleepCfg({ on: !!(on && on.checked), mins: parseInt(mn && mn.value, 10) || 5 }); scheduleSleep(); }
+    var so = document.getElementById("va-sleep-on"); if (so) so.addEventListener("change", saveSleep);
+    var sm = document.getElementById("va-sleep-mins"); if (sm) sm.addEventListener("change", saveSleep);
+    var sp = document.getElementById("va-sleep-preview"); if (sp) sp.addEventListener("click", function () { m.remove(); setTimeout(function () { showSleep(true); }, 120); });
+    // Close + sign out.
+    m.addEventListener("click", function (e) { if (e.target === m) m.remove(); });
     document.getElementById("va-close").addEventListener("click", function () { m.remove(); });
-    document.getElementById("va-signout").addEventListener("click", function () { if (sb) sb.auth.signOut(); m.remove(); });
+    function doSignOut() { if (sb) sb.auth.signOut(); m.remove(); }
+    document.getElementById("va-signout").addEventListener("click", doSignOut);
+    var so2 = document.getElementById("va-signout-2"); if (so2) so2.addEventListener("click", doSignOut);
   }
 
   /* ---------- app shown / hidden ---------- */
@@ -680,6 +834,7 @@
     maybeOnboard();
     maybeUpdateCheck();
     maybeGreetOwner();
+    initSleep();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
     window.voltSession = session;
     try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}
