@@ -12,6 +12,7 @@
 
   var KEYS = {
     gemini:     { label: "Google Gemini", sub: "Primary AI + captions + images · free", url: "https://aistudio.google.com/apikey" },
+    gemini2:    { label: "Google Gemini (2nd key)", sub: "A 2nd Gemini key from ANOTHER Google account = separate free quota", url: "https://aistudio.google.com/apikey" },
     groq:       { label: "Groq", sub: "Fast AI fallback + Whisper captions · free", url: "https://console.groq.com/keys" },
     cerebras:   { label: "Cerebras", sub: "Very fast AI fallback · free tier", url: "https://cloud.cerebras.ai/" },
     openrouter: { label: "OpenRouter", sub: "AI fallback, many free models · free key", url: "https://openrouter.ai/keys" },
@@ -21,7 +22,7 @@
     kit:        { label: "Kit", sub: "Send newsletters to Kit as drafts", url: "https://app.kit.com/account_settings/developer_settings" },
   };
   // Providers that feed the AI failover chain (order = try order). Others (postiz/kit) are service keys.
-  var AI_PROVIDERS = ["gemini", "groq", "cerebras", "openrouter", "mistral", "openai"];
+  var AI_PROVIDERS = ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai"];
 
   function isDesktop() { return !!window.voltNative; }
   function getKeys() { try { return JSON.parse(localStorage.getItem(KEYS_LS) || "{}"); } catch (e) { return {}; } }
@@ -78,6 +79,7 @@
           h.set("x-client", "desktop");
           var k = getKeys();
           if (k.gemini) h.set("x-gemini-key", String(k.gemini).trim());
+          if (k.gemini2) h.set("x-gemini-key-2", String(k.gemini2).trim());
           if (k.groq) h.set("x-groq-key", String(k.groq).trim());
           if (k.cerebras) h.set("x-cerebras-key", String(k.cerebras).trim());
           if (k.openrouter) h.set("x-openrouter-key", String(k.openrouter).trim());
@@ -337,7 +339,7 @@
   function keyFieldsHTML() {
     var k = getKeys();
     var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Add as many AI keys as you like — Volt tries them top-to-bottom and auto-falls-over to the next when one is rate-limited or out of quota. More keys = fewer interruptions.</p>';
-    ["gemini", "groq", "cerebras", "openrouter", "mistral", "openai", "postiz", "kit"].forEach(function (id) {
+    ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai", "postiz", "kit"].forEach(function (id) {
       var i = KEYS[id];
       out += '<div class="va-field"><div><span class="nm">' + i.label + ' <span class="pw">· ' + esc(i.sub) + '</span></span><a class="va-get" href="' + i.url + '" target="_blank" rel="noopener">Get key ↗</a></div>' +
         '<input class="va-input" id="va-k-' + id + '" type="text" autocomplete="off" spellcheck="false" placeholder="Paste your ' + i.label + ' key" value="' + esc(k[id] || "") + '" style="margin-top:6px;" /></div>';
@@ -414,7 +416,7 @@
     var save = document.getElementById("va-save");
     if (save) save.addEventListener("click", function () {
       function v(id) { var el = document.getElementById("va-k-" + id); return el ? el.value.trim() : ""; }
-      saveKeys({ gemini: v("gemini"), groq: v("groq"), cerebras: v("cerebras"), openrouter: v("openrouter"), mistral: v("mistral"), openai: v("openai"), postiz: v("postiz"), postizUrl: v("postizUrl"), kit: v("kit"), wpUrl: getKeys().wpUrl, wpUser: getKeys().wpUser, wpKey: getKeys().wpKey });
+      saveKeys({ gemini: v("gemini"), gemini2: v("gemini2"), groq: v("groq"), cerebras: v("cerebras"), openrouter: v("openrouter"), mistral: v("mistral"), openai: v("openai"), postiz: v("postiz"), postizUrl: v("postizUrl"), kit: v("kit"), wpUrl: getKeys().wpUrl, wpUser: getKeys().wpUser, wpKey: getKeys().wpKey });
       var s = document.getElementById("va-saved"); if (s) { s.textContent = "Saved ✓"; setTimeout(function () { s.textContent = ""; }, 1500); }
     });
     document.getElementById("va-close").addEventListener("click", function () { m.remove(); });

@@ -17,13 +17,14 @@ const OAI = {
 
 // Default try-order: most reliable free providers first, flaky-free (OpenRouter's :free models)
 // near the end, paid (openai) last.
-const DEFAULT_ORDER = ["gemini", "groq", "cerebras", "mistral", "openrouter", "openai"];
+const DEFAULT_ORDER = ["gemini", "gemini2", "groq", "cerebras", "mistral", "openrouter", "openai"];
 
 function hdr(req, name) { try { return req && req.headers && req.headers[name] ? String(req.headers[name]).trim() : ""; } catch (e) { return ""; } }
 
 function resolveLlmKeys(req) {
   return {
     gemini:     hdr(req, "x-gemini-key")     || process.env.GEMINI_API_KEY     || "",
+    gemini2:    hdr(req, "x-gemini-key-2")   || process.env.GEMINI_API_KEY_2   || "",
     groq:       hdr(req, "x-groq-key")       || process.env.GROQ_API_KEY       || "",
     cerebras:   hdr(req, "x-cerebras-key")   || process.env.CEREBRAS_API_KEY   || "",
     openrouter: hdr(req, "x-openrouter-key") || process.env.OPENROUTER_API_KEY || "",
@@ -100,7 +101,7 @@ async function callClaude(key, { system, prompt, maxTokens }) {
 }
 
 async function callOne(name, key, opts) {
-  if (name === "gemini") return callGemini(key, opts);
+  if (name === "gemini" || name === "gemini2") return callGemini(key, opts);
   if (name === "claude") return callClaude(key, opts);
   if (OAI[name]) return callOpenAICompat(name, key, opts);
   throw new Error("Unknown AI provider: " + name);
