@@ -95,6 +95,14 @@
   .kpi .k-sub{font-family:var(--fm); font-size:10px; color:var(--faint); margin-top:7px; letter-spacing:.03em;}
   .kpi .k-line{margin-top:8px;}
   .k-d.up{color:var(--good);} .k-d.down{color:var(--low);} .k-d.flat{color:var(--dim);}
+  .bt-hi{font-family:var(--fb); font-size:15px; color:var(--text); line-height:1.5; margin-bottom:14px;}
+  .bt-hi b{color:var(--accent);}
+  .bt-chart{display:flex; flex-direction:column; gap:7px;}
+  .bt-row{display:flex; align-items:center; gap:10px;}
+  .bt-day{font-family:var(--fm); font-size:11px; color:var(--dim); width:32px; flex:none; letter-spacing:.04em;}
+  .bt-track{flex:1; height:14px; background:#0D0F15; border:1px solid var(--border); border-radius:7px; overflow:hidden;}
+  .bt-fill{display:block; height:100%; background:var(--surface-2); border-radius:7px; transition:width .5s ease;}
+  .bt-fill.on{background:var(--accent);}
 
   .grade{display:flex; align-items:center; gap:20px;}
   .grade .ring{width:90px; height:90px; border-radius:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--fd); font-weight:800; font-size:40px;}
@@ -547,6 +555,27 @@ function playbookBlock(title, items, color){
   return '<div class="pb"><h4 class="pb-h" style="color:' + color + '">' + title + '</h4><ul class="pb-list">' + items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
 }
 
+// Best-time-to-post — computed from when the top posts actually earned engagement. No extra API.
+function bestTimeSection(){
+  const posts = (state.topPosts || []).filter(p => p.publishDate && num(p.engagement) != null);
+  if(posts.length < 3) return '';
+  const SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayEng = [0,0,0,0,0,0,0], hourEng = new Array(24).fill(0);
+  let counted = 0;
+  posts.forEach(p => { const d = new Date(p.publishDate); if(isNaN(d)) return; const e = Math.max(0, num(p.engagement) || 0); dayEng[d.getDay()] += e; hourEng[d.getHours()] += e; counted++; });
+  if(counted < 3) return '';
+  const maxDay = Math.max.apply(null, dayEng.concat([1]));
+  let bestDay = 0; for(let i = 1; i < 7; i++) if(dayEng[i] > dayEng[bestDay]) bestDay = i;
+  let bestH = 0, bestSum = -1; for(let h = 0; h < 24; h++){ const s = hourEng[h] + hourEng[(h+1)%24] + hourEng[(h+2)%24]; if(s > bestSum){ bestSum = s; bestH = h; } }
+  const pad = n => String(n).padStart(2,'0');
+  const win = pad(bestH) + ':00–' + pad((bestH+3)%24) + ':00';
+  const bars = SHORT.map((nm,i) => { const w = Math.round((dayEng[i]/maxDay)*100); const on = i === bestDay; return '<div class="bt-row"><span class="bt-day">'+nm+'</span><span class="bt-track"><span class="bt-fill'+(on?' on':'')+'" style="width:'+Math.max(w,2)+'%"></span></span></div>'; }).join('');
+  return '<div class="sec"><h3 class="sec-h">📅 Best time to post</h3>'
+    + '<p class="ls-msg" style="margin-bottom:12px;">Based on when your top ' + counted + ' posts earned the most engagement (from your live Postiz data).</p>'
+    + '<div class="bt-hi">Your winners peak on <b>' + FULL[bestDay] + 's</b>, around <b>' + win + '</b>.</div>'
+    + '<div class="bt-chart">' + bars + '</div></div>';
+}
 function topPostsSection(){
   if(!(state.dashData && state.dashData.live)) return '';
   let html = '<div class="sec"><h3 class="sec-h">🏆 Top posts</h3>';
@@ -596,6 +625,7 @@ function render(){
     <div class="sec" style="margin-top:0"><h3 class="sec-h">Your numbers — ${esc(state.period||'this period')}</h3><div class="kpis">${kpiHtml}</div></div>`;
   if(state.loading){ html += `<div class="sec"><div class="skel" style="height:200px"></div></div>`; }
   else if(state.analysis){ html += renderAnalysis(state.analysis); }
+  html += bestTimeSection();
   html += topPostsSection();
   const trk = state.dashData && state.dashData.live
     ? `Pulled live from your Postiz instance over the selected window. Coverage depends on what each platform's API exposes, so some metrics or networks may be limited.`

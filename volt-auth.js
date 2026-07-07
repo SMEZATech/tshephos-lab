@@ -617,25 +617,58 @@
     if (!document.getElementById("va-jarvis-style")) {
       var st = document.createElement("style"); st.id = "va-jarvis-style";
       st.textContent =
-        "#va-jarvis{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 45%,rgba(20,23,31,.86),rgba(10,11,15,.94));backdrop-filter:blur(6px);opacity:0;transition:opacity .5s ease;}" +
+        // Backdrop: dark + faint HUD grid.
+        "#va-jarvis{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .45s ease;" +
+          "background:radial-gradient(circle at 50% 42%,rgba(12,20,16,.92),rgba(8,9,12,.985)),repeating-linear-gradient(0deg,rgba(182,255,61,.05) 0 1px,transparent 1px 42px),repeating-linear-gradient(90deg,rgba(182,255,61,.05) 0 1px,transparent 1px 42px);backdrop-filter:blur(7px);}" +
         "#va-jarvis.show{opacity:1;}" +
-        "#va-jarvis .vj-eyebrow{font-family:var(--fm,monospace);font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--accent,#B6FF3D);opacity:0;transform:translateY(8px);transition:all .6s ease .15s;}" +
-        "#va-jarvis .vj-hi{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:clamp(28px,5vw,46px);color:var(--text,#ECEEF3);margin:14px 0 6px;text-align:center;opacity:0;transform:translateY(10px);transition:all .6s ease .3s;}" +
-        "#va-jarvis .vj-sub{font-family:var(--fb,system-ui);font-size:14px;color:var(--dim,#888F9D);opacity:0;transition:opacity .6s ease .5s;}" +
-        "#va-jarvis .vj-ring{width:58px;height:58px;border-radius:50%;border:2px solid rgba(182,255,61,.25);border-top-color:var(--accent,#B6FF3D);margin-bottom:26px;animation:vjspin 1s linear infinite;opacity:0;transition:opacity .5s ease;}" +
-        "#va-jarvis.show .vj-eyebrow,#va-jarvis.show .vj-hi{opacity:1;transform:translateY(0);}" +
-        "#va-jarvis.show .vj-sub,#va-jarvis.show .vj-ring{opacity:1;}" +
-        "@keyframes vjspin{to{transform:rotate(360deg);}}";
+        // HUD corner brackets.
+        "#va-jarvis .vj-corner{position:fixed;width:46px;height:46px;border:2px solid rgba(182,255,61,.55);opacity:0;transition:opacity .6s ease .1s;}" +
+        "#va-jarvis.show .vj-corner{opacity:1;}" +
+        "#va-jarvis .vj-corner.tl{top:26px;left:26px;border-right:0;border-bottom:0;}#va-jarvis .vj-corner.tr{top:26px;right:26px;border-left:0;border-bottom:0;}" +
+        "#va-jarvis .vj-corner.bl{bottom:26px;left:26px;border-right:0;border-top:0;}#va-jarvis .vj-corner.br{bottom:26px;right:26px;border-left:0;border-top:0;}" +
+        // Arc reactor.
+        "#va-jarvis .vj-reactor{width:180px;height:180px;filter:drop-shadow(0 0 22px rgba(182,255,61,.4));opacity:0;transform:scale(.7);transition:all .7s cubic-bezier(.2,.9,.3,1.2);}" +
+        "#va-jarvis.show .vj-reactor{opacity:1;transform:scale(1);}" +
+        "#va-jarvis .ring{fill:none;transform-origin:100px 100px;}" +
+        "#va-jarvis .r1{stroke:rgba(182,255,61,.55);stroke-width:1.5;stroke-dasharray:6 10;animation:vjspin 9s linear infinite;}" +
+        "#va-jarvis .r2{stroke:rgba(127,200,255,.6);stroke-width:1.5;stroke-dasharray:2 7;animation:vjspin 5s linear infinite reverse;}" +
+        "#va-jarvis .r3{stroke:rgba(182,255,61,.7);stroke-width:2;stroke-dasharray:46 14;animation:vjspin 14s linear infinite;}" +
+        "#va-jarvis .core{fill:rgba(182,255,61,.1);stroke:rgba(182,255,61,.95);stroke-width:2;transform-origin:100px 100px;animation:vjpulse 1.7s ease-in-out infinite;}" +
+        "#va-jarvis .dot{fill:var(--accent,#B6FF3D);}" +
+        // Boot lines + welcome.
+        "#va-jarvis .vj-boot{margin-top:26px;text-align:center;font-family:var(--fm,monospace);font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent,#B6FF3D);line-height:2;}" +
+        "#va-jarvis .vj-line{opacity:0;animation:vjline .5s ease forwards;}" +
+        "#va-jarvis .vj-hi{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:clamp(30px,5.5vw,52px);color:#fff;margin:20px 0 6px;text-align:center;opacity:0;animation:vjhi .8s cubic-bezier(.2,.9,.3,1.1) forwards 1.4s;text-shadow:0 0 30px rgba(182,255,61,.35);}" +
+        "#va-jarvis .vj-sub{font-family:var(--fb,system-ui);font-size:14px;color:var(--dim,#888F9D);opacity:0;animation:vjfade .7s ease forwards 1.9s;letter-spacing:.5px;}" +
+        "@keyframes vjspin{to{transform:rotate(360deg);}}" +
+        "@keyframes vjpulse{0%,100%{opacity:.6;}50%{opacity:1;}}" +
+        "@keyframes vjline{from{opacity:0;transform:translateY(6px);}to{opacity:.9;transform:translateY(0);}}" +
+        "@keyframes vjhi{from{opacity:0;transform:translateY(12px) scale(.96);filter:blur(4px);}to{opacity:1;transform:none;filter:blur(0);}}" +
+        "@keyframes vjfade{to{opacity:1;}}";
       document.head.appendChild(st);
     }
     var o = document.createElement("div"); o.id = "va-jarvis";
-    o.innerHTML = '<div class="vj-ring"></div><div class="vj-eyebrow">◇ Volt Intelligence — Online</div>' +
-      '<div class="vj-hi">' + esc(text) + "</div><div class=\"vj-sub\">All systems ready.</div>";
+    o.innerHTML =
+      '<div class="vj-corner tl"></div><div class="vj-corner tr"></div><div class="vj-corner bl"></div><div class="vj-corner br"></div>' +
+      '<svg class="vj-reactor" viewBox="0 0 200 200" aria-hidden="true">' +
+        '<circle class="ring r3" cx="100" cy="100" r="86"></circle>' +
+        '<circle class="ring r1" cx="100" cy="100" r="68"></circle>' +
+        '<circle class="ring r2" cx="100" cy="100" r="50"></circle>' +
+        '<circle class="core" cx="100" cy="100" r="30"></circle>' +
+        '<circle class="dot" cx="100" cy="100" r="6"></circle>' +
+      '</svg>' +
+      '<div class="vj-boot">' +
+        '<div class="vj-line" style="animation-delay:.25s">◇ Volt Intelligence — Online</div>' +
+        '<div class="vj-line" style="animation-delay:.65s">▸ Calibrating modules … OK</div>' +
+        '<div class="vj-line" style="animation-delay:1.05s">▸ Secure session verified</div>' +
+      '</div>' +
+      '<div class="vj-hi">' + esc(text) + '</div>' +
+      '<div class="vj-sub">All systems ready.</div>';
     document.body.appendChild(o);
     o.addEventListener("click", function () { dismiss(); });
     requestAnimationFrame(function () { o.classList.add("show"); });
-    function dismiss() { if (!o.parentNode) return; o.style.opacity = "0"; setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 500); }
-    setTimeout(dismiss, 2800);
+    function dismiss() { if (!o.parentNode) return; o.style.opacity = "0"; setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 450); }
+    setTimeout(dismiss, 4200);
   }
 
   function showApp() {
