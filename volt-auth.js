@@ -598,6 +598,47 @@
     });
   }
 
+  /* ---------- personalized "Jarvis" welcome (owner-only for now) ---------- */
+  // Roll-out: add more emails here (lowercase) → each gets their own greeting. Empty title = plain "Welcome back".
+  var OWNERS = {
+    "adops@adclickafrica.com": { name: "Joel", title: "Master" },
+  };
+  function maybeGreetOwner() {
+    try {
+      var em = (session && session.user && session.user.email ? String(session.user.email) : "").toLowerCase();
+      var who = OWNERS[em];
+      if (!who) return;
+      if (sessionStorage.getItem("volt_greeted")) return; // once per app session
+      sessionStorage.setItem("volt_greeted", "1");
+      var hi = "Welcome back, " + (who.title ? who.title + " " : "") + who.name;
+      showOwnerGreeting(hi);
+    } catch (e) {}
+  }
+  function showOwnerGreeting(text) {
+    if (!document.getElementById("va-jarvis-style")) {
+      var st = document.createElement("style"); st.id = "va-jarvis-style";
+      st.textContent =
+        "#va-jarvis{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 45%,rgba(20,23,31,.86),rgba(10,11,15,.94));backdrop-filter:blur(6px);opacity:0;transition:opacity .5s ease;}" +
+        "#va-jarvis.show{opacity:1;}" +
+        "#va-jarvis .vj-eyebrow{font-family:var(--fm,monospace);font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--accent,#B6FF3D);opacity:0;transform:translateY(8px);transition:all .6s ease .15s;}" +
+        "#va-jarvis .vj-hi{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:clamp(28px,5vw,46px);color:var(--text,#ECEEF3);margin:14px 0 6px;text-align:center;opacity:0;transform:translateY(10px);transition:all .6s ease .3s;}" +
+        "#va-jarvis .vj-sub{font-family:var(--fb,system-ui);font-size:14px;color:var(--dim,#888F9D);opacity:0;transition:opacity .6s ease .5s;}" +
+        "#va-jarvis .vj-ring{width:58px;height:58px;border-radius:50%;border:2px solid rgba(182,255,61,.25);border-top-color:var(--accent,#B6FF3D);margin-bottom:26px;animation:vjspin 1s linear infinite;opacity:0;transition:opacity .5s ease;}" +
+        "#va-jarvis.show .vj-eyebrow,#va-jarvis.show .vj-hi{opacity:1;transform:translateY(0);}" +
+        "#va-jarvis.show .vj-sub,#va-jarvis.show .vj-ring{opacity:1;}" +
+        "@keyframes vjspin{to{transform:rotate(360deg);}}";
+      document.head.appendChild(st);
+    }
+    var o = document.createElement("div"); o.id = "va-jarvis";
+    o.innerHTML = '<div class="vj-ring"></div><div class="vj-eyebrow">◇ Volt Intelligence — Online</div>' +
+      '<div class="vj-hi">' + esc(text) + "</div><div class=\"vj-sub\">All systems ready.</div>";
+    document.body.appendChild(o);
+    o.addEventListener("click", function () { dismiss(); });
+    requestAnimationFrame(function () { o.classList.add("show"); });
+    function dismiss() { if (!o.parentNode) return; o.style.opacity = "0"; setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 500); }
+    setTimeout(dismiss, 2800);
+  }
+
   function showApp() {
     var g = document.getElementById("va-gate"); if (g) g.remove();
     document.documentElement.style.overflow = "";
@@ -606,6 +647,7 @@
     initAutosave();
     maybeOnboard();
     maybeUpdateCheck();
+    maybeGreetOwner();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
     window.voltSession = session;
     try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}
