@@ -851,15 +851,57 @@ function exec(cmd, val){
   try{ doc.execCommand(cmd, false, val); }catch(e){}
   syncFromEditable();
 }
+// --- Link dialog (Electron has no window.prompt, so we use our own modal + preserve the selection) ---
+let _linkRange = null;
+function saveEditorSel(){ try{ const s = editableDocRef.getSelection(); _linkRange = (s && s.rangeCount) ? s.getRangeAt(0).cloneRange() : null; }catch(e){ _linkRange = null; } }
+function restoreEditorSel(){ try{ editableDocRef.defaultView.focus(); const s = editableDocRef.getSelection(); s.removeAllRanges(); if(_linkRange) s.addRange(_linkRange); }catch(e){} }
+function ensureLinkModal(){
+  if(document.getElementById('linkModal')) return;
+  const m = document.createElement('div');
+  m.id = 'linkModal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:99999;';
+  m.innerHTML = '<div style="background:var(--surface,#14171F);border:1px solid var(--border-2,rgba(255,255,255,.14));border-radius:14px;padding:20px;width:min(440px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.5);">'
+    + '<p style="margin:0 0 4px;font-weight:700;color:var(--text,#ECEEF3);font-family:var(--fb,system-ui);font-size:16px;">Add a link</p>'
+    + '<p id="linkNote" style="margin:0 0 12px;font-size:12.5px;line-height:1.4;">Type or paste the URL for the selected text.</p>'
+    + '<input id="linkUrl" type="text" placeholder="https://…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:9px;border:1px solid var(--border-2,rgba(255,255,255,.14));background:#0D0F15;color:var(--text,#ECEEF3);font-size:14px;" />'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">'
+    + '<button id="linkCancel" class="mini">Cancel</button>'
+    + '<button id="linkApply" class="mini" style="background:var(--accent,#B6FF3D);color:#0A0B0F;border-color:var(--accent,#B6FF3D);">Add link</button>'
+    + '</div></div>';
+  document.body.appendChild(m);
+  const close = () => { m.style.display = 'none'; };
+  document.getElementById('linkCancel').addEventListener('click', close);
+  m.addEventListener('click', e => { if(e.target === m) close(); });
+  document.getElementById('linkApply').addEventListener('click', applyLink);
+  document.getElementById('linkUrl').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); applyLink(); } if(e.key === 'Escape'){ close(); } });
+}
+function applyLink(){
+  const inp = document.getElementById('linkUrl');
+  let url = (inp.value || '').trim();
+  document.getElementById('linkModal').style.display = 'none';
+  if(!url || url === 'https://') return;
+  if(!/^(https?:\/\/|mailto:|tel:)/i.test(url)) url = 'https://' + url; // forgive a missing scheme
+  restoreEditorSel();
+  try{ editableDocRef.execCommand('createLink', false, url); }catch(e){}
+  syncFromEditable();
+}
+function openLinkDialog(){
+  saveEditorSel();
+  ensureLinkModal();
+  const note = document.getElementById('linkNote'), apply = document.getElementById('linkApply'), inp = document.getElementById('linkUrl');
+  const hasSel = _linkRange && !_linkRange.collapsed;
+  if(hasSel){ note.textContent = 'The highlighted text will become the link.'; note.style.color = 'var(--dim,#94a3b8)'; apply.disabled = false; apply.style.opacity = '1'; }
+  else { note.textContent = '⚠ First highlight the words you want to link, then click 🔗 Link again.'; note.style.color = '#ef4444'; apply.disabled = true; apply.style.opacity = '.5'; }
+  inp.value = 'https://';
+  document.getElementById('linkModal').style.display = 'flex';
+  setTimeout(() => { inp.focus(); inp.select(); }, 30);
+}
 function wireEditorToolbar(){
   const bar = document.getElementById('etoolbar'); if(!bar) return;
   bar.addEventListener('click', e => {
     const b = e.target.closest('button[data-cmd]'); if(!b) return;
     const cmd = b.dataset.cmd; let val = b.dataset.val || null;
-    if(cmd === 'createLink'){
-      val = (window.prompt('Link URL:', 'https://') || '').trim();
-      if(!val || val === 'https://') return;
-    }
+    if(cmd === 'createLink'){ openLinkDialog(); return; }
     exec(cmd, val);
   });
   const panel = document.getElementById('eimgPanel');
