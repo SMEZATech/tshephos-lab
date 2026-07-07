@@ -249,7 +249,6 @@
     { t: "Video", e: "🎬", href: "video.html" },
     { t: "Transcribe", e: "📝", href: "videotok.html" },
     { t: "Email", e: "✉️", href: "email.html" },
-    { t: "Audit", e: "🔍", href: "audit.html" },
     { t: "Stats", e: "📊", href: "analytics.html" },
   ];
   function showBadge() { // now builds the left rail (the Canva-style module switcher)
@@ -455,7 +454,6 @@
     var defs = {
       "": [["gen", "Generate ad angles", "✨"], ["saveDraftBtn", "Save this brief", "💾"]],
       "index.html": [["gen", "Generate ad angles", "✨"], ["saveDraftBtn", "Save this brief", "💾"]],
-      "audit.html": [["run", "Run the audit", "🔍"]],
       "analytics.html": [["run", "Analyze performance", "📊"]],
       "email.html": [["run", "Build the email", "✉️"], ["kitBtn", "Send to Kit", "📤"], ["saveDraftBtn", "Save draft", "💾"]],
       "video.html": [["capBtn", "Generate captions", "💬"], ["exportBtn", "Export the short", "⬇️"], ["hlBtn", "Find best moments", "✂️"]],
@@ -472,8 +470,7 @@
     var tools = [
       { t: "Copy Lab", s: "Write ranked ad angles", e: "✍️", href: "index.html" },
       { t: "Studio", s: "Design graphics", e: "🎨", href: "studio.html" },
-      { t: "Audit", s: "Audit a profile", e: "🔍", href: "audit.html" },
-      { t: "Analytics", s: "Performance & insights", e: "📊", href: "analytics.html" },
+      { t: "Stats", s: "Performance & insights", e: "📊", href: "analytics.html" },
       { t: "Email", s: "Build a newsletter", e: "✉️", href: "email.html" },
       { t: "Video", s: "Make a short", e: "🎬", href: "video.html" },
       { t: "Guide", s: "How to use Volt", e: "📖", href: "guide.html" }

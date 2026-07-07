@@ -253,15 +253,16 @@ Keep it warm and practical."></textarea>
           <span class="sw"></span>
         </div>
         <div class="promo-fields">
-          <input id="pc-title" placeholder="Episode title — e.g. Scaling Without Losing Your Culture" />
+          <input id="pc-title" placeholder="Episode title — e.g. Funding readiness and access" />
           <div class="row">
-            <input class="field-sm" id="pc-ep" placeholder="Episode label — e.g. Episode 42 · 34 min" />
-            <input class="field-sm" id="pc-cover" placeholder="Cover art image URL (optional)" />
+            <input class="field-sm" id="pc-guest" placeholder="Guest name (optional) — e.g. Jenna Sprenger" />
+            <input class="field-sm" id="pc-guestlink" placeholder="Guest link (optional) — LinkedIn URL" />
           </div>
-          <textarea id="pc-desc" rows="2" placeholder="One or two lines — what the episode covers, or the guest."></textarea>
+          <input id="pc-cover" placeholder="Guest photo / episode thumbnail URL (optional)" />
+          <textarea id="pc-desc" rows="2" placeholder="One or two lines — what the episode covers."></textarea>
           <div class="row">
-            <input class="field-sm" id="pc-link" placeholder="Listen link — full URL" />
-            <input class="field-sm" id="pc-btn" placeholder="Button text — e.g. Listen now" />
+            <input class="field-sm" id="pc-link" placeholder="Play link — full URL" />
+            <input class="field-sm" id="pc-btn" placeholder="Button text — e.g. ▶ Play Episode" />
           </div>
           <div class="row">
             <input class="field-sm" id="pc-spotify" placeholder="Spotify URL (optional)" />
@@ -527,13 +528,13 @@ function contentBlock(p){
 function webinarBlock(p){
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #071f2b 55%, #6f1315 135%); border-radius: 16px; overflow: hidden; box-shadow: 0 15px 35px rgba(10,44,61,0.35); margin: 25px 0; border: 1px solid rgba(255,255,255,0.1);">
-                    <tr><td class="webinar-banner-td" style="padding: 42px 36px;">
-                        <table border="0" cellspacing="0" cellpadding="0"><tr><td bgcolor="#9c1c1f" style="padding: 6px 15px; border-radius: 30px;"><p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #ffffff; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">🔴 Live Webinar</p></td></tr></table>
-                        <h2 class="webinar-title" style="margin: 18px 0 0 0; font-family: 'Oswald', Arial, sans-serif; font-size: 30px; color: #ffffff; font-weight: 900; line-height: 1.15; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.4); border: none;">${esc(p.title)}</h2>
-                        ${p.desc ? `<p style="margin: 14px 0 0 0; font-family: 'Roboto', sans-serif; font-size: 15px; color: rgba(255,255,255,0.82); line-height: 1.6;">${esc(p.desc)}</p>` : ''}
-                        ${p.date ? `<table border="0" cellspacing="0" cellpadding="0" style="margin: 22px 0 0 0;"><tr><td style="background-color: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: 12px 18px;"><p style="margin: 0; font-family: 'Roboto', sans-serif; font-size: 15px; color: #ffb1b1; font-weight: 700;">🗓️&nbsp;&nbsp;${esc(p.date)}</p></td></tr></table>` : ''}
-                        <table border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 0 0;"><tr><td align="center" style="border-radius: 50px; background-color: #ffffff; box-shadow: 0 8px 22px rgba(0,0,0,0.35);"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 15px; font-family: 'Oswald', sans-serif; font-weight: 900; color: #9c1c1f !important; text-decoration: none; padding: 15px 42px; border-radius: 50px; display: inline-block; text-transform: uppercase; letter-spacing: 1.2px; border: none;">${esc(p.btn || 'Register Now')}</a></td></tr></table>
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #0a2c3d; border-radius: 8px; margin: 0 0 25px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+                    <tr><td class="webinar-banner-td" style="padding: 25px;">
+                        <p style="margin: 0 0 8px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #9c1c1f; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">🔴 Live Webinar</p>
+                        <h2 class="webinar-title" style="margin: 0 0 8px 0; font-size: 20px;">${esc(p.title)}</h2>
+                        ${p.desc ? `<p style="margin: 0 0 15px 0; font-size: 14px;">${esc(p.desc)}</p>` : ''}
+                        ${p.date ? `<table border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 20px;"><tr><td style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px;"><p style="margin: 0; font-family: 'Roboto', sans-serif; font-size: 13px; color: #0a2c3d; font-weight: 700;">${esc(p.date)}</p></td></tr></table>` : ''}
+                        <table border="0" cellspacing="0" cellpadding="0"><tr><td align="center" style="border-radius: 6px; background-color: #0a2c3d;"><a href="${escAttr(p.link)}" target="_blank" style="font-size: 13px; font-family: 'Oswald', sans-serif; font-weight: 700; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 6px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; border: none;">${esc(p.btn || 'Register Now')}</a></td></tr></table>
                     </td></tr>
                 </table>`;
 }
@@ -552,31 +553,35 @@ function resourceBlock(p){
 }
 
 function podcastBlock(p){
-  // Cover art, or a branded fallback tile if none supplied.
+  // Guest / episode thumbnail (140px), or a branded fallback tile.
   const cover = p.cover
-    ? `<img src="${escAttr(p.cover)}" width="110" alt="Podcast cover" style="display:block;width:110px;height:110px;border-radius:12px;border:0;box-shadow:0 8px 20px rgba(0,0,0,0.35);">`
-    : `<table border="0" cellspacing="0" cellpadding="0" style="width:110px;height:110px;background-color:#9c1c1f;background:linear-gradient(135deg,#9c1c1f 0%,#6f1315 100%);border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,0.35);"><tr><td align="center" valign="middle" style="font-size:44px;line-height:1;">🎧</td></tr></table>`;
+    ? `<img src="${escAttr(p.cover)}" width="140" alt="${escAttr(p.guest||'Guest')}" style="display:block;width:140px;height:auto;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,0.4);border:1px solid #334155;background-color:#1e293b;">`
+    : `<table border="0" cellspacing="0" cellpadding="0" style="width:140px;height:140px;background-color:#1e293b;border-radius:12px;border:1px solid #334155;box-shadow:0 8px 20px rgba(0,0,0,0.4);"><tr><td align="center" valign="middle" style="font-size:52px;line-height:1;">🎙️</td></tr></table>`;
+  const guest = p.guest ? `<p style="margin:0 0 6px 0;font-family:'Roboto',sans-serif;font-size:13px;color:#ffb1b1;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Guest: ${p.guestLink ? `<a href="${escAttr(p.guestLink)}" target="_blank" style="color:#ffb1b1 !important;text-decoration:none;border:none;">${esc(p.guest)}</a>` : esc(p.guest)}</p>` : '';
+  const icon = (u,a) => `<img src="${u}" width="16" alt="${a}" style="vertical-align:middle;margin-right:4px;border:none;display:inline;">`;
   const plat = [];
-  if(p.spotify) plat.push(`<a href="${escAttr(p.spotify)}" target="_blank" style="color:#ffb1b1 !important;text-decoration:none;border:none;font-weight:700;">Spotify</a>`);
-  if(p.apple) plat.push(`<a href="${escAttr(p.apple)}" target="_blank" style="color:#ffb1b1 !important;text-decoration:none;border:none;font-weight:700;">Apple Podcasts</a>`);
-  if(p.youtube) plat.push(`<a href="${escAttr(p.youtube)}" target="_blank" style="color:#ffb1b1 !important;text-decoration:none;border:none;font-weight:700;">YouTube</a>`);
-  const platHtml = plat.length ? `<p style="margin:18px 0 0 0;font-family:'Roboto',sans-serif;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.5;">Also on: ${plat.join(' &nbsp;·&nbsp; ')}</p>` : '';
-  const btn = p.link ? `<table border="0" cellspacing="0" cellpadding="0" style="margin:16px 0 0 0;"><tr><td align="center" bgcolor="#ffb1b1" style="border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,0.25);"><a href="${escAttr(p.link)}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:#0a2c3d !important;text-decoration:none;border-radius:8px;text-transform:uppercase;letter-spacing:1px;border:none;">▶&nbsp;&nbsp;${esc(p.btn || 'Listen now')}</a></td></tr></table>` : '';
+  if(p.spotify) plat.push(`<a href="${escAttr(p.spotify)}" target="_blank" style="color:#cbd5e1 !important;text-decoration:none;border:none;font-weight:600;">${icon('https://img.icons8.com/fluency/48/spotify.png','Spotify')}Spotify</a>`);
+  if(p.apple) plat.push(`<a href="${escAttr(p.apple)}" target="_blank" style="color:#cbd5e1 !important;text-decoration:none;border:none;font-weight:600;">${icon('https://img.icons8.com/ios-filled/50/FFFFFF/mac-os.png','Apple Podcasts')}Apple</a>`);
+  if(p.youtube) plat.push(`<a href="${escAttr(p.youtube)}" target="_blank" style="color:#cbd5e1 !important;text-decoration:none;border:none;font-weight:600;">${icon('https://img.icons8.com/color/48/youtube-play.png','YouTube')}YouTube</a>`);
+  const platRow = plat.length ? `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top:25px;border-top:1px solid #1e293b;"><tr><td style="padding-top:20px;font-family:'Roboto',sans-serif;font-size:13px;color:#64748b;">Available on: &nbsp;&nbsp;${plat.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ')}</td></tr></table>` : '';
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#0a2c3d;background:linear-gradient(135deg,#0a2c3d 0%,#061f2b 100%);border-radius:14px;margin:25px 0;box-shadow:0 10px 25px rgba(10,44,61,0.2);">
-                    <tr><td style="padding:28px 26px;">
-                        <p style="margin:0 0 16px 0;font-family:'Oswald',sans-serif;font-size:12px;color:#ffb1b1;font-weight:900;text-transform:uppercase;letter-spacing:2px;">🎧 On The Podcast</p>
-                        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
-                            <td class="col" width="122" valign="top" style="padding-right:18px;">${cover}</td>
-                            <td class="col" valign="top">
-                                ${p.ep ? `<p style="margin:0 0 6px 0;font-family:'Roboto',sans-serif;font-size:12px;font-weight:700;color:#ffb1b1;text-transform:uppercase;letter-spacing:1px;">${esc(p.ep)}</p>` : ''}
-                                <h3 style="margin:0 0 8px 0;font-family:'Oswald',sans-serif;font-size:21px;color:#ffffff;font-weight:900;line-height:1.25;">${esc(p.title)}</h3>
-                                ${p.desc ? `<p style="margin:0;font-family:'Roboto',sans-serif;color:rgba(255,255,255,0.85);line-height:1.6;font-size:14px;">${esc(p.desc)}</p>` : ''}
-                                ${btn}
-                            </td>
-                        </tr></table>
-                        ${platHtml}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#020617;background:linear-gradient(145deg, #0f172a 0%, #020617 100%);border-radius:16px;margin-bottom:25px;box-shadow:0 12px 30px rgba(0,0,0,0.15);border:1px solid #1e293b;overflow:hidden;">
+                    <tr><td style="padding:0;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td height="4" bgcolor="#9c1c1f" style="font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td style="padding:30px 28px;">
+                            <p style="margin:0 0 20px 0;font-family:'Oswald',sans-serif;font-size:12px;color:#cbd5e1;font-weight:900;text-transform:uppercase;letter-spacing:2px;">🎙️ SME South Africa Podcast</p>
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+                                <td class="col" width="140" valign="top" style="padding-right:25px;">${cover}</td>
+                                <td class="col" valign="top">
+                                    ${guest}
+                                    <h3 style="margin:0 0 10px 0;font-family:'Oswald',sans-serif;font-size:24px;color:#ffffff;font-weight:900;line-height:1.2;">${esc(p.title)}</h3>
+                                    ${p.desc ? `<p style="margin:0 0 20px 0;font-family:'Roboto',sans-serif;color:#94a3b8;line-height:1.6;font-size:15px;">${esc(p.desc)}</p>` : ''}
+                                    <table border="0" cellspacing="0" cellpadding="0"><tr><td align="center" bgcolor="#9c1c1f" style="border-radius:50px;box-shadow:0 6px 16px rgba(156,28,31,0.3);"><a href="${escAttr(p.link)}" target="_blank" style="display:inline-block;padding:12px 28px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:#ffffff !important;text-decoration:none;border-radius:50px;text-transform:uppercase;letter-spacing:1px;border:none;">${esc(p.btn || '▶ Play Episode')}</a></td></tr></table>
+                                </td>
+                            </tr></table>
+                            ${platRow}
+                        </td></tr></table>
                     </td></tr>
                 </table>`;
 }
@@ -595,7 +600,7 @@ function sponsoredBlock(p){
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fafbfc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 25px 0;">
                     <tr><td style="padding: 28px 26px;">
                         <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">✦ In Partnership With${p.brand ? ' ' + esc(p.brand) : ''}</p>
-                        <h2 style="margin: 0 0 12px 0;">${esc(p.title)}</h2>
+                        <h2 style="margin: 0 0 12px 0; font-size: 20px;">${esc(p.title)}</h2>
                         ${p.body ? `<p style="margin: 0 0 14px 0;">${esc(p.body)}</p>` : ''}
                         ${bulletsHtml}
                         ${btnHtml}
@@ -750,7 +755,7 @@ const PROMO_BUILDERS = {
   content: () => { const h = promoVal('ct-heading'), b = promoVal('ct-body'); return (h || b) ? contentBlock({ heading:h, body:b, image:promoVal('ct-image'), rrTitle:promoVal('ct-rr-title'), rrLink:promoVal('ct-rr-link') }) : ''; },
   webinar: () => { const t = promoVal('wb-title'); return t ? webinarBlock({ title:t, desc:promoVal('wb-desc'), date:promoVal('wb-date'), link:promoVal('wb-link'), btn:promoVal('wb-btn') }) : ''; },
   resource: () => { const t = promoVal('rs-title'); return t ? resourceBlock({ title:t, desc:promoVal('rs-desc'), link:promoVal('rs-link'), btn:promoVal('rs-btn') }) : ''; },
-  podcast: () => { const t = promoVal('pc-title'); return t ? podcastBlock({ title:t, ep:promoVal('pc-ep'), cover:promoVal('pc-cover'), desc:promoVal('pc-desc'), link:promoVal('pc-link'), btn:promoVal('pc-btn'), spotify:promoVal('pc-spotify'), apple:promoVal('pc-apple'), youtube:promoVal('pc-youtube') }) : ''; },
+  podcast: () => { const t = promoVal('pc-title'); return t ? podcastBlock({ title:t, guest:promoVal('pc-guest'), guestLink:promoVal('pc-guestlink'), cover:promoVal('pc-cover'), desc:promoVal('pc-desc'), link:promoVal('pc-link'), btn:promoVal('pc-btn'), spotify:promoVal('pc-spotify'), apple:promoVal('pc-apple'), youtube:promoVal('pc-youtube') }) : ''; },
   sponsored: () => { const t = promoVal('sp-title'); return t ? sponsoredBlock({ brand:promoVal('sp-brand'), title:t, body:promoVal('sp-body'), bullets:($('#sp-bullets')?$('#sp-bullets').value:''), link:promoVal('sp-link'), btn:promoVal('sp-btn') }) : ''; },
   task: () => { const t = promoVal('tk-title'); if(!t) return ''; const poll = ($('#tk-poll')?$('#tk-poll').value:'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4); return taskBlock({ ritual:promoVal('tk-ritual'), shout:promoVal('tk-shout'), title:t, body:promoVal('tk-body'), poll, cta:promoVal('tk-cta') }); },
   custom: () => promoVal('cs-html')
@@ -1191,7 +1196,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-ep','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
