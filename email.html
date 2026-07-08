@@ -176,6 +176,12 @@ Keep it warm and practical."></textarea>
       <div id="subjectChips" style="margin-top:10px;display:none;"></div>
     </div>
 
+    <div style="margin-top:22px;">
+      <label class="lbl">Salutation <span class="opt">— the greeting line at the top of the email (keep the {{ }} merge field to personalize)</span></label>
+      <input id="greeting" value='Hi 👋 {{ subscriber.first_name | default: "Boss" }},' />
+      <div class="charhint" id="greetingAudit" style="margin-top:6px;"></div>
+    </div>
+
     <div class="row" style="margin-top:22px;">
       <div class="field">
         <label class="lbl">Header style <span class="opt">— per send</span></label>
@@ -780,7 +786,10 @@ function assemble(bodyHtml, editable){
   // rather than re-adding Volt's branded shell (which would duplicate them).
   if(state.imported) return protectiveWrap(body);
   const useLight = $('#shellVariant') && $('#shellVariant').value === 'light';
-  const top = useLight ? SHELL_TOP_LIGHT : SHELL_TOP;
+  let top = useLight ? SHELL_TOP_LIGHT : SHELL_TOP;
+  // Editable salutation: swap the shell's greeting line for the user's (keeps the merge field).
+  const greeting = ($('#greeting') && $('#greeting').value.trim()) || '';
+  if(greeting){ top = top.replace(/(<p style="margin-top: 0; font-weight: 600;">)[\s\S]*?(<\/p>)/, function(_m,a,b){ return a + esc(greeting) + b; }); }
   return VIEW_IN_BROWSER + top + '\n' + body + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
 }
 // Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
@@ -874,6 +883,7 @@ async function sendToKit(){
     let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach Kit.'); }
     if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error(data.message || 'Kit isn’t connected yet.');
     if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Kit request failed.');
+    try{ if(typeof recordGreeting==='function'){ recordGreeting($('#greeting')?$('#greeting').value:''); auditGreeting(); } }catch(_){}
     const link = ' — <a href="https://app.kit.com/broadcasts" target="_blank" rel="noopener" style="color:var(--info);">open in Kit ↗</a>';
     setKitStatus('✅ Draft created in Kit — review the audience &amp; send it from your Kit dashboard.'+link, 'ok');
   }catch(err){ setKitStatus(esc(err.message), 'err'); }
@@ -899,6 +909,7 @@ function syncFromEditable(){
   const ed = editableDocRef.querySelector('.volt-editable'); if(!ed) return;
   state.body = ed.innerHTML;
   lastFragment = assemble(state.body, false);
+  if(typeof scheduleAutosave === 'function') scheduleAutosave(); // inline edits autosave too
 }
 // Run a rich-text command against the editable iframe document.
 function exec(cmd, val){
@@ -1047,7 +1058,13 @@ function downloadHtml(){
   a.click();
 }
 
-function showErr(msg){ elErr.hidden = false; elErr.innerHTML = '<b>Hmm —</b> ' + esc(msg); }
+function showErr(msg){
+  elErr.hidden = false;
+  const soft = /limit|busy|drafts|Settings|later/i.test(msg||'');
+  elErr.innerHTML = (soft ? '<b>⏳ Take a breather —</b> ' : '<b>Hmm —</b> ') + esc(msg||'')
+    + (/draft/i.test(msg||'') ? ' <button type="button" class="mini" id="errDrafts" style="margin-left:8px;">📁 View saved emails</button>' : '');
+  const b = document.getElementById('errDrafts'); if(b) b.addEventListener('click', openDrafts);
+}
 function hideErr(){ elErr.hidden = true; }
 
 // Read the active brand's voice (set in Studio → Brand Kit) so the newsletter sounds on-brand.
@@ -1170,6 +1187,37 @@ async function suggestWeeklyAction(){
 // ---- Header-style variant: re-render when the user switches full/light shell ----
 (function(){ const sv=document.getElementById('shellVariant'); if(sv) sv.addEventListener('change', ()=> renderPreview(state.body)); })();
 
+// ---- Editable salutation: live-update the preview + a variety "audit" (like Studio's scorecard) ----
+function normGreet(s){ return String(s||'').replace(/\{\{[^}]*\}\}/g,'').replace(/\s+/g,' ').trim().toLowerCase(); }
+function greetHistory(){ try{ return JSON.parse(localStorage.getItem('volt_email_greetings')||'[]'); }catch(e){ return []; } }
+function recordGreeting(g){ const n=normGreet(g); if(!n) return; let h=greetHistory(); h.unshift(n); h=h.slice(0,12); try{ localStorage.setItem('volt_email_greetings', JSON.stringify(h)); }catch(e){} }
+function auditGreeting(){
+  const el=document.getElementById('greetingAudit'); if(!el) return;
+  const cur=normGreet($('#greeting')?$('#greeting').value:'');
+  if(!cur){ el.textContent=''; return; }
+  const recent=greetHistory().slice(0,6);
+  const uses=recent.filter(g=>g===cur).length;
+  if(uses>=3){ el.textContent='⚠ You’ve opened with this salutation in '+uses+' of your last '+recent.length+' sends — mix it up to keep readers engaged.'; el.style.color='#FFC857'; }
+  else if(uses>=1){ el.textContent='↺ Used '+uses+'× recently. A fresh greeting now and then lifts engagement.'; el.style.color='var(--dim,#888F9D)'; }
+  else { el.textContent=''; }
+}
+(function(){ const g=document.getElementById('greeting'); if(g) g.addEventListener('input', ()=>{ renderPreview(state.body); auditGreeting(); }); auditGreeting(); })();
+
+// ---- Auto-save the draft while editing (debounced → the DB, so your teammate sees it live) ----
+let _autosaveT=null;
+function scheduleAutosave(){ clearTimeout(_autosaveT); _autosaveT=setTimeout(autosaveDraft, 2500); }
+async function autosaveDraft(){
+  const has = (state.body && String(state.body).trim()) || ($('#brief')&&$('#brief').value.trim()) || ($('#subject')&&$('#subject').value.trim());
+  if(!has) return;
+  const title = ($('#subject') && $('#subject').value.trim()) || 'Newsletter draft';
+  try{
+    const r = await fetch(PROJECTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'save', id: currentDraftId, type:'email', title, data: serializeDraft() }) });
+    let d={}; try{ d=await r.json(); }catch(_){}
+    if(r.ok && d.project){ currentDraftId = d.project.id; setDraftStatus('✅ Autosaved','ok'); setTimeout(()=>{ const s=document.getElementById('draftStatus'); if(s && /Autosaved/.test(s.textContent)) s.textContent=''; }, 1800); }
+  }catch(e){}
+}
+document.addEventListener('input', e=>{ const t=e.target; if(t && t.id && /^(brief|subject|previewText|greeting|shellVariant|wb-|rs-|pc-|sp-|tk-|ct-|cs-)/.test(t.id)) scheduleAutosave(); }, true);
+
 // ---- Merge-field helper: insert a Kit token into the last-focused text box (subject/preview/brief/etc.) ----
 const MERGE_FIELDS = [
   { label:'First name', token:'{{ subscriber.first_name }}' },
@@ -1196,7 +1244,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','greeting','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = '/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }

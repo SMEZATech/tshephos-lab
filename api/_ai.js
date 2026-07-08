@@ -120,13 +120,19 @@ async function chatComplete(opts, keys, order) {
       lastErr = new Error(name + " returned an empty response");
     } catch (e) { lastErr = e; } // any failure → fall over to the next provider
   }
-  // All providers failed — give an actionable message instead of a raw upstream error.
-  const detail = (lastErr && lastErr.message) ? lastErr.message : "unknown error";
-  const e = new Error(
-    "AI is busy right now — tried " + tried.join(", ") + " and all were rate-limited or unavailable. " +
-    "Wait a minute and try again, or add another free key (Groq and Cerebras are fast and reliable) in Settings. (" + detail + ")"
-  );
-  e.code = "ALL_PROVIDERS_FAILED";
+  // All providers failed — give a clean, human message (never the raw upstream/quota dump).
+  const detail = (lastErr && lastErr.message) ? lastErr.message : "";
+  const isLimit = /rate limit|quota|exceeded|too many|429|per day|\bTPD\b|\bRPD\b|resource has been exhausted/i.test(detail);
+  const retry = (detail.match(/try again in\s+([0-9hms.\s]+?)[.)]/i) || [])[1];
+  let msg;
+  if (isLimit) {
+    msg = "You’ve reached today’s free AI limit" + (retry ? " — it resets in about " + retry.trim() : "") +
+      ". Add another free key (a 2nd Gemini, Groq or Cerebras) in Settings to keep going — or come back a bit later. Your saved drafts are still available.";
+  } else {
+    msg = "AI is busy right now — every provider was unavailable for a moment. Wait a minute and try again, or add another free key in Settings.";
+  }
+  const e = new Error(msg);
+  e.code = isLimit ? "RATE_LIMIT" : "ALL_PROVIDERS_FAILED";
   throw e;
 }
 
