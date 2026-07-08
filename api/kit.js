@@ -10,10 +10,12 @@
 
 import { blocked } from "./_guard.js";
 
-const KIT_URL = "https://api.kit.com/v4/broadcasts";
+const KIT_BASE = "https://api.kit.com/v4";
+const KIT_URL = KIT_BASE + "/broadcasts";
 
 export default async function handler(req, res) {
-  if (await blocked(req, res, { id: "kit", limit: 12, windowSec: 60 })) return;
+  if (req.method !== "OPTIONS" && req.method !== "GET" && req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (await blocked(req, res, { methods: "GET, POST, OPTIONS", method: req.method, id: "kit", limit: 20, windowSec: 60 })) return;
 
   // Resolve the Kit API key: desktop sends its own; web falls back to the env key.
   const isDesktop = req.headers["x-client"] === "desktop";
@@ -25,6 +27,42 @@ export default async function handler(req, res) {
         ? "Add your Kit API key in ⚙ Settings to send to Kit."
         : "Kit isn't connected. Add KIT_API_KEY in Vercel, then redeploy.",
     });
+  }
+
+  const kitHeaders = { "Content-Type": "application/json", Accept: "application/json", "X-Kit-Api-Key": kitKey };
+
+  // ---- Read: recent broadcasts + their open/click stats (Stats module) ----
+  if (req.method === "GET") {
+    try {
+      const lr = await fetch(KIT_URL + "?per_page=30", { headers: kitHeaders });
+      const ld = await lr.json().catch(() => ({}));
+      if (!lr.ok) {
+        const auth = lr.status === 401 || lr.status === 403;
+        return res.status(auth ? 401 : 502).json({ error: (ld && (ld.message || ld.error)) || ("Kit request failed (" + lr.status + ")") });
+      }
+      let list = (ld && ld.broadcasts) || [];
+      // Sent newsletters only, most recent first, capped (each needs its own stats call).
+      list = list.filter((b) => b && (b.published_at || b.send_at)).slice(0, 8);
+      const withStats = await Promise.all(list.map(async (b) => {
+        let st = {};
+        try {
+          const sr = await fetch(KIT_URL + "/" + b.id + "/stats", { headers: kitHeaders });
+          const sd = await sr.json().catch(() => ({}));
+          st = (sd && sd.broadcast && sd.broadcast.stats) || (sd && sd.stats) || {};
+        } catch (e) {}
+        return {
+          id: b.id, subject: b.subject || "(no subject)",
+          sentAt: b.send_at || b.published_at || null,
+          recipients: st.recipients != null ? st.recipients : null,
+          openRate: st.open_rate != null ? st.open_rate : null,
+          clickRate: st.click_rate != null ? st.click_rate : null,
+          unsubscribes: st.unsubscribes != null ? st.unsubscribes : null,
+        };
+      }));
+      return res.status(200).json({ broadcasts: withStats });
+    } catch (err) {
+      return res.status(502).json({ error: (err && err.message) || "Kit read error" });
+    }
   }
 
   try {

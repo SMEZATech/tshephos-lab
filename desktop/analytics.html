@@ -116,6 +116,14 @@
   .ov-m-val{font-family:var(--fd); font-weight:800; font-size:17px; color:var(--text);}
   .ov-d{font-family:var(--fm); font-size:11px; font-weight:700;} .ov-d.up{color:var(--good);} .ov-d.down{color:var(--low);}
   .ov-go{display:inline-block; margin-top:13px; font-family:var(--fm); font-size:11px; color:var(--accent); letter-spacing:.03em;}
+  .kit-audit{background:#0D0F15; border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px;}
+  .kit-audit p{margin:0 0 7px; font-size:13.5px; line-height:1.5; color:var(--dim);} .kit-audit p:last-child{margin-bottom:0;} .kit-audit b{color:var(--text);}
+  .kit-list{display:flex; flex-direction:column;}
+  .kit-row{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px 0; border-top:1px solid var(--border);}
+  .kit-row:first-child{border-top:0;}
+  .kit-subj{font-size:14px; color:var(--text); font-weight:600; line-height:1.35;}
+  .kit-date{display:block; font-family:var(--fm); font-size:10.5px; color:var(--faint); font-weight:400; margin-top:3px; letter-spacing:.02em;}
+  .kit-mets{display:flex; gap:14px; flex:none; font-family:var(--fm); font-size:12.5px; color:var(--dim);}
 
   .grade{display:flex; align-items:center; gap:20px;}
   .grade .ring{width:90px; height:90px; border-radius:22px; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:var(--fd); font-weight:800; font-size:40px;}
@@ -282,7 +290,7 @@ const METRICS = [
 
 // App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
 const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
-const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'live', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'', channels:[], overview:null };
+const state = { platform:'Instagram', period:'', goal:'', notes:'', metrics:{}, loading:false, analysis:null, dashData:null, mode:'live', liveCtx:null, topPosts:null, bestposts:null, topLoading:false, topError:'', channels:[], overview:null, kit:null, kitLoading:false, kitError:'' };
 METRICS.forEach(m => state.metrics[m.key] = { this:'', prev:'' });
 
 const $ = s => document.querySelector(s);
@@ -339,8 +347,9 @@ function switchMode(m){
 }
 // Auto re-pull when the channel or period changes, and auto-load Live on open (Postiz-first).
 ['liveChannel','liveDays'].forEach(id => { const el = document.getElementById(id); if(el) el.addEventListener('change', () => { if(state.mode === 'live' && liveReady()) run(); }); });
-window.addEventListener('volt:ready', () => { if(state.mode === 'live') switchMode('live'); });
+window.addEventListener('volt:ready', () => { if(state.mode === 'live') switchMode('live'); loadKitStats(); });
 if(window.voltSession && state.mode === 'live') switchMode('live');
+if(window.voltSession) loadKitStats();
 
 let _channelsLoaded = false;
 function refreshBtnHtml(){ return '<button class="mini" id="liveRefresh" style="margin-top:12px;">↻ Retry</button>'; }
@@ -615,6 +624,49 @@ function playbookBlock(title, items, color){
   return '<div class="pb"><h4 class="pb-h" style="color:' + color + '">' + title + '</h4><ul class="pb-list">' + items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
 }
 
+// Newsletter (Kit) — real open/click stats for recent sends, with a subject audit.
+async function loadKitStats(){
+  if(state.kit || state.kitLoading) return;
+  state.kitLoading = true;
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/kit', { headers:{'x-app-key':APP_KEY} });
+    let d={}; try{ d=await r.json(); }catch(_){}
+    if(r.status===503 || (d && d.error==='NOT_CONFIGURED')){ state.kit=[]; }        // no Kit → hide silently
+    else if(!r.ok){ state.kitError = (d&&(d.message||d.error))||'Couldn’t load Kit stats.'; }
+    else { state.kit = (d&&d.broadcasts)||[]; }
+  }catch(e){ state.kitError = e.message; }
+  finally{ state.kitLoading=false; render(); }
+}
+function kitSection(){
+  if(state.kitLoading && !state.kit) return '<div class="sec"><h3 class="sec-h">📧 Newsletter (Kit)</h3><div class="skel" style="height:120px"></div></div>';
+  if(!state.kit || !state.kit.length) return state.kitError ? '<div class="sec"><h3 class="sec-h">📧 Newsletter (Kit)</h3><p class="ls-msg" style="color:var(--low)">'+esc(state.kitError)+'</p></div>' : '';
+  const bs = state.kit;
+  const withOpen = bs.filter(b=>b.openRate!=null);
+  const avg = withOpen.length ? withOpen.reduce((s,b)=>s+b.openRate,0)/withOpen.length : null;
+  const norm = s => String(s||'').replace(/^resending:\s*/i,'').trim().toLowerCase();
+  const counts = {}; bs.forEach(b=>{ const k=norm(b.subject); counts[k]=(counts[k]||0)+1; });
+  const repeated = Object.keys(counts).filter(k=>counts[k]>1);
+  const resend = bs.filter(b=>/^resending:/i.test(b.subject) && b.openRate!=null);
+  const resendAvg = resend.length ? resend.reduce((s,b)=>s+b.openRate,0)/resend.length : null;
+  const best = withOpen.slice().sort((a,b)=>b.openRate-a.openRate)[0];
+  const advice = [];
+  if(avg!=null) advice.push('Average open rate across your last <b>'+withOpen.length+'</b> sends: <b>'+avg.toFixed(1)+'%</b>.');
+  if(best) advice.push('Best opener: <b>'+esc(best.subject)+'</b> — '+best.openRate.toFixed(1)+'%.');
+  if(repeated.length) advice.push('⚠ '+repeated.length+' subject line'+(repeated.length>1?'s were':' was')+' reused recently. Fresh angles consistently open better.');
+  if(resendAvg!=null && avg!=null && resendAvg < avg - 2) advice.push('“Resending:” sends average <b>'+resendAvg.toFixed(1)+'%</b> vs <b>'+avg.toFixed(1)+'%</b> overall — resends fatigue the list; a new subject usually beats a resend.');
+  const rows = bs.map(b=>{
+    const d = b.sentAt ? new Date(b.sentAt).toLocaleDateString() : '';
+    const o = b.openRate!=null ? b.openRate.toFixed(1)+'%' : '—';
+    const c = b.clickRate!=null ? b.clickRate.toFixed(1)+'%' : '—';
+    const oc = b.openRate==null?'var(--dim)':(b.openRate>=25?'var(--good)':(b.openRate>=10?'var(--mid)':'var(--low)'));
+    return '<div class="kit-row"><div><div class="kit-subj">'+esc(b.subject)+'</div><span class="kit-date">'+esc(d)+(b.recipients!=null?(' · '+fmt(b.recipients)+' sent'):'')+'</span></div>'
+      + '<div class="kit-mets"><span style="color:'+oc+'">'+o+' open</span><span>'+c+' click</span></div></div>';
+  }).join('');
+  return '<div class="sec"><h3 class="sec-h">📧 Newsletter (Kit)</h3>'
+    + (advice.length ? '<div class="kit-audit">'+advice.map(a=>'<p>'+a+'</p>').join('')+'</div>' : '')
+    + '<div class="kit-list">'+rows+'</div></div>';
+}
+
 // Best-time-to-post — computed from when the top posts actually earned engagement. No extra API.
 function bestTimeSection(){
   const posts = (state.topPosts || []).filter(p => p.publishDate && num(p.engagement) != null);
@@ -674,7 +726,8 @@ function render(){
   if(state.overview){ elRes.innerHTML = renderOverview(state.overview); return; }
   if(state.loading && !state.overview && !state.dashData){ elRes.innerHTML = `<div class="report"><div class="skel"></div></div>`; return; }
   if(!state.dashData){
-    elRes.innerHTML = `<div class="empty">${ICON.chart}<p>Your KPI dashboard and analyst read will appear here.</p></div>`;
+    const k = kitSection(); // email stats can stand alone even before social loads
+    elRes.innerHTML = k ? ('<div class="report">'+k+'</div>') : `<div class="empty">${ICON.chart}<p>Your KPI dashboard and analyst read will appear here.</p></div>`;
     return;
   }
   const d = state.dashData;
@@ -688,6 +741,7 @@ function render(){
   else if(state.analysis){ html += renderAnalysis(state.analysis); }
   html += bestTimeSection();
   html += topPostsSection();
+  html += kitSection();
   const trk = state.dashData && state.dashData.live
     ? `Pulled live from your Postiz instance over the selected window. Coverage depends on what each platform's API exposes, so some metrics or networks may be limited.`
     : `These figures are what you entered from each platform's native insights — Volt computes the rates and deltas, the analyst interprets them. Switch to <b>Live (Postiz)</b> for automatic, always-on data.`;
