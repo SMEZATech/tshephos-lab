@@ -806,20 +806,20 @@
     });
   }
 
-  /* ---------- personalized "Jarvis" welcome (owner-only for now) ---------- */
-  // Roll-out: add more emails here (lowercase) → each gets their own greeting. Empty title = plain "Welcome back".
+  /* ---------- personalized "Jarvis" welcome (everyone) ---------- */
+  // Special titles by email; everyone else is greeted by the name in their email address.
   var OWNERS = {
     "joel@smesouthafrica.co.za": { name: "Joel", title: "Master" },
   };
   function maybeGreetOwner() {
     try {
       var em = (session && session.user && session.user.email ? String(session.user.email) : "").toLowerCase();
-      var who = OWNERS[em];
-      if (!who) return;
+      if (!em) return;
       if (sessionStorage.getItem("volt_greeted")) return; // once per app session
       sessionStorage.setItem("volt_greeted", "1");
-      var hi = "Welcome back, " + (who.title ? who.title + " " : "") + who.name;
-      showOwnerGreeting(hi);
+      var who = OWNERS[em];
+      var name = who ? ((who.title ? who.title + " " : "") + who.name) : firstName(em);
+      showOwnerGreeting("Welcome back, " + name);
     } catch (e) {}
   }
   function showOwnerGreeting(text) {

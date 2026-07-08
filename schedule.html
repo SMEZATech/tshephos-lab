@@ -51,6 +51,10 @@
   .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(182,255,61,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .empty{color:var(--faint);font-size:13px;padding:8px 0;}
+  .lib{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px;}
+  .lib-thumb{width:66px;height:66px;border-radius:10px;border:2px solid var(--border);object-fit:cover;cursor:pointer;transition:border-color .14s;background:#0D0F15;}
+  .lib-thumb:hover{border-color:var(--dim);}
+  .lib-thumb.on{border-color:var(--accent);}
 </style>
 </head>
 <body>
@@ -67,8 +71,14 @@
         <div class="count" id="scCount">0 characters</div>
       </div>
       <div class="blk">
-        <label class="lbl" for="scImage">Image URL <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— optional (paste a hosted image / a Studio export URL)</span></label>
-        <input id="scImage" type="text" placeholder="https://… (leave blank for text-only)" />
+        <label class="lbl">Image <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— upload one, or pick from your library (Studio graphics land here too)</span></label>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button type="button" class="chip" id="scUpload">📤 Upload image</button>
+          <input type="file" id="scFile" accept="image/*" hidden>
+          <button type="button" class="chip" id="scImgClear" style="display:none;">✕ Remove image</button>
+          <span class="note" id="scImgStatus" style="margin:0;"></span>
+        </div>
+        <div class="lib" id="scLib"></div>
       </div>
       <div class="blk">
         <label class="lbl">Preview</label>
@@ -109,9 +119,22 @@
 const $ = s => document.querySelector(s);
 const API = 'https://tshephos-lab.vercel.app/api';
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let channels = [], selected = new Set(), when = 'schedule';
+let channels = [], selected = new Set(), when = 'schedule', selectedImage = '';
 
 function setStatus(m,k){ const s=$('#scStatus'); if(s){ s.innerHTML=m||''; s.className='status'+(k?' '+k:''); } }
+function imgStatus(m,k){ const s=$('#scImgStatus'); if(s){ s.innerHTML=m||''; s.style.color = k==='err'?'var(--low)':(k==='ok'?'var(--good)':'var(--faint)'); } }
+
+// Shared image library (same origin across pages, so Studio graphics land here too).
+function getLib(){ try{ return JSON.parse(localStorage.getItem('volt_recent_images')||'[]'); }catch(e){ return []; } }
+function addLib(url){ if(!url) return; let l=getLib().filter(u=>u!==url); l.unshift(url); l=l.slice(0,24); try{ localStorage.setItem('volt_recent_images', JSON.stringify(l)); }catch(e){} }
+function renderLib(){
+  const box=$('#scLib'); if(!box) return;
+  const lib=getLib();
+  if(!lib.length){ box.innerHTML=''; return; }
+  box.innerHTML = lib.map(u=>'<img class="lib-thumb'+(u===selectedImage?' on':'')+'" src="'+esc(u)+'" data-u="'+esc(u)+'" alt="" loading="lazy">').join('');
+  box.querySelectorAll('.lib-thumb').forEach(t=>t.addEventListener('click', ()=>{ selectImage(t.dataset.u); }));
+}
+function selectImage(url){ selectedImage = url||''; $('#scImgClear').style.display = selectedImage?'inline-flex':'none'; renderLib(); updatePreview(); }
 
 // Default the schedule time to the next round hour, +1h.
 (function initDate(){
@@ -123,7 +146,7 @@ function setStatus(m,k){ const s=$('#scStatus'); if(s){ s.innerHTML=m||''; s.cla
 
 function updatePreview(){
   const txt = ($('#scContent').value||'');
-  const img = ($('#scImage').value||'').trim();
+  const img = selectedImage;
   $('#scCount').textContent = txt.length + ' characters';
   const body = $('#scPrevBody');
   body.textContent = txt || 'Your caption preview appears here…';
@@ -138,8 +161,28 @@ function updatePreview(){
   $('#scAv').textContent = ((first && first.name) || 'V').charAt(0).toUpperCase();
 }
 $('#scContent').addEventListener('input', updatePreview);
-$('#scImage').addEventListener('input', updatePreview);
 $('#scDate').addEventListener('input', updatePreview);
+
+// Upload an image → host it to your media library → add to the shared library + select it.
+$('#scUpload').addEventListener('click', ()=> $('#scFile').click());
+$('#scImgClear').addEventListener('click', ()=> selectImage(''));
+$('#scFile').addEventListener('change', e=>{
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  if(!/^image\//.test(f.type)){ imgStatus('That’s not an image.','err'); return; }
+  const rd = new FileReader();
+  rd.onload = async ()=>{
+    imgStatus('<span class="spinner"></span> Uploading…');
+    try{
+      const r = await fetch(API+'/upload', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ dataBase64:String(rd.result), filename:f.name, contentType:f.type||'image/png' }) });
+      let d={}; try{ d=await r.json(); }catch(_){}
+      if(r.status===401) throw new Error('Please sign in.');
+      if(!r.ok || !d.url) throw new Error((d&&(d.message||d.error))||'Upload failed.');
+      addLib(d.url); selectImage(d.url); imgStatus('Uploaded ✓','ok');
+    }catch(err){ imgStatus((err&&err.message)||'Upload failed.','err'); }
+  };
+  rd.readAsDataURL(f);
+  e.target.value = '';
+});
 
 $('#scWhen').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
@@ -170,7 +213,7 @@ async function loadChannels(){
 
 $('#scGo').addEventListener('click', async ()=>{
   const content = ($('#scContent').value||'').trim();
-  const image = ($('#scImage').value||'').trim();
+  const image = selectedImage;
   if(!content){ setStatus('Write your post first.','err'); return; }
   if(!selected.size){ setStatus('Pick at least one channel to publish to.','err'); return; }
   let date = null;
@@ -188,6 +231,7 @@ $('#scGo').addEventListener('click', async ()=>{
 
 window.addEventListener('volt:ready', loadChannels);
 if(window.voltSession) loadChannels();
+renderLib();
 updatePreview();
 </script>
 </body>

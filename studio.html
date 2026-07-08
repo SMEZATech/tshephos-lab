@@ -365,6 +365,10 @@
                 <span>Resize to all 3 formats</span>
             </button>
 
+            <button onclick="sendToScheduler()" id="btn-send-schedule" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition-transform active:scale-[0.98] shadow-lg uppercase flex items-center justify-center gap-2 border border-slate-600" title="Host this graphic and add it to the Scheduler's image library">
+                <span>📅</span><span>Send to Scheduler</span>
+            </button>
+
             <div id="progress-shell" style="opacity:0">
                 <div id="progress-bar"></div>
             </div>
@@ -2622,6 +2626,29 @@ self.onmessage = async (e) => {
         } finally {
             setExportingUI(false);
         }
+    }
+
+    function blobToDataURL(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob); }); }
+    // Render the current graphic, host it to the media library, and drop the URL into the shared
+    // image library so it shows up in the Scheduler ("pull from Studio").
+    async function sendToScheduler() {
+        if (state.isExporting) return;
+        setExportingUI(true);
+        try {
+            await ensureLogoBlob(); await ensureDefaultImageBlob();
+            const worker = getWorker();
+            const payload = { type: 'render-single', state: buildStatePayload(), brand: brandPayload(), slideIdx: state.campaign === 'carousel' ? state.currentSlide : 0, featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers, scale: 2, filename: buildFilename('png', null) };
+            const result = await postAndWait(worker, payload);
+            showToast('Hosting your graphic…');
+            const dataUrl = await blobToDataURL(result.blob);
+            const r = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataBase64: dataUrl, filename: result.filename, contentType: 'image/png' }) });
+            const d = await r.json().catch(() => ({}));
+            if (r.status === 401) throw new Error('Please sign in.');
+            if (!r.ok || !d.url) throw new Error((d && (d.message || d.error)) || 'Could not host the image (set up image hosting in Settings).');
+            try { let l = JSON.parse(localStorage.getItem('volt_recent_images') || '[]').filter(u => u !== d.url); l.unshift(d.url); localStorage.setItem('volt_recent_images', JSON.stringify(l.slice(0, 24))); } catch (e) {}
+            showToast('✓ Sent to Scheduler — open 📅 Schedule to post it', 'success');
+        } catch (err) { showToast("Couldn't send: " + (err.message || err)); }
+        finally { setExportingUI(false); }
     }
 
     async function triggerCarouselZipExport() {
