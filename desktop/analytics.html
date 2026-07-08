@@ -654,6 +654,18 @@ function kitSection(){
   if(best) advice.push('Best opener: <b>'+esc(best.subject)+'</b> — '+best.openRate.toFixed(1)+'%.');
   if(repeated.length) advice.push('⚠ '+repeated.length+' subject line'+(repeated.length>1?'s were':' was')+' reused recently. Fresh angles consistently open better.');
   if(resendAvg!=null && avg!=null && resendAvg < avg - 2) advice.push('“Resending:” sends average <b>'+resendAvg.toFixed(1)+'%</b> vs <b>'+avg.toFixed(1)+'%</b> overall — resends fatigue the list; a new subject usually beats a resend.');
+  // Best-send-time: which day/hour your best-opening sends went out.
+  const timed = bs.filter(b=>b.sentAt && b.openRate!=null);
+  if(timed.length>=4){
+    const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const dO={}, dN={};
+    timed.forEach(b=>{ const d=new Date(b.sentAt).getDay(); dO[d]=(dO[d]||0)+b.openRate; dN[d]=(dN[d]||0)+1; });
+    let bestDay=null, bestA=-1; Object.keys(dO).forEach(d=>{ const a=dO[d]/dN[d]; if(a>bestA){ bestA=a; bestDay=+d; } });
+    const topHalf = timed.slice().sort((a,b)=>b.openRate-a.openRate).slice(0, Math.max(2, Math.round(timed.length/2)));
+    const hrs = topHalf.map(b=>new Date(b.sentAt).getHours());
+    let hr=null, hc=-1; hrs.forEach(h=>{ const c=hrs.filter(x=>x===h).length; if(c>hc){ hc=c; hr=h; } });
+    if(bestDay!=null) advice.push('📆 Your best opens came from sends on <b>'+DAYS[bestDay]+'s</b>'+(hr!=null?(' around <b>'+String(hr).padStart(2,'0')+':00</b>'):'')+' — worth leaning into.');
+  }
   const rows = bs.map(b=>{
     const d = b.sentAt ? new Date(b.sentAt).toLocaleDateString() : '';
     const o = b.openRate!=null ? b.openRate.toFixed(1)+'%' : '—';

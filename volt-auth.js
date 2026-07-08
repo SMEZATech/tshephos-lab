@@ -18,8 +18,11 @@
     openrouter: { label: "OpenRouter", sub: "AI fallback, many free models · free key", url: "https://openrouter.ai/keys" },
     mistral:    { label: "Mistral", sub: "AI fallback · free tier", url: "https://console.mistral.ai/api-keys/" },
     openai:     { label: "OpenAI", sub: "AI fallback (uses your credits)", url: "https://platform.openai.com/api-keys" },
-    postiz:     { label: "Postiz", sub: "Live analytics & top posts", url: "https://postiz.com" },
-    kit:        { label: "Kit", sub: "Send newsletters to Kit as drafts", url: "https://app.kit.com/account_settings/developer_settings" },
+    postiz:     { label: "Postiz", sub: "Live analytics, top posts & scheduling", url: "https://postiz.com" },
+    kit:        { label: "Kit", sub: "Newsletters + email stats", url: "https://app.kit.com/account_settings/developer_settings" },
+    wpUrl:      { label: "WordPress site URL", sub: "Hosts images (Studio → Scheduler, Email uploads)", url: "https://wordpress.org", ph: "https://smesouthafrica.co.za" },
+    wpUser:     { label: "WordPress username", sub: "Your WP login username", url: "" },
+    wpKey:      { label: "WordPress application password", sub: "WP → Users → Profile → Application Passwords", url: "https://wordpress.org/documentation/article/application-passwords/" },
   };
   // Providers that feed the AI failover chain (order = try order). Others (postiz/kit) are service keys.
   var AI_PROVIDERS = ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai"];
@@ -445,10 +448,12 @@
   function keyFieldsHTML() {
     var k = getKeys();
     var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Add as many AI keys as you like — Volt tries them top-to-bottom and auto-falls-over to the next when one is rate-limited or out of quota. More keys = fewer interruptions.</p>';
-    ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai", "postiz", "kit"].forEach(function (id) {
+    ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai", "postiz", "kit", "wpUrl", "wpUser", "wpKey"].forEach(function (id) {
       var i = KEYS[id];
-      out += '<div class="va-field"><div><span class="nm">' + i.label + ' <span class="pw">· ' + esc(i.sub) + '</span></span><a class="va-get" href="' + i.url + '" target="_blank" rel="noopener">Get key ↗</a></div>' +
-        '<input class="va-input" id="va-k-' + id + '" type="text" autocomplete="off" spellcheck="false" placeholder="Paste your ' + i.label + ' key" value="' + esc(k[id] || "") + '" style="margin-top:6px;" /></div>';
+      var link = i.url ? '<a class="va-get" href="' + i.url + '" target="_blank" rel="noopener">' + (/wordpress|postiz/i.test(i.url) ? "Guide ↗" : "Get key ↗") + '</a>' : "";
+      var ph = i.ph || ("Paste your " + i.label + (/wordpress|username/i.test(i.label) ? "" : " key"));
+      out += '<div class="va-field"><div><span class="nm">' + i.label + ' <span class="pw">· ' + esc(i.sub) + '</span></span>' + link + '</div>' +
+        '<input class="va-input" id="va-k-' + id + '" type="text" autocomplete="off" spellcheck="false" placeholder="' + esc(ph) + '" value="' + esc(k[id] || "") + '" style="margin-top:6px;" /></div>';
     });
     out += '<div class="va-field"><span class="nm">Postiz API URL <span class="pw">· blank = cloud</span></span><input class="va-input" id="va-k-postizUrl" type="text" autocomplete="off" placeholder="https://api.postiz.com/public/v1" value="' + esc(k.postizUrl || "") + '" style="margin-top:6px;" /></div></div>';
     return out;
@@ -596,7 +601,7 @@
     ["va-oll-on", "va-oll-model", "va-oll-url"].forEach(function (id) { var el = document.getElementById(id); if (el) el.addEventListener("change", saveOllama); });
     var save = document.getElementById("va-save");
     if (save) save.addEventListener("click", function () {
-      saveKeys({ gemini: acctVal("gemini"), gemini2: acctVal("gemini2"), groq: acctVal("groq"), cerebras: acctVal("cerebras"), openrouter: acctVal("openrouter"), mistral: acctVal("mistral"), openai: acctVal("openai"), postiz: acctVal("postiz"), postizUrl: acctVal("postizUrl"), kit: acctVal("kit"), wpUrl: getKeys().wpUrl, wpUser: getKeys().wpUser, wpKey: getKeys().wpKey });
+      saveKeys({ gemini: acctVal("gemini"), gemini2: acctVal("gemini2"), groq: acctVal("groq"), cerebras: acctVal("cerebras"), openrouter: acctVal("openrouter"), mistral: acctVal("mistral"), openai: acctVal("openai"), postiz: acctVal("postiz"), postizUrl: acctVal("postizUrl"), kit: acctVal("kit"), wpUrl: acctVal("wpUrl"), wpUser: acctVal("wpUser"), wpKey: acctVal("wpKey") });
       var s = document.getElementById("va-saved"); if (s) { s.textContent = "Saved ✓"; setTimeout(function () { s.textContent = ""; }, 1500); }
     });
     // Sleep controls.

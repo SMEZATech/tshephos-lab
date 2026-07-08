@@ -73,11 +73,13 @@ export default async function handler(req, res) {
       const date = body.date ? new Date(body.date) : new Date(Date.now() + 10 * 60000);
       if (isNaN(date.getTime())) return res.status(400).json({ error: "That date/time isn't valid." });
       // Postiz create-post payload: one entry per channel, content in `value`, optional image.
+      // Each platform needs a post_type in settings ("post" = feed, "story" = story).
+      const postType = body.postType === "story" ? "story" : "post";
       const image = (body.image && /^https?:\/\//i.test(body.image)) ? [{ path: String(body.image) }] : [];
       const posts = channels.map((id) => ({
         integration: { id },
         value: [{ content, image }],
-        settings: {},
+        settings: { post_type: postType, __type: postType },
       }));
       const payload = { type: when, date: date.toISOString(), shortLink: false, tags: [], posts };
       try {
