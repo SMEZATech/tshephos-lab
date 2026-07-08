@@ -33,8 +33,26 @@ async function postizGet(path) {
   return data;
 }
 
+async function postizPost(path, body) {
+  const key = process.env.POSTIZ_API_KEY;
+  if (!key) throw Object.assign(new Error("POSTIZ_API_KEY is not set"), { code: "NOT_CONFIGURED" });
+  const r = await fetch(baseUrl() + path, {
+    method: "POST",
+    headers: { Authorization: key, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const txt = await r.text();
+  let data; try { data = JSON.parse(txt); } catch { data = txt; }
+  if (!r.ok) {
+    const msg = (data && (data.message || data.error)) || (typeof data === "string" ? data.slice(0, 300) : "") || ("Postiz request failed (" + r.status + ")");
+    throw Object.assign(new Error(msg), { status: r.status });
+  }
+  return data;
+}
+
 export default async function handler(req, res) {
-  if (await blocked(req, res, { methods: "GET, OPTIONS", method: "GET", id: "postiz", limit: 40, windowSec: 60 })) return;
+  if (req.method !== "OPTIONS" && req.method !== "GET" && req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (await blocked(req, res, { methods: "GET, POST, OPTIONS", method: req.method, id: "postiz", limit: 40, windowSec: 60 })) return;
 
   try {
     if (!process.env.POSTIZ_API_KEY) {
@@ -42,6 +60,32 @@ export default async function handler(req, res) {
         error: "NOT_CONFIGURED",
         message: "Postiz isn't connected. Add POSTIZ_API_URL + POSTIZ_API_KEY in Vercel, then redeploy.",
       });
+    }
+
+    // ---- Schedule / publish a post to selected channels (Social scheduler, Step 1) ----
+    if (req.method === "POST") {
+      const body = (req.body && typeof req.body === "object") ? req.body : JSON.parse(req.body || "{}");
+      const content = String(body.content || "").trim();
+      const channels = Array.isArray(body.channels) ? body.channels.filter(Boolean).map(String) : [];
+      const when = body.when === "now" ? "now" : (body.when === "draft" ? "draft" : "schedule");
+      if (!content) return res.status(400).json({ error: "Write something to post first." });
+      if (!channels.length) return res.status(400).json({ error: "Pick at least one channel." });
+      const date = body.date ? new Date(body.date) : new Date(Date.now() + 10 * 60000);
+      if (isNaN(date.getTime())) return res.status(400).json({ error: "That date/time isn't valid." });
+      // Postiz create-post payload: one entry per channel, content in `value`, optional image.
+      const image = (body.image && /^https?:\/\//i.test(body.image)) ? [{ path: String(body.image) }] : [];
+      const posts = channels.map((id) => ({
+        integration: { id },
+        value: [{ content, image }],
+        settings: {},
+      }));
+      const payload = { type: when, date: date.toISOString(), shortLink: false, tags: [], posts };
+      try {
+        const out = await postizPost("/posts", payload);
+        return res.status(200).json({ ok: true, when, date: date.toISOString(), channels: channels.length, postiz: out });
+      } catch (e) {
+        return res.status(e.status === 400 ? 400 : 502).json({ error: (e && e.message) || "Postiz couldn't schedule that." });
+      }
     }
 
     const q = req.query || {};

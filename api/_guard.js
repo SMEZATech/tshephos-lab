@@ -119,9 +119,30 @@ async function sbWrite(table, body) {
   });
   return r.ok ? r.json() : null;
 }
-// Create an org + owner membership for a brand-new user (service role bypasses RLS).
-async function provisionOrg(user) {
-  const orgRows = await sbWrite("org", { name: user.email || "My Org" });
+async function ensureMember(orgId, userId, role) {
+  const m = await sbRest("member?select=user_id&limit=1&org_id=eq." + encodeURIComponent(orgId) + "&user_id=eq." + encodeURIComponent(userId));
+  if (!(m && m[0])) await sbWrite("member", { org_id: orgId, user_id: userId, role: role || "member" });
+}
+// Resolve the caller's org, keyed by EMAIL DOMAIN so a team shares ONE workspace (drafts, brand
+// kit, Brain). First same-domain user anchors the org; later same-domain users join it.
+async function resolveOrg(user) {
+  const email = String(user.email || "");
+  const domain = (email.split("@")[1] || "").toLowerCase();
+  // 1) An org already keyed to this domain? Join it.
+  if (domain) {
+    const dom = await sbRest("org?select=id&limit=1&name=eq." + encodeURIComponent(domain));
+    const orgId = dom && dom[0] && dom[0].id;
+    if (orgId) { await ensureMember(orgId, user.id); return orgId; }
+  }
+  // 2) User already has a (legacy per-user) org? Adopt it as the domain workspace — keeps their data.
+  const mine = await sbRest("member?select=org_id&limit=1&user_id=eq." + encodeURIComponent(user.id));
+  const existing = mine && mine[0] && mine[0].org_id;
+  if (existing) {
+    if (domain) await sbPatch("org", "id=eq." + encodeURIComponent(existing), { name: domain });
+    return existing;
+  }
+  // 3) Brand-new: create the shared domain org + owner membership.
+  const orgRows = await sbWrite("org", { name: domain || email || "My Org" });
   const orgId = orgRows && orgRows[0] && orgRows[0].id;
   if (!orgId) return null;
   await sbWrite("member", { org_id: orgId, user_id: user.id, role: "owner" });
@@ -144,9 +165,7 @@ async function requireSession(req) {
   // Configurable via ALLOWED_EMAIL_DOMAIN (set to "" to allow any, e.g. when commercialising).
   const allow = (process.env.ALLOWED_EMAIL_DOMAIN != null ? process.env.ALLOWED_EMAIL_DOMAIN : "smesouthafrica.co.za").toLowerCase();
   if (allow && !String(user.email || "").toLowerCase().endsWith("@" + allow)) return { error: "NOT_AUTHORIZED" };
-  const rows = await sbRest("member?select=org_id&limit=1&user_id=eq." + encodeURIComponent(user.id));
-  let orgId = rows && rows[0] && rows[0].org_id;
-  if (!orgId) orgId = await provisionOrg(user); // lazy auto-provision — no signup trigger needed
+  const orgId = await resolveOrg(user); // domain-keyed shared workspace (team sees each other's work)
   if (!orgId) return { error: "NO_ORG" };
   return { user, orgId };
 }

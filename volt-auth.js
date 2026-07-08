@@ -249,6 +249,7 @@
     { t: "Video", e: "🎬", href: "video.html" },
     { t: "Transcribe", e: "📝", href: "videotok.html" },
     { t: "Email", e: "✉️", href: "email.html" },
+    { t: "Schedule", e: "📅", href: "schedule.html" },
     { t: "Stats", e: "📊", href: "analytics.html" },
   ];
   function showBadge() { // now builds the left rail (the Canva-style module switcher)
