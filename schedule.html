@@ -55,6 +55,16 @@
   .lib-thumb{width:66px;height:66px;border-radius:10px;border:2px solid var(--border);object-fit:cover;cursor:pointer;transition:border-color .14s;background:#0D0F15;}
   .lib-thumb:hover{border-color:var(--dim);}
   .lib-thumb.on{border-color:var(--accent);}
+  .q-row{display:flex;align-items:flex-start;gap:14px;padding:13px 0;border-top:1px solid var(--border);}
+  .q-row:first-child{border-top:0;}
+  .q-when{flex:none;width:120px;font-family:var(--fm);font-size:11.5px;color:var(--accent);line-height:1.4;}
+  .q-when .d{color:var(--dim);}
+  .q-body{flex:1;font-size:13.5px;color:var(--text);line-height:1.5;}
+  .q-meta{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin-top:4px;text-transform:uppercase;letter-spacing:.03em;}
+  .q-state{flex:none;font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border-radius:6px;background:var(--surface-2);color:var(--dim);}
+  .pull-item{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0D0F15;cursor:pointer;font-size:13px;line-height:1.5;color:var(--dim);margin-bottom:7px;transition:border-color .14s,color .14s;}
+  .pull-item:hover{border-color:var(--accent);color:var(--text);}
+  .pull-src{font-family:var(--fm);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);display:block;margin-bottom:3px;}
 </style>
 </head>
 <body>
@@ -66,8 +76,12 @@
     <!-- Compose -->
     <div class="card">
       <div class="blk">
-        <label class="lbl" for="scContent">Your post</label>
-        <textarea id="scContent" placeholder="Write your caption… pull from Copy, Transcribe or your latest email — then send it everywhere."></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <label class="lbl" for="scContent" style="margin:0;">Your post</label>
+          <button type="button" class="chip" id="scPull" style="padding:5px 11px;font-size:11px;">📝 Pull a caption</button>
+        </div>
+        <div id="scPullList" style="display:none;margin:10px 0;"></div>
+        <textarea id="scContent" placeholder="Write your caption… pull from Copy, Transcribe or your latest email — then send it everywhere." style="margin-top:9px;"></textarea>
         <div class="count" id="scCount">0 characters</div>
       </div>
       <div class="blk">
@@ -118,6 +132,14 @@
       <div class="status" id="scStatus"></div>
       <p class="note" id="scNote">Publishing runs through your Postiz instance. Connect channels in Postiz (Settings) and they show up here automatically.</p>
     </div>
+  </div>
+
+  <div class="card" style="margin-top:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <label class="lbl" style="margin:0;">📋 Scheduled &amp; upcoming</label>
+      <button type="button" class="chip" id="scRefreshQueue">↻ Refresh</button>
+    </div>
+    <div id="scQueue" style="margin-top:14px;"><span class="empty">Loading your queue…</span></div>
   </div>
 </main>
 
@@ -241,8 +263,44 @@ $('#scGo').addEventListener('click', async ()=>{
   finally{ btn.disabled=false; }
 });
 
-window.addEventListener('volt:ready', loadChannels);
-if(window.voltSession) loadChannels();
+// ---- Queue / calendar of scheduled + upcoming posts ----
+async function loadQueue(){
+  const box=$('#scQueue'); if(!box) return;
+  box.innerHTML='<span class="empty">Loading your queue…</span>';
+  try{
+    const r=await fetch(API+'/postiz?action=queue');
+    let d={}; try{ d=await r.json(); }catch(_){}
+    if(r.status===401){ box.innerHTML='<span class="empty">Please sign in.</span>'; return; }
+    if(!r.ok || (d&&d.error==='NOT_CONFIGURED')){ box.innerHTML='<span class="empty">Connect Postiz to see your schedule.</span>'; return; }
+    const q=(d&&d.queue)||[];
+    if(!q.length){ box.innerHTML='<span class="empty">Nothing scheduled yet — compose something above and schedule it.</span>'; return; }
+    box.innerHTML = q.map(p=>{
+      const dt = p.publishDate ? new Date(p.publishDate) : null;
+      const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
+      const st = p.state==='QUEUE'?'Scheduled':(p.state==='DRAFT'?'Draft':(p.state||''));
+      return '<div class="q-row"><div class="q-when">'+when+'</div><div class="q-body">'+esc(p.content||'(no text)')+'<div class="q-meta">'+esc(p.channel||'')+(p.platform?(' · '+esc(p.platform)):'')+'</div></div><span class="q-state">'+esc(st)+'</span></div>';
+    }).join('');
+  }catch(e){ box.innerHTML='<span class="empty">Couldn’t load the queue. '+esc(e.message||'')+'</span>'; }
+}
+$('#scRefreshQueue').addEventListener('click', loadQueue);
+
+// ---- Pull a caption from Copy / Transcribe (shared localStorage, same origin) ----
+function getCaptions(){ try{ return JSON.parse(localStorage.getItem('volt_recent_captions')||'[]'); }catch(e){ return []; } }
+$('#scPull').addEventListener('click', ()=>{
+  const list=$('#scPullList');
+  if(list.style.display==='block'){ list.style.display='none'; return; }
+  const caps=getCaptions();
+  if(!caps.length){ list.innerHTML='<p class="note" style="margin:0;">No recent captions yet. Generate copy in <b>Copy</b> or a social caption in <b>Transcribe</b> and it’ll show here.</p>'; }
+  else { list.innerHTML = caps.slice(0,8).map((c,i)=>'<div class="pull-item" data-i="'+i+'"><span class="pull-src">'+esc(c.src||'Volt')+'</span>'+esc((c.text||'').slice(0,220))+((c.text||'').length>220?'…':'')+'</div>').join(''); }
+  list.style.display='block';
+  list.querySelectorAll('.pull-item').forEach(el=>el.addEventListener('click', ()=>{
+    const c=caps[parseInt(el.dataset.i,10)]; if(!c) return;
+    $('#scContent').value = c.text||''; list.style.display='none'; updatePreview();
+  }));
+});
+
+window.addEventListener('volt:ready', ()=>{ loadChannels(); loadQueue(); });
+if(window.voltSession){ loadChannels(); loadQueue(); }
 renderLib();
 updatePreview();
 </script>

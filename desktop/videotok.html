@@ -290,6 +290,17 @@ async function generateImage(){
   }catch(e){ imgStatus((e&&e.message)||'Image failed — try again.','err'); }
   finally{ if(btn) btn.disabled=false; }
 }
+// Stash generated captions so the Scheduler's "Pull a caption" can reuse them (same origin → shared localStorage).
+function stashCaption(text, src){
+  try{
+    text = String(text||'').trim(); if(!text) return;
+    let arr=[]; try{ arr=JSON.parse(localStorage.getItem('volt_recent_captions')||'[]'); }catch(_){}
+    if(!Array.isArray(arr)) arr=[];
+    arr = arr.filter(c=>c && c.text !== text);
+    arr.unshift({ text, src: src||'Volt', at: Date.now() });
+    localStorage.setItem('volt_recent_captions', JSON.stringify(arr.slice(0,20)));
+  }catch(_){}
+}
 function renderSocial(v){
   if(!v){ return; }
   const box=$('#vtResults');
@@ -298,6 +309,7 @@ function renderSocial(v){
   const hooks=(v.hooks||[]).map(h=>'<li>'+esc(h)+'</li>').join('');
   const caption = String(v.caption||'');
   const captionWithTags = caption + (hashList.length ? '\n\n'+hashList.join(' ') : ''); // ready to paste as one post
+  stashCaption(captionWithTags, 'Transcribe');
   const defAspect = ASPECT_DEFAULT[platform] || '1:1';
   box.innerHTML =
     '<div class="card"><div class="h"><span class="lbl">Caption</span><span>'

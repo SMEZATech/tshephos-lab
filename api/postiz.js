@@ -210,6 +210,30 @@ export default async function handler(req, res) {
       return res.status(200).json({ days, topPosts: enriched });
     }
 
+    // Upcoming/queued posts — the scheduler's calendar/queue view.
+    if (action === "queue") {
+      const now = new Date();
+      const start = new Date(now.getTime() - 2 * 86400000);
+      const end = new Date(now.getTime() + 45 * 86400000);
+      const list = await postizGet("/posts?startDate=" + encodeURIComponent(start.toISOString()) + "&endDate=" + encodeURIComponent(end.toISOString()));
+      let posts = (list && (list.posts || list.data)) || [];
+      if (!Array.isArray(posts)) posts = [];
+      const items = posts
+        .map((p) => ({
+          id: p.id,
+          content: String(p.content || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220),
+          publishDate: p.publishDate || "",
+          state: String(p.state || "").toUpperCase(),
+          channel: (p.integration && (p.integration.name || p.integration.profile)) || "",
+          platform: (p.integration && (p.integration.providerIdentifier || p.integration.identifier || p.integration.type)) || "",
+        }))
+        // upcoming (future) OR still queued/draft
+        .filter((p) => p.publishDate && (new Date(p.publishDate) >= now || ["QUEUE", "DRAFT"].includes(p.state)))
+        .sort((a, b) => new Date(a.publishDate || 0) - new Date(b.publishDate || 0))
+        .slice(0, 40);
+      return res.status(200).json({ queue: items });
+    }
+
     return res.status(400).json({ error: "Unknown action" });
   } catch (err) {
     if (err && err.code === "NOT_CONFIGURED") {

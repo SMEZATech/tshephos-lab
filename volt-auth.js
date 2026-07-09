@@ -339,14 +339,35 @@
   }
 
   /* ---------- Sleep mode (Jarvis-style ambient screen after inactivity) ---------- */
-  var _sleepT = null, _sleepClockT = null, _sleepCardT = null, _sleepWired = false, _sleepCardI = 0;
-  var SLEEP_CARDS = [
-    { e: "◇", t: "Volt Intelligence", s: "All systems on standby" },
-    { e: "📅", t: "Newsletter · Tuesdays", s: "The #1 newsletter for SMEs in SA" },
-    { e: "🎨", t: "One creative suite", s: "Copy · Design · Video · Email · Stats" },
-    { e: "🧠", t: "Volt is learning", s: "Getting smarter from what performs" },
-    { e: "⚡", t: "SME South Africa", s: "Built to help you start, grow & scale" }
+  /* ==================================================================
+     SLEEP / STANDBY UI  —  SAFE TO EDIT (visual only)
+     Everything between this fence and the "END SLEEP UI" fence is the
+     standby screen's look & feel. You (or Gemini) can freely restyle the
+     canvas rain, console log, reactor and CSS here WITHOUT touching the
+     rest of volt-auth.js. Do NOT rename these functions — they're called
+     from init and the Settings > Sleep pane:
+        getSleepCfg / setSleepCfg / initSleep / scheduleSleep
+        onActivity  / showSleep(force) / hideSleep
+     Keep #va-sleep as the root overlay id, and keep the wake behaviour
+     (onActivity) intact so the screen dismisses on mouse/key.
+     ================================================================== */
+  var _sleepT = null, _sleepWired = false, _sleepRainT = null, _sleepLogT = null, _sleepResize = null, _sleepLogI = 0;
+  // Fake "brain" telemetry — the lines that scroll in the standby console.
+  // Purely cosmetic flavour text; tweak freely. {n}/{p} get random numbers.
+  var SLEEP_LOG = [
+    "core ▸ booting volt.intelligence …",
+    "brain ▸ loading model weights …… ok",
+    "brain ▸ analyzing {n} posts",
+    "brain ▸ ranking ad angles — {p} candidates",
+    "brain ▸ scoring hooks — top {p}%",
+    "learn ▸ +{p} signals from live performance",
+    "vision ▸ synthesising supporting image …",
+    "queue ▸ {p} posts scheduled this week",
+    "kit ▸ open-rate model refreshed",
+    "stats ▸ recomputing engagement curve",
+    "core ▸ all systems nominal — standby"
   ];
+  function _sn(a, b) { return Math.floor(a + Math.random() * (b - a)); }
   function getSleepCfg() { try { return JSON.parse(localStorage.getItem("volt_sleep") || "{}"); } catch (e) { return {}; } }
   function setSleepCfg(c) { try { localStorage.setItem("volt_sleep", JSON.stringify(c)); } catch (e) {} }
   function initSleep() {
@@ -369,80 +390,114 @@
     if (document.getElementById("va-sleep")) hideSleep();
     else scheduleSleep();
   }
-  function pad2(n) { return (n < 10 ? "0" : "") + n; }
+  // Matrix-style falling code rain, throttled to ~18fps to stay GPU-light.
+  function startRain() {
+    var cv = document.getElementById("va-sleep-rain"); if (!cv || !cv.getContext) return;
+    var ctx = cv.getContext("2d");
+    var glyphs = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈ0123456789<>[]{}=+*/#$%⚡◇VOLT";
+    var fs = 16, cols = 0, drops = [];
+    function resize() {
+      cv.width = window.innerWidth; cv.height = window.innerHeight;
+      cols = Math.ceil(cv.width / fs);
+      drops = []; for (var i = 0; i < cols; i++) drops[i] = Math.random() * -60;
+    }
+    resize(); _sleepResize = resize; window.addEventListener("resize", resize);
+    var last = 0;
+    function frame(ts) {
+      _sleepRainT = requestAnimationFrame(frame);
+      if (ts - last < 55) return; last = ts;
+      ctx.fillStyle = "rgba(6,7,10,.14)"; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.font = "600 " + fs + "px 'JetBrains Mono',monospace";
+      for (var i = 0; i < cols; i++) {
+        var ch = glyphs.charAt(Math.floor(Math.random() * glyphs.length));
+        var x = i * fs, y = drops[i] * fs;
+        if (drops[i] > 0 && Math.random() > 0.985) ctx.fillStyle = "rgba(236,238,243,.92)"; // bright lead glyph
+        else ctx.fillStyle = "rgba(182,255,61," + (0.22 + Math.random() * 0.5).toFixed(2) + ")";
+        ctx.fillText(ch, x, y);
+        if (y > cv.height && Math.random() > 0.975) drops[i] = 0;
+        drops[i] += 0.6;
+      }
+    }
+    _sleepRainT = requestAnimationFrame(frame);
+  }
+  function stopRain() {
+    if (_sleepRainT) { cancelAnimationFrame(_sleepRainT); _sleepRainT = null; }
+    if (_sleepResize) { window.removeEventListener("resize", _sleepResize); _sleepResize = null; }
+  }
+  function pushLog() {
+    var box = document.getElementById("va-sleep-log"); if (!box) return;
+    var raw = SLEEP_LOG[_sleepLogI % SLEEP_LOG.length]; _sleepLogI++;
+    var line = raw.replace(/\{n\}/g, _sn(400, 2400).toLocaleString()).replace(/\{p\}/g, _sn(3, 42));
+    var parts = line.split(" ▸ ");
+    var html = parts.length > 1 ? '<span class="mut">' + esc(parts[0]) + "</span> ▸ " + esc(parts.slice(1).join(" ▸ ")) : esc(line);
+    var d = document.createElement("div"); d.className = "ln"; d.innerHTML = html;
+    box.appendChild(d);
+    while (box.children.length > 6) box.removeChild(box.firstChild);
+  }
   function showSleep(force) {
     var cfg = getSleepCfg(); if ((!cfg.on && force !== true) || document.getElementById("va-sleep")) return;
     if (document.getElementById("vk-ov") && document.getElementById("vk-ov").classList.contains("open")) return; // don't cover the command palette
     if (!document.getElementById("va-sleep-style")) {
       var st = document.createElement("style"); st.id = "va-sleep-style";
       st.textContent =
-        "#va-sleep{position:fixed;inset:0;z-index:100010;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:none;opacity:0;transition:opacity .8s ease;" +
-          "background:radial-gradient(circle at 50% 44%,rgba(10,17,14,.96),rgba(6,7,10,1) 70%),repeating-linear-gradient(0deg,rgba(182,255,61,.04) 0 1px,transparent 1px 46px),repeating-linear-gradient(90deg,rgba(182,255,61,.04) 0 1px,transparent 1px 46px);}" +
+        "#va-sleep{position:fixed;inset:0;z-index:100010;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:none;opacity:0;transition:opacity .8s ease;overflow:hidden;" +
+          "background:radial-gradient(circle at 50% 42%,rgba(8,15,10,.82),rgba(5,6,9,.97) 72%);}" +
         "#va-sleep.on{opacity:1;}" +
-        "#va-sleep .vs-corner{position:fixed;width:52px;height:52px;border:2px solid rgba(182,255,61,.5);}" +
+        "#va-sleep-rain{position:fixed;inset:0;z-index:0;opacity:.55;}" +
+        "#va-sleep .vs-scan{position:fixed;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px);mix-blend-mode:overlay;animation:vsflick 6s steps(60) infinite;}" +
+        "#va-sleep .vs-corner{position:fixed;width:52px;height:52px;z-index:2;border:2px solid rgba(182,255,61,.5);}" +
         "#va-sleep .vs-corner.tl{top:30px;left:30px;border-right:0;border-bottom:0;}#va-sleep .vs-corner.tr{top:30px;right:30px;border-left:0;border-bottom:0;}" +
         "#va-sleep .vs-corner.bl{bottom:30px;left:30px;border-right:0;border-top:0;}#va-sleep .vs-corner.br{bottom:30px;right:30px;border-left:0;border-top:0;}" +
-        "#va-sleep .vs-reactor{width:120px;height:120px;filter:drop-shadow(0 0 26px rgba(182,255,61,.45));margin-bottom:8px;}" +
+        "#va-sleep .vs-stage{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;}" +
+        "#va-sleep .vs-reactor{width:96px;height:96px;filter:drop-shadow(0 0 26px rgba(182,255,61,.5));}" +
         "#va-sleep .ring{fill:none;transform-origin:100px 100px;}" +
         "#va-sleep .r1{stroke:rgba(182,255,61,.55);stroke-width:1.5;stroke-dasharray:6 10;animation:vjspin 9s linear infinite;}" +
         "#va-sleep .r2{stroke:rgba(127,200,255,.6);stroke-width:1.5;stroke-dasharray:2 7;animation:vjspin 5s linear infinite reverse;}" +
         "#va-sleep .r3{stroke:rgba(182,255,61,.7);stroke-width:2;stroke-dasharray:46 14;animation:vjspin 16s linear infinite;}" +
         "#va-sleep .core{fill:rgba(182,255,61,.1);stroke:rgba(182,255,61,.95);stroke-width:2;transform-origin:100px 100px;animation:vjpulse 2s ease-in-out infinite;}" +
-        "#va-sleep .vs-clock{font-family:var(--fm,monospace);font-weight:700;font-size:clamp(56px,13vw,140px);color:#fff;line-height:1;letter-spacing:2px;text-shadow:0 0 34px rgba(182,255,61,.4);}" +
-        "#va-sleep .vs-date{font-family:var(--fm,monospace);font-size:14px;letter-spacing:5px;text-transform:uppercase;color:var(--dim,#888F9D);margin-top:16px;}" +
-        "#va-sleep .vs-brand{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:26px;color:#fff;margin-top:36px;letter-spacing:1px;}#va-sleep .vs-brand span{color:var(--accent,#B6FF3D);}" +
-        "#va-sleep .vs-standby{font-family:var(--fm,monospace);font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--accent,#B6FF3D);margin-top:12px;opacity:.75;animation:vspulse 3s ease-in-out infinite;}" +
-        "#va-sleep .vs-card{margin-top:40px;display:flex;align-items:center;gap:14px;padding:14px 22px;min-width:300px;max-width:88vw;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(20,23,31,.55);box-shadow:0 10px 40px rgba(0,0,0,.4);transition:opacity .7s ease,transform .7s ease;}" +
-        "#va-sleep .vs-card.fade{opacity:0;transform:translateY(8px);}" +
-        "#va-sleep .vs-card .vs-c-e{font-size:26px;line-height:1;}" +
-        "#va-sleep .vs-card .vs-c-t{font-family:var(--fd,'Unbounded',system-ui);font-weight:700;font-size:15px;color:#fff;}" +
-        "#va-sleep .vs-card .vs-c-s{font-family:var(--fb,system-ui);font-size:12.5px;color:var(--dim,#888F9D);margin-top:2px;}" +
+        "#va-sleep .vs-word{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:32px;letter-spacing:4px;color:#fff;margin-top:14px;text-shadow:0 0 30px rgba(182,255,61,.35);animation:vsglitch 5.5s steps(1) infinite;}#va-sleep .vs-word span{color:var(--accent,#B6FF3D);}" +
+        "#va-sleep .vs-console{margin-top:24px;width:min(520px,86vw);height:150px;overflow:hidden;border:1px solid rgba(182,255,61,.2);border-radius:12px;background:rgba(9,13,11,.5);padding:13px 16px;font-family:'JetBrains Mono',var(--fm,monospace);font-size:12.5px;line-height:1.68;color:rgba(182,255,61,.82);box-shadow:inset 0 0 44px rgba(182,255,61,.05);display:flex;flex-direction:column;justify-content:flex-end;}" +
+        "#va-sleep .vs-console .ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85;animation:vsln .45s ease both;}" +
+        "#va-sleep .vs-console .ln .mut{color:rgba(127,200,255,.72);}" +
+        "#va-sleep .vs-console .prompt{opacity:.9;color:rgba(236,238,243,.85);}" +
+        "#va-sleep .vs-console .cur{display:inline-block;width:8px;height:13px;background:var(--accent,#B6FF3D);margin-left:5px;vertical-align:-2px;animation:vscur 1s steps(1) infinite;}" +
+        "#va-sleep .vs-standby{font-family:var(--fm,monospace);font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--accent,#B6FF3D);margin-top:22px;opacity:.75;animation:vspulse 3s ease-in-out infinite;}" +
         "@keyframes vspulse{0%,100%{opacity:.4;}50%{opacity:.85;}}" +
+        "@keyframes vsln{from{opacity:0;transform:translateY(5px);}to{opacity:.85;transform:none;}}" +
+        "@keyframes vscur{50%{opacity:0;}}" +
+        "@keyframes vsflick{0%,100%{opacity:.5;}48%{opacity:.5;}49%{opacity:.2;}50%{opacity:.7;}51%{opacity:.35;}}" +
+        "@keyframes vsglitch{0%,92%,100%{text-shadow:0 0 30px rgba(182,255,61,.35);}93%{text-shadow:-2px 0 rgba(127,200,255,.9),2px 0 rgba(182,255,61,.9);}96%{text-shadow:2px 0 rgba(127,200,255,.9),-2px 0 rgba(182,255,61,.9);}}" +
         "@keyframes vjspin{to{transform:rotate(360deg);}}@keyframes vjpulse{0%,100%{opacity:.6;}50%{opacity:1;}}";
       document.head.appendChild(st);
     }
     var o = document.createElement("div"); o.id = "va-sleep";
     o.innerHTML =
+      '<canvas id="va-sleep-rain"></canvas>' +
+      '<div class="vs-scan"></div>' +
       '<div class="vs-corner tl"></div><div class="vs-corner tr"></div><div class="vs-corner bl"></div><div class="vs-corner br"></div>' +
-      '<svg class="vs-reactor" viewBox="0 0 200 200" aria-hidden="true">' +
-        '<circle class="ring r3" cx="100" cy="100" r="86"></circle><circle class="ring r1" cx="100" cy="100" r="68"></circle>' +
-        '<circle class="ring r2" cx="100" cy="100" r="50"></circle><circle class="core" cx="100" cy="100" r="30"></circle>' +
-        '<circle cx="100" cy="100" r="6" fill="var(--accent,#B6FF3D)"></circle></svg>' +
-      '<div class="vs-clock" id="va-sleep-clock">--:--</div>' +
-      '<div class="vs-date" id="va-sleep-date"></div>' +
-      '<div class="vs-brand">Volt<span>.</span></div>' +
-      '<div class="vs-standby">◇ Standby — move to wake</div>' +
-      '<div class="vs-card" id="va-sleep-card"></div>';
+      '<div class="vs-stage">' +
+        '<svg class="vs-reactor" viewBox="0 0 200 200" aria-hidden="true">' +
+          '<circle class="ring r3" cx="100" cy="100" r="86"></circle><circle class="ring r1" cx="100" cy="100" r="68"></circle>' +
+          '<circle class="ring r2" cx="100" cy="100" r="50"></circle><circle class="core" cx="100" cy="100" r="30"></circle>' +
+          '<circle cx="100" cy="100" r="6" fill="var(--accent,#B6FF3D)"></circle></svg>' +
+        '<div class="vs-word">VOLT<span>_</span></div>' +
+        '<div class="vs-console"><div id="va-sleep-log"></div>' +
+          '<div class="ln prompt"><span class="mut">volt@brain</span>:~<span class="cur"></span></div></div>' +
+        '<div class="vs-standby">◇ Standby — move to wake</div>' +
+      '</div>';
     document.body.appendChild(o);
-    tickClock();
-    _sleepClockT = setInterval(tickClock, 1000);
-    _sleepCardI = 0; renderSleepCard();
-    _sleepCardT = setInterval(cycleSleepCard, 6000);
+    startRain();
+    _sleepLogI = 0; pushLog(); pushLog();
+    _sleepLogT = setInterval(pushLog, 1600);
     requestAnimationFrame(function () { o.classList.add("on"); });
-  }
-  function renderSleepCard() {
-    var el = document.getElementById("va-sleep-card"); if (!el) return;
-    var c = SLEEP_CARDS[_sleepCardI % SLEEP_CARDS.length];
-    el.innerHTML = '<span class="vs-c-e">' + c.e + '</span><div><div class="vs-c-t">' + esc(c.t) + '</div><div class="vs-c-s">' + esc(c.s) + "</div></div>";
-  }
-  function cycleSleepCard() {
-    var el = document.getElementById("va-sleep-card"); if (!el) return;
-    el.classList.add("fade");
-    setTimeout(function () { _sleepCardI++; renderSleepCard(); el.classList.remove("fade"); }, 700);
-  }
-  function tickClock() {
-    var c = document.getElementById("va-sleep-clock"); if (!c) return;
-    var d = new Date();
-    c.textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-    var dt = document.getElementById("va-sleep-date");
-    if (dt) dt.textContent = d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
   }
   function hideSleep() {
     var o = document.getElementById("va-sleep"); if (!o) return;
-    clearInterval(_sleepClockT); _sleepClockT = null;
-    clearInterval(_sleepCardT); _sleepCardT = null;
+    stopRain();
+    clearInterval(_sleepLogT); _sleepLogT = null;
     o.style.opacity = "0"; setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 800);
   }
+  /* ================= END SLEEP UI ================= */
 
   /* ---------- settings (keys on desktop + sign out) ---------- */
   function keyFieldsHTML() {

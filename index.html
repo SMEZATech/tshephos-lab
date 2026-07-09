@@ -207,6 +207,17 @@ const ICON = {
 const COLORS = { good:'#57E39A', mid:'#FFC857', low:'#FF7C7C' };
 let _id = 0;
 const state = { offer:'', audience:'', platform:'Meta', variations:[], loading:false, moreFor:null };
+// Stash a caption so the Scheduler's "Pull a caption" can reuse it (same origin → shared localStorage).
+function stashCaption(text, src){
+  try{
+    text = String(text||'').trim(); if(!text) return;
+    let arr=[]; try{ arr=JSON.parse(localStorage.getItem('volt_recent_captions')||'[]'); }catch(_){}
+    if(!Array.isArray(arr)) arr=[];
+    arr = arr.filter(c=>c && c.text !== text);
+    arr.unshift({ text, src: src||'Volt', at: Date.now() });
+    localStorage.setItem('volt_recent_captions', JSON.stringify(arr.slice(0,20)));
+  }catch(_){}
+}
 
 const $ = s => document.querySelector(s);
 // Read the active brand's voice (set in Studio → Brand Kit) so copy sounds on-brand.
@@ -364,7 +375,9 @@ elRes.addEventListener('click', e => {
     const v = state.variations.find(x=>x._id==copyBtn.dataset.id); if(!v) return;
     logUsedCopy(v);
     window.voltEvent && window.voltEvent(state.contentId, 'copied', { framework: v.framework, headline: v.headline });
-    navigator.clipboard && navigator.clipboard.writeText(`${v.headline}\n\n${v.body}\n\n${v.cta}${tagText(v)}`);
+    const post = `${v.headline}\n\n${v.body}\n\n${v.cta}${tagText(v)}`;
+    stashCaption(post, 'Copy Lab');
+    navigator.clipboard && navigator.clipboard.writeText(post);
     copyBtn.innerHTML = `${ICON.check} Copied`;
     setTimeout(()=>{ copyBtn.innerHTML = `${ICON.copy} Copy`; }, 1400);
     return;

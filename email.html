@@ -436,13 +436,13 @@ const SHELL_TOP = `<div id="body" style="background-color: #f0f2f5; padding: 20p
     <table class="main-wrapper" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; border: 1px solid #eaeaef; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; border-collapse: separate;">
         <tr><td style="padding: 0;">
             <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
-                <tr><td align="center" style="padding: 0; line-height: 0;">
+                <tr><td class="content-padding" align="center" style="padding: 28px 35px 0 35px; line-height: 0; font-size: 0;">
                     <a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="text-decoration: none; border: none;">
-                        <img src="https://smesouthafrica.co.za/wp-content/uploads/2026/07/1-NEWSLETTER-FOR-SMES-IN-SOUTH-AFRICA-2.png" alt="#1 Newsletter for SMEs in South Africa" width="600" style="width: 100%; max-width: 600px; height: auto; display: block; border: 0;">
+                        <img src="https://smesouthafrica.co.za/wp-content/uploads/2026/07/1-NEWSLETTER-FOR-SMES-IN-SOUTH-AFRICA-2.png" alt="#1 Newsletter for SMEs in South Africa" style="width: 100%; max-width: 530px; height: auto; display: block; border: 0; border-radius: 10px;">
                     </a>
                 </td></tr>
             </table>
-            <div class="content-padding mobile-padding" style="padding: 25px 35px;">
+            <div class="content-padding mobile-padding" style="padding: 22px 35px 25px 35px;">
                 <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Boss" }},</p>
 `;
 
@@ -652,7 +652,7 @@ const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a b
                 <p>You do not have to leave your office to build a strong professional network. Platforms like LinkedIn and virtual industry groups let you connect with potential partners across the entire country. Instead of sending direct sales pitches, join relevant conversations and leave helpful comments — engaging regularly builds real relationships without geographical limits.</p>
                 <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/" class="related-link">5 Networking Tips To Help Your Business Grow</a></div>`;
 
-const state = { brief:'', loading:false, body:null, previewMode:'desktop',
+const state = { brief:'', loading:false, body:null, previewMode:'desktop', freeform:false, editedContent:null,
   promos:{ content:{on:false}, webinar:{on:false}, resource:{on:false}, podcast:{on:false}, sponsored:{on:false}, task:{on:false}, custom:{on:false} } };
 
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
@@ -677,8 +677,10 @@ function movePromo(promo, dir){
   if(!sib || !sib.classList.contains('promo')) return;
   if(dir < 0) promo.parentElement.insertBefore(promo, sib);
   else promo.parentElement.insertBefore(sib, promo);
-  renderPreview(state.body);
+  rebuildFromFields();
 }
+// Rebuild the preview from the fields/promos, leaving any inline-edit (freeform) mode.
+function rebuildFromFields(){ state.freeform = false; state.editedContent = null; renderPreview(state.body); }
 function initPromoReorder(){
   document.querySelectorAll('.promos .promo').forEach(promo => {
     const head = promo.querySelector('.promo-head'); if(!head || head.querySelector('.promo-move')) return;
@@ -780,17 +782,30 @@ function collectPromos(){
 
 // editable=true wraps the body so it can be edited in the preview iframe.
 // The export copy is always built with editable=false → clean, wrapper-free HTML.
-function assemble(bodyHtml, editable){
-  const body = editable ? '<div class="volt-editable">' + bodyHtml + '</div>' : bodyHtml;
-  // Imported (pasted) HTML already carries its own header/footer — protect it as-is
-  // rather than re-adding Volt's branded shell (which would duplicate them).
-  if(state.imported) return protectiveWrap(body);
+// The locked shell top, with the user's salutation swapped in (keeps the merge field).
+function shellTopWithGreeting(){
   const useLight = $('#shellVariant') && $('#shellVariant').value === 'light';
   let top = useLight ? SHELL_TOP_LIGHT : SHELL_TOP;
-  // Editable salutation: swap the shell's greeting line for the user's (keeps the merge field).
   const greeting = ($('#greeting') && $('#greeting').value.trim()) || '';
   if(greeting){ top = top.replace(/(<p style="margin-top: 0; font-weight: 600;">)[\s\S]*?(<\/p>)/, function(_m,a,b){ return a + esc(greeting) + b; }); }
-  return VIEW_IN_BROWSER + top + '\n' + body + '\n' + collectPromos() + '\n' + SHELL_BOTTOM;
+  return top;
+}
+// The whole editable content area: body + promos, unless the user has inline-edited (freeform),
+// in which case their edited blob is the source of truth.
+function currentContent(bodyHtml){
+  if(state.freeform && state.editedContent != null) return state.editedContent;
+  const promos = collectPromos();
+  return (bodyHtml || '') + (promos ? '\n' + promos : '');
+}
+function assemble(bodyHtml, editable){
+  if(state.imported){
+    const b = editable ? '<div class="volt-editable">' + bodyHtml + '</div>' : bodyHtml;
+    return protectiveWrap(b);
+  }
+  const inner = currentContent(bodyHtml);
+  // Everything between the shell (body + all sections) is editable — text & links, not the shell design.
+  const content = editable ? '<div class="volt-editable">' + inner + '</div>' : inner;
+  return VIEW_IN_BROWSER + shellTopWithGreeting() + '\n' + content + '\n' + SHELL_BOTTOM;
 }
 // Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
 // centred container with safe defaults. Used for pasted/imported HTML.
@@ -907,7 +922,9 @@ function wireEditableFrame(frame){
 function syncFromEditable(){
   if(!editableDocRef) return;
   const ed = editableDocRef.querySelector('.volt-editable'); if(!ed) return;
-  state.body = ed.innerHTML;
+  // Inline edits span body + sections → capture the whole blob (freeform) so nothing is lost.
+  state.freeform = true;
+  state.editedContent = ed.innerHTML;
   lastFragment = assemble(state.body, false);
   if(typeof scheduleAutosave === 'function') scheduleAutosave(); // inline edits autosave too
 }
@@ -973,7 +990,7 @@ function wireEditorToolbar(){
   });
   const panel = document.getElementById('eimgPanel');
   document.getElementById('imgToggle').addEventListener('click', () => panel.classList.toggle('show'));
-  document.getElementById('refreshBtn').addEventListener('click', () => renderPreview(state.body));
+  document.getElementById('refreshBtn').addEventListener('click', rebuildFromFields);
   const imgFile = document.getElementById('imgFile');
   document.getElementById('imgFileBtn').addEventListener('click', () => imgFile.click());
   imgFile.addEventListener('change', e => {
@@ -1097,6 +1114,7 @@ async function run(){
     const bodyHtml = (data && data.emailBody) || '';
     if(!bodyHtml.trim()) throw new Error('The generator came back empty — try again or add more detail.');
     state.imported = false;
+    state.freeform = false; state.editedContent = null; // a fresh build starts from the fields
     state.body = bodyHtml;
     renderPreview(bodyHtml);
   }catch(err){
@@ -1252,7 +1270,7 @@ function serializeDraft(){
   const fields={}; DRAFT_FIELDS.forEach(id=>{ const el=$('#'+id); if(el) fields[id]=el.value; });
   const promos={}; Object.keys(state.promos).forEach(k=>promos[k]=!!state.promos[k].on);
   const links=[...document.querySelectorAll('.linkrow')].map(r=>({ text:r.querySelector('.lk-text').value, url:r.querySelector('.lk-url').value }));
-  return { fields, promos, links, body: state.body, imported: !!state.imported };
+  return { fields, promos, links, body: state.body, imported: !!state.imported, freeform: !!state.freeform, editedContent: state.freeform ? state.editedContent : null };
 }
 function restoreDraft(d){
   d=d||{};
@@ -1261,7 +1279,12 @@ function restoreDraft(d){
   if(d.promos) Object.keys(d.promos).forEach(k=>{ if(!state.promos[k]) return; state.promos[k].on=!!d.promos[k]; const box=document.getElementById('promo-'+k); if(box) box.classList.toggle('on', !!d.promos[k]); });
   document.querySelectorAll('.linkrow').forEach(r=>r.remove());
   if(d.links && d.links.length) d.links.forEach(l=>addLinkRow(l.text,l.url)); else addLinkRow();
-  if(d.body){ state.imported = !!d.imported; state.body=d.body; renderPreview(d.body); }
+  if(d.body || d.editedContent){
+    state.imported = !!d.imported;
+    state.body = d.body || '';
+    state.freeform = !!d.freeform; state.editedContent = d.freeform ? (d.editedContent||null) : null;
+    renderPreview(state.body); // respects freeform → restores inline edits
+  }
 }
 async function saveDraft(){
   const title = ($('#subject') && $('#subject').value.trim()) || 'Newsletter draft';
