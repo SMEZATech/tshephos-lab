@@ -28,7 +28,23 @@
       radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
       radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
       radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
-  .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:26px 22px 36px;}
+  .wrap{position:relative; z-index:1; max-width:1440px; margin:0 auto; padding:26px 22px 36px;}
+
+  /* ---- DaVinci-style two-pane editor: controls scroll on the left, preview stays pinned on the right ---- */
+  .editor-layout{display:flex; gap:24px; align-items:flex-start; margin-top:30px;}
+  .editor-layout .console{margin-top:0; flex:1 1 440px; min-width:0;}
+  .preview-col{flex:1 1 600px; min-width:0; position:sticky; top:16px; align-self:flex-start; max-height:calc(100vh - 30px); overflow:auto; scrollbar-width:thin;}
+  .preview-col::-webkit-scrollbar{width:8px;} .preview-col::-webkit-scrollbar-thumb{background:var(--border-2); border-radius:8px;}
+  .preview-col .preview-wrap{margin-top:0;}
+  .preview-empty{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:520px; border:1px dashed var(--border-2); border-radius:18px; background:linear-gradient(180deg,var(--surface),#11141b); padding:40px 30px;}
+  .preview-empty .pe-icon{font-size:44px; opacity:.5; margin-bottom:16px;}
+  .preview-empty .pe-title{font-family:var(--fd); font-size:17px; color:var(--text); margin:0 0 8px;}
+  .preview-empty .pe-sub{font-size:13.5px; color:var(--dim); line-height:1.6; max-width:340px; margin:0;}
+  @media (max-width:1080px){
+    .editor-layout{display:block;}
+    .preview-col{position:static; max-height:none; overflow:visible; margin-top:26px;}
+    .preview-empty{display:none;}
+  }
 
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
@@ -102,6 +118,7 @@
   .mini.ok{background:var(--good); color:#0A0B0F; border-color:var(--good);}
   .mini svg{width:13px;height:13px;}
   .frame{width:100%; height:760px; border:1px solid var(--border); border-radius:18px; background:#f0f2f5; box-shadow:0 24px 60px -28px rgba(0,0,0,.8); transition:width .25s ease, border-radius .25s, border-width .25s;}
+  @media (min-width:1081px){ .preview-col .frame{height:calc(100vh - 250px); min-height:520px;} }
   .frame.mobile{width:390px; max-width:100%; border-radius:30px; border:8px solid #1a1e28;}
   .mini.kit{border-color:rgba(182,255,61,.5); color:var(--accent);}
   .mini.kit:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
@@ -144,6 +161,7 @@
     <p class="sub">Your header, footer and styling are locked in. Just describe this week's content — paste the links you want used — and Volt builds a Kit-ready HTML email in the SME house style. Then fix wording or drop in an image right inside the live preview — no code.</p>
   </header>
 
+  <div class="editor-layout">
   <section class="console">
     <label class="lbl" for="brief">This week's content <span class="opt">— theme, the sections you want, and any links to include</span></label>
     <textarea id="brief" rows="7" placeholder="e.g. Theme: networking for SMEs.
@@ -195,6 +213,8 @@ Keep it warm and practical."></textarea>
           <option value="hub">🎟️ SME HUB / Membership</option>
           <option value="light">🪶 Light &amp; personal (win-back)</option>
         </select>
+        <button type="button" class="addlink" id="loadStarter" style="margin-top:8px; display:none;">⬇ Load starter layout</button>
+        <span class="opt" id="starterHint" style="display:none; margin-left:8px;">— drops the full ready-made design into the editor to tweak</span>
       </div>
       <div class="field">
         <label class="lbl">Personalize <span class="opt">— insert a Kit merge field into the focused box</span></label>
@@ -429,10 +449,18 @@ Keep it warm and practical."></textarea>
       <button class="mini" id="draftsBtn">📁 Drafts</button>
     </div>
     <div id="draftStatus" class="kit-status"></div>
+    <div class="error" id="error" hidden></div>
   </section>
 
-  <div class="error" id="error" hidden></div>
-  <div id="results"></div>
+  <div class="preview-col">
+    <div id="results"></div>
+    <div class="preview-empty" id="previewEmpty">
+      <div class="pe-icon">✉️</div>
+      <p class="pe-title">Your live preview shows here</p>
+      <p class="pe-sub">Describe this week's content and hit <b>Build</b> — the email renders here and stays in view while you edit. Click any text in the preview to change it.</p>
+    </div>
+  </div>
+  </div><!-- /editor-layout -->
 
   <div id="draftsModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
     <div style="width:100%; max-width:460px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
@@ -625,17 +653,16 @@ const BODY_OPEN = `<div id="body" style="background-color: #f0f2f5; padding: 20p
 const GREET_BOSS = `<p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Boss" }},</p>`;
 const GREET_THERE = `<p style="margin-top: 0; font-weight: 600;">Hi {{ subscriber.first_name | default: "there" }},</p>`;
 
-// --- Thursday "Toolkit": cool green accent, utility masthead. Deliberately NOT the Tuesday look. ---
+// --- Thursday "Digest": dark gradient hero with the logo knocked out white. Matches the
+// approved sme_weekly_digest_thursday_edition design exactly. ---
 const SHELL_TOP_THURSDAY = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="background-color: #0a2c3d; border-bottom: 4px solid #00e08f;">
-                <tr><td align="left" style="padding: 26px 35px 20px 35px;">
-                    <p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: #00e08f; border: none;">Thursday · Toolkit</p>
-                    <p style="margin: 8px 0 0 0; font-family: 'Oswald', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: 1px; color: #ffffff; line-height: 1.15; border: none;">Things you can act on this week</p>
-                    <p style="margin: 8px 0 0 0; font-family: 'Roboto', sans-serif; font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 0.3px; border: none;">Funding · Grants · Tenders · Events · Tools</p>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+                <tr><td align="center" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #020617 100%); padding: 35px 40px;" class="content-padding">
+                    <img src="https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png" alt="SME South Africa" width="160" style="display: block; width: 160px; max-width: 100%; border: 0; filter: brightness(0) invert(1); margin: 0 auto;">
                 </td></tr>
             </table>
-            <div class="content-padding mobile-padding" style="padding: 25px 35px;">
-                ${GREET_BOSS}
+            <div class="content-padding mobile-padding" style="padding: 38px 40px 30px 40px;">
+                ${GREET_THERE}
 `;
 
 // --- SME Funding Weekly: its own logo + specialised list footer. ---
@@ -753,6 +780,87 @@ const TEMPLATES = {
 function currentTpl(){
   const v = $('#shellVariant') ? $('#shellVariant').value : 'full';
   return TEMPLATES[v] || TEMPLATES.full;
+}
+
+// Starter layouts — the exact approved designs as editable body content. Selecting a template
+// and clicking "Load starter layout" drops this into the inline (freeform) editor; the shell
+// (header/footer) comes from the template, so these are just the middle. Everything here is
+// editable in the live preview. Links/merge-fields are the real SME ones.
+const STARTERS = {
+  thursday: `
+                <p>Earlier this week we broke down the heavy regulatory updates in the 2026 Tax Act. Heading into the weekend, let's shift gears from <em>compliance</em> to <em>strategy</em>.</p>
+                <p>Filing your taxes shouldn't just be about paying SARS — it's a chance to claim every deduction you're legally entitled to. <strong>Too many founders leave money on the table by rushing it.</strong></p>
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin: 25px 0;"><tr><td style="padding: 20px;">
+                    <h3 style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 16px; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">💡 3 Deductions SMEs Often Miss</h3>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #475569; line-height: 1.6;">
+                        <li style="margin-bottom: 8px;"><strong>Home Office Expenses:</strong> If you work primarily from home, a portion of your rent/bond, internet and utilities is deductible. <em>(Conditions apply — check with your accountant.)</em></li>
+                        <li style="margin-bottom: 8px;"><strong>Wear &amp; Tear Allowances:</strong> Laptops, machinery and furniture depreciate. Write that loss in value off against taxable income.</li>
+                        <li><strong>Bad Debts:</strong> Did a client ghost you on an invoice you already declared? Claim it back as a bad-debt deduction.</li>
+                    </ul>
+                </td></tr></table>
+                <p style="margin-bottom: 35px;">Before you close the laptop, grab a coffee and read our full guide on <a href="https://smesouthafrica.co.za/" target="_blank">Structuring Your Business for Maximum Tax Efficiency</a>.</p>
+                <div style="margin-bottom: 35px; border-bottom: 1px solid #e2e8f0; padding-bottom: 30px;">
+                    <img src="https://placehold.co/520x250/e2e8f0/0a2c3d?text=Weekend+Read" alt="Weekend Read" style="width: 100%; height: auto; border-radius: 8px; margin-bottom: 15px; border: 1px solid #cbd5e1; display: block;">
+                    <h2 style="font-size: 20px; margin-bottom: 10px;">The 5 Books Every SA Founder Should Read This Winter</h2>
+                    <p style="margin-bottom: 15px;">When the laptops close, the real growth happens. We asked 10 top local entrepreneurs what they're reading to sharpen their leadership and navigate tough economic climates.</p>
+                    <a href="https://smesouthafrica.co.za/" target="_blank">Read the full list &rarr;</a>
+                </div>
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 2px solid #0a2c3d; border-radius: 12px; margin: 0 0 35px 0; overflow: hidden;">
+                    <tr><td align="center" bgcolor="#0a2c3d" style="padding: 12px; color: #ffffff; font-family: 'Oswald', sans-serif; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">A quick favour before the weekend 🤝</td></tr>
+                    <tr><td style="padding: 25px;">
+                        <p style="margin: 0 0 15px 0; text-align: center; color: #334155;">If tax season exposed cracks in your business banking, <strong>FNB wants to hear from you.</strong> They're redesigning their SME tools and want your uncensored feedback.</p>
+                        <table border="0" cellspacing="0" cellpadding="0" align="center"><tr><td align="center" style="border-radius: 6px; background-color: #9c1c1f;">
+                            <a href="https://smesouthafrica.co.za/" target="_blank" style="font-size: 14px; font-family: 'Oswald', sans-serif; font-weight: 700; color: #ffffff !important; text-decoration: none; padding: 12px 25px; border-radius: 6px; display: inline-block; text-transform: uppercase; border: none;">Have your say (3 mins)</a>
+                        </td></tr></table>
+                    </td></tr>
+                </table>
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><tr><td style="padding: 25px;">
+                    <h2 style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 18px; color: #0a2c3d; line-height: 1.2;">🤝 Inside the SME HUB</h2>
+                    <p style="margin: 0 0 15px 0; font-size: 14px; color: #475569; line-height: 1.6;">Entrepreneurship is hard, and harder alone. Join hundreds of local founders in our private network — this week we're discussing the best logistics partners in Gauteng and auto-assessment survival tips.</p>
+                    <a href="https://smesouthafrica.co.za/groups/general/forum/" target="_blank" style="font-family: 'Oswald', sans-serif; font-size: 13px; color: #9c1c1f !important; text-transform: uppercase; letter-spacing: 1px; border: none; font-weight: 700;">▶ Join the conversation</a>
+                </td></tr></table>`,
+  funding: () => `
+                <p>Capital is the lifeblood of any growing business — but finding the <em>right</em> type of funding can feel like navigating a maze blindfolded.</p>
+                <p>Welcome to the <strong>SME Funding Weekly</strong>. Each week we cut through the noise with a curated list of active funding opportunities, grants and alternative lenders deploying capital to South African SMEs. Let's get your business funded.</p>
+                ${HR}
+                <h2 style="font-size: 24px; margin-bottom: 20px; letter-spacing: 0.5px;">💰 Active Funding Opportunities</h2>
+                ${opportunityBlock({ title:'Lulalend Fast Working Capital', tag:'Debt', tagType:'debt', bestFor:'Short-term cash flow gaps, buying inventory, or quick equipment repairs.', body:'Quick, unsecured working capital for SMEs. Apply online in minutes and access up to R5 million within 24 hours if approved — no collateral, just healthy bank statements.', link:'https://www.lulalend.co.za/?a=TJEQlrQj', btn:'Check eligibility' })}
+                ${opportunityBlock({ title:'SEFA Township & Rural Tech Fund', tag:'Blended', tagType:'grant', bestFor:'Tech-enabled businesses operating outside major metros.', body:'The Small Enterprise Finance Agency has allocated new capital for businesses driving tech inclusion in townships and rural areas — a blended model (part grant, part low-interest loan) aimed at jobs and local development.', link:'https://smesouthafrica.co.za/sme-funding/', btn:'Read the criteria' })}
+                <div style="text-align: center; margin-top: 25px;"><a href="https://smesouthafrica.co.za/sme-funding/" target="_blank" style="font-size: 14px; color: #64748b !important; font-weight: 700; text-decoration: underline; border: none;">View all 20+ active funding opportunities</a></div>
+                ${HR}
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #061f2b 100%); border-radius: 14px;"><tr><td style="padding: 30px 28px;">
+                    <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #00e08f; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">📈 Funding Readiness</p>
+                    <h3 style="margin: 0 0 12px 0; font-size: 22px; color: #ffffff; line-height: 1.25; font-family: 'Oswald', sans-serif;">Why did the bank say no?</h3>
+                    <p style="margin: 0 0 20px 0; color: rgba(255,255,255,0.85); font-size: 15px;">The number one reason SMEs get rejected for funding isn't a bad business model — it's bad bookkeeping. If a lender can't immediately verify your cash flow, your application goes to the bottom of the pile.</p>
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+                        <td class="col" width="50%" valign="top" style="padding-right: 10px;"><div style="background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;"><h4 style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-family: 'Oswald', sans-serif;">1. Up-to-date Management Accounts</h4><p style="margin: 0; color: #cbd5e1; font-size: 13px; line-height: 1.5;">Income statements and balance sheets from the last 3–6 months.</p></div></td>
+                        <td class="col" width="50%" valign="top" style="padding-left: 10px;"><div style="background-color: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px;"><h4 style="margin: 0 0 8px 0; color: #ffffff; font-size: 14px; font-family: 'Oswald', sans-serif;">2. Clean Bank Statements</h4><p style="margin: 0; color: #cbd5e1; font-size: 13px; line-height: 1.5;">No mixing personal and business expenses. Keep it professional.</p></div></td>
+                    </tr></table>
+                    <div style="margin-top: 20px; text-align: center;"><a href="https://smesouthafrica.co.za/sme-resource/" target="_blank" style="color: #00e08f !important; font-weight: bold; text-decoration: underline; font-size: 14px; border: none;">Download our free funding readiness checklist &rarr;</a></div>
+                </td></tr></table>`,
+  hub: () => `
+                <p style="font-size: 16px; color: #334155;">It's been a little while since we saw you inside the SME HUB!</p>
+                <p style="font-size: 16px; color: #334155;">We know how busy founders get — sometimes networking takes a backseat to running the business. But your network is your net worth, and a lot has happened in the community while you've been building.</p>
+                <h3 style="margin: 0 0 15px 0; font-family: 'Oswald', sans-serif; font-size: 18px; color: #0a2c3d; letter-spacing: 0.5px;">🔥 Trending Conversations You Missed</h3>
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 25px;">
+                    <tr><td style="padding: 15px 20px; border-bottom: 1px solid #e2e8f0;"><p style="margin: 0; font-size: 15px; font-weight: 600;"><a href="https://smesouthafrica.co.za/groups/general/forum/" style="color: #0a2c3d !important; text-decoration: none; border: none;">How to structure your pitch deck for SA tech investors</a></p><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">💬 14 replies from founders and funders</p></td></tr>
+                    <tr><td style="padding: 15px 20px; border-bottom: 1px solid #e2e8f0;"><p style="margin: 0; font-size: 15px; font-weight: 600;"><a href="https://smesouthafrica.co.za/groups/general/forum/" style="color: #0a2c3d !important; text-decoration: none; border: none;">Has anyone successfully appealed a SARS auto-assessment?</a></p><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">💬 8 replies with actionable advice</p></td></tr>
+                    <tr><td style="padding: 15px 20px;"><p style="margin: 0; font-size: 15px; font-weight: 600;"><a href="https://smesouthafrica.co.za/groups/general/forum/" style="color: #0a2c3d !important; text-decoration: none; border: none;">Looking for a reliable logistics partner in Gauteng</a></p><p style="margin: 5px 0 0 0; font-size: 13px; color: #64748b;">💬 22 recommendations shared</p></td></tr>
+                </table>
+                <p style="font-size: 16px; color: #334155; margin-bottom: 30px;">The answers to your current bottlenecks are probably already sitting in these forums. Jump back in, ask a question, or share your own expertise.</p>
+                ${ctaBlock({ link:'https://smesouthafrica.co.za/groups/general/forum/', btn:"See what's happening inside" })}
+                <p style="font-size: 16px; color: #334155; margin: 30px 0 0 0;">Hope to see you online soon. <em>Toggle the "Your signature" section on the left to sign off personally.</em></p>`
+};
+function loadStarter(){
+  const v = $('#shellVariant') ? $('#shellVariant').value : 'full';
+  let s = STARTERS[v];
+  if(typeof s === 'function') s = s();
+  if(!s){ return; }
+  state.imported = false;
+  state.freeform = true;
+  state.editedContent = s.trim();
+  renderPreview(state.body || '');
+  if(typeof scheduleAutosave === 'function') scheduleAutosave();
 }
 
 const HR = `<hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 25px 0;">`;
@@ -1052,27 +1160,41 @@ function ctaBlock(p){
                 </div>`;
 }
 
-// --- Personal signature. Community/HUB sends land better from a named human on their own
-// work address than from info@ — this is what makes that possible. Details persist locally. ---
+// --- Rich personal signature (matches the approved SME HUB signature design): headshot,
+// website pill, social row, and a black icon-tile contact grid. Community/HUB sends land far
+// better from a named human on their own work address than from info@. Persisted locally. ---
+const SIG_ICON = { mail:'https://img.icons8.com/ios-filled/50/ffffff/new-post.png', phone:'https://img.icons8.com/ios-filled/50/ffffff/phone.png', pin:'https://img.icons8.com/ios-filled/50/ffffff/marker.png' };
+const SIG_SOCIAL = [
+  ['https://www.linkedin.com/company/sme-south-africa/','https://img.icons8.com/ios-filled/50/000000/linkedin.png','LinkedIn'],
+  ['https://www.instagram.com/sme_za/','https://img.icons8.com/ios/50/000000/instagram-new--v1.png','Instagram'],
+  ['https://www.facebook.com/SMESouthAfrica','https://img.icons8.com/ios-filled/50/000000/facebook-new.png','Facebook'],
+  ['https://www.youtube.com/@SMESouthAfricaOfficial','https://img.icons8.com/ios-filled/50/000000/youtube-play.png','YouTube']
+];
+function sigTile(icon){ return `<table cellpadding="0" cellspacing="0" border="0" bgcolor="#000000" style="border-radius: 6px;"><tr><td style="padding: 6px;"><img src="${icon}" width="14" height="14" alt="" style="display: block;"></td></tr></table>`; }
 function signatureBlock(p){
   if(!p.name && !p.email) return '';
-  const photo = p.photo ? `<td width="72" valign="top" style="padding-right: 16px;"><img src="${escAttr(p.photo)}" alt="${escAttr(p.name||'')}" width="56" height="56" style="width: 56px; height: 56px; border-radius: 28px; display: block; border: 0;"></td>` : '';
-  const bits = [];
-  if(p.email) bits.push(`<a href="mailto:${escAttr(p.email)}" style="color: #9c1c1f !important; text-decoration: none; border: none; font-weight: 700;">${esc(p.email)}</a>`);
-  if(p.phone) bits.push(`<span style="color: #64748b;">${esc(p.phone)}</span>`);
-  if(p.linkedin) bits.push(`<a href="${escAttr(p.linkedin)}" target="_blank" style="color: #0a2c3d !important; text-decoration: underline; border: none; font-weight: 700;">LinkedIn</a>`);
+  const photo = p.photo
+    ? `<img src="${escAttr(p.photo)}" width="115" height="115" alt="${escAttr(p.name||'')}" style="display: block; width: 115px; height: 115px; border-radius: 24px; object-fit: cover; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">`
+    : `<div style="width: 115px; height: 115px; border-radius: 24px; background: #0a2c3d; color: #fff; font-family: 'Oswald', sans-serif; font-size: 40px; line-height: 115px; text-align: center; margin-bottom: 15px;">${esc((p.name||'S').trim().charAt(0).toUpperCase())}</div>`;
+  const socials = SIG_SOCIAL.map(([href,icon,alt]) => `<td style="padding-right: 12px;"><a href="${href}" target="_blank" style="border: none;"><img src="${icon}" width="16" height="16" alt="${alt}" style="display: block; opacity: 0.9;"></a></td>`).join('');
+  const rows = [];
+  if(p.email) rows.push(`<tr><td valign="middle" width="30" style="padding-bottom: 10px;">${sigTile(SIG_ICON.mail)}</td><td valign="middle" style="padding-bottom: 10px; padding-left: 10px;"><a href="mailto:${escAttr(p.email)}" style="font-size: 13px; font-weight: 600; color: #000000; text-decoration: none; border: none;">${esc(p.email)}</a></td></tr>`);
+  if(p.phone) rows.push(`<tr><td valign="middle" width="30" style="padding-bottom: 10px;">${sigTile(SIG_ICON.phone)}</td><td valign="middle" style="padding-bottom: 10px; padding-left: 10px;"><span style="font-size: 13px; font-weight: 600; color: #000000;">${esc(p.phone)}</span></td></tr>`);
+  rows.push(`<tr><td valign="middle" width="30">${sigTile(SIG_ICON.pin)}</td><td valign="middle" style="padding-left: 10px;"><span style="font-size: 12px; line-height: 1.4; color: #444444;"><strong>Clearwater Office Park</strong><br>Strubensvalley, Roodepoort, 1735</span></td></tr>`);
   return `
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 28px 0 0 0; border-top: 1px solid #e2e8f0;">
-                    <tr><td style="padding: 20px 0 0 0;">
-                        <table border="0" cellspacing="0" cellpadding="0"><tr>
+                <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Roboto', Arial, sans-serif; width: 100%; max-width: 520px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 24px;">
+                    <tr>
+                        <td class="col" valign="top" width="140" style="padding-right: 25px;">
                             ${photo}
-                            <td valign="top">
-                                <p style="margin: 0 0 2px 0; font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 700; color: #0a2c3d; line-height: 1.25;">${esc(p.name||'')}</p>
-                                ${p.role ? `<p style="margin: 0 0 6px 0; font-size: 13px; color: #64748b; line-height: 1.4;">${esc(p.role)}</p>` : ''}
-                                ${bits.length ? `<p style="margin: 0; font-size: 13px; line-height: 1.6;">${bits.join(' &nbsp;·&nbsp; ')}</p>` : ''}
-                            </td>
-                        </tr></table>
-                    </td></tr>
+                            <a href="https://smesouthafrica.co.za" target="_blank" style="display: block; background-color: #9c1c1f; color: #ffffff !important; font-size: 11px; font-weight: bold; text-align: center; text-decoration: none; padding: 8px 0; border-radius: 20px; white-space: nowrap; border: none;">smesouthafrica.co.za &rsaquo;</a>
+                        </td>
+                        <td class="col" valign="top">
+                            <h2 style="margin: 0 0 4px 0; font-family: 'Oswald', Arial, sans-serif; font-size: 22px; color: #000000; font-weight: 700; letter-spacing: 0.5px;">${esc(p.name||'')}</h2>
+                            ${p.role ? `<p style="margin: 0 0 15px 0; font-size: 13px; color: #9c1c1f; font-weight: 600;">${esc(p.role)}</p>` : ''}
+                            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;"><tr>${socials}</tr></table>
+                            <table cellpadding="0" cellspacing="0" border="0">${rows.join('')}</table>
+                        </td>
+                    </tr>
                 </table>`;
 }
 
@@ -1145,6 +1267,7 @@ function previewDoc(fragment){
 function renderPreview(bodyHtml){
   state.body = bodyHtml;
   lastFragment = assemble(state.body, false); // clean export copy
+  const pe = document.getElementById('previewEmpty'); if(pe) pe.style.display = 'none';
   const isM = state.previewMode === 'mobile';
   elRes.innerHTML = `
     <div class="preview-wrap">
@@ -1438,6 +1561,7 @@ async function run(){
     renderPreview(bodyHtml);
   }catch(err){
     elRes.innerHTML = '';
+    const pe = document.getElementById('previewEmpty'); if(pe) pe.style.display = '';
     showErr(err.message);
   }finally{
     state.loading = false;
@@ -1522,7 +1646,18 @@ async function suggestWeeklyAction(){
 (function(){ const b=document.getElementById('suggestAction'); if(b) b.addEventListener('click', suggestWeeklyAction); })();
 
 // ---- Header-style variant: re-render when the user switches full/light shell ----
-(function(){ const sv=document.getElementById('shellVariant'); if(sv) sv.addEventListener('change', ()=> renderPreview(state.body)); })();
+(function(){
+  const sv=document.getElementById('shellVariant');
+  const btn=document.getElementById('loadStarter'), hint=document.getElementById('starterHint');
+  function syncStarterBtn(){
+    const has = sv && !!STARTERS[sv.value];
+    if(btn) btn.style.display = has ? 'inline-block' : 'none';
+    if(hint) hint.style.display = has ? 'inline' : 'none';
+  }
+  if(sv) sv.addEventListener('change', ()=>{ syncStarterBtn(); renderPreview(state.body); });
+  if(btn) btn.addEventListener('click', loadStarter);
+  syncStarterBtn();
+})();
 
 // ---- Editable salutation: live-update the preview + a variety "audit" (like Studio's scorecard) ----
 function normGreet(s){ return String(s||'').replace(/\{\{[^}]*\}\}/g,'').replace(/\s+/g,' ').trim().toLowerCase(); }
