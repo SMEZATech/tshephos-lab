@@ -65,10 +65,25 @@
   .pull-item{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0D0F15;cursor:pointer;font-size:13px;line-height:1.5;color:var(--dim);margin-bottom:7px;transition:border-color .14s,color .14s;}
   .pull-item:hover{border-color:var(--accent);color:var(--text);}
   .pull-src{font-family:var(--fm);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);display:block;margin-bottom:3px;}
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
 </style>
 </head>
 <body>
 <main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="analytics.html">📊 Stats</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <span class="tab active">📅 Schedule</span>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <a class="tab" href="videotok.html">🎙️ Transcribe</a>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
   <h1>📅 Schedule</h1>
   <p class="sub">Compose once, then choose where it goes. Volt sends your post to the channels you pick and schedules it through your connected Postiz — the same connection Stats reads from.</p>
 

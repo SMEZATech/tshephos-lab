@@ -59,10 +59,25 @@
   .genimg-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .genimg-row select{background:var(--surface-2);color:var(--text);border:1px solid var(--border-2);border-radius:9px;padding:7px 9px;font-family:var(--fm);font-size:11.5px;cursor:pointer;}
   .genimg-row select option{background:#14171F;color:#ECEEF3;}
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
 </style>
 </head>
 <body>
 <main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="analytics.html">📊 Stats</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="schedule.html">📅 Schedule</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <span class="tab active">🎙️ Transcribe</span>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
   <h1>📝 Transcribe</h1>
   <p class="sub">Drop in a transcript (or transcribe a clip), and Volt repurposes it: <b style="color:var(--text)">YouTube titles, description, tags &amp; chapters</b>, a scroll-stopping <b style="color:var(--text)">TikTok / Reels</b> caption, a full <b style="color:var(--text)">article</b> (800+ words), or a ready-to-send <b style="color:var(--text)">email</b>.</p>
 
