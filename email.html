@@ -184,10 +184,16 @@ Keep it warm and practical."></textarea>
 
     <div class="row" style="margin-top:22px;">
       <div class="field">
-        <label class="lbl">Header style <span class="opt">— per send</span></label>
+        <label class="lbl">Template <span class="opt">— per send</span></label>
         <select id="shellVariant">
-          <option value="full">Full branded (warm / Tuesday newsletter)</option>
-          <option value="light">Light &amp; personal (win-back / cold segment)</option>
+          <option value="full">📰 Tuesday Brief — full branded</option>
+          <option value="thursday">🧰 Thursday Toolkit — opportunities</option>
+          <option value="funding">💰 SME Funding Weekly</option>
+          <option value="sequence">✉️ Sequence / offer email</option>
+          <option value="community">🤝 Community letter (personal)</option>
+          <option value="sponsored">🏷️ Sponsored — brand takeover</option>
+          <option value="hub">🎟️ SME HUB / Membership</option>
+          <option value="light">🪶 Light &amp; personal (win-back)</option>
         </select>
       </div>
       <div class="field">
@@ -315,6 +321,79 @@ Keep it warm and practical."></textarea>
             <button type="button" class="addlink" id="suggestAction">✨ Suggest from email</button>
             <span class="opt" id="actionStatus" style="margin-left:8px;"></span>
           </div>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-opportunity">
+        <div class="promo-head" data-toggle="opportunity">
+          <span class="em">💰</span>
+          <span class="nm">Opportunity card</span>
+          <span class="hint">funding, grant, tender or event — add one per opportunity</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="op-title" placeholder="Opportunity name — e.g. Lulalend Fast Working Capital" />
+          <div class="row">
+            <select class="field-sm" id="op-type">
+              <option value="debt">Debt (blue tag)</option>
+              <option value="grant" selected>Grant / blended (green tag)</option>
+              <option value="equity">Equity (purple tag)</option>
+              <option value="event">Event (yellow tag)</option>
+            </select>
+            <input class="field-sm" id="op-tag" placeholder="Tag text — e.g. Debt, Blended, Grant" />
+          </div>
+          <input id="op-deadline" placeholder="Deadline (optional) — e.g. 31 August 2026. This is what earns the open." />
+          <input id="op-best" placeholder="Best for — e.g. Short-term cash flow gaps or buying inventory" />
+          <textarea id="op-body" rows="3" placeholder="What it is, who qualifies, how much. For an in-text link use [text](https://…)."></textarea>
+          <div class="row">
+            <input class="field-sm" id="op-btn" placeholder="Button text — e.g. CHECK ELIGIBILITY" />
+            <input class="field-sm" id="op-link" placeholder="Button link — full URL" />
+          </div>
+          <p style="font-size:12.5px; color:var(--faint); margin:8px 0 0; line-height:1.5;">Toggle this on once per opportunity — duplicate the section with ▲▼ to stack several. Always fill the deadline: urgency is the one thing Thursday has that Tuesday doesn't.</p>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-cta">
+        <div class="promo-head" data-toggle="cta">
+          <span class="em">🎯</span>
+          <span class="nm">Offer / CTA block</span>
+          <span class="hint">one big button — for sequences &amp; sponsored sends</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="cta-kicker" placeholder="Kicker (optional) — e.g. PARTNER OFFER" />
+          <input id="cta-title" placeholder="Headline — e.g. 3 months of Sage Accounting, free" />
+          <textarea id="cta-body" rows="3" placeholder="The pitch. One or two short paragraphs. For an in-text link use [text](https://…)."></textarea>
+          <textarea id="cta-bullets" rows="3" placeholder="What they get — one benefit per line. Renders as a numbered list."></textarea>
+          <div class="row">
+            <input class="field-sm" id="cta-btn" placeholder="Button text — e.g. CLAIM YOUR 3 FREE MONTHS" />
+            <input class="field-sm" id="cta-link" placeholder="Button link — full URL" />
+          </div>
+          <p style="font-size:12.5px; color:var(--faint); margin:8px 0 0; line-height:1.5;">Renders a bulletproof button with an Outlook (VML) fallback, so it survives every client. Needs both a button text and a link to appear.</p>
+        </div>
+      </div>
+
+      <div class="promo" id="promo-signature">
+        <div class="promo-head" data-toggle="signature">
+          <span class="em">✍️</span>
+          <span class="nm">Your signature</span>
+          <span class="hint">sign as a person, not info@ — saved on this device</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <div class="row">
+            <input class="field-sm" id="sg-name" placeholder="Your name — e.g. Thabo Mokoena" />
+            <input class="field-sm" id="sg-role" placeholder="Role — e.g. Community Manager, SME South Africa" />
+          </div>
+          <div class="row">
+            <input class="field-sm" id="sg-email" placeholder="Your work email — e.g. thabo@smesouthafrica.co.za" />
+            <input class="field-sm" id="sg-phone" placeholder="Phone (optional)" />
+          </div>
+          <div class="row">
+            <input class="field-sm" id="sg-photo" placeholder="Headshot URL (optional) — shown as a circle" />
+            <input class="field-sm" id="sg-linkedin" placeholder="LinkedIn URL (optional)" />
+          </div>
+          <p style="font-size:12.5px; color:var(--faint); margin:8px 0 0; line-height:1.5;">Community and HUB emails get markedly better replies when they come from a named person on their own work address rather than info@. Fill this once — it's remembered on this device for every future send.</p>
         </div>
       </div>
 
@@ -509,6 +588,173 @@ const SHELL_BOTTOM = `
     <!--[if mso]></td></tr></table><![endif]-->
 </div>`;
 
+// ===================================================================
+// ADDITIONAL TEMPLATES — Thursday, Funding Weekly, Sequence,
+// Community, Sponsored takeover, SME HUB.
+// Every top opens the SAME wrapper nesting that the bottoms close, and every
+// top carries the exact greeting <p> that shellTopWithGreeting() swaps into.
+// ===================================================================
+const SHELL_CSS = `
+    <style>
+        table { border-collapse: collapse !important; }
+        h2 { font-family: 'Oswald', sans-serif; color: #0a2c3d; font-size: 22px; font-weight: 700; margin: 20px 0 10px 0; letter-spacing: 0.5px; line-height: 1.35; display: block; word-wrap: break-word; }
+        p { font-family: 'Roboto', sans-serif; color: #444444; line-height: 1.6; font-size: 15px; margin-bottom: 12px; margin-top: 0; }
+        a { color: #9c1c1f !important; text-decoration: none; font-weight: bold; border-bottom: 1px solid rgba(156,28,31,0.3); }
+        .newsletter-image { width: 100%; height: auto; display: block; margin: 15px 0; border-radius: 8px; border: 1px solid #eeeeee; }
+        .related-reading { background-color: #f8fafc; padding: 15px 18px; border-left: 4px solid #9c1c1f; margin: 12px 0 20px 0; font-size: 14px; line-height: 1.5; border-radius: 0 8px 8px 0; }
+        .related-reading span { font-family: 'Oswald', sans-serif; color: #64748b; text-transform: uppercase; font-size: 12px; font-weight: 900; margin-right: 5px; letter-spacing: 0.5px; }
+        .related-link { font-style: normal; font-weight: 700; color: #0a2c3d !important; text-decoration: none; border-bottom: 1px solid transparent; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
+        u + #body a { color: inherit !important; text-decoration: none !important; }
+        #MessageViewBody a { color: inherit !important; text-decoration: none !important; }
+        @media only screen and (max-width: 480px) {
+            .main-wrapper { width: 100% !important; margin: 0 !important; border-radius: 0 !important; border: none !important; }
+            .content-padding, .mobile-padding, .related-reading { padding: 15px !important; }
+            h2 { font-size: 18px !important; }
+            .col, .stack-mobile { display: block !important; width: 100% !important; padding: 0 0 14px 0 !important; }
+            .btn-mobile { display: block !important; width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
+        }
+    </style>`;
+
+const WRAP_OPEN = `
+    <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+    <table class="main-wrapper" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; border: 1px solid #eaeaef; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; border-collapse: separate;">
+        <tr><td style="padding: 0;">`;
+
+const BODY_OPEN = `<div id="body" style="background-color: #f0f2f5; padding: 20px 0; font-family: 'Roboto', Arial, sans-serif;">`;
+const GREET_BOSS = `<p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Boss" }},</p>`;
+const GREET_THERE = `<p style="margin-top: 0; font-weight: 600;">Hi {{ subscriber.first_name | default: "there" }},</p>`;
+
+// --- Thursday "Toolkit": cool green accent, utility masthead. Deliberately NOT the Tuesday look. ---
+const SHELL_TOP_THURSDAY = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="background-color: #0a2c3d; border-bottom: 4px solid #00e08f;">
+                <tr><td align="left" style="padding: 26px 35px 20px 35px;">
+                    <p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: #00e08f; border: none;">Thursday · Toolkit</p>
+                    <p style="margin: 8px 0 0 0; font-family: 'Oswald', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: 1px; color: #ffffff; line-height: 1.15; border: none;">Things you can act on this week</p>
+                    <p style="margin: 8px 0 0 0; font-family: 'Roboto', sans-serif; font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 0.3px; border: none;">Funding · Grants · Tenders · Events · Tools</p>
+                </td></tr>
+            </table>
+            <div class="content-padding mobile-padding" style="padding: 25px 35px;">
+                ${GREET_BOSS}
+`;
+
+// --- SME Funding Weekly: its own logo + specialised list footer. ---
+const SHELL_TOP_FUNDING = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
+            <div style="height: 6px; background-color: #0a2c3d; font-size: 0; line-height: 0;">&nbsp;</div>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+                <tr><td align="center" style="padding: 35px 40px 25px 40px; border-bottom: 1px solid #f3f5f9;">
+                    <a href="https://smesouthafrica.co.za/sme-funding/" target="_blank" style="border: none;">
+                        <img src="https://smesouthafrica.co.za/wp-content/uploads/2026/03/sme-funding-logo.svg" alt="SME Funding" width="240" style="display: block; width: 240px; max-width: 100%; border: 0; margin: 0 auto;">
+                    </a>
+                </td></tr>
+            </table>
+            <div class="content-padding mobile-padding" style="padding: 25px 35px;">
+                ${GREET_THERE}
+`;
+
+// --- Sequence / single-offer email (Sage pattern): logo, generous padding, one CTA. ---
+const SHELL_TOP_SEQUENCE = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
+            <div style="height: 6px; background-color: #0a2c3d; font-size: 0; line-height: 0;">&nbsp;</div>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+                <tr><td align="center" style="padding: 30px 40px; border-bottom: 1px solid #f3f5f9;">
+                    <img src="https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png" alt="SME South Africa" width="180" style="display: block; width: 180px; max-width: 100%; border: 0; margin: 0 auto;">
+                </td></tr>
+            </table>
+            <div class="content-padding mobile-padding" style="padding: 38px 35px 30px 35px;">
+                ${GREET_THERE}
+`;
+
+// --- Community letter: no banner at all. Text-forward so it reads like a human wrote it. ---
+const SHELL_TOP_COMMUNITY = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
+            <div class="content-padding mobile-padding" style="padding: 34px 35px 28px 35px;">
+                <p style="margin: 0 0 20px 0; font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #9c1c1f; border: none;">SME South Africa · Community</p>
+                ${GREET_THERE}
+`;
+
+// --- Sponsored takeover: partner strip up top so the ad is disclosed, not disguised. ---
+const SHELL_TOP_SPONSORED = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
+            <div style="height: 6px; background-color: #9c1c1f; font-size: 0; line-height: 0;">&nbsp;</div>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                <tr><td align="center" style="padding: 14px 35px;">
+                    <p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #94a3b8; border: none;">Presented by our partner</p>
+                </td></tr>
+            </table>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+                <tr><td align="center" style="padding: 28px 40px 22px 40px; border-bottom: 1px solid #f3f5f9;">
+                    <img src="https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png" alt="SME South Africa" width="160" style="display: block; width: 160px; max-width: 100%; border: 0; margin: 0 auto;">
+                </td></tr>
+            </table>
+            <div class="content-padding mobile-padding" style="padding: 30px 35px;">
+                ${GREET_THERE}
+`;
+
+// --- SME HUB / membership: signed by a real person, so pair it with the Signature section. ---
+const SHELL_TOP_HUB = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
+            <div style="height: 6px; background-color: #0a2c3d; font-size: 0; line-height: 0;">&nbsp;</div>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="border-bottom: 1px solid #f3f5f9;">
+                <tr><td align="left" style="padding: 26px 35px 20px 35px;">
+                    <p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 24px; font-weight: 900; letter-spacing: 1px; color: #0a2c3d; line-height: 1.1; border: none;">SME <span style="color: #9c1c1f;">HUB</span></p>
+                    <p style="margin: 7px 0 0 0; font-family: 'Roboto', sans-serif; font-size: 11.5px; color: #64748b; letter-spacing: 0.4px; border: none;">Your membership · tools, community &amp; support</p>
+                </td></tr>
+            </table>
+            <div class="content-padding mobile-padding" style="padding: 26px 35px;">
+                ${GREET_THERE}
+`;
+
+// Minimal footer — for personal / transactional / sponsored sends. No social wall, no info@ CTA,
+// because those sends should feel like they came from a person, not the brand switchboard.
+const SHELL_BOTTOM_MIN = `
+                <div class="mobile-padding" style="background-color: #f8fafc; border-radius: 12px; padding: 24px 20px; border: 1px solid #e2e8f0; text-align: center; margin-top: 32px;">
+                    <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0 0 10px 0; text-align: center;">SME South Africa | Building 2, 1st Floor, Clearwater Office Park, Strubens Valley, Roodepoort</p>
+                    <p style="font-size: 11px; color: #94a3b8; margin: 0; text-align: center;">You're receiving this because you subscribed to SME South Africa.<br>
+                        <a href="{{ unsubscribe_url }}" style="color: #94a3b8 !important; text-decoration: underline; font-weight: normal; border: none;">Unsubscribe</a>
+                    </p>
+                </div>
+            </div>
+        </td></tr>
+    </table>
+    <!--[if mso]></td></tr></table><![endif]-->
+</div>`;
+
+// Funding Weekly footer — its own logo + a list-specific unsubscribe so people can drop
+// funding without losing the Tuesday newsletter.
+const SHELL_BOTTOM_FUNDING = `
+                <div class="mobile-padding" style="background-color: #f8fafc; border-radius: 12px; padding: 25px 20px; border: 1px solid #e2e8f0; text-align: center; margin-top: 35px;">
+                    <img src="https://smesouthafrica.co.za/wp-content/uploads/2026/03/sme-funding-logo.svg" alt="SME Funding" width="150" style="display: block; margin: 0 auto 15px auto; width: 150px; opacity: 0.8; border: 0;">
+                    <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 0; text-align: center;">A specialised newsletter by SME South Africa.<br>Building 2, 1st Floor, Clearwater Office Park, Strubens Valley</p>
+                    <table width="40%" align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 15px auto;"><tr><td style="border-top: 1px solid #cbd5e1; opacity: 0.5; font-size: 1px; line-height: 1px;">&nbsp;</td></tr></table>
+                    <p style="font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px 0; text-align: center;">Connect With Us</p>
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 15px auto;"><tr>
+                        <td style="padding: 0 6px;"><a href="https://www.instagram.com/sme_za/" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384031.png" width="16" alt="Instagram" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://www.facebook.com/SMESouthAfrica" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384005.png" width="16" alt="Facebook" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://www.linkedin.com/company/18100109/" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384014.png" width="16" alt="LinkedIn" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://whatsapp.com/channel/0029VafRQykBA1etEjbSak3J" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384007.png" width="16" alt="WhatsApp" style="display: block; opacity: 0.8; border: none;"></a></td>
+                        <td style="padding: 0 6px;"><a href="https://www.youtube.com/@SMESouthAfricaOfficial" target="_blank"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384012.png" width="16" alt="YouTube" style="display: block; opacity: 0.8; border: none;"></a></td>
+                    </tr></table>
+                    <p style="margin: 0; font-family: 'Roboto', sans-serif; font-size: 11px; color: #94a3b8; line-height: 1.4; text-align: center;">Not looking for funding? <a href="{{ unsubscribe_url }}" style="color: #64748b !important; text-decoration: underline; border: none; font-weight: normal;">Unsubscribe from this specific list here</a>.</p>
+                </div>
+            </div>
+        </td></tr>
+    </table>
+    <!--[if mso]></td></tr></table><![endif]-->
+</div>`;
+
+// The template registry. Keys are persisted in drafts — never rename an existing key.
+const TEMPLATES = {
+  full:      { label: 'Tuesday Brief — full branded',     top: () => SHELL_TOP,           bottom: () => SHELL_BOTTOM },
+  light:     { label: 'Light & personal (win-back)',      top: () => SHELL_TOP_LIGHT,     bottom: () => SHELL_BOTTOM },
+  thursday:  { label: 'Thursday Toolkit — opportunities', top: () => SHELL_TOP_THURSDAY,  bottom: () => SHELL_BOTTOM },
+  funding:   { label: 'SME Funding Weekly',               top: () => SHELL_TOP_FUNDING,   bottom: () => SHELL_BOTTOM_FUNDING },
+  sequence:  { label: 'Sequence / offer email',           top: () => SHELL_TOP_SEQUENCE,  bottom: () => SHELL_BOTTOM_MIN },
+  community: { label: 'Community letter (personal)',      top: () => SHELL_TOP_COMMUNITY, bottom: () => SHELL_BOTTOM_MIN },
+  sponsored: { label: 'Sponsored — brand takeover',       top: () => SHELL_TOP_SPONSORED, bottom: () => SHELL_BOTTOM_MIN },
+  hub:       { label: 'SME HUB / Membership',             top: () => SHELL_TOP_HUB,       bottom: () => SHELL_BOTTOM_MIN }
+};
+function currentTpl(){
+  const v = $('#shellVariant') ? $('#shellVariant').value : 'full';
+  return TEMPLATES[v] || TEMPLATES.full;
+}
+
 const HR = `<hr style="border: 0; border-top: 2px dashed #e2e8f0; margin: 25px 0;">`;
 
 // Promo block templates — filled from the form fields.
@@ -653,7 +899,7 @@ const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a b
                 <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/" class="related-link">5 Networking Tips To Help Your Business Grow</a></div>`;
 
 const state = { brief:'', loading:false, body:null, previewMode:'desktop', freeform:false, editedContent:null,
-  promos:{ content:{on:false}, webinar:{on:false}, resource:{on:false}, podcast:{on:false}, sponsored:{on:false}, task:{on:false}, custom:{on:false} } };
+  promos:{ content:{on:false}, webinar:{on:false}, resource:{on:false}, podcast:{on:false}, sponsored:{on:false}, task:{on:false}, opportunity:{on:false}, cta:{on:false}, signature:{on:false}, custom:{on:false} } };
 
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
 let lastFragment = '';
@@ -759,6 +1005,77 @@ function collectLinks(){
 // Each promo's builder returns its HTML (or '' if not filled in). Order comes from the DOM
 // order of the .promo cards, so moving a card up/down moves the section in the email.
 function promoVal(id){ const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+// --- Opportunity card (Thursday Toolkit + Funding Weekly). Deadline is the whole point:
+// it's the reason Thursday earns an open that Tuesday structurally can't offer. ---
+const OPP_TAGS = { debt:['#e0f2fe','#0284c7'], grant:['#dcfce7','#166534'], equity:['#f3e8ff','#7e22ce'], event:['#fef9c3','#854d0e'] };
+function opportunityBlock(p){
+  const pair = OPP_TAGS[p.tagType] || OPP_TAGS.grant;
+  const tag = p.tag ? `<span style="display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-family: 'Oswald', sans-serif; background-color: ${pair[0]}; color: ${pair[1]};">${esc(p.tag)}</span>` : '';
+  const dl = p.deadline ? `<p style="margin: 0 0 12px 0; font-size: 12px; font-family: 'Oswald', sans-serif; letter-spacing: 1px; text-transform: uppercase; color: #9c1c1f; font-weight: 700;">⏳ Closes ${esc(p.deadline)}</p>` : '';
+  const best = p.bestFor ? `<p style="font-size: 14px; color: #64748b; margin: 0 0 12px 0;"><strong>Best for:</strong> ${esc(p.bestFor)}</p>` : '';
+  const body = p.body ? `<p style="font-size: 14px; margin: 0;">${mdLinks(p.body)}</p>` : '';
+  const cta = p.link ? `<table border="0" cellspacing="0" cellpadding="0" style="margin-top: 15px;"><tr>
+                            <td align="center" bgcolor="#9c1c1f" style="border-radius: 6px;">
+                                <a href="${escAttr(p.link)}" target="_blank" class="btn-mobile" style="font-size: 13px; font-family: 'Oswald', sans-serif; font-weight: 700; color: #ffffff !important; text-decoration: none; padding: 10px 20px; border-radius: 6px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; border: none;">${esc(p.btn||'Check eligibility')} &rarr;</a>
+                            </td>
+                        </tr></table>` : '';
+  return `
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 10px; margin: 0 0 20px 0; overflow: hidden; background-color: #ffffff;">
+                    <tr><td style="background-color: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+                            <td align="left"><h3 style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 18px; color: #0f172a;">${esc(p.title)}</h3></td>
+                            <td align="right" width="90">${tag}</td>
+                        </tr></table>
+                    </td></tr>
+                    <tr><td style="padding: 20px;">${dl}${best}${body}${cta}</td></tr>
+                </table>`;
+}
+
+// --- Big bulletproof CTA (Sage pattern) — VML fallback so it survives Outlook. ---
+function ctaBlock(p){
+  if(!p.link || !p.btn) return '';
+  const bl = String(p.bullets||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const ol = bl.length ? `<ol style="margin: 0 0 25px 0; padding-left: 20px; font-size: 15px; color: #334155; line-height: 1.6;">${bl.map(b=>`<li style="margin-bottom: 10px;">${mdLinks(b)}</li>`).join('')}</ol>` : '';
+  return `
+                ${p.kicker ? `<p style="margin: 0 0 6px 0; font-family: 'Oswald', sans-serif; font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #9c1c1f;">${esc(p.kicker)}</p>` : ''}
+                ${p.title ? `<h2>${esc(p.title)}</h2>` : ''}
+                ${p.body ? `<p>${mdLinks(p.body).replace(/\n/g,'<br>')}</p>` : ''}
+                ${ol}
+                <div style="text-align: center; margin: 30px 0 10px 0;">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escAttr(p.link)}" style="height:48px;v-text-anchor:middle;width:280px;" arcsize="12%" stroke="f" fillcolor="#9c1c1f">
+                    <w:anchorlock/>
+                    <center style="color:#ffffff;font-family:'Oswald', Arial, sans-serif;font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:1px;">${esc(p.btn)}</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <a href="${escAttr(p.link)}" target="_blank" class="btn-mobile" style="font-family: 'Oswald', Arial, sans-serif; background-color: #9c1c1f; color: #ffffff !important; padding: 14px 25px; text-decoration: none; border-radius: 6px; font-weight: 900; font-size: 15px; display: inline-block; text-transform: uppercase; letter-spacing: 1px; border: none; mso-hide: all;">${esc(p.btn)}</a>
+                </div>`;
+}
+
+// --- Personal signature. Community/HUB sends land better from a named human on their own
+// work address than from info@ — this is what makes that possible. Details persist locally. ---
+function signatureBlock(p){
+  if(!p.name && !p.email) return '';
+  const photo = p.photo ? `<td width="72" valign="top" style="padding-right: 16px;"><img src="${escAttr(p.photo)}" alt="${escAttr(p.name||'')}" width="56" height="56" style="width: 56px; height: 56px; border-radius: 28px; display: block; border: 0;"></td>` : '';
+  const bits = [];
+  if(p.email) bits.push(`<a href="mailto:${escAttr(p.email)}" style="color: #9c1c1f !important; text-decoration: none; border: none; font-weight: 700;">${esc(p.email)}</a>`);
+  if(p.phone) bits.push(`<span style="color: #64748b;">${esc(p.phone)}</span>`);
+  if(p.linkedin) bits.push(`<a href="${escAttr(p.linkedin)}" target="_blank" style="color: #0a2c3d !important; text-decoration: underline; border: none; font-weight: 700;">LinkedIn</a>`);
+  return `
+                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 28px 0 0 0; border-top: 1px solid #e2e8f0;">
+                    <tr><td style="padding: 20px 0 0 0;">
+                        <table border="0" cellspacing="0" cellpadding="0"><tr>
+                            ${photo}
+                            <td valign="top">
+                                <p style="margin: 0 0 2px 0; font-family: 'Oswald', sans-serif; font-size: 16px; font-weight: 700; color: #0a2c3d; line-height: 1.25;">${esc(p.name||'')}</p>
+                                ${p.role ? `<p style="margin: 0 0 6px 0; font-size: 13px; color: #64748b; line-height: 1.4;">${esc(p.role)}</p>` : ''}
+                                ${bits.length ? `<p style="margin: 0; font-size: 13px; line-height: 1.6;">${bits.join(' &nbsp;·&nbsp; ')}</p>` : ''}
+                            </td>
+                        </tr></table>
+                    </td></tr>
+                </table>`;
+}
+
 const PROMO_BUILDERS = {
   content: () => { const h = promoVal('ct-heading'), b = promoVal('ct-body'); return (h || b) ? contentBlock({ heading:h, body:b, image:promoVal('ct-image'), rrTitle:promoVal('ct-rr-title'), rrLink:promoVal('ct-rr-link') }) : ''; },
   webinar: () => { const t = promoVal('wb-title'); return t ? webinarBlock({ title:t, desc:promoVal('wb-desc'), date:promoVal('wb-date'), link:promoVal('wb-link'), btn:promoVal('wb-btn') }) : ''; },
@@ -766,6 +1083,9 @@ const PROMO_BUILDERS = {
   podcast: () => { const t = promoVal('pc-title'); return t ? podcastBlock({ title:t, guest:promoVal('pc-guest'), guestLink:promoVal('pc-guestlink'), cover:promoVal('pc-cover'), desc:promoVal('pc-desc'), link:promoVal('pc-link'), btn:promoVal('pc-btn'), spotify:promoVal('pc-spotify'), apple:promoVal('pc-apple'), youtube:promoVal('pc-youtube') }) : ''; },
   sponsored: () => { const t = promoVal('sp-title'); return t ? sponsoredBlock({ brand:promoVal('sp-brand'), title:t, body:promoVal('sp-body'), bullets:($('#sp-bullets')?$('#sp-bullets').value:''), link:promoVal('sp-link'), btn:promoVal('sp-btn') }) : ''; },
   task: () => { const t = promoVal('tk-title'); if(!t) return ''; const poll = ($('#tk-poll')?$('#tk-poll').value:'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4); return taskBlock({ ritual:promoVal('tk-ritual'), shout:promoVal('tk-shout'), title:t, body:promoVal('tk-body'), poll, cta:promoVal('tk-cta') }); },
+  opportunity: () => { const t = promoVal('op-title'); return t ? opportunityBlock({ title:t, tag:promoVal('op-tag'), tagType:($('#op-type')?$('#op-type').value:'grant'), bestFor:promoVal('op-best'), body:promoVal('op-body'), deadline:promoVal('op-deadline'), link:promoVal('op-link'), btn:promoVal('op-btn') }) : ''; },
+  cta: () => ctaBlock({ kicker:promoVal('cta-kicker'), title:promoVal('cta-title'), body:promoVal('cta-body'), bullets:($('#cta-bullets')?$('#cta-bullets').value:''), link:promoVal('cta-link'), btn:promoVal('cta-btn') }),
+  signature: () => signatureBlock({ name:promoVal('sg-name'), role:promoVal('sg-role'), email:promoVal('sg-email'), phone:promoVal('sg-phone'), photo:promoVal('sg-photo'), linkedin:promoVal('sg-linkedin') }),
   custom: () => promoVal('cs-html')
 };
 function collectPromos(){
@@ -784,8 +1104,7 @@ function collectPromos(){
 // The export copy is always built with editable=false → clean, wrapper-free HTML.
 // The locked shell top, with the user's salutation swapped in (keeps the merge field).
 function shellTopWithGreeting(){
-  const useLight = $('#shellVariant') && $('#shellVariant').value === 'light';
-  let top = useLight ? SHELL_TOP_LIGHT : SHELL_TOP;
+  let top = currentTpl().top();
   const greeting = ($('#greeting') && $('#greeting').value.trim()) || '';
   if(greeting){ top = top.replace(/(<p style="margin-top: 0; font-weight: 600;">)[\s\S]*?(<\/p>)/, function(_m,a,b){ return a + esc(greeting) + b; }); }
   return top;
@@ -805,7 +1124,7 @@ function assemble(bodyHtml, editable){
   const inner = currentContent(bodyHtml);
   // Everything between the shell (body + all sections) is editable — text & links, not the shell design.
   const content = editable ? '<div class="volt-editable">' + inner + '</div>' : inner;
-  return VIEW_IN_BROWSER + shellTopWithGreeting() + '\n' + content + '\n' + SHELL_BOTTOM;
+  return VIEW_IN_BROWSER + shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom();
 }
 // Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
 // centred container with safe defaults. Used for pasted/imported HTML.
@@ -1234,7 +1553,21 @@ async function autosaveDraft(){
     if(r.ok && d.project){ currentDraftId = d.project.id; setDraftStatus('✅ Autosaved','ok'); setTimeout(()=>{ const s=document.getElementById('draftStatus'); if(s && /Autosaved/.test(s.textContent)) s.textContent=''; }, 1800); }
   }catch(e){}
 }
-document.addEventListener('input', e=>{ const t=e.target; if(t && t.id && /^(brief|subject|previewText|greeting|shellVariant|wb-|rs-|pc-|sp-|tk-|ct-|cs-)/.test(t.id)) scheduleAutosave(); }, true);
+document.addEventListener('input', e=>{ const t=e.target; if(t && t.id && /^(brief|subject|previewText|greeting|shellVariant|wb-|rs-|pc-|sp-|tk-|cta-|ct-|op-|sg-|cs-)/.test(t.id)) scheduleAutosave(); }, true);
+
+// ---- Signature: remembered on this device so the community manager fills it once. ----
+const SIG_KEY = 'volt_signature_v1';
+const SIG_FIELDS = ['sg-name','sg-role','sg-email','sg-phone','sg-photo','sg-linkedin'];
+function saveSig(){
+  const o = {}; SIG_FIELDS.forEach(id => { const el = $('#'+id); if(el) o[id] = el.value; });
+  try{ localStorage.setItem(SIG_KEY, JSON.stringify(o)); }catch(e){}
+}
+function loadSig(){
+  let o = {}; try{ o = JSON.parse(localStorage.getItem(SIG_KEY) || '{}'); }catch(e){ o = {}; }
+  SIG_FIELDS.forEach(id => { const el = $('#'+id); if(el && o[id]) el.value = o[id]; });
+}
+document.addEventListener('input', e => { if(e.target && e.target.id && SIG_FIELDS.indexOf(e.target.id) !== -1) saveSig(); }, true);
+loadSig();
 
 // ---- Merge-field helper: insert a Kit token into the last-focused text box (subject/preview/brief/etc.) ----
 const MERGE_FIELDS = [
