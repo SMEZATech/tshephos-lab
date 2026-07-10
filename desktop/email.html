@@ -148,8 +148,7 @@
   <nav class="topbar">
     <a class="tab" href="index.html">✍️ Copy</a>
     <a class="tab" href="studio.html">🎨 Studio</a>
-    <a class="tab" href="audit.html">🔍 Audit</a>
-    <a class="tab" href="analytics.html">📊 Analytics</a>
+    <a class="tab" href="analytics.html">📊 Stats</a>
     <span class="tab active">✉️ Email</span>
     <a class="tab" href="video.html">🎬 Video</a>
     <a class="tab" href="guide.html">📖 Guide</a>
@@ -208,7 +207,6 @@ Keep it warm and practical."></textarea>
           <option value="thursday">🧰 Thursday Toolkit — opportunities</option>
           <option value="funding">💰 SME Funding Weekly</option>
           <option value="sequence">✉️ Sequence / offer email</option>
-          <option value="community">🤝 Community letter (personal)</option>
           <option value="sponsored">🏷️ Sponsored — brand takeover</option>
           <option value="hub">🎟️ SME HUB / Membership</option>
           <option value="light">🪶 Light &amp; personal (win-back)</option>
@@ -691,13 +689,6 @@ const SHELL_TOP_SEQUENCE = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
                 ${GREET_THERE}
 `;
 
-// --- Community letter: no banner at all. Text-forward so it reads like a human wrote it. ---
-const SHELL_TOP_COMMUNITY = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
-            <div class="content-padding mobile-padding" style="padding: 34px 35px 28px 35px;">
-                <p style="margin: 0 0 20px 0; font-family: 'Oswald', sans-serif; font-size: 12px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase; color: #9c1c1f; border: none;">SME South Africa · Community</p>
-                ${GREET_THERE}
-`;
-
 // --- Sponsored takeover: partner strip up top so the ad is disclosed, not disguised. ---
 const SHELL_TOP_SPONSORED = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
             <div style="height: 6px; background-color: #9c1c1f; font-size: 0; line-height: 0;">&nbsp;</div>
@@ -715,16 +706,17 @@ const SHELL_TOP_SPONSORED = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
                 ${GREET_THERE}
 `;
 
-// --- SME HUB / membership: signed by a real person, so pair it with the Signature section. ---
+// --- SME HUB / membership: matches the approved sme_hub_re_engagement design — navy accent
+// bar + centered SME logo, and a personal signature at the foot (via the Signature section
+// or the HUB starter layout). ---
 const SHELL_TOP_HUB = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
             <div style="height: 6px; background-color: #0a2c3d; font-size: 0; line-height: 0;">&nbsp;</div>
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center" style="border-bottom: 1px solid #f3f5f9;">
-                <tr><td align="left" style="padding: 26px 35px 20px 35px;">
-                    <p style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 24px; font-weight: 900; letter-spacing: 1px; color: #0a2c3d; line-height: 1.1; border: none;">SME <span style="color: #9c1c1f;">HUB</span></p>
-                    <p style="margin: 7px 0 0 0; font-family: 'Roboto', sans-serif; font-size: 11.5px; color: #64748b; letter-spacing: 0.4px; border: none;">Your membership · tools, community &amp; support</p>
+            <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
+                <tr><td align="center" style="padding: 30px 40px; border-bottom: 1px solid #f8fafc;" class="content-padding">
+                    <img src="https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png" alt="SME South Africa" width="160" style="display: block; width: 160px; max-width: 100%; border: 0; margin: 0 auto;">
                 </td></tr>
             </table>
-            <div class="content-padding mobile-padding" style="padding: 26px 35px;">
+            <div class="content-padding mobile-padding" style="padding: 40px 40px 30px 40px;">
                 ${GREET_THERE}
 `;
 
@@ -773,7 +765,6 @@ const TEMPLATES = {
   thursday:  { label: 'Thursday Toolkit — opportunities', top: () => SHELL_TOP_THURSDAY,  bottom: () => SHELL_BOTTOM },
   funding:   { label: 'SME Funding Weekly',               top: () => SHELL_TOP_FUNDING,   bottom: () => SHELL_BOTTOM_FUNDING },
   sequence:  { label: 'Sequence / offer email',           top: () => SHELL_TOP_SEQUENCE,  bottom: () => SHELL_BOTTOM_MIN },
-  community: { label: 'Community letter (personal)',      top: () => SHELL_TOP_COMMUNITY, bottom: () => SHELL_BOTTOM_MIN },
   sponsored: { label: 'Sponsored — brand takeover',       top: () => SHELL_TOP_SPONSORED, bottom: () => SHELL_BOTTOM_MIN },
   hub:       { label: 'SME HUB / Membership',             top: () => SHELL_TOP_HUB,       bottom: () => SHELL_BOTTOM_MIN }
 };
@@ -849,8 +840,21 @@ const STARTERS = {
                 </table>
                 <p style="font-size: 16px; color: #334155; margin-bottom: 30px;">The answers to your current bottlenecks are probably already sitting in these forums. Jump back in, ask a question, or share your own expertise.</p>
                 ${ctaBlock({ link:'https://smesouthafrica.co.za/groups/general/forum/', btn:"See what's happening inside" })}
-                <p style="font-size: 16px; color: #334155; margin: 30px 0 0 0;">Hope to see you online soon. <em>Toggle the "Your signature" section on the left to sign off personally.</em></p>`
+                <p style="font-size: 16px; color: #334155; margin: 30px 0 0 0;">Hope to see you online soon.</p>
+                ${signatureBlock(sigForStarter())}`
 };
+// Signature details for a starter: the community manager's saved details, else the approved
+// Karabo example so the HUB starter looks complete out of the box (edit inline or in Signature).
+function sigForStarter(){
+  const saved = (function(){ try{ return JSON.parse(localStorage.getItem('volt_signature_v1')||'{}'); }catch(e){ return {}; } })();
+  return {
+    name: saved['sg-name'] || 'Karabo Kgophane',
+    role: saved['sg-role'] || 'Social Media & Digital Community Manager',
+    email: saved['sg-email'] || 'karabo@smesouthafrica.co.za',
+    phone: saved['sg-phone'] || '011 704 2641',
+    photo: saved['sg-photo'] || 'https://smesouthafrica.co.za/wp-content/uploads/2025/02/SME-South-Africa-Team-Members_0000s_0004_3-2048x2048.jpg'
+  };
+}
 function loadStarter(){
   const v = $('#shellVariant') ? $('#shellVariant').value : 'full';
   let s = STARTERS[v];
@@ -1268,6 +1272,7 @@ function renderPreview(bodyHtml){
   state.body = bodyHtml;
   lastFragment = assemble(state.body, false); // clean export copy
   const pe = document.getElementById('previewEmpty'); if(pe) pe.style.display = 'none';
+  const pc = document.querySelector('.preview-col'); if(pc) pc.scrollTop = 0; // always show the top of a fresh render
   const isM = state.previewMode === 'mobile';
   elRes.innerHTML = `
     <div class="preview-wrap">

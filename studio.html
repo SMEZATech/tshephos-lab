@@ -130,8 +130,7 @@
             <nav class="nav-tabs">
                 <a class="nav-tab" href="index.html">✍️ Copy</a>
                 <span class="nav-tab active">🎨 Studio</span>
-                <a class="nav-tab" href="audit.html">🔍 Audit</a>
-                <a class="nav-tab" href="analytics.html">📊 Analytics</a>
+                <a class="nav-tab" href="analytics.html">📊 Stats</a>
                 <a class="nav-tab" href="email.html">✉️ Email</a>
                 <a class="nav-tab" href="video.html">🎬 Video</a>
                 <a class="nav-tab" href="guide.html">📖 Guide</a>
@@ -2083,9 +2082,9 @@ self.onmessage = async (e) => {
         if (!state.showFooter) return '';
         return ''
           + '<div class="flex justify-between items-center w-full border-t border-' + lineColor + ' pt-6 mt-8 shrink-0">'
-          +   '<div class="flex items-center gap-3">'
-          +     '<svg class="w-6 h-6 text-sme-red shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>'
-          +     '<span class="' + textColor + ' font-oswald font-bold text-2xl tracking-widest uppercase leading-none mt-1">Read Insight</span>'
+          +   '<div class="flex items-center gap-3 ' + textColor + '">'
+          +     '<svg class="w-7 h-7 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V19.5"></path></svg>'
+          +     '<span class="font-oswald font-bold text-2xl tracking-widest uppercase leading-none mt-1">Read Insight</span>'
           +   '</div>'
           +   '<div class="flex items-center gap-3 ' + textColor + '">'
           +     '<svg class="w-6 h-6 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>'
