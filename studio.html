@@ -912,8 +912,8 @@ const Layouts = {
             const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 18 };
             const urlW = r.textWidth(urlText, urlFont);
-            r.drawIconPath(ICON.globe, innerX + innerW - 26, footerY + 24, 26, BRAND.white, 2.5);
-            r.drawLines([urlText], urlFont, innerX + innerW - urlW - 36, footerY + 26, urlW, { color: BRAND.white });
+            r.drawIconPath(ICON.globe, innerX + innerW - urlW - 36, footerY + 24, 26, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, innerX + innerW - urlW, footerY + 26, urlW, { color: BRAND.white });
         }
     },
 
@@ -955,8 +955,8 @@ const Layouts = {
             const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 18 };
             const urlW = r.textWidth(urlText, urlFont);
-            r.drawIconPath(ICON.globe, W - pad - 26, footerY + 24, 26, BRAND.white, 2.5);
-            r.drawLines([urlText], urlFont, W - pad - urlW - 36, footerY + 26, urlW, { color: BRAND.white });
+            r.drawIconPath(ICON.globe, W - pad - urlW - 36, footerY + 24, 26, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, W - pad - urlW, footerY + 26, urlW, { color: BRAND.white });
         }
     },
 
@@ -1019,8 +1019,8 @@ const Layouts = {
             const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 16 };
             const urlW = r.textWidth(urlText, urlFont);
-            r.drawIconPath(ICON.globe, innerX + innerW - 24, footerY + 22, 24, BRAND.navy, 2.5);
-            r.drawLines([urlText], urlFont, innerX + innerW - urlW - 32, footerY + 22, urlW, { color: BRAND.navy });
+            r.drawIconPath(ICON.globe, innerX + innerW - urlW - 34, footerY + 22, 24, BRAND.navy, 2.5);
+            r.drawLines([urlText], urlFont, innerX + innerW - urlW, footerY + 22, urlW, { color: BRAND.navy });
         }
     },
 
@@ -1053,7 +1053,8 @@ const Layouts = {
             const urlW = r.textWidth(BRAND.url, urlFont);
             r.drawIconPath(ICON.globe, innerX + innerW - urlW - 34, fy + 26, 22, BRAND.red, 2.5);
             r.drawLines([BRAND.url], urlFont, innerX + innerW - urlW, fy + 28, urlW, { color: BRAND.navy });
-            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: Math.round(W * 0.02) }, innerX, fy + 24, innerW, { align: 'left', color: BRAND.red });
+            r.drawIconPath(ICON.book, innerX, fy + 24, 22, BRAND.red, 2.2);
+            r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: Math.round(W * 0.02) }, innerX + 34, fy + 24, innerW - 34, { align: 'left', color: BRAND.red });
         }
     },
 
@@ -1383,8 +1384,8 @@ const Layouts = {
             const urlText = BRAND.url;
             const urlFont = { family: 'Roboto', weight: '700', size: 18 };
             const urlW = r.textWidth(urlText, urlFont);
-            r.drawIconPath(ICON.globe, W - pad - 26, footerY + 24, 26, BRAND.white, 2.5);
-            r.drawLines([urlText], urlFont, W - pad - urlW - 36, footerY + 26, urlW, { color: BRAND.white });
+            r.drawIconPath(ICON.globe, W - pad - urlW - 36, footerY + 24, 26, BRAND.white, 2.5);
+            r.drawLines([urlText], urlFont, W - pad - urlW, footerY + 26, urlW, { color: BRAND.white });
         }
     },
 
