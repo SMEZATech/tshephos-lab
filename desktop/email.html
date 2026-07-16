@@ -657,7 +657,7 @@ const GREET_THERE = `<p style="margin-top: 0; font-weight: 600;">Hi {{ subscribe
 // approved sme_weekly_digest_thursday_edition design exactly. ---
 const SHELL_TOP_THURSDAY = `${BODY_OPEN}${SHELL_CSS}${WRAP_OPEN}
             <table width="100%" border="0" cellspacing="0" cellpadding="0" align="center">
-                <tr><td align="center" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #020617 100%); padding: 35px 40px;" class="content-padding">
+                <tr><td align="center" bgcolor="#0a2c3d" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #020617 100%); padding: 35px 40px;" class="content-padding">
                     <img src="https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png" alt="SME South Africa" width="160" style="display: block; width: 160px; max-width: 100%; border: 0; margin: 0 auto;">
                 </td></tr>
             </table>
@@ -1306,7 +1306,8 @@ function renderPreview(bodyHtml){
       </div>
       <div class="eimg-panel" id="eimgPanel">
         <input type="text" id="imgUrl" class="eimg-url" placeholder="Image URL — https://… (a hosted image works best in email)" />
-        <input type="text" id="imgAlt" placeholder="Alt text (optional)" style="max-width:190px;" />
+        <input type="text" id="imgAlt" placeholder="Alt text (optional)" style="max-width:170px;" />
+        <input type="text" id="imgLink" placeholder="🔗 Link URL (optional) — where a click goes" style="max-width:220px;" />
         <input type="file" id="imgFile" accept="image/*" hidden />
         <button class="mini" id="imgFileBtn">⬆ Upload</button>
         <button class="btn" id="imgInsert" style="padding:11px 20px; font-size:13.5px;">Insert image</button>
@@ -1474,7 +1475,11 @@ function insertImage(){
   const url = (document.getElementById('imgUrl').value || '').trim();
   if(!url){ showErr('Add an image URL or upload a file first.'); return; }
   const alt = escAttr((document.getElementById('imgAlt').value || '').trim());
-  const html = '<img src="' + escAttr(url) + '" alt="' + alt + '" class="newsletter-image" />';
+  // Optional click-through link. Bare domains get https://; the anchor is email-safe (target + no underline).
+  let link = (document.getElementById('imgLink') ? document.getElementById('imgLink').value : '').trim();
+  if(link && !/^https?:\/\//i.test(link) && !/^mailto:/i.test(link)) link = 'https://' + link;
+  let html = '<img src="' + escAttr(url) + '" alt="' + alt + '" class="newsletter-image" />';
+  if(link){ html = '<a href="' + escAttr(link) + '" target="_blank" style="display:block;text-decoration:none;border:0;">' + html + '</a>'; }
   const doc = editableDocRef;
   if(doc){
     const ed = doc.querySelector('.volt-editable');
@@ -1489,6 +1494,7 @@ function insertImage(){
   }
   document.getElementById('imgUrl').value = '';
   document.getElementById('imgAlt').value = '';
+  if(document.getElementById('imgLink')) document.getElementById('imgLink').value = '';
   document.getElementById('eimgPanel').classList.remove('show');
   hideErr();
 }
