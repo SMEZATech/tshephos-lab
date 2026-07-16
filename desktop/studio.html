@@ -191,8 +191,34 @@
                 <p class="text-[10px] text-slate-500 leading-snug">Scraper extracts headline, image, and runs the smart slicer to auto-populate carousel slides from the article description.</p>
             </div>
 
-            <!-- Step 2: Strategic Format -->
+            <!-- Step 0: What do you want to design? (content-type switch) -->
             <div>
+                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">What do you want to design?</label>
+                <div class="grid grid-cols-3 gap-2" id="content-type-switch">
+                    <button onclick="setContentType('creative')"  id="ct-creative"  class="ct-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-2.5 px-2 rounded-lg border border-red-500 transition-all text-[11px] uppercase tracking-wide">🎨 Creative</button>
+                    <button onclick="setContentType('funding')"   id="ct-funding"   class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">💰 Funding</button>
+                    <button onclick="setContentType('reviews')"   id="ct-reviews"   class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">■ Reviews</button>
+                    <button onclick="setContentType('solutions')" id="ct-solutions" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">◆ Solutions</button>
+                    <button onclick="setContentType('newsletter')" id="ct-newsletter" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">✉ Newsletter</button>
+                    <button onclick="setContentType('resources')" id="ct-resources" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">▤ Resources</button>
+                </div>
+                <p class="text-[10px] text-slate-500 leading-snug mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
+            </div>
+
+            <!-- Premium content-type controls (hidden for Creative) -->
+            <div id="premium-controls" class="hidden">
+                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">Design direction</label>
+                <div class="grid grid-cols-3 gap-2 mb-3" id="premium-dirs">
+                    <button onclick="setPremiumDir('a')" id="pdir-a" class="pdir-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-2.5 rounded-lg border border-red-500 text-[11px] uppercase tracking-wide">A</button>
+                    <button onclick="setPremiumDir('b')" id="pdir-b" class="pdir-btn bg-slate-800 text-slate-400 font-bold py-2.5 rounded-lg border border-slate-600 text-[11px] uppercase tracking-wide">B</button>
+                    <button onclick="setPremiumDir('c')" id="pdir-c" class="pdir-btn bg-slate-800 text-slate-400 font-bold py-2.5 rounded-lg border border-slate-600 text-[11px] uppercase tracking-wide">C</button>
+                </div>
+                <p class="text-[11px] font-bold text-slate-300 mb-1" id="pdir-name"></p>
+                <div id="premium-fields" class="flex flex-col gap-2"></div>
+            </div>
+
+            <!-- Step 2: Strategic Format (Creative only) -->
+            <div id="creative-controls">
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">2. Strategic Format</label>
                 <div class="grid grid-cols-2 gap-2 mb-2">
                     <button onclick="setCampaign('standard')" id="camp-standard" class="camp-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-3 px-3 rounded-lg border border-red-500 transition-all text-xs uppercase tracking-wider">
@@ -1510,10 +1536,103 @@ function renderSlide(state, slideIdx, assets, scale) {
 }
 
 // ============ G. MESSAGE HANDLER ============
+// ============ PREMIUM CONTENT-TYPE RENDERER (canvas engine; 1080x1080) ============
+// Renders the same designs shown in the preview, natively on canvas → clean PNG export (no taint).
+const PC = { navy:'#0a2c3d', navy2:'#061f2b', red:'#9c1c1f', off:'#fcf7f8', ink:'#0f172a', slate:'#475569', line:'#e2e8f0', paper:'#ffffff', cbd:'#cbd5e1', f8:'#f8fafc', white:'#ffffff' };
+function pPill(r, x, y, text, bg, fg) {
+    const f = { family: 'Oswald', weight: '700', size: 30 };
+    const t = String(text || '').toUpperCase(), padX = 34, padY = 17, h = 30 + padY * 2;
+    const w = r.textWidth(t, f) + padX * 2;
+    r.fillRoundRect(x, y, w, h, h / 2, bg);
+    r.drawLines([t], f, x + padX, y + padY, w, { color: fg });
+    return h;
+}
+function pButton(r, x, y, w, text, bg, fg) {
+    const h = 112, f = { family: 'Oswald', weight: '700', size: 40 };
+    r.fillRoundRect(x, y, w, h, 22, bg);
+    r.drawLines([String(text || '').toUpperCase()], f, x, y + (h - 40) / 2, w, { color: fg, align: 'center' });
+    return h;
+}
+function pBullet(r, x, y, text, boxColor, txtColor) {
+    const s = 58;
+    r.fillRoundRect(x, y, s, s, 16, boxColor);
+    r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 34 }, x, y + 12, s, { color: '#fff', align: 'center' });
+    r.drawLines([String(text || '')], { family: 'Roboto', weight: '400', size: 40 }, x + s + 28, y + 8, 860, { color: txtColor });
+    return s;
+}
+function drawPremium(r, type, dir, v) {
+    r.ctx.textBaseline = 'top';
+    if (type === 'funding') return drawFunding(r, dir, v || {});
+    r.fillBg(PC.navy); // safety fallback for not-yet-ported types
+}
+function drawFunding(r, dir, v) {
+    const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
+    if (dir === 'b') {
+        r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
+        r.radialGlow(0, H, 500, 'rgba(10,44,61,0.45)', 'rgba(10,44,61,0)');
+        let y = pad;
+        r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: PC.off }); y += 60;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.04, { max: 92, min: 44 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.04 }); y += fit.totalH + 26;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 41 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 41 }, pad, y, iW, { color: PC.off, lineHeight: 1.45 });
+        // white card near bottom
+        const cardH = 210, cardY = H - pad - 112 - 44 - cardH;
+        r.fillRoundRect(pad, cardY, iW, cardH, 30, PC.paper);
+        r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad + 40, cardY + 40, iW - 80, { color: PC.red });
+        r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 52 }, pad + 40, cardY + 84, iW - 80, { color: PC.navy });
+        r.drawLines([String(v.cards || '')], { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cardY + 150, iW - 80, { color: PC.slate });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white);
+        return;
+    }
+    if (dir === 'c') {
+        r.fillBg(PC.paper);
+        r.rect(0, 0, W, 30, PC.navy);
+        let y = pad + 10;
+        pPill(r, pad, y, v.pill, PC.navy, PC.white);
+        r.drawLines(['NEW ⚡'], { family: 'Oswald', weight: '700', size: 34 }, pad, y + 12, iW, { color: PC.red, align: 'right' });
+        y += 100;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 220, 1.04, { max: 80, min: 40 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.navy, lineHeight: 1.04 }); y += fit.totalH + 22;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 39 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 39 }, pad, y, iW, { color: PC.slate, lineHeight: 1.4 }); y += sub.length * 39 * 1.4 + 34;
+        [['AMOUNT NEEDED', v.amount], ['REPAYMENT TERM', v.term]].forEach(pair => {
+            r.drawLines([pair[0]], { family: 'Roboto', weight: '700', size: 30 }, pad, y, iW, { color: PC.slate }); y += 44;
+            r.fillRoundRect(pad, y, iW, 78, 16, '#ffffff');
+            r.ctx.save(); r.ctx.strokeStyle = PC.line; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, 78, 16); r.ctx.stroke(); r.ctx.restore();
+            r.drawLines([String(pair[1] || '')], { family: 'Roboto', weight: '700', size: 42 }, pad + 30, y + 18, iW - 60, { color: PC.navy }); y += 78 + 26;
+        });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white);
+        return;
+    }
+    // dir 'a' (default) — The Product Spec
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+    r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)');
+    let y = pad;
+    y += pPill(r, pad, y, v.pill, PC.red, PC.white) + 42;
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.02, { max: 104, min: 46 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.02 }); y += fit.totalH + 24;
+    const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 42 }, iW);
+    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 42 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.45 }); y += sub.length * 42 * 1.45 + 40;
+    [v.b1, v.b2, v.b3].forEach(b => { if (b) { pBullet(r, pad, y, b, PC.red, PC.f8); y += 58 + 30; } });
+    pButton(r, pad, H - pad - 112 - 56, iW, v.cta, PC.red, PC.white);
+    r.strokeLine(pad, H - pad - 44, W - pad, H - pad - 44, 'rgba(255,255,255,0.1)', 2);
+    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - 30, iW - 60, { color: 'rgba(255,255,255,0.7)' });
+    r.drawLines(['💰'], { family: 'Roboto', weight: '400', size: 34 }, pad, H - pad - 36, iW, { color: PC.red, align: 'right' });
+}
+
 self.onmessage = async (e) => {
     const msg = e.data;
     try {
         applyBrandToWorker(msg.brand);
+        if (msg.type === 'render-premium') {
+            await loadFonts(msg.fontBuffers);
+            const r = new CanvasRenderer(1080, 1080, msg.scale || 2);
+            drawPremium(r, msg.premType, msg.dir, msg.vals);
+            const blob = await r.toBlob('image/png', 1.0);
+            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_premium.png' });
+            return;
+        }
         if (msg.type === 'render-single') {
             self.postMessage({ type: 'progress', percent: 5,  label: 'Loading fonts' });
             await loadFonts(msg.fontBuffers);
@@ -1778,6 +1897,10 @@ self.onmessage = async (e) => {
 
     // App state — single source of truth
     const state = {
+        // contentType 'creative' === the original Studio (Standard/Carousel/Poll/Stat/Quote/Meme),
+        // completely untouched. Any other value routes to the additive Premium content-type engine.
+        contentType:  'creative',
+        premiumDir:   'a',       // A / B / C direction within a premium content type
         campaign:     'standard',
         format:       'landscape',
         theme:        'classic',
@@ -2098,6 +2221,7 @@ self.onmessage = async (e) => {
     }
 
     function renderLayout() {
+        if (state.contentType !== 'creative') { renderPremiumPreview(); return; }  // premium engine handles its own preview
         const f = state.campaign === 'standard' ? state.format
                 : (state.campaign === 'whatsapp' ? 'whatsapp' : 'square');
         let html = '';
@@ -2391,6 +2515,162 @@ self.onmessage = async (e) => {
         renderLayout();
     }
 
+    // ================= PREMIUM CONTENT-TYPE ENGINE (additive; Creative path untouched) =================
+    // Each design is ONE self-contained 360x360 HTML block. The same string drives the live preview
+    // (scaled to fit) AND the PNG export (SVG foreignObject → 1080x1080 canvas), so they cannot drift.
+    const PREM_CSS = `
+      .pcv{position:relative;width:360px;height:360px;overflow:hidden;border-radius:0;font-family:'Roboto',system-ui,sans-serif;color:#fff;box-sizing:border-box;}
+      .pcv *{box-sizing:border-box;margin:0;}
+      .pcv .pad{position:absolute;inset:0;padding:26px;display:flex;flex-direction:column;}
+      .pcv .eyebrow{font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;}
+      .pcv .pill{display:inline-block;font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding:6px 14px;border-radius:24px;}
+      .pcv .h{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;line-height:1.05;}
+      .pcv .btn{font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:13px 20px;border-radius:8px;text-align:center;display:block;}
+      .pcv .chk{display:flex;gap:12px;align-items:flex-start;font-size:13.5px;line-height:1.4;}
+      .pcv .chk .b{flex:none;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:900;color:#fff;}
+      .pcv .glow{position:absolute;border-radius:50%;filter:blur(60px);}
+      .pcv .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding-top:14px;}
+    `;
+    const NAVY='#0a2c3d', NAVY2='#061f2b', REDC='#9c1c1f', OFFW='#fcf7f8', INK='#0f172a', SLATE='#475569', LINE='#e2e8f0', PAPER='#ffffff', GREY='#f3f5f9';
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+    // Content types → directions → default field values. (Funding shipped; others roll next.)
+    const PREMIUM = {
+      funding: { label:'Business Funding', dirs:{
+        a:{ name:'The Product Spec', build:v=>`<div class="pcv" style="background:linear-gradient(160deg,${NAVY},${NAVY2});">
+              <div class="glow" style="width:300px;height:300px;background:rgba(156,28,31,.25);top:-100px;right:-100px;"></div>
+              <div class="pad">
+                <div><span class="pill" style="background:${REDC};color:#fff;">${esc(v.pill)}</span></div>
+                <div class="h" style="font-size:32px;margin:16px 0 8px;">${esc(v.head)}</div>
+                <p style="font-size:14px;color:#cbd5e1;margin-bottom:16px;line-height:1.5;">${esc(v.sub)}</p>
+                <div style="display:flex;flex-direction:column;gap:12px;position:relative;z-index:2;">
+                  <div class="chk"><span class="b" style="background:${REDC};">✓</span><span style="color:#f8fafc">${esc(v.b1)}</span></div>
+                  <div class="chk"><span class="b" style="background:${REDC};">✓</span><span style="color:#f8fafc">${esc(v.b2)}</span></div>
+                  <div class="chk"><span class="b" style="background:${REDC};">✓</span><span style="color:#f8fafc">${esc(v.b3)}</span></div>
+                </div>
+                <a class="btn" style="background:${REDC};color:#fff;margin-top:auto;">${esc(v.cta)}</a>
+                <div class="foot" style="padding-top:16px;border-top:1px solid rgba(255,255,255,.1);"><span style="opacity:.7">${esc(v.url)}</span><span style="color:${REDC}">💰</span></div>
+              </div></div>`,
+            fields:{ pill:'Working Capital', head:'Fuel your growth.', sub:'Flexible business funding to bridge cash flow gaps, buy stock, or expand.', b1:'Up to R5,000,000', b2:'Approval within 24 hours', b3:'No early repayment fees', cta:'Check Eligibility →' } },
+        b:{ name:'Pain-Point Hook', build:v=>`<div class="pcv" style="background:linear-gradient(145deg,${REDC},#7d1518);">
+              <div class="glow" style="width:350px;height:350px;background:rgba(10,44,61,.4);bottom:-100px;left:-100px;"></div>
+              <div class="pad">
+                <div class="eyebrow" style="color:${OFFW};">${esc(v.pill)}</div>
+                <div class="h" style="font-size:30px;margin:12px 0 0;">${esc(v.head)}</div>
+                <p style="font-size:13.5px;line-height:1.45;margin:12px 0;color:${OFFW};opacity:.95;">${esc(v.sub)}</p>
+                <div style="margin-top:auto;background:${PAPER};border-radius:12px;padding:14px;color:${INK};position:relative;z-index:2;">
+                  <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;color:${REDC};letter-spacing:1px;text-transform:uppercase;">${esc(v.cardk)}</div>
+                  <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:18px;color:${NAVY};margin-top:4px;">${esc(v.cardh)}</div>
+                  <div style="font-size:12px;color:${SLATE};margin-top:2px;">${esc(v.cards)}</div>
+                </div>
+                <a class="btn" style="background:${NAVY};color:#fff;margin-top:12px;">${esc(v.cta)}</a>
+              </div></div>`,
+            fields:{ pill:'SME Funding Desk', head:'Got the order, but short on cash?', sub:"Don't let big opportunities slip. We match SA businesses with the right Purchase Order or Invoice funding.", cardk:'Application Timeline', cardh:'Apply in 5 minutes', cards:'No branch visits. No hidden fees.', cta:'Get Matched Today →' } },
+        c:{ name:'Estimator Mockup', build:v=>`<div class="pcv" style="background:${PAPER};color:${INK};">
+              <div style="height:10px;background:${NAVY};position:absolute;top:0;left:0;right:0;"></div>
+              <div class="pad" style="padding-top:30px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span class="pill" style="background:${NAVY};color:#fff;">${esc(v.pill)}</span>
+                  <span style="font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;color:${REDC};">NEW ⚡</span>
+                </div>
+                <div class="h" style="font-size:26px;color:${NAVY};margin:16px 0 10px;">${esc(v.head)}</div>
+                <p style="font-size:13px;color:${SLATE};margin-bottom:14px;line-height:1.4;">${esc(v.sub)}</p>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+                  <div><div style="font-size:11px;font-weight:700;color:${SLATE};margin-bottom:4px;text-transform:uppercase;">Amount Needed</div>
+                    <div style="background:#fff;border:1px solid ${LINE};border-radius:8px;padding:10px 12px;font-weight:700;font-size:14px;color:${NAVY};">${esc(v.amount)}</div></div>
+                  <div><div style="font-size:11px;font-weight:700;color:${SLATE};margin-bottom:4px;text-transform:uppercase;">Repayment Term</div>
+                    <div style="background:#fff;border:1px solid ${LINE};border-radius:8px;padding:10px 12px;font-weight:700;font-size:14px;color:${NAVY};display:flex;justify-content:space-between;"><span>${esc(v.term)}</span><span style="color:${SLATE};font-size:12px;">▼</span></div></div>
+                </div>
+                <a class="btn" style="background:${REDC};color:#fff;margin-top:auto;">${esc(v.cta)}</a>
+                <div class="foot" style="color:${SLATE};padding-top:12px;border-top:1px solid ${LINE};"><span>${esc(v.url)}</span><span style="color:${REDC}">💰</span></div>
+              </div></div>`,
+            fields:{ pill:'Loan Estimator', head:'See what you qualify for.', sub:'Use our online estimator tool to unlock tailored funding offers.', amount:'R 250,000', term:'6 Months', cta:'Calculate My Rate →' } }
+      }}
+    };
+    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website' };
+
+    let premVals = {}; // live editable values for the current type+dir
+    function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }
+    function loadPremDefaults(){
+      const d = currentPremDir(); if(!d) return;
+      const b = currentBrand ? currentBrand() : {};
+      premVals = Object.assign({ url: (b && b.url) || 'smesouthafrica.co.za' }, d.fields);
+    }
+    function renderPremFields(){
+      const wrap = document.getElementById('premium-fields'); if(!wrap) return;
+      const d = currentPremDir(); if(!d){ wrap.innerHTML=''; return; }
+      const nm = document.getElementById('pdir-name'); if(nm) nm.textContent = d.name;
+      wrap.innerHTML = Object.keys(premVals).map(k => {
+        const label = PREM_FIELD_LABELS[k] || k;
+        const long = /^(sub|cards)$/.test(k);
+        const val = esc(premVals[k]);
+        return `<div><div class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">${label}</div>`
+          + (long
+             ? `<textarea data-pk="${k}" rows="2" class="prem-inp w-full bg-slate-900 text-white rounded-lg p-2 text-xs border border-slate-700 outline-none focus:ring-1 focus:ring-red-500 resize-none">${val}</textarea>`
+             : `<input data-pk="${k}" value="${val}" class="prem-inp w-full bg-slate-900 text-white rounded-lg p-2 text-xs border border-slate-700 outline-none focus:ring-1 focus:ring-red-500">`)
+          + `</div>`;
+      }).join('');
+      wrap.querySelectorAll('.prem-inp').forEach(inp => inp.addEventListener('input', e => { premVals[e.target.dataset.pk] = e.target.value; renderPremiumPreview(); }));
+    }
+    function premiumInnerHTML(){
+      const d = currentPremDir(); if(!d) return '';
+      return `<style>${PREM_CSS}</style>` + d.build(premVals);
+    }
+    // Preview + export both render through the worker's canvas engine (render-premium) — one source,
+    // so the on-screen preview is byte-identical to the exported PNG, and export is untainted.
+    // postAndWait resolves on the next worker 'done', so premium calls MUST be serialized or a
+    // concurrent preview+export would swap results — premPost() chains them.
+    let _premChain = Promise.resolve();
+    function premPost(payload){
+      const run = () => postAndWait(getWorker(), payload, (payload.scale || 1) < 2);
+      const p = _premChain.then(run, run);
+      _premChain = p.catch(() => {});
+      return p;
+    }
+    let _premPreviewT = null, _premPreviewURL = null;
+    function renderPremiumPreview(){ clearTimeout(_premPreviewT); _premPreviewT = setTimeout(doPremiumPreview, 160); }
+    async function doPremiumPreview(){
+      try {
+        const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: state.contentType, dir: state.premiumDir, vals: premVals, scale: 1, filename: 'preview.png' };
+        const result = await premPost(payload);
+        if (state.contentType === 'creative') return;  // user switched away mid-render
+        const url = URL.createObjectURL(result.blob);
+        canvas.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0d12;"><img src="' + url + '" style="max-width:100%;max-height:100%;display:block;border-radius:4px;" /></div>';
+        if (_premPreviewURL) URL.revokeObjectURL(_premPreviewURL);
+        _premPreviewURL = url;
+      } catch (e) { console.error('premium preview failed', e); }
+    }
+    async function exportPremium(){
+      const fname = 'SME_' + state.contentType + '_' + state.premiumDir + '.png';
+      const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: state.contentType, dir: state.premiumDir, vals: premVals, scale: 2, filename: fname };
+      const result = await premPost(payload);
+      downloadBlob(result.blob, result.filename);
+      if (typeof showToast === 'function') showToast('Exported: ' + result.filename, 'success');
+      if (typeof recordExport === 'function') recordExport();
+    }
+    function setPremiumDir(dir){
+      state.premiumDir = dir;
+      ['a','b','c'].forEach(x => { const btn = document.getElementById('pdir-'+x); if(btn){ const on = x===dir;
+        btn.className = 'pdir-btn font-bold py-2.5 rounded-lg text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
+      loadPremDefaults(); renderPremFields(); renderPremiumPreview();
+    }
+    function setContentType(type){
+      state.contentType = type;
+      const types = ['creative','funding','reviews','solutions','newsletter','resources'];
+      types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
+        btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
+      const isCreative = type === 'creative';
+      const prem = document.getElementById('premium-controls'); if(prem) prem.classList.toggle('hidden', isCreative);
+      const cc = document.getElementById('creative-controls'); if(cc) cc.classList.toggle('hidden', !isCreative);
+      const sc = document.getElementById('size-controls'); if(sc) sc.classList.toggle('hidden', !isCreative);
+      const zip = document.getElementById('btn-download-zip'); if(zip && !isCreative) zip.classList.add('hidden');
+      const hint = document.getElementById('ct-hint');
+      if(isCreative){ renderLayout(); return; }
+      if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
+      if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction (A/B/C) and edit the text. Export gives a 1080×1080 PNG.';
+      state.premiumDir = 'a'; setPremiumDir('a');
+    }
+
     function setCampaign(campType) {
         state.campaign = campType;
         document.querySelectorAll('.camp-btn').forEach(b => {
@@ -2603,6 +2883,7 @@ self.onmessage = async (e) => {
     // =============================================================
     async function triggerExport() {
         if (state.isExporting) return;
+        if (state.contentType !== 'creative') { try { await exportPremium(); } catch(e){ console.error(e); } return; }  // premium PNG path
         setExportingUI(true);
         try {
             await ensureLogoBlob();
