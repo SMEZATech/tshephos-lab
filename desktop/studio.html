@@ -1562,8 +1562,30 @@ function pBullet(r, x, y, text, boxColor, txtColor) {
 }
 function drawPremium(r, type, dir, v) {
     r.ctx.textBaseline = 'top';
-    if (type === 'funding') return drawFunding(r, dir, v || {});
-    r.fillBg(PC.navy); // safety fallback for not-yet-ported types
+    v = v || {};
+    if (type === 'funding')   return drawFunding(r, dir, v);
+    if (type === 'reviews')   return drawReviews(r, dir, v);
+    if (type === 'solutions') return drawSolutions(r, dir, v);
+    if (type === 'newsletter') return drawNewsletter(r, dir, v);
+    if (type === 'resources') return drawResources(r, dir, v);
+    r.fillBg(PC.navy); // safety fallback
+}
+// shared premium helpers
+function pChip(r, x, y, text, bg, fg) {
+    const f = { family: 'Roboto', weight: '700', size: 28 }, t = String(text || '');
+    const padX = 22, padY = 12, h = 28 + padY * 2, w = r.textWidth(t, f) + padX * 2;
+    r.fillRoundRect(x, y, w, h, 12, bg); r.drawLines([t], f, x + padX, y + padY, w, { color: fg }); return { w, h };
+}
+function pBorderItem(r, x, y, w, bold, text, bar) {
+    r.rect(x, y, 10, 76, bar);
+    r.drawLines([String(bold || '')], { family: 'Roboto', weight: '700', size: 36 }, x + 30, y + 2, w - 30, { color: '#0a2c3d' });
+    const wr = r.wrap(String(text || ''), { family: 'Roboto', weight: '400', size: 34 }, w - 30);
+    r.drawLines(wr, { family: 'Roboto', weight: '400', size: 34 }, x + 30, y + 44, w - 30, { color: '#1e293b', lineHeight: 1.3 });
+}
+function pFoot(r, leftText, rightText, light, rightColor) {
+    const pad = 82, iW = 1080 - pad * 2;
+    r.drawLines([String(leftText || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, 1080 - pad - 30, iW - 200, { color: light ? PC.slate : 'rgba(255,255,255,0.7)' });
+    if (rightText) r.drawLines([String(rightText)], { family: 'Oswald', weight: '700', size: 28 }, pad, 1080 - pad - 30, iW, { color: rightColor || PC.red, align: 'right' });
 }
 function drawFunding(r, dir, v) {
     const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
@@ -1619,6 +1641,166 @@ function drawFunding(r, dir, v) {
     r.strokeLine(pad, H - pad - 44, W - pad, H - pad - 44, 'rgba(255,255,255,0.1)', 2);
     r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - 30, iW - 60, { color: 'rgba(255,255,255,0.7)' });
     r.drawLines(['💰'], { family: 'Roboto', weight: '400', size: 34 }, pad, H - pad - 36, iW, { color: PC.red, align: 'right' });
+}
+
+function drawReviews(r, dir, v) {
+    const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
+    if (dir === 'b') { // The Verdict (red)
+        r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
+        r.radialGlow(0, H, 520, 'rgba(10,44,61,0.5)', 'rgba(10,44,61,0)');
+        let y = pad;
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: PC.off }); y += 64;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 360, 1.05, { max: 94, min: 44 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 }); y += fit.totalH + 26;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 42 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 42 }, pad, y, iW, { color: PC.off, lineHeight: 1.5 });
+        pButton(r, pad, H - pad - 112 - 44, iW, v.cta, PC.navy, PC.white); pFoot(r, v.url, null, false); return;
+    }
+    if (dir === 'c') { // Pros & Cons Spotlight (light)
+        r.fillBg(PC.paper); r.rect(0, 0, W, 30, PC.navy);
+        let y = pad + 10;
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += 54;
+        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 62 }, pad, y, iW, { color: PC.navy }); y += 78;
+        r.drawLines([String(v.sub || '')], { family: 'Roboto', weight: '400', size: 36 }, pad, y, iW, { color: PC.slate }); y += 72;
+        const rows = [['✓', v.pro1, PC.red], ['✓', v.pro2, PC.red], ['×', v.con1, PC.slate]].filter(x => x[1]);
+        const cardH = 44 + rows.length * 74; r.fillRoundRect(pad, y, iW, cardH, 24, '#ffffff');
+        r.ctx.save(); r.ctx.strokeStyle = '#eef2f6'; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, cardH, 24); r.ctx.stroke(); r.ctx.restore();
+        let ry = y + 30;
+        rows.forEach(row => { r.fillRoundRect(pad + 30, ry, 54, 54, 14, row[2]); r.drawLines([row[0]], { family: 'Oswald', weight: '900', size: 32 }, pad + 30, ry + 11, 54, { color: '#fff', align: 'center' }); r.drawLines([String(row[1])], { family: 'Roboto', weight: '500', size: 38 }, pad + 30 + 54 + 24, ry + 8, iW - 160, { color: '#1e293b' }); ry += 74; });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
+    }
+    // A: Editorial Deep Dive (navy, bottom cluster)
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, '#041219']], 'br');
+    r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.22)', 'rgba(156,28,31,0)');
+    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad, pad, iW, { color: PC.off });
+    let y = 430; r.rect(pad, y, 120, 12, PC.red); y += 34;
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.08, { max: 82, min: 40 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.08 }); y += fit.totalH + 18;
+    const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.5 }); y += sub.length * 40 * 1.5 + 30;
+    r.strokeLine(pad, y, W - pad, y, 'rgba(255,255,255,0.12)', 2); y += 28;
+    r.fillRoundRect(pad, y, 90, 90, 45, PC.red); r.drawLines([String(v.authorInit || 'ED')], { family: 'Oswald', weight: '700', size: 34 }, pad, y + 26, 90, { color: '#fff', align: 'center' });
+    r.drawLines([String(v.author || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad + 112, y + 12, iW - 112, { color: '#fff' });
+    r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, pad + 112, y + 52, iW - 112, { color: '#94a3b8' });
+    pFoot(r, v.url, v.cta || 'Read Breakdown →', false); return;
+}
+function drawSolutions(r, dir, v) {
+    const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
+    if (dir === 'b') { // Problem Hook (red + white card)
+        r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#8c191b']], 'br');
+        r.radialGlow(0, H, 500, 'rgba(10,44,61,0.4)', 'rgba(10,44,61,0)');
+        let y = pad;
+        r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: PC.off }); y += 60;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.05, { max: 90, min: 44 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 }); y += fit.totalH + 22;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.off, lineHeight: 1.45 });
+        const cardH = 200, cardY = H - pad - 112 - 44 - cardH;
+        r.fillRoundRect(pad, cardY, iW, cardH, 28, PC.paper);
+        r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 28 }, pad + 40, cardY + 36, iW - 80, { color: PC.red });
+        r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cardY + 78, iW - 80, { color: PC.navy });
+        r.drawLines([String(v.cards || '')], { family: 'Roboto', weight: '400', size: 32 }, pad + 40, cardY + 142, iW - 80, { color: PC.slate });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
+    }
+    if (dir === 'c') { // Top Pick (light)
+        r.fillBg(PC.paper);
+        let y = pad;
+        pPill(r, pad, y, v.pill, PC.navy, PC.white);
+        r.drawLines(['TOP PICK ◆'], { family: 'Oswald', weight: '700', size: 30 }, pad, y + 16, iW, { color: PC.red, align: 'right' }); y += 108;
+        const cardH = 420; r.fillRoundRect(pad, y, iW, cardH, 32, '#ffffff');
+        r.ctx.save(); r.ctx.strokeStyle = PC.line; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, cardH, 32); r.ctx.stroke(); r.ctx.restore();
+        let cy = y + 40;
+        r.fillRoundRect(pad + 40, cy, 110, 110, 26, PC.navy); r.drawLines([String(v.logo || 'L')], { family: 'Oswald', weight: '700', size: 52 }, pad + 40, cy + 28, 110, { color: '#fff', align: 'center' }); cy += 140;
+        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 48 }, pad + 40, cy, iW - 80, { color: PC.navy }); cy += 62;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 34 }, iW - 80);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cy, iW - 80, { color: PC.slate, lineHeight: 1.4 }); cy += sub.length * 34 * 1.4 + 22;
+        let cx = pad + 40; [v.chip1, v.chip2].forEach(c => { if (c) { const ch = pChip(r, cx, cy, c, '#f3f5f9', PC.ink); cx += ch.w + 16; } });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
+    }
+    // A: Benefit Stack (navy)
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+    let y = pad;
+    y += pPill(r, pad, y, v.pill, PC.off, PC.navy) + 42;
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 240, 1.05, { max: 94, min: 44 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 }); y += fit.totalH + 18;
+    const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.45 }); y += sub.length * 40 * 1.45 + 36;
+    [v.b1, v.b2, v.b3].forEach(b => { if (b) { pBullet(r, pad, y, b, PC.red, PC.f8); y += 58 + 30; } });
+    pButton(r, pad, H - pad - 112 - 56, iW, v.cta, PC.red, PC.white); pFoot(r, v.url, '◆', false); return;
+}
+function drawNewsletter(r, dir, v) {
+    const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
+    if (dir === 'b') { // This Week Inside (light)
+        r.fillBg(PC.paper);
+        let y = pad;
+        pPill(r, pad, y, v.pill, PC.red, PC.white);
+        r.drawLines([String(v.issue || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y + 16, iW, { color: PC.slate, align: 'right' }); y += 108;
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 58 }, pad, y, iW, { color: PC.navy }); y += 92;
+        [v.i1, v.i2, v.i3].forEach(it => { if (it) { const p = String(it).split('|'); pBorderItem(r, pad, y, iW, p[0] || '', p[1] || '', PC.red); y += 100; } });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
+    }
+    if (dir === 'c') { // Social Proof (red, centered)
+        r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
+        let y = pad + 44;
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: PC.off, align: 'center' }); y += 96;
+        r.drawLines([String(v.big || '')], { family: 'Oswald', weight: '700', size: 150 }, 0, y, W, { color: '#fff', align: 'center' }); y += 172;
+        r.drawLines([String(v.sub || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 46 }, 0, y, W, { color: PC.off, align: 'center' }); y += 110;
+        const boxH = 96; r.fillRoundRect(pad, y, iW, boxH, 16, '#fff');
+        r.drawLines([String(v.placeholder || '')], { family: 'Roboto', weight: '400', size: 36 }, pad + 30, y + 30, iW - 240, { color: '#94a3b8' });
+        r.fillRoundRect(pad + iW - 196, y + 14, 182, boxH - 28, 12, PC.navy); r.drawLines([String(v.btn || 'Join').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad + iW - 196, y + 30, 182, { color: '#fff', align: 'center' }); y += boxH + 24;
+        r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, y, W, { color: PC.off, align: 'center' }); return;
+    }
+    // A: #1 Hero (navy, centered)
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+    r.radialGlow(0, 0, 470, 'rgba(156,28,31,0.25)', 'rgba(156,28,31,0)');
+    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, 0, pad + 26, W, { color: PC.off, align: 'center' });
+    let y = 360;
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 280, 1.05, { max: 108, min: 50 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, 0, y, W, { color: PC.white, align: 'center', lineHeight: 1.05 }); y += fit.totalH + 22;
+    const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, 0, y, W, { color: PC.cbd, align: 'center', lineHeight: 1.4 }); y += sub.length * 40 * 1.4 + 38;
+    pButton(r, pad, y, iW, v.cta, PC.red, PC.white); y += 112 + 22;
+    r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, y, W, { color: '#94a3b8', align: 'center' }); return;
+}
+function drawResources(r, dir, v) {
+    const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
+    if (dir === 'b') { // Checklist (light)
+        r.fillBg(PC.paper); r.rect(0, 0, W, 30, PC.red);
+        let y = pad + 10;
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += 54;
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 56 }, pad, y, iW, { color: PC.navy }); y += 96;
+        [[v.i1, true], [v.i2, true], [v.i3, true], [v.locked, false]].forEach(it => {
+            if (!it[0]) return;
+            if (it[1]) { r.fillRoundRect(pad, y, 58, 58, 16, PC.red); r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 34 }, pad, y + 12, 58, { color: '#fff', align: 'center' }); }
+            else { r.ctx.save(); r.ctx.strokeStyle = '#cbd5e1'; r.ctx.lineWidth = 4; r.roundRectPath(pad, y, 58, 58, 16); r.ctx.stroke(); r.ctx.restore(); }
+            r.drawLines([String(it[0])], { family: 'Roboto', weight: it[1] ? '500' : '400', size: 40 }, pad + 86, y + 8, iW - 100, { color: it[1] ? '#1e293b' : '#64748b' }); y += 58 + 28;
+        });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
+    }
+    if (dir === 'c') { // Bold FREE (navy)
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        r.radialGlow(W, H, 480, 'rgba(156,28,31,0.25)', 'rgba(156,28,31,0)');
+        let y = pad;
+        r.ctx.save(); r.ctx.strokeStyle = 'rgba(255,255,255,0.22)'; r.ctx.lineWidth = 5; r.setFont({ family: 'Oswald', weight: '700', size: 210 }); r.ctx.textBaseline = 'top'; r.ctx.strokeText(String(v.big || 'FREE'), pad, y); r.ctx.restore(); y += 210;
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 58 }, pad, y, iW, { color: '#fff' }); y += 82;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 }); y += sub.length * 38 * 1.4 + 30;
+        [v.i1, v.i2, v.i3].forEach(it => { if (it) { r.drawLines(['→'], { family: 'Oswald', weight: '700', size: 40 }, pad, y, 50, { color: PC.red }); r.drawLines([String(it)], { family: 'Roboto', weight: '400', size: 38 }, pad + 56, y + 2, iW - 56, { color: PC.f8 }); y += 58; } });
+        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
+    }
+    // A: Guide Mockup (navy, rotated cover, centered)
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+    let y = pad + 20;
+    { const t = String(v.pill || 'FREE DOWNLOAD').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 30 }, w = r.textWidth(t, f) + 68; r.fillRoundRect((W - w) / 2, y, w, 64, 32, PC.red); r.drawLines([t], f, (W - w) / 2, y + 17, w, { color: '#fff', align: 'center' }); } y += 116;
+    r.ctx.save(); r.ctx.translate(W / 2, y + 180); r.ctx.rotate(-5 * Math.PI / 180);
+    const cw = 380, chh = 320; r.ctx.shadowColor = 'rgba(0,0,0,0.55)'; r.ctx.shadowBlur = 60; r.ctx.shadowOffsetY = 30;
+    r.fillRoundRect(-cw / 2, -chh / 2, cw, chh, 16, '#fff'); r.ctx.shadowColor = 'transparent';
+    r.rect(-cw / 2 + 36, -chh / 2 + 36, 80, 12, PC.red);
+    r.drawLines(r.wrap(String(v.coverTitle || '').toUpperCase(), { family: 'Oswald', weight: '700', size: 40 }, cw - 72), { family: 'Oswald', weight: '700', size: 40 }, -cw / 2 + 36, -chh / 2 + 66, cw - 72, { color: PC.navy, lineHeight: 1.1 });
+    r.drawLines([String(v.coverSub || '')], { family: 'Roboto', weight: '400', size: 24 }, -cw / 2 + 36, chh / 2 - 60, cw - 72, { color: PC.slate });
+    r.ctx.restore(); y += 400;
+    r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 56 }, 0, y, W, { color: '#fff', align: 'center' });
+    pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
 }
 
 self.onmessage = async (e) => {
@@ -2585,9 +2767,29 @@ self.onmessage = async (e) => {
                 <div class="foot" style="color:${SLATE};padding-top:12px;border-top:1px solid ${LINE};"><span>${esc(v.url)}</span><span style="color:${REDC}">💰</span></div>
               </div></div>`,
             fields:{ pill:'Loan Estimator', head:'See what you qualify for.', sub:'Use our online estimator tool to unlock tailored funding offers.', amount:'R 250,000', term:'6 Months', cta:'Calculate My Rate →' } }
+      }},
+      reviews: { label:'Expert Reviews', dirs:{
+        a:{ name:'Editorial Deep Dive', fields:{ eyebrow:'SME Software Review', head:'The Top 5 Fleet Management Systems for 2024', sub:"We break down costs, tracking features, and local support for SA's best logistics tools.", author:'SME Editorial', authorInit:'ED', meta:'6 min read', cta:'Read Breakdown →' } },
+        b:{ name:'The Verdict', fields:{ eyebrow:'The Verdict', head:'Yoco vs iKhokha: Which is better for retail?', sub:'A definitive side-by-side comparison of transaction fees, payout times, and hardware costs.', cta:'See the winner →' } },
+        c:{ name:'Pros & Cons Spotlight', fields:{ eyebrow:'Tool Spotlight', name:'Xero Accounting', sub:'Cloud software for growing SMEs', pro1:'Automated bank feeds', pro2:'Full SARS compliance', con1:'Steeper learning curve', cta:'Read full review →' } }
+      }},
+      solutions: { label:'Solutions', dirs:{
+        a:{ name:'Benefit Stack', fields:{ pill:'SME Solutions', head:'Get paid faster.', sub:'Top-rated card machines & payment gateways for SA founders.', b1:'Lowest transaction fees', b2:'Same-day settlement', b3:'No monthly rentals', cta:'Compare Providers →' } },
+        b:{ name:'Problem Hook', fields:{ pill:'A Better Way', head:'Still waiting days for payouts?', sub:'Cash flow is king. We vetted the payment providers that actually settle fast.', cardk:'SME Solutions Pick', cardh:'Fast-Settle Gateways', cards:'Ranked for SA Businesses', cta:'See the shortlist →' } },
+        c:{ name:'Top Pick', fields:{ pill:'SME Solutions', logo:'L', name:'Working Capital, Fast', sub:'Pre-vetted funding partners for immediate business relief.', chip1:'Up to R5m', chip2:'24hr approval', cta:'Check eligibility →' } }
+      }},
+      newsletter: { label:'Newsletter', dirs:{
+        a:{ name:'The #1 Hero', fields:{ eyebrow:'The #1 Newsletter for SMEs in SA', head:'Run a smarter business', sub:'Funding, tools & growth tactics — twice a week, free.', cta:'Subscribe Free →', meta:'Every Tue & Thu · 30,000+ Founders' } },
+        b:{ name:'This Week Inside', fields:{ pill:'Tuesday Brief', issue:'Issue #142', head:'This week inside', i1:'2026 Tax Act|the 3 changes SMEs must action now', i2:'R500m fund|opens for township businesses', i3:'Tool of the week|get paid 3× faster', cta:'Get it free in your inbox →' } },
+        c:{ name:'Social Proof', fields:{ eyebrow:'Join the movement', big:'30,000+', sub:'SA founders read it', placeholder:'you@business.co.za', btn:'Join', meta:'Free · Unsubscribe anytime' } }
+      }},
+      resources: { label:'Resources', dirs:{
+        a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
+        b:{ name:'Checklist Preview', fields:{ eyebrow:'Free Resource', head:'Funding readiness checklist', i1:'Up-to-date management accounts', i2:'Clean, separate bank statements', i3:'Tax & CIPC compliance sorted', locked:'+ 9 more inside…', cta:'Get the full checklist →' } },
+        c:{ name:'Bold Typography', fields:{ big:'FREE', head:'The SME Growth Toolkit', sub:'7 templates every founder needs — one download.', i1:'Cash-flow forecast (Excel)', i2:'Investor one-pager (Editable)', i3:'Pricing calculator + more', cta:'Grab it free →' } }
       }}
     };
-    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website' };
+    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item' };
 
     let premVals = {}; // live editable values for the current type+dir
     function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }
@@ -2602,7 +2804,7 @@ self.onmessage = async (e) => {
       const nm = document.getElementById('pdir-name'); if(nm) nm.textContent = d.name;
       wrap.innerHTML = Object.keys(premVals).map(k => {
         const label = PREM_FIELD_LABELS[k] || k;
-        const long = /^(sub|cards)$/.test(k);
+        const long = String(premVals[k] || '').length > 36;
         const val = esc(premVals[k]);
         return `<div><div class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">${label}</div>`
           + (long
