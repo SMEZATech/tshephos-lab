@@ -216,14 +216,21 @@ async function sbPatch(table, filter, body) {
   return r.ok ? r.json() : null;
 }
 async function recordUsage(orgId, kind, units, userId, meta) {
+  // The usage_event table has NO user_id column — including it made PostgREST 400 the entire
+  // insert (silently, via sbWrite→null + an empty catch), so usage NEVER recorded and the meter
+  // sat at 0. Org-scoped attribution is all billing needs. (userId kept in the signature for
+  // callers; add a user_id column + migration if per-user tracking is wanted later.)
   try {
-    await sbWrite("usage_event", {
-      org_id: orgId, user_id: userId || null, kind: kind || "ai", units: units || 1,
+    const row = {
+      org_id: orgId, kind: kind || "ai", units: units || 1,
       tool: (meta && meta.tool) || kind || null,
       provider: (meta && meta.provider) || null,
       model: (meta && meta.model) || null,
-    });
-  } catch (e) {}
+    };
+    const ok = await sbWrite("usage_event", row);
+    if (!ok) console.warn("[usage] recordUsage write failed for org", orgId, "kind", kind);
+    return ok;
+  } catch (e) { console.warn("[usage] recordUsage threw", e && e.message); return null; }
 }
 async function getOrgPlan(orgId) {
   try {
