@@ -197,7 +197,6 @@
                 <div class="grid grid-cols-3 gap-2" id="content-type-switch">
                     <button onclick="setContentType('creative')"  id="ct-creative"  class="ct-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-2.5 px-2 rounded-lg border border-red-500 transition-all text-[11px] uppercase tracking-wide">🎨 Creative</button>
                     <button onclick="setContentType('funding')"   id="ct-funding"   class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">💰 Funding</button>
-                    <button onclick="setContentType('reviews')"   id="ct-reviews"   class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">■ Reviews</button>
                     <button onclick="setContentType('solutions')" id="ct-solutions" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">◆ Solutions</button>
                     <button onclick="setContentType('newsletter')" id="ct-newsletter" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">✉ Newsletter</button>
                     <button onclick="setContentType('resources')" id="ct-resources" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">▤ Resources</button>
@@ -1564,7 +1563,6 @@ function drawPremium(r, type, dir, v, assets) {
     r.ctx.textBaseline = 'top';
     v = v || {}; assets = assets || {};
     if (type === 'funding')   return drawFunding(r, dir, v, assets);
-    if (type === 'reviews')   return drawReviews(r, dir, v, assets);
     if (type === 'solutions') return drawSolutions(r, dir, v, assets);
     if (type === 'newsletter') return drawNewsletter(r, dir, v, assets);
     if (type === 'resources') return drawResources(r, dir, v, assets);
@@ -1618,21 +1616,22 @@ function drawFunding(r, dir, v, a) {
         pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
     }
     if (dir === 'c') {
-        r.fillBg(PC.paper); r.rect(0, 0, W, 26, PC.navy);
-        let y = pLogo(r, a, true);
-        pPill(r, pad, y, v.pill, PC.navy, PC.white);
-        r.drawLines(['NEW'], { family: 'Oswald', weight: '700', size: 34 }, pad, y + 14, iW, { color: PC.red, align: 'right' }); y += 94;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 200, 1.04, { max: 76, min: 40 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.navy, lineHeight: 1.04 }); y += fit.totalH + 20;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.slate, lineHeight: 1.4 }); y += sub.length * 38 * 1.4 + 28;
-        [['AMOUNT NEEDED', v.amount], ['REPAYMENT TERM', v.term]].forEach(pair => {
-            r.drawLines([pair[0]], { family: 'Roboto', weight: '700', size: 28 }, pad, y, iW, { color: PC.slate }); y += 42;
-            r.fillRoundRect(pad, y, iW, 74, 16, '#ffffff');
-            r.ctx.save(); r.ctx.strokeStyle = PC.line; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, 74, 16); r.ctx.stroke(); r.ctx.restore();
-            r.drawLines([String(pair[1] || '')], { family: 'Roboto', weight: '700', size: 40 }, pad + 30, y + 16, iW - 60, { color: PC.navy }); y += 74 + 22;
-        });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
+        // Big Number — research-driven: concrete number + trust + speed + urgent CTA (out-converts a generic estimator).
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        r.radialGlow(W / 2, H, 620, 'rgba(156,28,31,0.32)', 'rgba(156,28,31,0)');
+        let y = pLogoC(r, a, false) + 4;
+        r.drawLines(['BUSINESS FUNDING'], { family: 'Oswald', weight: '700', size: 30 }, 0, y, W, { color: PC.off, align: 'center' }); y += 66;
+        // hero number
+        r.drawLines(['UP TO'], { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: 'rgba(255,255,255,0.55)', align: 'center' }); y += 44;
+        const bf = r.fitFontSize(String(v.big || 'R5 Million').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 200, 1.0, { max: 168, min: 80 });
+        r.drawLines(bf.lines, { family: 'Oswald', weight: '700', size: bf.size }, 0, y, W, { color: '#fff', align: 'center', lineHeight: 1.0 }); y += bf.totalH + 18;
+        r.drawLines(r.wrap(String(v.head || ''), { family: 'Oswald', weight: '700', size: 44 }, iW), { family: 'Oswald', weight: '700', size: 44 }, 0, y, W, { color: '#ffffff', align: 'center', lineHeight: 1.1 });
+        // speed chip (pill, centered)
+        y = H - pad - 112 - 190;
+        { const t = String(v.speed || '').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 26 }, w = r.textWidth(t, f) + 60; r.fillRoundRect((W - w) / 2, y, w, 58, 29, 'rgba(255,255,255,0.08)'); r.ctx.save(); r.ctx.strokeStyle = 'rgba(0,224,143,0.7)'; r.ctx.lineWidth = 2; r.roundRectPath((W - w) / 2, y, w, 58, 29); r.ctx.stroke(); r.ctx.restore(); r.drawLines([t], f, (W - w) / 2, y + 16, w, { color: '#00e08f', align: 'center' }); }
+        // trust line
+        r.drawLines([String(v.trust || '')], { family: 'Roboto', weight: '700', size: 28 }, 0, H - pad - 112 - 96, W, { color: 'rgba(255,255,255,0.7)', align: 'center' });
+        pButton(r, pad + 40, H - pad - 112, iW - 80, v.cta, PC.red, PC.white); return;
     }
     // A: The Product Spec (navy)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
@@ -1696,48 +1695,57 @@ function drawReviews(r, dir, v, a) {
 }
 function drawSolutions(r, dir, v, a) {
     const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
-    if (dir === 'b') { // Problem Hook (red + white card)
-        r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#8c191b']], 'br');
-        r.radialGlow(0, H, 500, 'rgba(10,44,61,0.4)', 'rgba(10,44,61,0)');
+    if (dir === 'b') { // The Verdict — head-to-head comparison (unique split composition)
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         let y = pLogo(r, a, false);
-        r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.off }); y += 58;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 250, 1.05, { max: 84, min: 44 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 }); y += fit.totalH + 20;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.off, lineHeight: 1.45 });
-        const cardH = 194, cardY = H - pad - 112 - 40 - cardH;
-        r.fillRoundRect(pad, cardY, iW, cardH, 28, PC.paper);
-        r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 28 }, pad + 40, cardY + 34, iW - 80, { color: PC.red });
-        r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 48 }, pad + 40, cardY + 76, iW - 80, { color: PC.navy });
-        r.drawLines([String(v.cards || '')], { family: 'Roboto', weight: '400', size: 32 }, pad + 40, cardY + 138, iW - 80, { color: PC.slate });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: '#ff6b4a' }); y += 54;
+        r.drawLines(r.wrap(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700', size: 60 }, iW), { family: 'Oswald', weight: '700', size: 60 }, pad, y, iW, { color: PC.white, lineHeight: 1.06 }); y += 150;
+        // split VS panel
+        const panelY = y, panelH = 230, mid = W / 2, gap = 14;
+        r.fillRoundRect(pad, panelY, mid - pad - gap, panelH, 22, 'rgba(255,255,255,0.06)');
+        r.fillRoundRect(mid + gap, panelY, mid - pad - gap, panelH, 22, PC.red);
+        r.drawLines([String(v.vsLeft || 'A')], { family: 'Oswald', weight: '700', size: 68 }, pad, panelY + 74, mid - pad - gap, { color: PC.white, align: 'center' });
+        r.drawLines([String(v.vsRight || 'B')], { family: 'Oswald', weight: '700', size: 68 }, mid + gap, panelY + 74, mid - pad - gap, { color: PC.white, align: 'center' });
+        r.fillRoundRect(mid - 46, panelY + panelH / 2 - 46, 92, 92, 46, '#fff');
+        r.drawLines(['VS'], { family: 'Oswald', weight: '700', size: 40 }, mid - 46, panelY + panelH / 2 - 26, 92, { color: PC.navy, align: 'center' });
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 36 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 36 }, pad, panelY + panelH + 34, iW, { color: PC.cbd, lineHeight: 1.4, align: 'center' });
+        pButton(r, pad + 40, H - pad - 112, iW - 80, v.cta, PC.red, PC.white); return;
     }
-    if (dir === 'c') { // Top Pick (light)
+    if (dir === 'c') { // Rated Pick — light review card with a star rating (unique)
         r.fillBg(PC.paper);
         let y = pLogo(r, a, true);
-        pPill(r, pad, y, v.pill, PC.navy, PC.white);
-        r.drawLines(['TOP PICK'], { family: 'Oswald', weight: '700', size: 30 }, pad, y + 16, iW, { color: PC.red, align: 'right' }); y += 100;
-        const cardH = 400; r.fillRoundRect(pad, y, iW, cardH, 32, '#ffffff');
-        r.ctx.save(); r.ctx.strokeStyle = PC.line; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, cardH, 32); r.ctx.stroke(); r.ctx.restore();
-        let cy = y + 38;
-        r.fillRoundRect(pad + 40, cy, 104, 104, 26, PC.navy); r.drawLines([String(v.logo || 'L')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cy + 26, 104, { color: '#fff', align: 'center' }); cy += 132;
-        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 46 }, pad + 40, cy, iW - 80, { color: PC.navy }); cy += 58;
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += 56;
+        const cardH = 470; r.fillRoundRect(pad, y, iW, cardH, 30, '#ffffff');
+        r.ctx.save(); r.ctx.strokeStyle = PC.line; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, cardH, 30); r.ctx.stroke(); r.ctx.restore();
+        let cy = y + 40;
+        // name + big rating badge
+        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cy, iW - 260, { color: PC.navy, lineHeight: 1.05 });
+        r.fillRoundRect(W - pad - 40 - 150, cy - 4, 150, 96, 18, PC.navy);
+        r.drawLines([String(v.rating || '4.8')], { family: 'Oswald', weight: '700', size: 52 }, W - pad - 40 - 150, cy + 8, 150, { color: '#fff', align: 'center' });
+        r.drawLines(['★★★★★'], { family: 'Roboto', weight: '700', size: 22 }, W - pad - 40 - 150, cy + 64, 150, { color: '#FFC857', align: 'center' });
+        cy += 108;
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 34 }, iW - 80);
         r.drawLines(sub, { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cy, iW - 80, { color: PC.slate, lineHeight: 1.4 }); cy += sub.length * 34 * 1.4 + 20;
-        let cx = pad + 40; [v.chip1, v.chip2].forEach(c => { if (c) { const ch = pChip(r, cx, cy, c, '#f3f5f9', PC.ink); cx += ch.w + 16; } });
+        [[v.pro1, true], [v.pro2, true], [v.con1, false]].forEach(row => { if (!row[0]) return;
+            r.fillRoundRect(pad + 40, cy, 48, 48, 12, row[1] ? PC.red : PC.slate);
+            r.drawLines([row[1] ? '✓' : 'x'], { family: 'Oswald', weight: '900', size: 28 }, pad + 40, cy + 10, 48, { color: '#fff', align: 'center' });
+            r.drawLines([String(row[0])], { family: 'Roboto', weight: '500', size: 34 }, pad + 40 + 68, cy + 6, iW - 200, { color: row[1] ? '#1e293b' : '#64748b' }); cy += 64; });
         pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
     }
-    // A: Benefit Stack (navy)
-    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-    let y = pLogo(r, a, false);
-    y += pPill(r, pad, y, v.pill, PC.off, PC.navy) + 34;
-    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 220, 1.05, { max: 88, min: 44 });
-    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 }); y += fit.totalH + 16;
-    const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.45 }); y += sub.length * 38 * 1.45 + 30;
-    [v.b1, v.b2, v.b3].forEach(b => { if (b) { pBullet(r, pad, y, b, PC.red, PC.f8); y += 58 + 26; } });
-    pButton(r, pad, H - pad - 112 - 52, iW, v.cta, PC.red, PC.white);
-    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - 30, iW, { color: 'rgba(255,255,255,0.7)' }); return;
+    // A: Editorial Deep Dive (navy) — content/authority. Eyebrow given breathing room from the logo;
+    // no author byline; a proper CTA button.
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, '#041219']], 'br');
+    r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.22)', 'rgba(156,28,31,0)');
+    let y = pLogo(r, a, false) + 30;   // extra gap so the eyebrow isn't crowding the logo
+    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: '#ff6b4a' }); y += 58;
+    r.rect(pad, y, 120, 12, PC.red); y += 34;
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 320, 1.08, { max: 88, min: 44 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.08 }); y += fit.totalH + 22;
+    const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.5 });
+    pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white);
+    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 112 - 52, iW, { color: 'rgba(255,255,255,0.6)' }); return;
 }
 function drawNewsletter(r, dir, v, a) {
     const W = 1080, H = 1080, pad = 82, iW = W - pad * 2;
@@ -2745,64 +2753,14 @@ self.onmessage = async (e) => {
     // Content types → directions → default field values. (Funding shipped; others roll next.)
     const PREMIUM = {
       funding: { label:'Business Funding', dirs:{
-        a:{ name:'The Product Spec', build:v=>`<div class="pcv" style="background:linear-gradient(160deg,${NAVY},${NAVY2});">
-              <div class="glow" style="width:300px;height:300px;background:rgba(156,28,31,.25);top:-100px;right:-100px;"></div>
-              <div class="pad">
-                <div><span class="pill" style="background:${REDC};color:#fff;">${esc(v.pill)}</span></div>
-                <div class="h" style="font-size:32px;margin:16px 0 8px;">${esc(v.head)}</div>
-                <p style="font-size:14px;color:#cbd5e1;margin-bottom:16px;line-height:1.5;">${esc(v.sub)}</p>
-                <div style="display:flex;flex-direction:column;gap:12px;position:relative;z-index:2;">
-                  <div class="chk"><span class="b" style="background:${REDC};">✓</span><span style="color:#f8fafc">${esc(v.b1)}</span></div>
-                  <div class="chk"><span class="b" style="background:${REDC};">✓</span><span style="color:#f8fafc">${esc(v.b2)}</span></div>
-                  <div class="chk"><span class="b" style="background:${REDC};">✓</span><span style="color:#f8fafc">${esc(v.b3)}</span></div>
-                </div>
-                <a class="btn" style="background:${REDC};color:#fff;margin-top:auto;">${esc(v.cta)}</a>
-                <div class="foot" style="padding-top:16px;border-top:1px solid rgba(255,255,255,.1);"><span style="opacity:.7">${esc(v.url)}</span><span style="color:${REDC}">💰</span></div>
-              </div></div>`,
-            fields:{ pill:'Working Capital', head:'Fuel your growth.', sub:'Flexible business funding to bridge cash flow gaps, buy stock, or expand.', b1:'Up to R5,000,000', b2:'Approval within 24 hours', b3:'No early repayment fees', cta:'Check Eligibility →' } },
-        b:{ name:'Pain-Point Hook', build:v=>`<div class="pcv" style="background:linear-gradient(145deg,${REDC},#7d1518);">
-              <div class="glow" style="width:350px;height:350px;background:rgba(10,44,61,.4);bottom:-100px;left:-100px;"></div>
-              <div class="pad">
-                <div class="eyebrow" style="color:${OFFW};">${esc(v.pill)}</div>
-                <div class="h" style="font-size:30px;margin:12px 0 0;">${esc(v.head)}</div>
-                <p style="font-size:13.5px;line-height:1.45;margin:12px 0;color:${OFFW};opacity:.95;">${esc(v.sub)}</p>
-                <div style="margin-top:auto;background:${PAPER};border-radius:12px;padding:14px;color:${INK};position:relative;z-index:2;">
-                  <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;color:${REDC};letter-spacing:1px;text-transform:uppercase;">${esc(v.cardk)}</div>
-                  <div style="font-family:'Oswald',sans-serif;font-weight:700;font-size:18px;color:${NAVY};margin-top:4px;">${esc(v.cardh)}</div>
-                  <div style="font-size:12px;color:${SLATE};margin-top:2px;">${esc(v.cards)}</div>
-                </div>
-                <a class="btn" style="background:${NAVY};color:#fff;margin-top:12px;">${esc(v.cta)}</a>
-              </div></div>`,
-            fields:{ pill:'SME Funding Desk', head:'Got the order, but short on cash?', sub:"Don't let big opportunities slip. We match SA businesses with the right Purchase Order or Invoice funding.", cardk:'Application Timeline', cardh:'Apply in 5 minutes', cards:'No branch visits. No hidden fees.', cta:'Get Matched Today →' } },
-        c:{ name:'Estimator Mockup', build:v=>`<div class="pcv" style="background:${PAPER};color:${INK};">
-              <div style="height:10px;background:${NAVY};position:absolute;top:0;left:0;right:0;"></div>
-              <div class="pad" style="padding-top:30px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span class="pill" style="background:${NAVY};color:#fff;">${esc(v.pill)}</span>
-                  <span style="font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;color:${REDC};">NEW ⚡</span>
-                </div>
-                <div class="h" style="font-size:26px;color:${NAVY};margin:16px 0 10px;">${esc(v.head)}</div>
-                <p style="font-size:13px;color:${SLATE};margin-bottom:14px;line-height:1.4;">${esc(v.sub)}</p>
-                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-                  <div><div style="font-size:11px;font-weight:700;color:${SLATE};margin-bottom:4px;text-transform:uppercase;">Amount Needed</div>
-                    <div style="background:#fff;border:1px solid ${LINE};border-radius:8px;padding:10px 12px;font-weight:700;font-size:14px;color:${NAVY};">${esc(v.amount)}</div></div>
-                  <div><div style="font-size:11px;font-weight:700;color:${SLATE};margin-bottom:4px;text-transform:uppercase;">Repayment Term</div>
-                    <div style="background:#fff;border:1px solid ${LINE};border-radius:8px;padding:10px 12px;font-weight:700;font-size:14px;color:${NAVY};display:flex;justify-content:space-between;"><span>${esc(v.term)}</span><span style="color:${SLATE};font-size:12px;">▼</span></div></div>
-                </div>
-                <a class="btn" style="background:${REDC};color:#fff;margin-top:auto;">${esc(v.cta)}</a>
-                <div class="foot" style="color:${SLATE};padding-top:12px;border-top:1px solid ${LINE};"><span>${esc(v.url)}</span><span style="color:${REDC}">💰</span></div>
-              </div></div>`,
-            fields:{ pill:'Loan Estimator', head:'See what you qualify for.', sub:'Use our online estimator tool to unlock tailored funding offers.', amount:'R 250,000', term:'6 Months', cta:'Calculate My Rate →' } }
+        a:{ name:'The Product Spec', fields:{ pill:'Working Capital', head:'Fuel your growth.', sub:'Flexible business funding to bridge cash flow gaps, buy stock, or expand.', b1:'Up to R5,000,000', b2:'Approval within 24 hours', b3:'No early repayment fees', cta:'Check Eligibility →' } },
+        b:{ name:'Pain-Point Hook', fields:{ pill:'SME Funding Desk', head:'Got the order, but short on cash?', sub:"Don't let big opportunities slip. We match SA businesses with the right Purchase Order or Invoice funding.", cardk:'Application Timeline', cardh:'Apply in 5 minutes', cards:'No branch visits. No hidden fees.', cta:'Get Matched Today →' } },
+        c:{ name:'Big Number (trust + speed)', fields:{ big:'R5 Million', head:'Working capital, in 24 hours.', speed:'Approved & paid out within one business day', trust:'Trusted by 5,000+ SA businesses · NCR-registered', cta:'Get pre-approved in 60s →' } }
       }},
-      reviews: { label:'Expert Reviews', dirs:{
-        a:{ name:'Editorial Deep Dive', fields:{ eyebrow:'SME Software Review', head:'The Top 5 Fleet Management Systems for 2024', sub:"We break down costs, tracking features, and local support for SA's best logistics tools.", author:'SME Editorial', authorInit:'ED', meta:'6 min read', cta:'Read Breakdown →' } },
-        b:{ name:'The Verdict', fields:{ eyebrow:'The Verdict', head:'Yoco vs iKhokha: Which is better for retail?', sub:'A definitive side-by-side comparison of transaction fees, payout times, and hardware costs.', cta:'See the winner →' } },
-        c:{ name:'Pros & Cons Spotlight', fields:{ eyebrow:'Tool Spotlight', name:'Xero Accounting', sub:'Cloud software for growing SMEs', pro1:'Automated bank feeds', pro2:'Full SARS compliance', con1:'Steeper learning curve', cta:'Read full review →' } }
-      }},
-      solutions: { label:'Solutions', dirs:{
-        a:{ name:'Benefit Stack', fields:{ pill:'SME Solutions', head:'Get paid faster.', sub:'Top-rated card machines & payment gateways for SA founders.', b1:'Lowest transaction fees', b2:'Same-day settlement', b3:'No monthly rentals', cta:'Compare Providers →' } },
-        b:{ name:'Problem Hook', fields:{ pill:'A Better Way', head:'Still waiting days for payouts?', sub:'Cash flow is king. We vetted the payment providers that actually settle fast.', cardk:'SME Solutions Pick', cardh:'Fast-Settle Gateways', cards:'Ranked for SA Businesses', cta:'See the shortlist →' } },
-        c:{ name:'Top Pick', fields:{ pill:'SME Solutions', logo:'L', name:'Working Capital, Fast', sub:'Pre-vetted funding partners for immediate business relief.', chip1:'Up to R5m', chip2:'24hr approval', cta:'Check eligibility →' } }
+      solutions: { label:'Solutions & Reviews', dirs:{
+        a:{ name:'Editorial Deep Dive', fields:{ eyebrow:'SME Software Review', head:'The Top 5 Fleet Management Systems for 2024', sub:"We break down costs, tracking features, and local support for SA's best logistics tools.", cta:'Read the breakdown →' } },
+        b:{ name:'The Verdict (comparison)', fields:{ eyebrow:'The Verdict', vsLeft:'Yoco', vsRight:'iKhokha', head:'Which card machine wins for retail?', sub:'Side-by-side on fees, payout times and hardware costs — we crown a winner.', cta:'See the winner →' } },
+        c:{ name:'Rated Pick', fields:{ eyebrow:'Tool Spotlight', name:'Xero Accounting', rating:'4.8', sub:'Cloud accounting for growing SMEs', pro1:'Automated bank feeds', pro2:'Full SARS-ready reporting', con1:'Steeper learning curve', cta:'Read full review →' } }
       }},
       newsletter: { label:'Newsletter', dirs:{
         a:{ name:'The #1 Hero', fields:{ eyebrow:'The #1 Newsletter for SMEs in SA', head:'Run a smarter business', sub:'Funding, tools & growth tactics — twice a week, free.', cta:'Subscribe Free →', meta:'Every Tue & Thu · 60,000+ Founders' } },
@@ -2815,7 +2773,7 @@ self.onmessage = async (e) => {
         c:{ name:'Bold Typography', fields:{ big:'FREE', head:'The SME Growth Toolkit', sub:'7 templates every founder needs — one download.', i1:'Cash-flow forecast (Excel)', i2:'Investor one-pager (Editable)', i3:'Pricing calculator + more', cta:'Grab it free →' } }
       }}
     };
-    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item' };
+    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right' };
 
     let premVals = {}; // live editable values for the current type+dir
     function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }
@@ -2886,7 +2844,7 @@ self.onmessage = async (e) => {
     }
     function setContentType(type){
       state.contentType = type;
-      const types = ['creative','funding','reviews','solutions','newsletter','resources'];
+      const types = ['creative','funding','solutions','newsletter','resources'];
       types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
         btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
       const isCreative = type === 'creative';
