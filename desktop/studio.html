@@ -409,11 +409,17 @@
 
     <!-- Main Workspace -->
     <main class="flex-1 preview-bg flex flex-col items-center p-8 relative overflow-y-auto overflow-x-hidden">
-        <div class="mb-6 text-center shrink-0 bg-slate-900/80 backdrop-blur px-6 py-2 rounded-full border border-slate-700 shadow-lg z-20">
-            <h2 class="text-slate-200 font-bold text-sm tracking-[0.2em] uppercase flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full animate-pulse" style="background:#B6FF3D;"></span> Live Preview (DOM)
+        <div class="mb-6 shrink-0 bg-slate-900/80 backdrop-blur px-5 py-2 rounded-full border border-slate-700 shadow-lg z-20 flex items-center gap-4">
+            <h2 class="text-slate-200 font-bold text-sm tracking-[0.15em] uppercase flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full animate-pulse" style="background:#B6FF3D;"></span> Live Preview
             </h2>
-            <p id="preview-dim" class="text-red-400 font-mono text-xs font-bold mt-0.5">1200 x 628</p>
+            <p id="preview-dim" class="text-red-400 font-mono text-xs font-bold">1200 x 628</p>
+            <div class="flex items-center gap-1 border-l border-slate-700 pl-3">
+                <button onclick="setZoom(-0.1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm leading-none border border-slate-600" title="Zoom out">−</button>
+                <span id="zoom-label" class="text-slate-400 font-mono text-xs w-10 text-center">100%</span>
+                <button onclick="setZoom(0.1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm leading-none border border-slate-600" title="Zoom in">+</button>
+                <button onclick="setZoom('fit')" class="ml-1 px-2 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] uppercase border border-slate-600" title="Fit to view">Fit</button>
+            </div>
         </div>
 
         <div id="canvas-wrapper" class="origin-top shrink-0 mb-20 shadow-2xl">
@@ -1825,9 +1831,23 @@ self.onmessage = async (e) => {
             const logoW = await blobToBitmap(msg.logoWhiteBlob);
             const logoC = await blobToBitmap(msg.logoColorBlob);
             const W = msg.w || 1080, H = msg.h || 1080, scale = msg.scale || 2;
-            const r = new CanvasRenderer(W, H, scale);
-            if (W > H * 1.2) drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC }); // dedicated wide layout
-            else drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
+            let r;
+            if (W > H * 1.2) {
+                r = new CanvasRenderer(W, H, scale); // dedicated wide layout
+                drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
+            } else if (H > W * 1.12) {
+                // Portrait: render the balanced square design and CENTER it vertically (with matching bg
+                // bands) so it sits in the middle instead of stuck at the top with an empty gap below.
+                const sq = new CanvasRenderer(W, W, scale);
+                drawPremium(sq, msg.premType, msg.dir, msg.vals, { logoW, logoC });
+                r = new CanvasRenderer(W, H, scale);
+                const px = sq.ctx.getImageData(3, 3, 1, 1).data;          // top-left bg → seamless bands
+                r.fillBg('rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ')');
+                r.ctx.drawImage(sq.canvas, 0, (H - W) / 2, W, W);
+            } else {
+                r = new CanvasRenderer(W, H, scale); // square: native
+                drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
+            }
             const blob = await r.toBlob('image/png', 1.0);
             if (logoW) logoW.close(); if (logoC) logoC.close();
             self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_premium.png' });
@@ -2409,12 +2429,31 @@ self.onmessage = async (e) => {
     // =============================================================
     // 8. LIVE DOM PREVIEW (unchanged behaviour, decoupled from export)
     // =============================================================
+    let userZoom = null; // null = auto fit-to-view; a number = user override
     function resizeWrapper() {
         const main = document.querySelector('main');
         if (!main || !canvas || !wrapper) return;
-        const avail = main.clientWidth - 80;
-        const cw = canvas.offsetWidth;
-        wrapper.style.transform = (cw > 0 && cw > avail) ? 'scale(' + (avail / cw) + ')' : 'scale(1)';
+        const cw = canvas.offsetWidth, ch = canvas.offsetHeight;
+        if (cw <= 0 || ch <= 0) return;
+        let s;
+        if (userZoom != null) s = userZoom;
+        else {
+            const availW = Math.max(220, main.clientWidth - 80);
+            const availH = Math.max(220, main.clientHeight - 120);   // clamp positive; leave room for the header
+            s = Math.min(availW / cw, availH / ch, 1); // fit BOTH dimensions so the whole design is visible
+            s = Math.max(0.15, s);                     // never collapse to zero/negative
+        }
+        wrapper.style.transformOrigin = 'top center';
+        wrapper.style.transform = 'scale(' + s + ')';
+        const zl = document.getElementById('zoom-label'); if (zl) zl.textContent = Math.round(s * 100) + '%';
+    }
+    function setZoom(delta) {
+        if (delta === 'fit') { userZoom = null; }
+        else {
+            const cur = parseFloat((wrapper.style.transform.match(/scale\(([\d.]+)\)/) || [])[1]) || 1;
+            userZoom = Math.max(0.2, Math.min(2, cur + delta));
+        }
+        resizeWrapper();
     }
 
     function getFooterHTML(lineColor, textColor) {
@@ -2710,6 +2749,7 @@ self.onmessage = async (e) => {
 
     function setFormat(formatName) {
         state.format = formatName;
+        userZoom = null; // new size → refit to view
         document.querySelectorAll('.format-btn').forEach(b => {
             b.classList.remove('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
             b.classList.add('bg-slate-800', 'border-slate-600', 'text-slate-400');
@@ -2812,18 +2852,18 @@ self.onmessage = async (e) => {
       _premChain = p.catch(() => {});
       return p;
     }
-    let _premPreviewT = null, _premPreviewURL = null;
-    function renderPremiumPreview(){ clearTimeout(_premPreviewT); _premPreviewT = setTimeout(doPremiumPreview, 160); }
+    let _premPreviewT = null, _premPreviewURL = null, _premGen = 0;
+    function renderPremiumPreview(){ _premGen++; clearTimeout(_premPreviewT); _premPreviewT = setTimeout(doPremiumPreview, 160); }
     async function doPremiumPreview(){
+      const myGen = _premGen;   // discard this render if a newer size/type/dir supersedes it mid-flight
       try {
         await ensureLogoBlob(); await ensureColorLogoBlob();
-        const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, premType: state.contentType, dir: state.premiumDir, vals: premVals, ...premDims(), scale: 1, filename: 'preview.png' };
         const dm = premDims();
+        const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, premType: state.contentType, dir: state.premiumDir, vals: premVals, w: dm.w, h: dm.h, scale: 1, filename: 'preview.png' };
         const result = await premPost(payload);
-        if (state.contentType === 'creative') return;  // user switched away mid-render
-        // match the preview canvas to the chosen dimensions so it displays at the right aspect
-        canvas.style.width = dm.w + 'px'; canvas.style.height = dm.h + 'px';
-        const pd = document.getElementById('preview-dim'); if (pd) pd.innerText = dm.w + ' x ' + dm.h;
+        if (myGen !== _premGen || state.contentType === 'creative') return;  // superseded / switched away
+        // NOTE: the canvas SIZE is owned synchronously by setFormat/applyPremiumSize — never set it from
+        // this async path (a slow stale render used to clobber the size). We only swap the image here.
         const url = URL.createObjectURL(result.blob);
         canvas.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0d12;"><img src="' + url + '" style="max-width:100%;max-height:100%;display:block;" /></div>';
         if (_premPreviewURL) URL.revokeObjectURL(_premPreviewURL);
