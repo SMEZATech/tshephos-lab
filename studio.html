@@ -1841,9 +1841,15 @@ self.onmessage = async (e) => {
                 const sq = new CanvasRenderer(W, W, scale);
                 drawPremium(sq, msg.premType, msg.dir, msg.vals, { logoW, logoC });
                 r = new CanvasRenderer(W, H, scale);
-                const px = sq.ctx.getImageData(3, 3, 1, 1).data;          // top-left bg → seamless bands
-                r.fillBg('rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ')');
-                r.ctx.drawImage(sq.canvas, 0, (H - W) / 2, W, W);
+                const yOff = (H - W) / 2;
+                // Extend the design's OWN top/bottom edge rows to fill the bands so the background
+                // (gradients included) continues seamlessly — a flat sampled colour left a visible seam.
+                const px = sq.ctx.getImageData(3, 3, 1, 1).data;
+                r.fillBg('rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ')');   // base under the stretch
+                r.ctx.imageSmoothingEnabled = true;
+                r.ctx.drawImage(sq.canvas, 0, 0, sq.canvas.width, 1, 0, 0, W, yOff);                     // top band = top edge
+                r.ctx.drawImage(sq.canvas, 0, sq.canvas.height - 1, sq.canvas.width, 1, 0, H - yOff, W, yOff); // bottom band = bottom edge
+                r.ctx.drawImage(sq.canvas, 0, yOff, W, W);                    // the design itself, centered
             } else {
                 r = new CanvasRenderer(W, H, scale); // square: native
                 drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
