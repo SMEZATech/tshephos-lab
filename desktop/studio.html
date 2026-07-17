@@ -1533,6 +1533,35 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'resources') return drawResources(r, dir, v, assets);
     r.fillBg(PC.navy); // safety fallback
 }
+// Dedicated LANDSCAPE (LinkedIn 1200x628) layout — a real horizontal banner, not a squeezed square.
+// Generic across all content types: logo, kicker, headline, sub, CTA laid out wide, with the design's
+// colour family. Flow + fitFontSize + a bottom-anchored button guarantee no overlap.
+function drawLandscape(r, type, dir, v, a) {
+    const W = r.w, H = r.h, pad = 70, key = type + '.' + dir;
+    r.ctx.textBaseline = 'top';
+    const light = ['solutions.c', 'newsletter.b', 'resources.b'].indexOf(key) !== -1;
+    const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
+    let txt = '#fff', accent = '#ff6b4a', barC = PC.red, btnBg = PC.red, subC = PC.cbd, logo = a.logoW;
+    if (red) { r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br'); r.radialGlow(0, H, 440, 'rgba(10,44,61,0.4)', 'rgba(10,44,61,0)'); accent = PC.off; barC = PC.navy; btnBg = PC.navy; subC = PC.off; }
+    else if (light) { r.fillBg(PC.paper); txt = PC.navy; accent = PC.red; barC = PC.red; btnBg = PC.red; subC = PC.slate; logo = a.logoC; }
+    else { r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br'); r.radialGlow(W, 0, 460, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)'); }
+    if (logo) r.drawContain(logo, pad, pad, 200, 50, { });
+    const kicker = String(v.eyebrow || v.pill || '').toUpperCase();
+    const title = String(v.head || v.name || v.big || '').toUpperCase();
+    const sub = String(v.sub || '');
+    const cta = v.cta || '';
+    const colW = Math.round(W * 0.9) - pad;
+    const btnY = H - pad - 92;
+    let y = pad + 84;
+    if (kicker) { r.drawLines([kicker], { family: 'Oswald', weight: '700', size: 30 }, pad, y, colW, { color: accent }); y += 46; }
+    r.rect(pad, y, 110, 10, barC); y += 30;
+    const availH = Math.max(120, btnY - y - 100);   // reserve ~100 for the sub, so nothing hits the button
+    const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, colW, { color: txt, lineHeight: 1.03 }); y += fit.totalH + 16;
+    if (sub) { const sl = r.wrap(sub, { family: 'Roboto', weight: '400', size: 32 }, colW).slice(0, 2); r.drawLines(sl, { family: 'Roboto', weight: '400', size: 32 }, pad, y, colW, { color: subC, lineHeight: 1.35 }); }
+    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(), bw = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, bw, 80, 12, btnBg); r.drawLines([t], f, pad, btnY + 24, bw, { color: '#fff', align: 'center' }); }
+    r.drawLines(['smesouthafrica.co.za'], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 30, W - pad * 2, { color: light ? PC.slate : 'rgba(255,255,255,0.6)', align: 'right' });
+}
 // SME logo top-left (light=true → colour logo for light backgrounds; else white). Returns the y to
 // start content below the logo, so every premium creative is branded like the default creative.
 function pLogo(r, assets, light) {
@@ -1796,20 +1825,9 @@ self.onmessage = async (e) => {
             const logoW = await blobToBitmap(msg.logoWhiteBlob);
             const logoC = await blobToBitmap(msg.logoColorBlob);
             const W = msg.w || 1080, H = msg.h || 1080, scale = msg.scale || 2;
-            let r;
-            if (W > H * 1.2) {
-                // Landscape: these designs are vertical-native and don't reflow to short/wide without
-                // overlapping. Render the square design centered on the wide canvas with brand wings —
-                // a clean, framed landscape asset instead of a broken squeeze.
-                const sq = new CanvasRenderer(H, H, scale);
-                drawPremium(sq, msg.premType, msg.dir, msg.vals, { logoW, logoC });
-                r = new CanvasRenderer(W, H, scale);
-                r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-                r.ctx.drawImage(sq.canvas, (W - H) / 2, 0, H, H);
-            } else {
-                r = new CanvasRenderer(W, H, scale);
-                drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
-            }
+            const r = new CanvasRenderer(W, H, scale);
+            if (W > H * 1.2) drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC }); // dedicated wide layout
+            else drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
             const blob = await r.toBlob('image/png', 1.0);
             if (logoW) logoW.close(); if (logoC) logoC.close();
             self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_premium.png' });
