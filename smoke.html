@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Volt — Studio Smoke Test</title>
+<style>
+  body{background:#0A0B0F;color:#ECEEF3;font-family:'Segoe UI',system-ui,sans-serif;margin:0;padding:28px;}
+  h1{font-size:20px;margin:0 0 4px;} .sub{color:#888F9D;font-size:13px;margin-bottom:18px;}
+  #banner{padding:14px 18px;border-radius:10px;font-weight:700;font-size:15px;margin-bottom:16px;background:#1A1E28;}
+  #banner.pass{background:#0f2a1c;color:#57E39A;border:1px solid #57E39A44;}
+  #banner.fail{background:#2a0f0f;color:#FF7C7C;border:1px solid #FF7C7C44;}
+  table{border-collapse:collapse;width:100%;font-size:12px;font-family:'Consolas',monospace;}
+  th,td{border:1px solid #23262E;padding:5px 9px;text-align:left;}
+  th{background:#14171F;color:#888F9D;text-transform:uppercase;font-size:10px;letter-spacing:.06em;}
+  td.ok{color:#57E39A;} td.bad{color:#FF7C7C;font-weight:700;}
+  .thumb{width:72px;height:auto;border:1px solid #23262E;border-radius:3px;display:block;}
+</style>
+</head>
+<body>
+<h1>Studio Smoke Test</h1>
+<div class="sub">Renders every design through the REAL production worker engine (extracted live from studio.html). Non-blank + correct dimensions + theme uniqueness. Run after any Studio change.</div>
+<div id="banner">Running…</div>
+<table id="tbl"><thead><tr><th>#</th><th>Design</th><th>Dims</th><th>Contrast</th><th>ms</th><th>Status</th><th>Thumb</th></tr></thead><tbody></tbody></table>
+<script>
+(async () => {
+  const banner = document.getElementById('banner');
+  const tbody = document.querySelector('#tbl tbody');
+  const results = [];
+  let failCount = 0;
+
+  function row(name, r) {
+    const tr = document.createElement('tr');
+    const bad = !r.ok;
+    if (bad) failCount++;
+    tr.innerHTML = '<td>' + (results.length) + '</td><td>' + name + '</td><td>' + (r.dim || '—') + '</td><td>' + (r.range != null ? r.range : '—') + '</td><td>' + (r.ms || '—') + '</td>'
+      + '<td class="' + (bad ? 'bad' : 'ok') + '">' + (bad ? ('FAIL: ' + r.why) : 'PASS') + '</td>'
+      + '<td>' + (r.url ? '<img class="thumb" src="' + r.url + '">' : '') + '</td>';
+    tbody.appendChild(tr);
+  }
+
+  try {
+    // 1) Pull the PRODUCTION worker source out of studio.html (same origin)
+    const html = await (await fetch('studio.html', { cache: 'no-store' })).text();
+    const m = html.match(/<script id="worker-src"[^>]*>([\s\S]*?)<\/script>/);
+    if (!m) throw new Error('worker-src not found in studio.html');
+    const worker = new Worker(URL.createObjectURL(new Blob([m[1]], { type: 'application/javascript' })));
+
+    // 2) Placeholder assets (no network): a photo-ish featured image + a fake logo
+    async function makeBlob(w, h, draw) {
+      const c = new OffscreenCanvas(w, h), x = c.getContext('2d');
+      draw(x, w, h); return await c.convertToBlob({ type: 'image/png' });
+    }
+    const featuredBlob = await makeBlob(800, 600, (x, w, h) => {
+      const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#7a8ca0'); g.addColorStop(1, '#3d5166');
+      x.fillStyle = g; x.fillRect(0, 0, w, h);
+      x.fillStyle = '#d9a441'; x.beginPath(); x.arc(w * 0.7, h * 0.3, 90, 0, 7); x.fill();
+    });
+    const logoBlob = await makeBlob(300, 90, (x, w, h) => {
+      x.fillStyle = '#fff'; x.font = '700 52px sans-serif'; x.textBaseline = 'middle'; x.fillText('LOGO', 10, h / 2);
+    });
+    const brand = { primary: '#9c1c1f', secondary: '#0a2c3d', cta: 'Read The Insight', url: 'smesouthafrica.co.za' };
+
+    function post(payload) {
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => { cleanup(); reject(new Error('timeout 15s')); }, 15000);
+        const onMsg = e => { const d = e.data;
+          if (d.type === 'done') { cleanup(); resolve(d); }
+          else if (d.type === 'error') { cleanup(); reject(new Error(d.message || 'worker error')); } };
+        const onErr = e => { cleanup(); reject(new Error(e.message || 'worker crash')); };
+        function cleanup() { clearTimeout(t); worker.removeEventListener('message', onMsg); worker.removeEventListener('error', onErr); }
+        worker.addEventListener('message', onMsg); worker.addEventListener('error', onErr);
+        worker.postMessage(payload);
+      });
+    }
+
+    async function analyze(blob) {
+      const bmp = await createImageBitmap(blob);
+      const c = new OffscreenCanvas(48, 48), x = c.getContext('2d');
+      x.drawImage(bmp, 0, 0, 48, 48);
+      const d = x.getImageData(0, 0, 48, 48).data;
+      let minv = 255, maxv = 0; const sig = [];
+      for (let i = 0; i < d.length; i += 4) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3; if (v < minv) minv = v; if (v > maxv) maxv = v; }
+      for (let i = 0; i < d.length; i += 48 * 4) sig.push(d[i], d[i + 1], d[i + 2]);
+      const url = URL.createObjectURL(blob);
+      return { dim: bmp.width + 'x' + bmp.height, w: bmp.width, h: bmp.height, range: Math.round(maxv - minv), sig, url };
+    }
+    const dist = (a, b) => { let s = 0; for (let i = 0; i < Math.min(a.length, b.length); i++) s += Math.abs(a[i] - b[i]); return s; };
+
+    const baseState = {
+      campaign: 'standard', format: 'square', theme: 'classic', showFooter: true,
+      currentSlide: 0, slides: ['THE BIG HOOK GOES HERE', 'Detail point one', 'Detail point two'],
+      title: 'Four Business Ideas To Solve Socio-Economic Issues', tag: 'SME Knowledge HUB',
+      stat: '73%', author: 'Thabo M., SME Founder', pollOpts: ['Yes, definitely', 'No, we need help', 'Not sure yet'],
+      memeTop: 'WHEN THE VAT THRESHOLD', memeBottom: 'JUMPS TO R2.3 MILLION',
+      focalX: 0.5, focalY: 0.5, userScale: 1
+    };
+    const EXPECT = { landscape: [1200, 628], square: [1080, 1080], portrait: [1080, 1350], whatsapp: [1080, 1350], poll: [1080, 1080] };
+
+    async function run(name, payload, expectW, expectH) {
+      const t0 = performance.now();
+      let r;
+      try {
+        const done = await post(payload);
+        r = await analyze(done.blob);
+        r.ms = Math.round(performance.now() - t0);
+        r.ok = true;
+        if (expectW && (r.w !== expectW || r.h !== expectH)) { r.ok = false; r.why = 'expected ' + expectW + 'x' + expectH; }
+        else if (r.range < 40) { r.ok = false; r.why = 'looks blank (contrast ' + r.range + ')'; }
+      } catch (e) { r = { ok: false, why: e.message }; }
+      results.push({ name, ...r });
+      row(name, r);
+      return r;
+    }
+
+    const S = 0.5; // smoke scale — fast, still meaningful pixels
+
+    // 3) Creative matrix: 5 themes x 3 formats
+    const themeSigs = {};
+    for (const th of ['classic', 'cinematic', 'modern', 'editorial', 'bold']) {
+      for (const f of ['square', 'landscape', 'portrait']) {
+        const st = { ...baseState, theme: th, format: f };
+        const r = await run('standard/' + th + '/' + f,
+          { type: 'render-single', state: st, brand, slideIdx: 0, featuredBlob, logoBlob, fontBuffers: {}, scale: S, filename: 't.png' },
+          EXPECT[f][0] * S, EXPECT[f][1] * S);
+        if (f === 'square' && r.sig) themeSigs[th] = r.sig;
+      }
+    }
+    // Theme uniqueness (square)
+    const names = Object.keys(themeSigs);
+    let minPair = Infinity, minPairName = '';
+    for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
+      const d = dist(themeSigs[names[i]], themeSigs[names[j]]);
+      if (d < minPair) { minPair = d; minPairName = names[i] + '~' + names[j]; }
+    }
+    results.push({ name: 'theme-uniqueness', ok: minPair > 800 });
+    row('theme uniqueness (min pair ' + minPairName + ' = ' + minPair + ')', { ok: minPair > 800, why: 'themes too similar', dim: '—' });
+
+    // 4) Other campaigns
+    for (const [name, mut, slideIdx, exp] of [
+      ['carousel/slide0', { campaign: 'carousel', currentSlide: 0 }, 0, EXPECT.square],
+      ['carousel/slide1', { campaign: 'carousel', currentSlide: 1 }, 1, EXPECT.square],
+      ['poll', { campaign: 'poll' }, 0, EXPECT.poll],
+      ['stat', { campaign: 'stat' }, 0, EXPECT.square],
+      ['quote', { campaign: 'quote' }, 0, EXPECT.square],
+      ['meme', { campaign: 'meme' }, 0, EXPECT.square],
+      ['whatsapp', { campaign: 'whatsapp' }, 0, EXPECT.whatsapp],
+    ]) {
+      await run(name, { type: 'render-single', state: { ...baseState, ...mut }, brand, slideIdx, featuredBlob, logoBlob, fontBuffers: {}, scale: S, filename: 't.png' }, exp[0] * S, exp[1] * S);
+    }
+
+    // 5) Premium matrix: 4 types x 3 dirs x 3 sizes (empty vals — draw fns have fallbacks; smoke = no-crash + non-blank)
+    for (const pt of ['funding', 'solutions', 'newsletter', 'resources']) {
+      for (const dir of ['a', 'b', 'c']) {
+        for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
+          await run('premium/' + pt + '/' + dir + '/' + sz,
+            { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: {}, w: wh[0], h: wh[1], scale: S, filename: 't.png' },
+            wh[0] * S, wh[1] * S);
+        }
+      }
+    }
+
+    const total = results.length;
+    const passed = results.filter(r => r.ok).length;
+    banner.className = failCount === 0 ? 'pass' : 'fail';
+    banner.id = 'banner';
+    banner.textContent = (failCount === 0 ? '✅ ALL PASS — ' : '❌ FAILURES — ') + passed + '/' + total + ' designs OK';
+    window.__smoke = { total, passed, failed: failCount, results: results.map(r => ({ name: r.name, ok: r.ok, why: r.why, dim: r.dim, range: r.range })) };
+  } catch (e) {
+    banner.className = 'fail';
+    banner.textContent = '❌ HARNESS ERROR: ' + e.message;
+    window.__smoke = { harnessError: e.message };
+  }
+})();
+</script>
+</body>
+</html>
