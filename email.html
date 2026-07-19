@@ -147,6 +147,7 @@
 <main class="wrap">
   <nav class="topbar">
     <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="campaign.html">⚡ Campaign</a>
     <a class="tab" href="studio.html">🎨 Studio</a>
     <a class="tab" href="analytics.html">📊 Stats</a>
     <span class="tab active">✉️ Email</span>
@@ -1913,6 +1914,21 @@ async function deleteDraft(id){
 })();
 
 renderPreview(SAMPLE_BODY);
+
+// Campaign page → "Write it in Email": prefill the brief (subject line folded in on top).
+(function(){
+  let raw; try { raw = sessionStorage.getItem('tl_campaign_email'); } catch(e){ return; }
+  if (!raw) return;
+  try { sessionStorage.removeItem('tl_campaign_email'); } catch(e){}
+  let h; try { h = JSON.parse(raw); } catch(e){ return; }
+  if (!h || (!h.subject && !h.brief)) return;
+  const b = document.getElementById('brief');
+  if (b) {
+    b.value = (h.subject ? 'Subject: ' + h.subject + '\n\n' : '') + (h.brief || '');
+    b.focus();
+    b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+})();
 </script>
 </body>
 </html>

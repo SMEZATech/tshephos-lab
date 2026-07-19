@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<!-- Tshepho's Lab — Campaign — © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+  <script src="volt-auth.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Volt — Campaign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
+    --accent:#B6FF3D; --accent-press:#a3ec2b;
+    --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui,sans-serif;
+    --fb:'Plus Jakarta Sans',system-ui,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:var(--fb); color:var(--text); background:var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;}
+  .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
+      radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
+      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+  .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:26px 22px 36px;}
+
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+  h1.title{font-family:var(--fd); font-weight:800; font-size:clamp(36px,6.5vw,58px); line-height:.98; letter-spacing:-.02em; margin:18px 0 0;}
+  h1.title .accent{color:var(--accent);}
+  .sub{color:var(--dim); font-size:16px; max-width:560px; margin:15px 0 0; line-height:1.55;}
+
+  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
+  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
+  textarea::placeholder{color:#565c68;}
+  textarea:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  .row{display:flex; gap:18px; margin-top:18px; flex-wrap:wrap; align-items:flex-end;}
+  .field{flex:1; min-width:230px;}
+  .seg{display:flex; gap:7px; flex-wrap:wrap;}
+  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .seg button:hover{color:var(--text); border-color:var(--accent);}
+  .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
+  .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press);}
+  .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
+  .go-note{font-size:13px; color:var(--dim);}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .error{display:flex; gap:11px; align-items:flex-start; margin-top:20px; font-size:14px; line-height:1.5; color:#ffd7d7; background:rgba(255,124,124,.08); border:1px solid rgba(255,124,124,.35); border-radius:14px; padding:14px 16px;}
+  .error[hidden]{display:none;}
+
+  .stage{margin-top:34px;}
+  .stage[hidden]{display:none;}
+  .shead{display:flex; align-items:baseline; gap:12px; margin:0 4px 15px;}
+  .shead .t{font-family:var(--fd); font-weight:700; font-size:19px;}
+  .shead .k{font-family:var(--fm); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim);}
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  .grid.two{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:860px){.grid{grid-template-columns:1fr;} .grid.two{grid-template-columns:1fr;}}
+
+  .card{background:linear-gradient(180deg,var(--surface),#12151c); border:1px solid var(--border); border-radius:18px; padding:19px; display:flex; flex-direction:column; box-shadow:0 18px 44px -26px rgba(0,0,0,.8); opacity:0; animation:rise .55s cubic-bezier(.2,.7,.2,1) forwards;}
+  @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  .fw{align-self:flex-start; font-family:var(--fm); font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); background:rgba(182,255,61,.1); border:1px solid rgba(182,255,61,.25); padding:4px 9px; border-radius:7px; margin-bottom:12px;}
+  .hl{font-weight:800; font-size:18px; line-height:1.2; margin:0 0 8px;}
+  .body{font-size:14px; line-height:1.5; color:var(--dim); margin:0 0 12px; flex:1;}
+  .ctaline{font-family:var(--fm); font-weight:700; font-size:11.5px; color:var(--accent); margin-bottom:10px;}
+  .tags{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;}
+  .tag{font-family:var(--fm); font-size:10.5px; font-weight:700; color:#bfe6ff; background:rgba(86,140,255,.1); border:1px solid rgba(86,140,255,.28); padding:3px 8px; border-radius:6px;}
+  .actions{display:flex; gap:8px; margin-top:13px; padding-top:13px; border-top:1px solid var(--border); flex-wrap:wrap;}
+  .mini{display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:11.5px; background:transparent; border:1px solid var(--border-2); color:var(--text); border-radius:9px; padding:8px 12px; cursor:pointer; transition:all .14s; text-decoration:none;}
+  .mini:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .mini.hot{border-color:rgba(182,255,61,.4); color:var(--accent);}
+  .mini.hot:hover{color:#0A0B0F;}
+
+  .crea{padding:0; overflow:hidden;}
+  .crea .imgwrap{background:#0b0d12; display:flex; align-items:center; justify-content:center; min-height:230px;}
+  .crea img{width:100%; height:auto; display:block;}
+  .crea .meta{padding:14px 16px;}
+  .crea .meta .nm{font-family:var(--fm); font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em;}
+  .crea .actions{margin:0; padding:0 16px 14px; border-top:none;}
+
+  .post{display:flex; flex-direction:column; gap:8px;}
+  .post .when{font-family:var(--fm); font-size:11px; font-weight:700; color:var(--info); text-transform:uppercase; letter-spacing:.06em;}
+  .post .txt{font-size:14px; line-height:1.5; color:var(--text); white-space:pre-wrap;}
+
+  .skel{height:230px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
+  @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+
+  #toast{visibility:hidden; min-width:230px; background:#14171F; color:#fff; text-align:center; border-radius:9px; padding:14px; position:fixed; z-index:1000; left:50%; bottom:30px; transform:translateX(-50%); box-shadow:0 10px 30px rgba(0,0,0,.5); border:1px solid #23262E; transition:opacity .3s; opacity:0; font-size:13.5px;}
+  #toast.show{visibility:visible; opacity:1;}
+  footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <span class="tab active">⚡ Campaign</span>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="analytics.html">📊 Stats</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="schedule.html">📅 Schedule</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <a class="tab" href="videotok.html">📝 Transcribe</a>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
+  <div class="badge"><span class="dot"></span> One brief → whole campaign</div>
+  <h1 class="title">Brief it once.<br><span class="accent">Ship everything.</span></h1>
+  <p class="sub">Describe the campaign in plain words. Volt writes the ad copy, designs the creatives, briefs the newsletter and drafts the posting schedule — all matched, all editable.</p>
+
+  <section class="console">
+    <label class="lbl" for="brief">What are we promoting?</label>
+    <textarea id="brief" rows="4" placeholder="e.g. We're hosting a free webinar on getting SME funding in 2026, Thursday 6pm with a funding expert. Goal: registrations from small business owners."></textarea>
+    <div class="row">
+      <div class="field">
+        <span class="lbl">Primary platform</span>
+        <div class="seg" id="platSeg">
+          <button data-p="linkedin" class="on">LinkedIn</button>
+          <button data-p="instagram">Instagram</button>
+          <button data-p="facebook">Facebook</button>
+          <button data-p="x">X</button>
+        </div>
+      </div>
+    </div>
+    <div class="go">
+      <button class="btn" id="goBtn" onclick="runCampaign()">⚡ Build the campaign</button>
+      <span class="go-note" id="goNote">~20 seconds. Copy, creatives, email &amp; schedule.</span>
+    </div>
+    <div class="error" id="err" hidden></div>
+  </section>
+
+  <section class="stage" id="stCopy" hidden>
+    <div class="shead"><span class="t">Ad copy</span><span class="k">3 angles</span></div>
+    <div class="grid" id="copyGrid"></div>
+  </section>
+
+  <section class="stage" id="stCrea" hidden>
+    <div class="shead"><span class="t">Creatives</span><span class="k">Rendered by Studio's engine — download or fine-tune</span></div>
+    <div class="grid" id="creaGrid"></div>
+  </section>
+
+  <section class="stage" id="stEmail" hidden>
+    <div class="shead"><span class="t">Newsletter</span><span class="k">Briefed for the Email builder</span></div>
+    <div class="grid two" id="emailGrid"></div>
+  </section>
+
+  <section class="stage" id="stPosts" hidden>
+    <div class="shead"><span class="t">Posting plan</span><span class="k">Ready for Schedule</span></div>
+    <div class="grid two" id="postGrid"></div>
+  </section>
+
+  <footer>VOLT · CAMPAIGN — <span>one brief in, a campaign out</span></footer>
+</main>
+<div id="toast"></div>
+
+<script>
+const API_BASE = 'https://tshephos-lab.vercel.app';
+const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let platform = 'linkedin';
+document.querySelectorAll('#platSeg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#platSeg button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); platform = b.dataset.p;
+}));
+
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); }
+function copyText(s){ navigator.clipboard.writeText(s).then(() => toast('Copied ✓')).catch(() => toast('Copy failed')); }
+
+// ── Studio's render engine, borrowed live (same technique as /smoke.html): fetch studio.html,
+//    extract the worker, render each creative through the REAL production engine. ──
+let _worker = null, _chain = Promise.resolve(), _fonts = {}, _logoW = null, _logoC = null, _assetsReady = null;
+async function getEngine(){
+  if (_worker) return _worker;
+  const html = await (await fetch('studio.html', { cache: 'no-store' })).text();
+  const m = html.match(/<script id="worker-src"[^>]*>([\s\S]*?)<\/script>/);
+  if (!m) throw new Error('Studio engine not found');
+  _worker = new Worker(URL.createObjectURL(new Blob([m[1]], { type: 'application/javascript' })));
+  return _worker;
+}
+async function loadAssets(){
+  if (_assetsReady) return _assetsReady;
+  _assetsReady = (async () => {
+    try {
+      const css = await (await fetch('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&display=swap', { mode: 'cors' })).text();
+      const seen = new Set(); const tasks = []; let mm;
+      const rx = /@font-face\s*{([^}]+)}/g;
+      while ((mm = rx.exec(css)) !== null) {
+        const b = mm[1];
+        if (/unicode-range/i.test(b) && !/U\+0000-00FF/i.test(b)) continue;
+        const fam = b.match(/font-family\s*:\s*['"]?([^;'"]+)['"]?/), wt = b.match(/font-weight\s*:\s*(\d+)/), u = b.match(/src\s*:[^;]*?url\(([^)]+)\)\s*format\(\s*['"]woff2['"]\s*\)/);
+        if (!fam || !wt || !u) continue;
+        const key = fam[1].trim() + '-' + wt[1].trim();
+        if (seen.has(key)) continue; seen.add(key);
+        tasks.push(fetch(u[1].trim()).then(r => r.arrayBuffer()).then(buf => { _fonts[key] = { family: fam[1].trim(), weight: wt[1].trim(), buffer: buf }; }).catch(() => {}));
+      }
+      await Promise.all(tasks);
+    } catch (e) {}
+    try { _logoW = await (await fetch('https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png', { mode: 'cors' })).blob(); } catch (e) {}
+    try { _logoC = await (await fetch('https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png', { mode: 'cors' })).blob(); } catch (e) {}
+  })();
+  return _assetsReady;
+}
+function post(payload){
+  const run = async () => {
+    const w = await getEngine();
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => { clean(); reject(new Error('render timeout')); }, 20000);
+      const onMsg = e => { const d = e.data; if (d.type === 'done'){ clean(); resolve(d); } else if (d.type === 'error'){ clean(); reject(new Error(d.message || 'render error')); } };
+      const onErr = e => { clean(); reject(new Error(e.message || 'engine crash')); };
+      function clean(){ clearTimeout(t); w.removeEventListener('message', onMsg); w.removeEventListener('error', onErr); }
+      w.addEventListener('message', onMsg); w.addEventListener('error', onErr);
+      w.postMessage(payload);
+    });
+  };
+  const p = _chain.then(run, run);
+  _chain = p.catch(() => {});
+  return p;
+}
+const BRAND = { primary: '#9c1c1f', secondary: '#0a2c3d', cta: 'Read The Insight', url: 'smesouthafrica.co.za' };
+async function renderCreative(cr, scale){
+  await loadAssets();
+  return post({ type: 'render-premium', brand: BRAND, fontBuffers: _fonts, logoWhiteBlob: _logoW, logoColorBlob: _logoC,
+    premType: cr.type, dir: cr.dir, vals: Object.assign({ url: BRAND.url }, cr.vals), w: 1080, h: 1080, scale: scale, filename: 'SME_' + cr.type + '_' + cr.dir + '.png' });
+}
+
+// ── The campaign run ──
+let lastCampaign = null;
+async function runCampaign(){
+  const brief = $('#brief').value.trim();
+  if (!brief) { toast('Describe the campaign first'); return; }
+  const btn = $('#goBtn'); const err = $('#err');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Building…'; err.hidden = true;
+  ['stCopy','stCrea','stEmail','stPosts'].forEach(id => { $('#' + id).hidden = true; });
+  $('#creaGrid').innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
+  try {
+    const r = await fetch(API_BASE + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-app-key': APP_KEY }, body: JSON.stringify({ task: 'campaign', brief, platform }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ('Server error ' + r.status));
+    lastCampaign = data.campaign;
+    renderResults(data.campaign);
+  } catch (e) {
+    err.textContent = '⚠ ' + e.message; err.hidden = false;
+  } finally {
+    btn.disabled = false; btn.innerHTML = '⚡ Build the campaign';
+  }
+}
+
+function renderResults(c){
+  // Copy
+  const cg = $('#copyGrid');
+  cg.innerHTML = (c.copy || []).map((v, i) => `
+    <div class="card" style="animation-delay:${i * 90}ms">
+      <span class="fw">${esc(v.framework)}</span>
+      <p class="hl">${esc(v.headline)}</p>
+      <p class="body">${esc(v.body)}</p>
+      <div class="ctaline">${esc(v.cta)}</div>
+      <div class="tags">${(v.hashtags || []).map(h => '<span class="tag">#' + esc(h) + '</span>').join('')}</div>
+      <div class="actions">
+        <button class="mini" onclick='copyText(${JSON.stringify(v.headline + '\n\n' + v.body + '\n\n' + v.cta + '\n' + (v.hashtags || []).map(h => '#' + h).join(' '))})'>⧉ Copy</button>
+        <button class="mini hot" onclick='toStudio(${JSON.stringify(v.headline)}, ${JSON.stringify(v.body)})'>🎨 Design in Studio</button>
+      </div>
+    </div>`).join('');
+  $('#stCopy').hidden = !(c.copy || []).length;
+
+  // Creatives — render through the real engine
+  const kg = $('#creaGrid');
+  kg.innerHTML = '';
+  (c.creatives || []).forEach(async (cr, i) => {
+    const card = document.createElement('div');
+    card.className = 'card crea'; card.style.animationDelay = (i * 90) + 'ms';
+    card.innerHTML = '<div class="imgwrap"><div class="skel" style="width:100%;border:none;border-radius:0;"></div></div>'
+      + '<div class="meta"><span class="nm">' + esc(cr.type) + ' / ' + esc(cr.dir).toUpperCase() + '</span></div>'
+      + '<div class="actions"><button class="mini dl">⬇ Download PNG</button><button class="mini hot ed">🎨 Fine-tune in Studio</button></div>';
+    kg.appendChild(card);
+    card.querySelector('.dl').onclick = async function(){
+      this.textContent = '…rendering';
+      try { const d = await renderCreative(cr, 2); const a = document.createElement('a'); a.href = URL.createObjectURL(d.blob); a.download = d.filename; a.click(); this.textContent = '⬇ Download PNG'; toast('Downloaded ✓'); }
+      catch(e){ this.textContent = '⬇ Download PNG'; toast('Render failed'); }
+    };
+    card.querySelector('.ed').onclick = function(){
+      try { sessionStorage.setItem('tl_campaign_creative', JSON.stringify(cr)); } catch(e){}
+      location.href = 'studio.html';
+    };
+    try {
+      const d = await renderCreative(cr, 0.6);
+      card.querySelector('.imgwrap').innerHTML = '<img src="' + URL.createObjectURL(d.blob) + '" alt="">';
+    } catch (e) {
+      card.querySelector('.imgwrap').innerHTML = '<div style="padding:30px;color:var(--low);font-size:13px;">Render failed — open in Studio instead.</div>';
+    }
+  });
+  $('#stCrea').hidden = !(c.creatives || []).length;
+
+  // Email
+  const eg = $('#emailGrid');
+  eg.innerHTML = `
+    <div class="card">
+      <span class="fw">Subject</span>
+      <p class="hl">${esc(c.email && c.email.subject || '')}</p>
+      <p class="body">${esc(c.email && c.email.brief || '')}</p>
+      <div class="actions">
+        <button class="mini" onclick='copyText(${JSON.stringify((c.email && c.email.subject || '') + '\n\n' + (c.email && c.email.brief || ''))})'>⧉ Copy</button>
+        <button class="mini hot" onclick="toEmail()">✉️ Write it in Email</button>
+      </div>
+    </div>`;
+  $('#stEmail').hidden = !(c.email && (c.email.subject || c.email.brief));
+
+  // Posts
+  const pg = $('#postGrid');
+  pg.innerHTML = (c.posts || []).map((p, i) => `
+    <div class="card post" style="animation-delay:${i * 80}ms">
+      <span class="when">${esc(p.platform)} · ${esc(p.day)} ${esc(p.time)}</span>
+      <p class="txt">${esc(p.text)}</p>
+      <div class="actions">
+        <button class="mini" onclick='copyText(${JSON.stringify(p.text)})'>⧉ Copy</button>
+      </div>
+    </div>`).join('')
+    + ((c.posts || []).length ? '<div class="card" style="align-items:flex-start;justify-content:center;"><p class="body">Load all ' + c.posts.length + ' posts into the Schedule composer (they land in your caption library too).</p><button class="mini hot" onclick="toSchedule()">📅 Send all to Schedule</button></div>' : '');
+  $('#stPosts').hidden = !(c.posts || []).length;
+
+  toast('Campaign "' + (c.name || 'Untitled') + '" ready ⚡');
+}
+
+// ── Handoffs ──
+function toStudio(headline, body){
+  try { sessionStorage.setItem('tl_handoff', JSON.stringify({ headline, body, platform })); } catch(e){}
+  location.href = 'studio.html';
+}
+function toEmail(){
+  if (!lastCampaign || !lastCampaign.email) return;
+  try { sessionStorage.setItem('tl_campaign_email', JSON.stringify(lastCampaign.email)); } catch(e){}
+  location.href = 'email.html';
+}
+function toSchedule(){
+  if (!lastCampaign || !lastCampaign.posts || !lastCampaign.posts.length) return;
+  try { sessionStorage.setItem('tl_campaign_posts', JSON.stringify(lastCampaign.posts)); } catch(e){}
+  location.href = 'schedule.html';
+}
+</script>
+</body>
+</html>

@@ -670,6 +670,70 @@ export default async function handler(req, res) {
       return res.status(200).json({ videocopy });
     }
 
+    // ---- Campaign: ONE brief → copy + Studio creatives + email brief + post schedule ----
+    if (task === "campaign") {
+      const brief = String(body.brief || "").trim().slice(0, 2000);
+      if (!brief) return res.status(400).json({ error: "Describe the campaign first." });
+      const platform = String(body.platform || "").slice(0, 30);
+      // Studio premium field spec — the model must fill EXACTLY these keys per design.
+      const CREATIVE_SPEC = {
+        funding:    { a: ["pill","head","sub","b1","b2","b3","cta"], b: ["pill","head","sub","cardk","cardh","cards","cta"], c: ["big","head","speed","trust","cta"] },
+        solutions:  { a: ["eyebrow","head","sub","cta"], b: ["eyebrow","vsLeft","vsRight","head","sub","cta"], c: ["eyebrow","name","rating","sub","pro1","pro2","con1","cta"] },
+        newsletter: { a: ["eyebrow","head","sub","cta","meta"], b: ["pill","issue","head","i1","i2","i3","cta"], c: ["eyebrow","big","sub","placeholder","btn","meta"] },
+        resources:  { a: ["pill","coverTitle","coverSub","head","cta"], b: ["eyebrow","head","i1","i2","i3","locked","cta"], c: ["big","head","sub","i1","i2","i3","cta"] },
+      };
+      const specTxt = Object.entries(CREATIVE_SPEC).map(([t, dirs]) =>
+        Object.entries(dirs).map(([d, keys]) => t + "/" + d + ": {" + keys.join(", ") + "}").join("\n")).join("\n");
+      const sysCampaign =
+        "You are the head of marketing for South African SMEs. From ONE campaign brief you produce a complete, coherent, ready-to-ship campaign. " +
+        "Everything must share one message and voice. Be concrete and South African (Rand amounts, SA context). Reply ONLY with valid JSON.";
+      const prompt =
+        "CAMPAIGN BRIEF: " + brief + (platform ? "\nPRIMARY PLATFORM: " + platform : "") + promptExtras + pubNote +
+        "\n\nProduce JSON exactly in this shape:\n" +
+        '{ "name": "short campaign name", ' +
+        '"copy": [3 items: {"framework":"angle name","headline":"","body":"<=220 chars","cta":"","hashtags":["",""]}], ' +
+        '"creatives": [3 items: {"type":"funding|solutions|newsletter|resources","dir":"a|b|c","vals":{...}}], ' +
+        '"email": {"subject":"","brief":"2-4 sentence brief a newsletter writer would expand into a section"}, ' +
+        '"posts": [4 items: {"platform":"linkedin|instagram|facebook|x","day":"Mon..Sun","time":"HH:MM","text":"ready-to-post caption <=280 chars"}] }\n\n' +
+        "CREATIVE RULES — pick the 3 design templates that best fit the brief (vary them), and fill vals with EXACTLY the keys for the chosen type/dir (SHORT punchy values that fit a social graphic):\n" + specTxt +
+        "\nField hints: head<=60 chars, sub<=140, cta<=30 ending with an arrow, big is 1-3 words/number, i1-i3 use 'bold part|rest' format, rating like '4.8'.";
+      const text = await callProvider(prompt, { system: sysCampaign, temperature: 0.8, maxTokens: 3000, json: true });
+      const c = safeParse(text);
+      if (!c) return res.status(502).json({ error: "Model returned an unusable campaign — try again." });
+      const creatives = (Array.isArray(c.creatives) ? c.creatives : []).slice(0, 3).map((cr) => {
+        const type = String(cr && cr.type || "").toLowerCase();
+        const dir = String(cr && cr.dir || "").toLowerCase();
+        const keys = CREATIVE_SPEC[type] && CREATIVE_SPEC[type][dir];
+        if (!keys) return null;
+        const vals = {};
+        keys.forEach((k) => { const v = cr.vals && cr.vals[k]; if (v != null && String(v).trim()) vals[k] = String(v).slice(0, 200); });
+        return Object.keys(vals).length ? { type, dir, vals } : null;
+      }).filter(Boolean);
+      const campaign = {
+        name: String(c.name || "Campaign").slice(0, 80),
+        copy: (Array.isArray(c.copy) ? c.copy : []).slice(0, 3).map((v) => ({
+          framework: String(v && v.framework || "Angle").slice(0, 40),
+          headline: String(v && v.headline || "").slice(0, 160),
+          body: String(v && v.body || "").slice(0, 400),
+          cta: String(v && v.cta || "").slice(0, 40),
+          hashtags: cleanTags(v && v.hashtags),
+        })).filter((v) => v.headline || v.body),
+        creatives,
+        email: { subject: String(c.email && c.email.subject || "").slice(0, 120), brief: String(c.email && c.email.brief || "").slice(0, 800) },
+        posts: (Array.isArray(c.posts) ? c.posts : []).slice(0, 4).map((p) => ({
+          platform: String(p && p.platform || "linkedin").slice(0, 20),
+          day: String(p && p.day || "").slice(0, 10),
+          time: String(p && p.time || "").slice(0, 5),
+          text: String(p && p.text || "").slice(0, 600),
+        })).filter((p) => p.text),
+      };
+      if (!campaign.copy.length && !campaign.creatives.length) {
+        return res.status(502).json({ error: "Model returned an empty campaign — try again." });
+      }
+      await logContent(req.volt && req.volt.orgId, { tool: "campaign", input: { brief: brief.slice(0, 300), platform }, output: { name: campaign.name, copies: campaign.copy.length, creatives: campaign.creatives.length, posts: campaign.posts.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ campaign });
+    }
+
     // ---- VideoTok: YouTube metadata (titles/description/tags/chapters) from a transcript ----
     if (task === "ytmeta") {
       const { transcript } = body;

@@ -75,6 +75,7 @@
 <main class="wrap">
   <nav class="topbar">
     <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="campaign.html">⚡ Campaign</a>
     <a class="tab" href="studio.html">🎨 Studio</a>
     <a class="tab" href="analytics.html">📊 Stats</a>
     <a class="tab" href="email.html">✉️ Email</a>
@@ -318,6 +319,34 @@ window.addEventListener('volt:ready', ()=>{ loadChannels(); loadQueue(); });
 if(window.voltSession){ loadChannels(); loadQueue(); }
 renderLib();
 updatePreview();
+
+// Campaign page → "Send all to Schedule": first post fills the composer, the rest land in
+// the caption library (Pull a caption) with their platform/day/time as the source label.
+(function(){
+  let raw; try { raw = sessionStorage.getItem('tl_campaign_posts'); } catch(e){ return; }
+  if (!raw) return;
+  try { sessionStorage.removeItem('tl_campaign_posts'); } catch(e){}
+  let posts; try { posts = JSON.parse(raw); } catch(e){ return; }
+  if (!Array.isArray(posts) || !posts.length) return;
+  try {
+    let arr = [];
+    try { arr = JSON.parse(localStorage.getItem('volt_recent_captions') || '[]'); } catch(_){}
+    if (!Array.isArray(arr)) arr = [];
+    posts.slice().reverse().forEach(p => {
+      const text = String(p && p.text || '').trim(); if (!text) return;
+      arr = arr.filter(c => c && c.text !== text);
+      arr.unshift({ text, src: 'Campaign · ' + (p.platform || '') + ' ' + (p.day || '') + ' ' + (p.time || ''), at: Date.now() });
+    });
+    localStorage.setItem('volt_recent_captions', JSON.stringify(arr.slice(0, 20)));
+  } catch(_){}
+  const box = $('#scContent');
+  if (box && posts[0] && posts[0].text) { box.value = posts[0].text; updatePreview(); }
+  const n = document.createElement('div');
+  n.style.cssText = 'position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:1000;background:#14171F;color:#ECEEF3;border:1px solid #23262E;border-radius:9px;padding:13px 18px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.5);';
+  n.textContent = posts.length + ' campaign posts loaded — first is in the composer, the rest are under "Pull a caption".';
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 4200);
+})();
 </script>
 </body>
 </html>

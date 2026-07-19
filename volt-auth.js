@@ -247,6 +247,7 @@
   var RAIL_TILES = [
     { t: "Create", e: "✦", href: "home.html" },
     { t: "Copy", e: "✍️", href: "index.html" },
+    { t: "Campaign", e: "⚡", href: "campaign.html" },
     { t: "Studio", e: "🎨", href: "studio.html" },
     { t: "Freeform", e: "🖌️", href: "freeform.html" },
     { t: "Video", e: "🎬", href: "video.html" },
@@ -738,6 +739,7 @@
   function baseCommands() {
     var tools = [
       { t: "Copy Lab", s: "Write ranked ad angles", e: "✍️", href: "index.html" },
+      { t: "Campaign", s: "One brief → whole campaign", e: "⚡", href: "campaign.html" },
       { t: "Studio", s: "Design graphics", e: "🎨", href: "studio.html" },
       { t: "Stats", s: "Performance & insights", e: "📊", href: "analytics.html" },
       { t: "Email", s: "Build a newsletter", e: "✉️", href: "email.html" },

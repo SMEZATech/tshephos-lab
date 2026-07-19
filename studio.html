@@ -129,6 +129,7 @@
         <div class="p-6 border-b border-slate-800 bg-slate-900/95 sticky top-0 z-20 backdrop-blur-sm">
             <nav class="nav-tabs">
                 <a class="nav-tab" href="index.html">✍️ Copy</a>
+        <a class="nav-tab" href="campaign.html">⚡ Campaign</a>
                 <span class="nav-tab active">🎨 Studio</span>
                 <a class="nav-tab" href="analytics.html">📊 Stats</a>
                 <a class="nav-tab" href="email.html">✉️ Email</a>
@@ -3350,6 +3351,26 @@ self.onmessage = async (e) => {
 
     // === Copy Lab → Studio handoff ===
     // Reads the angle stored by Copy Lab's "Design in Studio" button and pre-loads it here.
+    // Campaign page → "Fine-tune in Studio" on a generated premium creative.
+    function applyCampaignCreative() {
+        let raw;
+        try { raw = sessionStorage.getItem('tl_campaign_creative'); } catch (e) { return false; }
+        if (!raw) return false;
+        try { sessionStorage.removeItem('tl_campaign_creative'); } catch (e) {}
+        let cr;
+        try { cr = JSON.parse(raw); } catch (e) { return false; }
+        if (!cr || !PREMIUM[cr.type] || !PREMIUM[cr.type].dirs[cr.dir]) return false;
+        setCampaign('standard');                       // base state first
+        setContentType(cr.type);                       // → premium mode (loads defaults for dir 'a')
+        setPremiumDir(cr.dir);                         // → the chosen direction's defaults
+        if (cr.vals && typeof cr.vals === 'object') {  // overlay the campaign's generated text
+            Object.keys(cr.vals).forEach(k => { premVals[k] = String(cr.vals[k]).slice(0, 200); });
+        }
+        renderPremFields(); renderPremiumPreview();
+        showToast('Loaded from Campaign — tweak any field and export.', 'success');
+        return true;
+    }
+
     function applyCopyLabHandoff() {
         let raw;
         try { raw = sessionStorage.getItem('tl_handoff'); } catch (e) { return false; }
@@ -3431,8 +3452,8 @@ self.onmessage = async (e) => {
         applyBrand();
         renderFeed();
         updateAdvisor();
-        // If Copy Lab handed off an angle, load it; otherwise start on the default Standard view.
-        if (!applyCopyLabHandoff()) setCampaign('standard');
+        // If Campaign handed off a premium creative, load it; else Copy Lab; else default Standard.
+        if (!applyCampaignCreative() && !applyCopyLabHandoff()) setCampaign('standard');
         window.addEventListener('resize', resizeWrapper);
 
         // Kick off font preload in background — don't block UI
