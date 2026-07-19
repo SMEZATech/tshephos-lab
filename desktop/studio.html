@@ -2154,7 +2154,6 @@ self.onmessage = async (e) => {
     let exportWorker = null;
 
     // Designer-intent font ceilings per layout
-    const FONT_CEILINGS = { landscape: 65, square: 80, portrait: 95, whatsapp: 100 };
 
     // =============================================================
     // 2. INPUT SANITISER (preview only — canvas never inserts HTML)
@@ -2462,278 +2461,45 @@ self.onmessage = async (e) => {
         resizeWrapper();
     }
 
-    function getFooterHTML(lineColor, textColor) {
-        if (!state.showFooter) return '';
-        return ''
-          + '<div class="flex justify-between items-center w-full border-t border-' + lineColor + ' pt-6 mt-8 shrink-0">'
-          +   '<div class="flex items-center gap-3 ' + textColor + '">'
-          +     '<svg class="w-7 h-7 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V19.5"></path></svg>'
-          +     '<span class="font-oswald font-bold text-2xl tracking-widest uppercase leading-none mt-1">Read Insight</span>'
-          +   '</div>'
-          +   '<div class="flex items-center gap-3 ' + textColor + '">'
-          +     '<svg class="w-6 h-6 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>'
-          +     '<span class="font-roboto font-bold text-xl tracking-wide leading-none mt-1">smesouthafrica.co.za</span>'
-          +   '</div>'
-          + '</div>';
-    }
-
+    // ── UNIFIED PREVIEW ─────────────────────────────────────────────────────────
+    // The SAME worker canvas engine (renderSlide) draws the preview AND the export.
+    // The old HTML preview renderer (getFooterHTML + ~190 lines of per-theme HTML in
+    // renderLayout + DOM patching in syncDOM) was deleted: it duplicated every design
+    // and drifted from the PNG export. Preview = renderSlide() at scale 1 → exact WYSIWYG.
+    let _crePreviewT = null, _crePreviewURL = null, _creGen = 0;
     function renderLayout() {
         if (state.contentType !== 'creative') { renderPremiumPreview(); return; }  // premium engine handles its own preview
-        const f = state.campaign === 'standard' ? state.format
-                : (state.campaign === 'whatsapp' ? 'whatsapp' : 'square');
-        let html = '';
-
-        if (state.campaign === 'standard') {
-            if (state.theme === 'classic') {
-                const isLand = f === 'landscape';
-                html = '<div class="flex ' + (isLand ? 'flex-row' : 'flex-col') + ' w-full h-full bg-sme-red relative">'
-                  +   '<div class="' + (isLand ? 'w-[45%] h-full rounded-r-[60px]' : 'w-full h-[55%] rounded-b-[60px]') + ' relative overflow-hidden shadow-[20px_20px_50px_rgba(0,0,0,0.3)] z-10 bg-slate-800 shrink-0">'
-                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
-                  +     '<div class="absolute inset-0 bg-sme-navy opacity-20 mix-blend-multiply pointer-events-none"></div>'
-                  +   '</div>'
-                  +   '<div class="flex-1 p-16 flex flex-col justify-between">'
-                  +     '<div class="flex justify-between items-start w-full">'
-                  +       '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
-                  +       '<div class="bg-white text-sme-red font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md"><span id="render-tag"></span></div>'
-                  +     '</div>'
-                  +     '<div class="flex-1 flex items-center py-6"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.1] tracking-tight w-full"></h2></div>'
-                  +     getFooterHTML('white/20', 'text-white')
-                  +   '</div>'
-                  + '</div>';
-            } else if (state.theme === 'cinematic') {
-                html = '<div class="relative w-full h-full bg-black overflow-hidden">'
-                  +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat opacity-90" style="background-size:cover;"></div>'
-                  +   '<div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(to top, var(--bs) 0%, color-mix(in srgb, var(--bs) 80%, transparent) 50%, color-mix(in srgb, var(--bs) 20%, transparent) 100%)"></div>'
-                  +   '<div class="absolute inset-0 p-16 flex flex-col justify-between z-10">'
-                  +     '<div class="flex justify-between items-start w-full">'
-                  +       '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-lg border border-white/20"><span id="render-tag"></span></div>'
-                  +       '<img src="' + WHITE_LOGO + '" class="h-12 object-contain drop-shadow-lg" crossorigin="anonymous">'
-                  +     '</div>'
-                  +     '<div class="w-full flex flex-col justify-end mt-auto">'
-                  +       '<h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.05] tracking-tight w-full drop-shadow-2xl mb-6"></h2>'
-                  +       getFooterHTML('white/20', 'text-white')
-                  +     '</div>'
-                  +   '</div>'
-                  + '</div>';
-            } else if (state.theme === 'editorial') {
-                html = '<div class="flex flex-col w-full h-full relative overflow-hidden" style="background:#fcf7f8;padding:7.5%;">'
-                  +   '<div class="flex justify-between items-start w-full">'
-                  +     '<div class="bg-sme-red text-white font-roboto font-bold px-5 pt-2 pb-3 rounded-sm tracking-widest uppercase text-sm"><span id="render-tag"></span></div>'
-                  +     '<img src="' + WHITE_LOGO + '" class="h-10 object-contain grayscale brightness-0 opacity-80" crossorigin="anonymous">'
-                  +   '</div>'
-                  +   '<div class="w-full rounded-2xl overflow-hidden bg-slate-800 mt-6 relative shrink-0" style="height:40%;">'
-                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
-                  +   '</div>'
-                  +   '<div class="w-20 h-1.5 bg-sme-red mt-6 shrink-0"></div>'
-                  +   '<div class="flex-1 flex items-start pt-6"><h2 id="render-title" class="font-oswald font-bold text-sme-navy uppercase leading-[1.08] tracking-tight w-full"></h2></div>'
-                  +   getFooterHTML('slate-300', 'text-sme-navy')
-                  + '</div>';
-            } else if (state.theme === 'bold') {
-                html = '<div class="flex flex-col w-full h-full relative overflow-hidden bg-sme-red" style="padding:8%;">'
-                  +   '<div class="absolute -bottom-[180px] -left-[180px] w-[640px] h-[640px] rounded-full pointer-events-none" style="background:var(--bs);opacity:.45;filter:blur(120px);"></div>'
-                  +   '<div class="flex justify-between items-start w-full z-10">'
-                  +     '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
-                  +     '<div class="bg-white text-sme-red font-roboto font-bold px-5 pt-2 pb-3 rounded-sm tracking-widest uppercase text-sm"><span id="render-tag"></span></div>'
-                  +   '</div>'
-                  +   '<div class="flex-1 flex items-center z-10 py-6"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.02] tracking-tight w-full drop-shadow-lg"></h2></div>'
-                  +   '<div class="w-full rounded-2xl overflow-hidden bg-slate-800 relative z-10 shrink-0" style="height:22%;">'
-                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
-                  +   '</div>'
-                  + '</div>';
-            } else {
-                const isLand = f === 'landscape';
-                html = '<div class="flex ' + (isLand ? 'flex-row p-12 gap-8' : 'flex-col p-12 gap-6') + ' w-full h-full bg-sme-navy relative overflow-hidden">'
-                  +   '<div class="absolute top-0 right-0 w-[800px] h-[800px] bg-sme-red opacity-15 blur-[120px] rounded-full pointer-events-none"></div>'
-                  +   '<div class="' + (isLand ? 'w-[40%]' : 'w-full h-[45%]') + ' rounded-2xl relative overflow-hidden bg-slate-800 shadow-2xl shrink-0">'
-                  +     '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
-                  +   '</div>'
-                  +   '<div class="flex-1 rounded-2xl p-12 bg-white shadow-2xl flex flex-col justify-between z-10">'
-                  +     '<div class="flex justify-between items-start w-full">'
-                  +       '<img src="' + WHITE_LOGO + '" class="h-10 object-contain grayscale brightness-0 opacity-80" crossorigin="anonymous">'
-                  +       '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-xs shadow-md"><span id="render-tag"></span></div>'
-                  +     '</div>'
-                  +     '<div class="flex-1 flex items-center py-6"><h2 id="render-title" class="font-oswald font-bold text-sme-navy uppercase leading-[1.1] tracking-tight w-full"></h2></div>'
-                  +     getFooterHTML('slate-200', 'text-sme-navy')
-                  +   '</div>'
-                  + '</div>';
-            }
-        } else if (state.campaign === 'carousel') {
-            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-20 overflow-hidden">'
-              +   '<div class="absolute -top-[200px] -right-[200px] w-[800px] h-[800px] bg-sme-red rounded-full opacity-30 blur-[150px] pointer-events-none"></div>'
-              +   '<div class="flex justify-between items-start w-full z-10">'
-              +     '<img src="' + WHITE_LOGO + '" class="h-16 object-contain" crossorigin="anonymous">'
-              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-lg shadow-md border border-white/10"><span id="render-tag"></span></div>'
-              +   '</div>'
-              +   '<div class="w-full flex-1 flex items-center z-10"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.05] tracking-tight w-full drop-shadow-lg" style="font-size:110px;"></h2></div>'
-              +   (state.showFooter
-                    ? '<div class="z-10 flex items-center gap-4 border-t-4 border-sme-red pt-6 shrink-0">'
-                      + '<div class="bg-white text-sme-red rounded-full p-2 shrink-0"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg></div>'
-                      + '<span class="text-white font-oswald text-2xl uppercase tracking-widest">Swipe to read</span>'
-                      + '</div>'
-                    : '')
-              + '</div>';
-            if (state.currentSlide > 0 && state.currentSlide < 5) {
-                html = '<div class="relative w-full h-full bg-white flex flex-col p-20 border-l-[16px] border-sme-red">'
-                  +   '<div class="text-sme-red font-oswald text-4xl font-bold mb-10 opacity-50 shrink-0">0' + state.currentSlide + ' / 05</div>'
-                  +   '<div class="w-full flex-1 flex items-center"><h2 id="render-title" class="font-oswald font-bold text-sme-navy uppercase leading-[1.1] tracking-tight w-full" style="font-size:80px;"></h2></div>'
-                  +   (state.showFooter
-                        ? '<div class="flex justify-between items-center w-full border-t-2 border-slate-200 pt-6 shrink-0">'
-                          + '<img src="' + WHITE_LOGO + '" class="h-10 object-contain grayscale brightness-0 opacity-50 shrink-0" crossorigin="anonymous">'
-                          + '<span class="text-slate-400 font-roboto text-xl tracking-widest uppercase font-bold shrink-0">Swipe →</span>'
-                          + '</div>'
-                        : '')
-                  + '</div>';
-            } else if (state.currentSlide === 5) {
-                html = '<div class="relative w-full h-full bg-sme-red flex flex-col items-center justify-center p-20 text-center text-white">'
-                  +   '<img src="' + WHITE_LOGO + '" class="h-24 object-contain mb-16 shadow-xl shrink-0" crossorigin="anonymous">'
-                  +   '<h2 id="render-title" class="font-oswald font-bold uppercase leading-[1.05] tracking-tight w-full mb-12" style="font-size:90px;"></h2>'
-                  +   (state.showFooter ? '<div class="bg-white text-sme-navy font-oswald text-4xl font-bold uppercase py-6 px-16 shadow-2xl rounded-xl shrink-0">Read The Insight</div>' : '')
-                  + '</div>';
-            }
-        } else if (state.campaign === 'poll') {
-            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col items-center justify-center p-16" style="background: linear-gradient(135deg, var(--bs) 0%, #111827 100%);">'
-              +   '<div class="z-10 w-full bg-[#1e293b] border border-slate-600 rounded-[40px] p-16 shadow-2xl text-center flex flex-col items-center">'
-              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-full tracking-widest uppercase text-sm shadow-md mb-8 border border-white/20"><span id="render-tag"></span></div>'
-              +     '<h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.15] tracking-tight mb-2" style="font-size:60px; text-shadow:0 4px 10px rgba(0,0,0,0.5);"></h2>'
-              +     '<div class="mt-8 space-y-4 w-full px-8 text-left">'
-              +       '<div class="bg-white p-5 rounded-xl text-sme-navy text-2xl font-bold flex justify-between items-center shadow-md"><span id="render-opt-1" class="font-roboto"></span><div class="w-8 h-8 rounded-full border-[3px] border-slate-300"></div></div>'
-              +       '<div class="bg-white p-5 rounded-xl text-sme-navy text-2xl font-bold flex justify-between items-center shadow-md"><span id="render-opt-2" class="font-roboto"></span><div class="w-8 h-8 rounded-full border-[3px] border-slate-300"></div></div>'
-              +       '<div id="opt-3-container" class="bg-white p-5 rounded-xl text-sme-navy text-2xl font-bold flex justify-between items-center shadow-md"><span id="render-opt-3" class="font-roboto"></span><div class="w-8 h-8 rounded-full border-[3px] border-slate-300"></div></div>'
-              +     '</div>'
-              +   '</div>'
-              + '</div>';
-        } else if (state.campaign === 'whatsapp') {
-            html = '<div class="relative w-full h-full flex flex-col justify-center bg-sme-navy overflow-hidden">'
-              +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover; background-position:center; opacity:0.35;"></div>'
-              +   '<div class="absolute inset-0" style="background: linear-gradient(to top, color-mix(in srgb, var(--bs) 95%, transparent), color-mix(in srgb, var(--bs) 40%, transparent));"></div>'
-              +   '<div class="z-10 p-16 w-full flex flex-col h-full justify-between relative">'
-              +     '<div class="flex justify-center pt-10"><div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-full tracking-widest uppercase text-lg shadow-md border border-white/20"><span id="render-tag"></span></div></div>'
-              +     '<div class="w-full text-center"><h2 id="render-title" class="font-oswald font-bold text-white uppercase leading-[1.1] tracking-tight" style="font-size:100px; text-shadow:2px 4px 15px rgba(0,0,0,0.9);"></h2></div>'
-              +     (state.showFooter ? '<div class="flex justify-center pb-10 shrink-0"><img src="' + WHITE_LOGO + '" class="h-16 object-contain opacity-90 shrink-0" crossorigin="anonymous"></div>' : '<div class="pb-10"></div>')
-              +   '</div>'
-              + '</div>';
-        } else if (state.campaign === 'stat') {
-            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-16 overflow-hidden">'
-              +   '<div class="absolute -top-[150px] -right-[150px] w-[700px] h-[700px] bg-sme-red rounded-full opacity-25 blur-[150px] pointer-events-none"></div>'
-              +   '<div class="flex justify-between items-start w-full z-10">'
-              +     '<img src="' + WHITE_LOGO + '" class="h-12 object-contain" crossorigin="anonymous">'
-              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md border border-white/15"><span id="render-tag"></span></div>'
-              +   '</div>'
-              +   '<div class="flex-1 flex flex-col items-center justify-center text-center z-10 py-4">'
-              +     '<div id="render-stat" class="font-oswald font-bold text-white leading-none" style="font-size:200px; text-shadow:0 6px 18px rgba(0,0,0,0.35);"></div>'
-              +     '<div id="render-title" class="font-roboto font-bold text-white/90 leading-snug mt-6 max-w-[88%]" style="font-size:42px;"></div>'
-              +   '</div>'
-              +   (state.showFooter
-                    ? '<div class="z-10 border-t-4 border-sme-red pt-6 flex justify-between items-center shrink-0">'
-                      + '<div class="flex items-center gap-3"><svg class="w-6 h-6 text-sme-red shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg><span class="text-white font-oswald font-bold text-2xl tracking-widest uppercase">Read Insight</span></div>'
-                      + '<div class="flex items-center gap-3 text-white"><svg class="w-6 h-6 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg><span class="font-roboto font-bold text-xl tracking-wide">smesouthafrica.co.za</span></div>'
-                      + '</div>'
-                    : '')
-              + '</div>';
-        } else if (state.campaign === 'quote') {
-            html = '<div class="relative w-full h-full bg-sme-navy flex flex-col p-16 overflow-hidden">'
-              +   '<div class="absolute -bottom-[150px] -left-[150px] w-[650px] h-[650px] bg-sme-red rounded-full opacity-20 blur-[150px] pointer-events-none"></div>'
-              +   '<div class="flex justify-between items-start w-full z-10">'
-              +     '<div class="bg-sme-red text-white font-roboto font-bold px-6 pt-3 pb-4 rounded-sm tracking-widest uppercase text-sm shadow-md"><span id="render-tag"></span></div>'
-              +     '<img src="' + WHITE_LOGO + '" class="h-11 object-contain" crossorigin="anonymous">'
-              +   '</div>'
-              +   '<div class="text-sme-red font-oswald font-bold leading-none z-10" style="font-size:150px; height:80px; overflow:hidden; margin-top:8px;">&ldquo;</div>'
-              +   '<div class="flex-1 flex flex-col justify-center z-10">'
-              +     '<div id="render-title" class="font-oswald font-bold text-white leading-snug" style="font-size:60px;"></div>'
-              +     '<div class="flex items-center gap-3 mt-8"><div class="w-9 h-1 bg-sme-red rounded shrink-0"></div><span id="render-author" class="font-roboto font-bold text-white/90" style="font-size:30px;"></span></div>'
-              +   '</div>'
-              +   (state.showFooter
-                    ? '<div class="z-10 border-t border-white/20 pt-5 flex items-center gap-3 text-white shrink-0"><svg class="w-5 h-5 opacity-90 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg><span class="font-roboto font-bold text-lg tracking-wide">smesouthafrica.co.za</span></div>'
-                    : '')
-              + '</div>';
-        } else if (state.campaign === 'meme') {
-            const memeTxt = 'font-oswald font-bold text-white text-center uppercase leading-[1.05]';
-            const memeStyle = '-webkit-text-stroke:3px #000;text-shadow:0 3px 10px rgba(0,0,0,.55);word-break:break-word;';
-            html = '<div class="relative w-full h-full bg-black overflow-hidden">'
-              +   '<div id="render-img" class="absolute inset-0 w-full h-full bg-no-repeat" style="background-size:cover;"></div>'
-              +   '<div class="absolute inset-x-0 top-0 flex justify-center" style="padding:5%;"><div id="meme-top" class="' + memeTxt + '" style="' + memeStyle + '"></div></div>'
-              +   '<div class="absolute inset-x-0 bottom-0 flex justify-center" style="padding:5%;"><div id="meme-bottom" class="' + memeTxt + '" style="' + memeStyle + '"></div></div>'
-              + '</div>';
-        }
-
-        // Brand Kit: swap the seeded SME logo/URL/CTA in the preview for the active brand.
-        // (No-op when SME is active; the export does the same via the worker BRAND payload.)
-        const _b = currentBrand();
-        if (_b.logo && _b.logo !== WHITE_LOGO) html = html.split(WHITE_LOGO).join(_b.logo);
-        if (_b.url && _b.url !== 'smesouthafrica.co.za') html = html.split('smesouthafrica.co.za').join(sanitizeHTML(_b.url));
-        if (_b.cta) html = html.split('Read The Insight').join(sanitizeHTML(_b.cta)).split('Read Insight').join(sanitizeHTML(_b.cta));
-
-        canvas.innerHTML = html;
-        syncDOM();
-        setTimeout(resizeWrapper, 50);
+        _creGen++; clearTimeout(_crePreviewT); _crePreviewT = setTimeout(doCreativePreview, 160);
+    }
+    async function doCreativePreview() {
+        const myGen = _creGen;   // discard this render if a newer edit supersedes it mid-flight
+        try {
+            await ensureLogoBlob(); await ensureDefaultImageBlob();
+            const payload = { type: 'render-single', state: buildStatePayload(), brand: brandPayload(),
+                slideIdx: state.campaign === 'carousel' ? state.currentSlide : 0,
+                featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers,
+                scale: 1, filename: 'preview.png' };
+            const result = await premPost(payload);   // shared chain serializes preview + export renders
+            if (myGen !== _creGen || state.contentType !== 'creative') return;  // superseded / switched away
+            // Canvas SIZE is owned synchronously by setFormat/setCampaign — we only swap the image here.
+            const url = URL.createObjectURL(result.blob);
+            canvas.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0d12;"><img src="' + url + '" style="max-width:100%;max-height:100%;display:block;" /></div>';
+            if (_crePreviewURL) URL.revokeObjectURL(_crePreviewURL);
+            _crePreviewURL = url;
+            setTimeout(resizeWrapper, 30);
+        } catch (e) { console.error('creative preview failed', e); }
     }
 
     function syncDOM() {
+        // Control-panel value labels update instantly; the preview re-renders via the canvas engine.
         if (state.isExporting) return;
-        const posX = document.getElementById('in-img-x')?.value || 50;
-        const posY = document.getElementById('in-img-y')?.value || 50;
-        const tagInput = document.getElementById('in-tag');
-        const titleInput = document.getElementById('in-title');
-        const fontInput = document.getElementById('in-font-size');
-
         const valX = document.getElementById('val-img-x');
         const valY = document.getElementById('val-img-y');
         const valFont = document.getElementById('font-size-val');
-        if (valX) valX.innerText = posX + '%';
-        if (valY) valY.innerText = posY + '%';
-        if (valFont) valFont.innerText = (fontInput?.value || 100) + '%';
-
-        const titleSource = state.campaign === 'carousel'
-            ? sanitizeHTML(state.slides[state.currentSlide]).replace(/\n/g, '<br>')
-            : sanitizeHTML(titleInput?.value || '').replace(/\n/g, '<br>');
-
-        const rTag = document.getElementById('render-tag');
-        const rTitle = document.getElementById('render-title');
-        const rImg = document.getElementById('render-img');
-
-        if (rTag && tagInput) rTag.innerHTML = sanitizeHTML(tagInput.value);
-        if (rTitle) {
-            rTitle.innerHTML = titleSource;
-            const baseSize = state.campaign === 'standard' ? FONT_CEILINGS[state.format]
-                : state.campaign === 'carousel' ? (state.currentSlide === 0 ? 110 : 80)
-                : state.campaign === 'poll' ? 60
-                : state.campaign === 'whatsapp' ? 85
-                : state.campaign === 'stat' ? 42
-                : state.campaign === 'quote' ? 64
-                : 100;
-            rTitle.style.fontSize = Math.round(baseSize * ((fontInput?.value || 100) / 100)) + 'px';
-        }
-        if (rImg && currentImageSrc) {
-            rImg.style.backgroundImage = "url('" + currentImageSrc + "')";
-            rImg.style.backgroundPosition = posX + '% ' + posY + '%';
-        }
-
-        const rStat = document.getElementById('render-stat');
-        if (rStat) {
-            rStat.innerHTML = sanitizeHTML(document.getElementById('in-stat')?.value || '');
-            rStat.style.fontSize = Math.round(200 * ((fontInput?.value || 100) / 100)) + 'px';
-        }
-        const rAuthor = document.getElementById('render-author');
-        if (rAuthor) rAuthor.innerHTML = sanitizeHTML(document.getElementById('in-author')?.value || '');
-
-        const memeSize = Math.round(64 * ((fontInput?.value || 100) / 100)) + 'px';
-        const rMemeTop = document.getElementById('meme-top');
-        if (rMemeTop) { rMemeTop.innerHTML = sanitizeHTML(document.getElementById('in-meme-top')?.value || '').replace(/\n/g, '<br>'); rMemeTop.style.fontSize = memeSize; }
-        const rMemeBottom = document.getElementById('meme-bottom');
-        if (rMemeBottom) { rMemeBottom.innerHTML = sanitizeHTML(document.getElementById('in-meme-bottom')?.value || '').replace(/\n/g, '<br>'); rMemeBottom.style.fontSize = memeSize; }
-
-        if (state.campaign === 'poll') {
-            for (let i = 1; i <= 3; i++) {
-                const rOpt = document.getElementById('render-opt-' + i);
-                const optInput = document.getElementById('poll-opt-' + i);
-                const val = sanitizeHTML(optInput?.value || '');
-                if (rOpt) rOpt.innerHTML = val;
-                if (i === 3) {
-                    const c = document.getElementById('opt-3-container');
-                    if (c) c.style.display = val.trim() === '' ? 'none' : 'flex';
-                }
-            }
-        }
+        if (valX) valX.innerText = (document.getElementById('in-img-x')?.value || 50) + '%';
+        if (valY) valY.innerText = (document.getElementById('in-img-y')?.value || 50) + '%';
+        if (valFont) valFont.innerText = (document.getElementById('in-font-size')?.value || 100) + '%';
+        renderLayout();
     }
 
     // =============================================================
@@ -3692,6 +3458,7 @@ self.onmessage = async (e) => {
         preloadFontBuffers().then(() => {
             const n = Object.keys(fontBuffers).length;
             if (n > 0) console.log('[Studio] Loaded ' + n + ' font weights for worker.');
+            renderLayout();   // re-render preview with the real fonts
         });
         // Prime logo + default image
         ensureLogoBlob();
