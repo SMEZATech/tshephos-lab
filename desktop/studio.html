@@ -2540,22 +2540,7 @@ self.onmessage = async (e) => {
     }
 
     // ================= PREMIUM CONTENT-TYPE ENGINE (additive; Creative path untouched) =================
-    // Each design is ONE self-contained 360x360 HTML block. The same string drives the live preview
-    // (scaled to fit) AND the PNG export (SVG foreignObject → 1080x1080 canvas), so they cannot drift.
-    const PREM_CSS = `
-      .pcv{position:relative;width:360px;height:360px;overflow:hidden;border-radius:0;font-family:'Roboto',system-ui,sans-serif;color:#fff;box-sizing:border-box;}
-      .pcv *{box-sizing:border-box;margin:0;}
-      .pcv .pad{position:absolute;inset:0;padding:26px;display:flex;flex-direction:column;}
-      .pcv .eyebrow{font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;letter-spacing:2px;text-transform:uppercase;}
-      .pcv .pill{display:inline-block;font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding:6px 14px;border-radius:24px;}
-      .pcv .h{font-family:'Oswald',sans-serif;font-weight:700;text-transform:uppercase;line-height:1.05;}
-      .pcv .btn{font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:13px 20px;border-radius:8px;text-align:center;display:block;}
-      .pcv .chk{display:flex;gap:12px;align-items:flex-start;font-size:13.5px;line-height:1.4;}
-      .pcv .chk .b{flex:none;width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:900;color:#fff;}
-      .pcv .glow{position:absolute;border-radius:50%;filter:blur(60px);}
-      .pcv .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;font-family:'Oswald',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding-top:14px;}
-    `;
-    const NAVY='#0a2c3d', NAVY2='#061f2b', REDC='#9c1c1f', OFFW='#fcf7f8', INK='#0f172a', SLATE='#475569', LINE='#e2e8f0', PAPER='#ffffff', GREY='#f3f5f9';
+    // All drawing lives in the worker (drawPremium/drawLandscape); this side owns field specs + defaults.
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
     // Content types → directions → default field values. (Funding shipped; others roll next.)
@@ -2605,10 +2590,6 @@ self.onmessage = async (e) => {
           + `</div>`;
       }).join('');
       wrap.querySelectorAll('.prem-inp').forEach(inp => inp.addEventListener('input', e => { premVals[e.target.dataset.pk] = e.target.value; renderPremiumPreview(); }));
-    }
-    function premiumInnerHTML(){
-      const d = currentPremDir(); if(!d) return '';
-      return `<style>${PREM_CSS}</style>` + d.build(premVals);
     }
     // Preview + export both render through the worker's canvas engine (render-premium) — one source,
     // so the on-screen preview is byte-identical to the exported PNG, and export is untainted.
