@@ -45,14 +45,14 @@ function resolveMergeTags(html) {
 // Provider: Resend free tier (3,000/month, 100/day). RESEND_API_KEY (+ optional RESEND_FROM) in
 // Vercel; desktop supplies x-resend-key.
 async function handleTestSend(req, res, body) {
-  const isDesktop = req.headers["x-client"] === "desktop";
-  const key = (isDesktop ? req.headers["x-resend-key"] : process.env.RESEND_API_KEY) || "";
+  // Personal key if the desktop user set one, otherwise the org key in Vercel. The old
+  // desktop-must-bring-its-own-key rule left the desktop app dead-ended on a Settings field
+  // that didn't exist — for a shared org account, the env key IS the right key.
+  const key = (req.headers["x-resend-key"] && String(req.headers["x-resend-key"]).trim()) || process.env.RESEND_API_KEY || "";
   if (!key) {
     return res.status(503).json({
       error: "NOT_CONFIGURED",
-      message: isDesktop
-        ? "Add your Resend API key in ⚙ Settings to send test emails."
-        : "Test sending isn't set up yet. Add RESEND_API_KEY in Vercel (resend.com — 3,000 emails/month free), then redeploy.",
+      message: "Test sending isn't set up yet. Add RESEND_API_KEY in Vercel (resend.com — 3,000 emails/month free), then redeploy.",
     });
   }
 
@@ -109,15 +109,13 @@ export default async function handler(req, res) {
     if (String(early.action || "") === "test") return handleTestSend(req, res, early);
   }
 
-  // Resolve the Kit API key: desktop sends its own; web falls back to the env key.
-  const isDesktop = req.headers["x-client"] === "desktop";
-  const kitKey = isDesktop ? req.headers["x-kit-key"] : process.env.KIT_API_KEY;
+  // Resolve the Kit API key: a personal key (⚙ Settings, sent as x-kit-key) wins if present,
+  // otherwise the org key in Vercel — desktop users without a personal key were dead-ended.
+  const kitKey = (req.headers["x-kit-key"] && String(req.headers["x-kit-key"]).trim()) || process.env.KIT_API_KEY;
   if (!kitKey) {
     return res.status(503).json({
       error: "NOT_CONFIGURED",
-      message: isDesktop
-        ? "Add your Kit API key in ⚙ Settings to send to Kit."
-        : "Kit isn't connected. Add KIT_API_KEY in Vercel, then redeploy.",
+      message: "Kit isn't connected. Add KIT_API_KEY in Vercel (or a personal key in ⚙ Settings), then redeploy.",
     });
   }
 
