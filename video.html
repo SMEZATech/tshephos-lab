@@ -416,6 +416,7 @@
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <button class="pc-copy" id="fillerBtn" title="Strip um, uh, er, hmm… from the caption text">🧹 Fillers</button>
+        <button class="pc-copy" id="pauseBtn" title="Skip long silences in the clip — preview and export jump straight past dead air">⏩ Tighten pauses</button>
         <button class="pc-copy" id="srtBtn">⬇ .SRT</button>
         <span class="cap-ed-count" id="capCount"></span>
       </div>
@@ -549,7 +550,23 @@ let audioCtx=null, dest=null, transcribeDest=null, vidSrcNode=null, vidGain=null
 const INTRO_DUR=2.5, OUTRO_DUR=3.0;
 function introDur(){ return state.introOn ? INTRO_DUR : 0; }
 function outroDur(){ return state.outroOn ? OUTRO_DUR : 0; }
-function clipDur(){ return Math.max(0, state.trimEnd - state.trimStart); }
+function clipDur(){ return Math.max(0, state.trimEnd - state.trimStart - (state.skipTotal || 0)); }
+
+// ---- Tighten pauses: dead-air regions skipped during playback AND export. ----
+// Skips live in SOURCE seconds relative to trimStart: {s, e, cumBefore}. Caption times are
+// rewritten to the tightened (effective) timeline, so playback clock === caption clock.
+function clearSkips(){ state.skips = []; state.skipTotal = 0; state.preTighten = null; }
+function skippedBeforeSrc(srcT){
+  let cut = 0;
+  for(const k of (state.skips || [])){ if(srcT >= k.e) cut += (k.e - k.s); else if(srcT > k.s) cut += (srcT - k.s); else break; }
+  return cut;
+}
+function srcOfEff(eff){
+  // effective → source: each skip whose effective position has passed adds its length
+  let src = eff;
+  for(const k of (state.skips || [])){ if(eff >= (k.s - k.cumBefore)) src += (k.e - k.s); else break; }
+  return src;
+}
 function totalDur(){ return introDur() + clipDur() + outroDur(); }
 
 function fmtTime(s){ s=Math.max(0,s||0); const m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+String(ss).padStart(2,'0'); }
@@ -1100,8 +1117,20 @@ function frame(now){
       const into = t - iD;
       if(!mainPlaying){
         mainPlaying = true;
-        try{ videoEl.currentTime = state.trimStart + into; }catch(e){}
+        try{ videoEl.currentTime = state.trimStart + srcOfEff(into); }catch(e){}
         if(state.playing || state.recording) videoEl.play().catch(()=>{});
+      }
+      // tightened pauses: when the source hits a dead-air region, jump past it and
+      // resync the clock to the region's (zero-width) effective position
+      if(state.skips && state.skips.length){
+        const srcInto = videoEl.currentTime - state.trimStart;
+        for(const k of state.skips){
+          if(srcInto >= k.s - 0.05 && srcInto < k.e){
+            try{ videoEl.currentTime = state.trimStart + k.e; }catch(e){}
+            t = iD + (k.s - k.cumBefore);
+            break;
+          }
+        }
       }
       // safety: keep within trim
       if(videoEl.currentTime > state.trimEnd){ try{ videoEl.currentTime = state.trimEnd; }catch(e){} }
@@ -1242,6 +1271,7 @@ function setCapStatus(msg, kind){
 }
 function clearCaptions(){
   state.words=[]; state.lines=[]; state.captionsOn=false;
+  clearSkips(); const pb=$('#pauseBtn'); if(pb) pb.textContent='⏩ Tighten pauses';
   $('#capToggleRow').style.display='none';
   $('#capColorRow').style.display='none';
   $('#capPosRow').style.display='none';
@@ -1594,6 +1624,43 @@ function removeFillers(){
 }
 { const fb=$('#fillerBtn'); if(fb) fb.onclick = removeFillers; }
 
+// ---- ⏩ Tighten pauses: find dead air from the word timings (no audio analysis needed),
+// rewrite captions onto the tightened timeline, and let frame() skip the source regions. ----
+function tightenPauses(){
+  if(state.skips && state.skips.length){ // acting as UNDO
+    if(state.preTighten){ state.lines = state.preTighten.lines; state.words = state.preTighten.words; }
+    clearSkips(); updateTrimRead(); renderCapEditor();
+    $('#pauseBtn').textContent = '⏩ Tighten pauses';
+    setCapStatus('Pauses restored — full-length clip.', 'ok');
+    restart(); return;
+  }
+  if(!state.lines.length){ setCapStatus('Generate captions first — pauses are found from the word timings.', 'err'); return; }
+  const GAP = 0.8, PAD = 0.12, MINSKIP = 0.35;
+  const words = [];
+  state.lines.forEach(L => (L.words||[]).forEach(w => words.push(w)));
+  words.sort((a,b) => a.start - b.start);
+  const dur = state.trimEnd - state.trimStart;
+  const skips = [];
+  const push = (s, e) => { s = Math.max(0, s); e = Math.min(dur, e); if(e - s >= MINSKIP) skips.push({ s, e }); };
+  if(words.length && words[0].start > 1.0) push(0.05, words[0].start - PAD);
+  for(let i=0;i<words.length-1;i++){
+    if(words[i+1].start - words[i].end > GAP) push(words[i].end + PAD, words[i+1].start - PAD);
+  }
+  if(words.length && dur - words[words.length-1].end > 1.2) push(words[words.length-1].end + PAD, dur - 0.1);
+  if(!skips.length){ setCapStatus('No long pauses found — this clip is already tight.', 'ok'); return; }
+  let cum = 0; skips.forEach(k => { k.cumBefore = cum; cum += (k.e - k.s); });
+  state.preTighten = { lines: JSON.parse(JSON.stringify(state.lines)), words: state.words };
+  const cutBefore = (t2) => { let c = 0; for(const k of skips){ if(t2 >= k.e) c += (k.e - k.s); else if(t2 > k.s) c += (t2 - k.s); else break; } return c; };
+  const mapT = (t2) => t2 - cutBefore(t2);
+  state.lines.forEach(L => { L.start = mapT(L.start); L.end = mapT(L.end); (L.words||[]).forEach(w => { w.start = mapT(w.start); w.end = mapT(w.end); }); });
+  state.skips = skips; state.skipTotal = cum;
+  updateTrimRead(); renderCapEditor();
+  $('#pauseBtn').textContent = '↩ Undo tighten';
+  setCapStatus('⏩ Removed ' + cum.toFixed(1) + 's of dead air across ' + skips.length + ' pause' + (skips.length > 1 ? 's' : '') + ' — preview and export both skip them.', 'ok');
+  restart();
+}
+{ const pb=$('#pauseBtn'); if(pb) pb.onclick = tightenPauses; }
+
 // ---- caption editor (Canva-style line list) ----
 let lastLiveRow = -1;
 function escAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1720,7 +1787,10 @@ $('#pcResults').addEventListener('click', e => {
 let hlData = [];
 function setHlStatus(msg, kind){ const s=$('#hlStatus'); if(!s) return; s.textContent=msg||''; s.className='capstatus'+(kind?' '+kind:''); }
 function transcriptTimed(){
-  return state.lines.map(L => L.start.toFixed(1)+'-'+L.end.toFixed(1)+': '+lineText(L)).join('\n').trim();
+  // If pauses are tightened, caption times are on the effective timeline — highlights need
+  // SOURCE times so applyHighlight/chop trim the real video correctly.
+  const toSrc = (state.skips && state.skips.length) ? srcOfEff : (x => x);
+  return state.lines.map(L => toSrc(L.start).toFixed(1)+'-'+toSrc(L.end).toFixed(1)+': '+lineText(L)).join('\n').trim();
 }
 async function generateHighlights(){
   if(state.busy || !state.lines.length) return;
@@ -1787,8 +1857,15 @@ async function chopAllHighlights(){
   const snap = {
     trimStart: state.trimStart, trimEnd: state.trimEnd,
     lines: state.lines, words: state.words, captionsOn: state.captionsOn,
-    hookOn: state.hookOn, hookText: $('#hookText').value
+    hookOn: state.hookOn, hookText: $('#hookText').value,
+    skips: state.skips || [], skipTotal: state.skipTotal || 0, preTighten: state.preTighten || null
   };
+  // Highlight times are SOURCE times; if pauses are tightened, work from the source-time
+  // caption master for the per-clip rebase, and chop without skips (each clip is already tight).
+  if(state.skips && state.skips.length && state.preTighten){
+    state.lines = JSON.parse(JSON.stringify(state.preTighten.lines));
+  }
+  state.skips = []; state.skipTotal = 0;
   const btn = $('#hlChopAll'); if(btn) btn.disabled = true;
   let doneCount = 0;
   try{
@@ -1816,6 +1893,7 @@ async function chopAllHighlights(){
     state.trimStart = snap.trimStart; state.trimEnd = snap.trimEnd;
     state.lines = snap.lines; state.words = snap.words; state.captionsOn = snap.captionsOn;
     state.hookOn = snap.hookOn; $('#hookText').value = snap.hookText;
+    state.skips = snap.skips; state.skipTotal = snap.skipTotal; state.preTighten = snap.preTighten;
     const ts=$('#trimStart'), te=$('#trimEnd');
     if(ts) ts.value = snap.trimStart.toFixed(1);
     if(te) te.value = snap.trimEnd.toFixed(1);
