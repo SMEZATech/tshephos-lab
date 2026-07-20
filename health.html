@@ -120,7 +120,21 @@ function paint(){
     + (results.some(r => r.cls === 'skip') ? ' (' + results.filter(r=>r.cls==='skip').length + ' skipped)' : '');
 }
 
+// The session is restored asynchronously by volt-auth (volt:ready). Without waiting, the first
+// checks race it and every auth-gated check wrongly reports "not signed in".
+function sessionReady(){
+  return new Promise(resolve => {
+    if (window.voltSession) return resolve(true);
+    let done = false;
+    const finish = v => { if (!done) { done = true; resolve(v); } };
+    window.addEventListener('volt:ready', () => finish(!!window.voltSession), { once: true });
+    let n = 0;
+    const t = setInterval(() => { if (window.voltSession || ++n > 24) { clearInterval(t); finish(!!window.voltSession); } }, 250);
+  });
+}
+
 (async () => {
+  await sessionReady();
   // ── 1. Session ──
   const s1 = await check('Signed-in session', async () => {
     if (!signedIn()) return { warn:true, detail:'Not signed in — auth-gated checks will skip. Sign in for a full run.' };
