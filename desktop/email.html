@@ -1330,6 +1330,8 @@ function renderPreview(bodyHtml){
       </div>
       <div id="testRow" style="display:none; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
         <input id="testTo" type="text" placeholder="you@smesouthafrica.co.za (comma-separate up to 3)" style="flex:1; min-width:240px;" />
+        <button class="mini test-who" data-e="joel@smesouthafrica.co.za" title="Add Joel">+ Joel</button>
+        <button class="mini test-who" data-e="karabo@smesouthafrica.co.za" title="Add Karabo">+ Karabo</button>
         <button class="mini" id="testGo">Send it</button>
         <button class="mini" id="testCancel">Cancel</button>
       </div>
@@ -1419,6 +1421,14 @@ function wireTestSend(){
       toIn.focus();
     }
   });
+  // Registered team recipients — one click appends, never duplicates, respects the 3-address cap.
+  document.querySelectorAll('.test-who').forEach(b => b.addEventListener('click', ()=>{
+    const addr = b.dataset.e;
+    const cur = (toIn.value || '').split(',').map(s=>s.trim()).filter(Boolean);
+    if(cur.includes(addr)){ toIn.focus(); return; }
+    if(cur.length >= 3){ setKitStatus('Up to 3 addresses per test.', 'err'); return; }
+    cur.push(addr); toIn.value = cur.join(', '); toIn.focus();
+  }));
   if(go) go.addEventListener('click', sendTestEmail);
   if(cancel) cancel.addEventListener('click', ()=>{ row.style.display='none'; });
   if(toIn) toIn.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendTestEmail(); } });

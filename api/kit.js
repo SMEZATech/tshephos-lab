@@ -45,7 +45,9 @@ async function handleTestSend(req, res, body) {
   const subject = String(body.subject || "").trim();
   if (!subject) return res.status(400).json({ error: "Add an email subject before sending a test." });
 
-  const from = process.env.RESEND_FROM || "Volt Test <onboarding@resend.dev>";
+  // SME South Africa's real sending mailer. RESEND_FROM overrides it; the resend.dev sandbox is
+  // only the last resort (it can't deliver to anyone but the Resend account owner).
+  const from = process.env.RESEND_FROM || "SME South Africa <info@smesouthafrica.co.za>";
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
