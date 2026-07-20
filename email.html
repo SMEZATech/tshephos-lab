@@ -1271,8 +1271,28 @@ function previewDoc(fragment){
     + `</head><body style="margin:0;">${fragment}</body></html>`;
 }
 
+// Keep the generated email on this device — regenerating costs an AI call and your edits.
+function persistEmail(){
+  try {
+    if (window.voltState && state.body && state.body !== SAMPLE_BODY) {
+      window.voltState.save('email', { body: state.body, editedContent: state.editedContent || null,
+        freeform: !!state.freeform, imported: !!state.imported });
+    }
+  } catch(e){}
+}
+function restoreEmail(){
+  if (!window.voltState) return false;
+  const d = window.voltState.load('email');
+  if (!d || !d.body) return false;
+  state.editedContent = d.editedContent || null;
+  state.freeform = !!d.freeform; state.imported = !!d.imported;
+  renderPreview(d.body);
+  return true;
+}
+
 function renderPreview(bodyHtml){
   state.body = bodyHtml;
+  persistEmail();                              // survive navigating away and back
   lastFragment = assemble(state.body, false); // clean export copy
   const pe = document.getElementById('previewEmpty'); if(pe) pe.style.display = 'none';
   const pc = document.querySelector('.preview-col'); if(pc) pc.scrollTop = 0; // always show the top of a fresh render
@@ -1913,7 +1933,8 @@ async function deleteDraft(id){
   var icl=document.getElementById('importClean'); if(icl) icl.addEventListener('click', runClean);
 })();
 
-renderPreview(SAMPLE_BODY);
+// Bring back the last generated email; only fall back to the sample if there's nothing saved.
+if (!restoreEmail()) renderPreview(SAMPLE_BODY);
 
 // Campaign page → "Write it in Email": prefill the brief (subject line folded in on top).
 (function(){

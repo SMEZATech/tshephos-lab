@@ -369,6 +369,21 @@ function render(){
   }
   elRes.innerHTML = `<div class="rhead"><span class="count">${state.variations.length} angles</span><span class="ranked">ranked by overall score</span></div>
     <div class="grid">${state.variations.map((v,i)=>cardHtml(v,i)).join('')}</div>`;
+  persistCopy();
+}
+
+// Keep generated angles on this device — leaving Copy Lab and coming back shouldn't wipe them.
+function persistCopy(){
+  if(window.voltState) window.voltState.save('copy', { variations: state.variations, platform: state.platform });
+}
+function restoreCopy(){
+  if(!window.voltState) return false;
+  const d = window.voltState.load('copy');
+  if(!d || !Array.isArray(d.variations) || !d.variations.length) return false;
+  state.variations = d.variations.map(v => ({...v, _id: v._id != null ? v._id : ++_id}));
+  if(d.platform) state.platform = d.platform;
+  if(elGenLabel) elGenLabel.textContent = 'New batch';
+  return true;
 }
 
 elRes.addEventListener('click', e => {
@@ -495,6 +510,7 @@ window.addEventListener('volt:ready', ()=>loadBrain(false));
 if(window.voltSession) loadBrain(false);
 { const rb=$('#brainRefresh'); if(rb) rb.addEventListener('click', ()=>{ $('#brainBody').innerHTML='<p class="go-note" style="margin:0;">Recomputing from your latest posts…</p>'; loadBrain(true); }); }
 
+restoreCopy();
 render();
 </script>
 </body>

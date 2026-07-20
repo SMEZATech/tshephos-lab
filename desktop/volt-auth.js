@@ -830,6 +830,39 @@
     });
   }
 
+  /* ---------- module RESULTS persistence ----------
+     The field autosave below only restores what you TYPED. This keeps what a module
+     GENERATED (campaign results, copy angles, email body…) so leaving a tool and coming
+     back doesn't start you from scratch. Per-module key, TTL'd, size-capped. */
+  var STATE_TTL_DAYS = 14, STATE_MAX = 400000; // ~400KB per module
+  window.voltState = {
+    key: function (name) { return "volt_state_" + String(name || (location.pathname.split("/").pop() || "index")).toLowerCase(); },
+    save: function (name, data) {
+      try {
+        if (data == null) return this.clear(name);
+        var s = JSON.stringify({ t: Date.now(), v: data });
+        if (s.length > STATE_MAX) return false;       // too big — skip rather than blow the quota
+        localStorage.setItem(this.key(name), s);
+        return true;
+      } catch (e) { return false; }
+    },
+    load: function (name, maxAgeDays) {
+      try {
+        var raw = localStorage.getItem(this.key(name));
+        if (!raw) return null;
+        var d = JSON.parse(raw);
+        if (!d || d.v == null) return null;
+        var age = (Date.now() - (d.t || 0)) / 86400000;
+        if (age > (maxAgeDays || STATE_TTL_DAYS)) { this.clear(name); return null; }
+        return d.v;
+      } catch (e) { return null; }
+    },
+    savedAt: function (name) {
+      try { var d = JSON.parse(localStorage.getItem(this.key(name)) || "null"); return d && d.t ? new Date(d.t) : null; } catch (e) { return null; }
+    },
+    clear: function (name) { try { localStorage.removeItem(this.key(name)); } catch (e) {} return true; },
+  };
+
   /* ---------- universal autosave — never lose typed work ---------- */
   function autosaveKey() { return "volt_autosave_" + (location.pathname.split("/").pop() || "index").toLowerCase(); }
   function autosaveFields() {

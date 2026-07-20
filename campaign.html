@@ -209,7 +209,7 @@ document.querySelectorAll('#platSeg button').forEach(b => b.addEventListener('cl
 document.querySelectorAll('#fmtSeg button').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('#fmtSeg button').forEach(x => x.classList.remove('on'));
   b.classList.add('on'); creativeFormat = b.dataset.f;
-  if (lastCampaign) renderCreatives(lastCampaign);   // re-render at the new size
+  if (lastCampaign) { renderCreatives(lastCampaign); persist(); }   // re-render at the new size
 }));
 
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); }
@@ -383,6 +383,35 @@ function renderResults(c){
   $('#stPosts').hidden = !(c.posts || []).length;
 
   toast('Campaign "' + (c.name || 'Untitled') + '" ready ⚡');
+  persist();
+}
+
+// Keep the last campaign on this device so leaving and coming back doesn't wipe your work.
+function persist(){
+  if (!window.voltState || !lastCampaign) return;
+  window.voltState.save('campaign', { campaign: lastCampaign, brief: $('#brief').value, platform, format: creativeFormat });
+}
+function restore(){
+  if (!window.voltState) return false;
+  const d = window.voltState.load('campaign');
+  if (!d || !d.campaign) return false;
+  if (d.brief) $('#brief').value = d.brief;
+  if (d.platform) { platform = d.platform; document.querySelectorAll('#platSeg button').forEach(x => x.classList.toggle('on', x.dataset.p === platform)); }
+  if (d.format) { creativeFormat = d.format; document.querySelectorAll('#fmtSeg button').forEach(x => x.classList.toggle('on', x.dataset.f === creativeFormat)); }
+  lastCampaign = d.campaign;
+  renderResults(d.campaign);
+  const when = window.voltState.savedAt('campaign');
+  const note = $('#goNote');
+  if (note && when) note.innerHTML = 'Restored your last campaign (' + when.toLocaleString() + ') · <a href="#" onclick="clearCampaign();return false;" style="color:var(--accent);">start fresh</a>';
+  return true;
+}
+function clearCampaign(){
+  if (window.voltState) window.voltState.clear('campaign');
+  lastCampaign = null;
+  ['stCopy','stCrea','stEmail','stPosts'].forEach(id => { const el = $('#' + id); if (el) el.hidden = true; });
+  $('#brief').value = '';
+  const note = $('#goNote'); if (note) note.textContent = '~20 seconds. Copy, creatives, email & schedule.';
+  toast('Cleared');
 }
 
 async function rerollCopy(i, btn){
@@ -522,6 +551,7 @@ function toSchedule(){
 
 // ── Init ──
 showBrandChip();
+restore();   // bring back the last campaign on this device before anything else
 window.addEventListener('volt:ready', () => { pullBrandKit(); loadSaved(); });
 if (window.voltSession) { pullBrandKit(); loadSaved(); }
 </script>
