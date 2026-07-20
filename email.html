@@ -1391,9 +1391,9 @@ async function sendTestEmail(){
   const btn = document.getElementById('testGo');
   setKitStatus('Sending test…', 'busy'); if(btn) btn.disabled = true;
   try{
-    const r = await fetch('/api/sendtest', {
+    const r = await fetch('/api/kit', {
       method:'POST', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ to, subject, previewText: ($('#previewText') ? $('#previewText').value : '').trim(),
+      body: JSON.stringify({ action:'test', to, subject, previewText: ($('#previewText') ? $('#previewText').value : '').trim(),
                              html: previewDoc(lastFragment) })
     });
     let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the test sender.'); }

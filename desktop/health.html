@@ -176,7 +176,7 @@ function sessionReady(){
   reads.push(await check('email · test sending', async () => {
     if (!signedIn()) return 'SKIP';
     // probe with a deliberately invalid payload: 400 = configured, 503 = key missing
-    const r = await fetch(API + '/sendtest', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({}) });
+    const r = await fetch(API + '/kit', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ action:'test' }) });
     const d = await r.json().catch(()=>({}));
     if (r.status === 503) return { warn:true, detail:'not set up — add a free RESEND_API_KEY in Vercel to enable "Send test"' };
     if (r.status === 400) return { detail:'configured and reachable' };

@@ -13,9 +13,77 @@ import { blocked } from "./_guard.js";
 const KIT_BASE = "https://api.kit.com/v4";
 const KIT_URL = KIT_BASE + "/broadcasts";
 
+const MAX_TEST_RECIPIENTS = 3;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// Send a TEST copy of the newsletter to a real inbox, BEFORE anything reaches Kit — so the draft
+// can be finalised inside Volt. Lives here rather than in its own api/ file because Vercel's Hobby
+// plan caps a deployment at 12 Serverless Functions and we were exactly at the ceiling; both
+// concerns are "get this newsletter delivered", so they belong together.
+// Provider: Resend free tier (3,000/month, 100/day). RESEND_API_KEY (+ optional RESEND_FROM) in
+// Vercel; desktop supplies x-resend-key.
+async function handleTestSend(req, res, body) {
+  const isDesktop = req.headers["x-client"] === "desktop";
+  const key = (isDesktop ? req.headers["x-resend-key"] : process.env.RESEND_API_KEY) || "";
+  if (!key) {
+    return res.status(503).json({
+      error: "NOT_CONFIGURED",
+      message: isDesktop
+        ? "Add your Resend API key in ⚙ Settings to send test emails."
+        : "Test sending isn't set up yet. Add RESEND_API_KEY in Vercel (resend.com — 3,000 emails/month free), then redeploy.",
+    });
+  }
+
+  const to = (Array.isArray(body.to) ? body.to : String(body.to || "").split(","))
+    .map((s) => String(s || "").trim()).filter(Boolean).slice(0, MAX_TEST_RECIPIENTS);
+  if (!to.length) return res.status(400).json({ error: "Add at least one email address to send the test to." });
+  const bad = to.filter((e) => !EMAIL_RE.test(e));
+  if (bad.length) return res.status(400).json({ error: "That doesn't look like a valid email address: " + bad[0] });
+
+  const html = String(body.html || "").trim();
+  if (!html) return res.status(400).json({ error: "Build the email first — there's nothing to send." });
+  const subject = String(body.subject || "").trim();
+  if (!subject) return res.status(400).json({ error: "Add an email subject before sending a test." });
+
+  const from = process.env.RESEND_FROM || "Volt Test <onboarding@resend.dev>";
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from, to,
+        subject: "[TEST] " + subject,   // never mistakable for the real send
+        html,
+        ...(body.previewText ? { text: String(body.previewText).slice(0, 300) } : {}),
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = (data && (data.message || (data.error && (data.error.message || data.error)))) || ("Send failed (" + r.status + ")");
+      if (/domain is not verified|only send testing emails/i.test(String(msg))) {
+        return res.status(400).json({
+          error: "Resend won't deliver to that address yet. Until your sending domain is verified in Resend, test sends only reach the Resend account owner's own email. Verify the domain in Resend → Domains, then set RESEND_FROM.",
+        });
+      }
+      return res.status(r.status === 401 || r.status === 403 ? 401 : 502).json({ error: String(msg).slice(0, 300) });
+    }
+    return res.status(200).json({ ok: true, id: (data && data.id) || null, to, from });
+  } catch (err) {
+    return res.status(502).json({ error: (err && err.message) || "Test send error" });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "OPTIONS" && req.method !== "GET" && req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (await blocked(req, res, { methods: "GET, POST, OPTIONS", method: req.method, id: "kit", limit: 20, windowSec: 60 })) return;
+
+  // Test send is its own path — it needs the Resend key, not the Kit key, so branch before
+  // the Kit key check below (otherwise a Kit-less account could never send a test).
+  if (req.method === "POST") {
+    let early = {};
+    try { early = (req.body && typeof req.body === "object") ? req.body : JSON.parse(req.body || "{}"); } catch (e) {}
+    if (String(early.action || "") === "test") return handleTestSend(req, res, early);
+  }
 
   // Resolve the Kit API key: desktop sends its own; web falls back to the env key.
   const isDesktop = req.headers["x-client"] === "desktop";
