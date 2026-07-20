@@ -21,6 +21,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 // values Kit would use, so the proof looks exactly like the real send.
 function resolveMergeTags(html) {
   return String(html)
+    // The greeting lives in an <input value='...'>, so by the time it reaches the HTML the quotes
+    // are entity-encoded (&quot;). Normalise quotes INSIDE Liquid tags first, or `default:` never
+    // matches and the tag gets stripped — which is what produced a nameless "Hi 👋 ,".
+    .replace(/\{\{[\s\S]*?\}\}/g, (m) => m
+      .replace(/&quot;|&#0*34;/gi, '"')
+      .replace(/&apos;|&#0*39;/gi, "'")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'"))
     // {{ anything | default: "Value" }} → Value
     .replace(/\{\{\s*[^}]*?\|\s*default\s*:\s*["']([^"']*)["']\s*\}\}/g, "$1")
     // common bare tags → a plausible stand-in
