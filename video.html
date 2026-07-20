@@ -1408,6 +1408,12 @@ function drawCaptions(ct){
   const line = state.lines.find(L => ct >= L.start - 0.06 && ct <= L.end + 0.30);
   if(!line) return;
   const fs = Math.round(W * (CAP_SIZE[state.capSize] || 0.058));
+  // subtle line entrance: 0.16s slide-up + fade (CapCut/veed feel; too small to distract)
+  let ease = Math.max(0, Math.min(1, (ct - line.start + 0.06) / 0.16));
+  ease = ease * ease * (3 - 2 * ease);
+  ctx.save();
+  ctx.globalAlpha *= ease;
+  ctx.translate(0, (1 - ease) * fs * 0.45);
   const caps = state.capsOn;
   const disp = s => caps ? String(s).toUpperCase() : String(s);
   ctx.font = '800 '+fs+'px Oswald, "Plus Jakarta Sans", sans-serif';
@@ -1464,6 +1470,7 @@ function drawCaptions(ct){
     }
     y += lh;
   }
+  ctx.restore();   // entrance transform/alpha
 }
 // thin progress bar across the bottom for the whole short
 function drawProgress(){
