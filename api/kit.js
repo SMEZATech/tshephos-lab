@@ -76,7 +76,7 @@ async function handleTestSend(req, res, body) {
       headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
       body: JSON.stringify({
         from, to,
-        subject: "[TEST] " + subject,   // never mistakable for the real send
+        subject: "[⚡ Volt Test] " + subject,   // unmistakably Volt, never mistakable for the real send
         html: resolveMergeTags(html),
         ...(body.previewText ? { text: String(body.previewText).slice(0, 300) } : {}),
       }),

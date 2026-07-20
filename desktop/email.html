@@ -1412,7 +1412,7 @@ async function sendTestEmail(){
     if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error(data.message || 'Test sending isn’t set up yet.');
     if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Test send failed.');
     try{ localStorage.setItem(testRecipientMemoryKey(), to); }catch(_){}
-    setKitStatus('✅ Test sent to ' + esc((data.to||[to]).join(', ')) + ' — check the inbox (subject starts with [TEST]).', 'ok');
+    setKitStatus('✅ Test sent to ' + esc((data.to||[to]).join(', ')) + ' — check the inbox (subject starts with [⚡ Volt Test]).', 'ok');
     if(row) row.style.display = 'none';
   }catch(err){ setKitStatus(esc(err.message), 'err'); }
   finally{ if(btn) btn.disabled = false; }
