@@ -59,6 +59,11 @@
   .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press);}
   .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
   .go-note{font-size:13px; color:var(--dim);}
+  .brandchip{margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-family:var(--fm); font-size:11px; font-weight:700; color:var(--dim); border:1px solid var(--border-2); border-radius:100px; padding:6px 12px;}
+  .saved{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);}
+  .saved[hidden]{display:none;}
+  .schip{font-family:var(--fm); font-size:11.5px; font-weight:700; background:#0D0F15; border:1px solid var(--border-2); color:var(--dim); border-radius:9px; padding:7px 11px; cursor:pointer; transition:all .14s;}
+  .schip:hover{border-color:var(--accent); color:var(--accent);}
   .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -139,16 +144,35 @@
           <button data-p="x">X</button>
         </div>
       </div>
+      <div class="field">
+        <span class="lbl">Creative size</span>
+        <div class="seg" id="fmtSeg">
+          <button data-f="square" class="on">1:1 Square</button>
+          <button data-f="portrait">4:5 Portrait</button>
+          <button data-f="landscape">Landscape</button>
+        </div>
+      </div>
     </div>
     <div class="go">
       <button class="btn" id="goBtn" onclick="runCampaign()">⚡ Build the campaign</button>
       <span class="go-note" id="goNote">~20 seconds. Copy, creatives, email &amp; schedule.</span>
+      <span class="brandchip" id="brandChip" title="Active Brand Kit — change it in Studio"></span>
+    </div>
+    <div class="saved" id="savedBar" hidden>
+      <span class="lbl" style="margin:0 6px 0 0;">Saved</span>
+      <span id="savedList"></span>
     </div>
     <div class="error" id="err" hidden></div>
   </section>
 
   <section class="stage" id="stCopy" hidden>
-    <div class="shead"><span class="t">Ad copy</span><span class="k">3 angles</span></div>
+    <div class="shead">
+      <span class="t">Ad copy</span><span class="k">3 angles</span>
+      <span style="margin-left:auto; display:flex; gap:8px;">
+        <button class="mini" onclick="saveCampaign()">💾 Save campaign</button>
+        <button class="mini" onclick="toVideo()">🎬 Make a short</button>
+      </span>
+    </div>
     <div class="grid" id="copyGrid"></div>
   </section>
 
@@ -181,6 +205,11 @@ let platform = 'linkedin';
 document.querySelectorAll('#platSeg button').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('#platSeg button').forEach(x => x.classList.remove('on'));
   b.classList.add('on'); platform = b.dataset.p;
+}));
+document.querySelectorAll('#fmtSeg button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#fmtSeg button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); creativeFormat = b.dataset.f;
+  if (lastCampaign) renderCreatives(lastCampaign);   // re-render at the new size
 }));
 
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); }
@@ -215,7 +244,7 @@ async function loadAssets(){
       }
       await Promise.all(tasks);
     } catch (e) {}
-    try { _logoW = await (await fetch('https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png', { mode: 'cors' })).blob(); } catch (e) {}
+    try { _logoW = await (await fetch(currentBrand().logo || SME_BRAND.logo, { mode: 'cors' })).blob(); } catch (e) {}
     try { _logoC = await (await fetch('https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png', { mode: 'cors' })).blob(); } catch (e) {}
   })();
   return _assetsReady;
@@ -236,11 +265,50 @@ function post(payload){
   _chain = p.catch(() => {});
   return p;
 }
-const BRAND = { primary: '#9c1c1f', secondary: '#0a2c3d', cta: 'Read The Insight', url: 'smesouthafrica.co.za' };
-async function renderCreative(cr, scale){
+// ── Brand Kit (shared with Studio via localStorage + the account, same keys) ──
+const SME_BRAND = { id:'sme', name:'SME South Africa', primary:'#9c1c1f', secondary:'#0a2c3d',
+  tag:'SME Knowledge HUB', cta:'Read Insight', url:'smesouthafrica.co.za',
+  logo:'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png',
+  voice:'Confident, practical and encouraging. Plain English, short punchy sentences, no jargon or hype. Speaks to South African SME founders like a knowledgeable, no-nonsense mentor.' };
+function loadBrands(){ try { const a = JSON.parse(localStorage.getItem('volt_brands_v1') || 'null'); if (Array.isArray(a) && a.length) return a; } catch(e){} return [Object.assign({}, SME_BRAND)]; }
+function activeBrandId(){ try { return localStorage.getItem('volt_active_brand') || 'sme'; } catch(e){ return 'sme'; } }
+function currentBrand(){ const a = loadBrands(); return a.find(b => b.id === activeBrandId()) || a[0] || SME_BRAND; }
+function brandPayload(){ const b = currentBrand(); return { primary:b.primary, secondary:b.secondary, cta:b.cta, url:b.url }; }
+// Pull the account's Brand Kit (Studio pushes it here) so Campaign matches Studio exactly.
+async function pullBrandKit(){
+  try {
+    const r = await fetch(API_BASE + '/api/projects?type=brandkit');
+    if (!r.ok) return;
+    const list = (await r.json()).projects || [];
+    if (!list[0]) return;
+    const full = await (await fetch(API_BASE + '/api/projects?id=' + list[0].id)).json();
+    const d = full.project && full.project.data;
+    if (d && Array.isArray(d.brands) && d.brands.length) {
+      try { localStorage.setItem('volt_brands_v1', JSON.stringify(d.brands)); } catch(e){}
+      if (d.active) { try { localStorage.setItem('volt_active_brand', d.active); } catch(e){} }
+      _logoW = null; _assetsReady = null;   // brand logo changed → re-fetch
+      showBrandChip();
+    }
+  } catch(e){}
+}
+function showBrandChip(){
+  const el = document.getElementById('brandChip'); if (!el) return;
+  const b = currentBrand();
+  el.innerHTML = '<span style="width:9px;height:9px;border-radius:3px;background:' + esc(b.primary) + ';display:inline-block;"></span>'
+    + '<span style="width:9px;height:9px;border-radius:3px;background:' + esc(b.secondary) + ';display:inline-block;margin-right:4px;"></span>'
+    + esc(b.name);
+}
+
+const FORMATS = { square: [1080,1080], portrait: [1080,1350], landscape: [1200,628] };
+let creativeFormat = 'square';
+async function renderCreative(cr, scale, fmt){
   await loadAssets();
-  return post({ type: 'render-premium', brand: BRAND, fontBuffers: _fonts, logoWhiteBlob: _logoW, logoColorBlob: _logoC,
-    premType: cr.type, dir: cr.dir, vals: Object.assign({ url: BRAND.url }, cr.vals), w: 1080, h: 1080, scale: scale, filename: 'SME_' + cr.type + '_' + cr.dir + '.png' });
+  const b = currentBrand();
+  const dim = FORMATS[fmt || creativeFormat] || FORMATS.square;
+  const safe = (b.name || 'brand').replace(/[^a-z0-9]+/gi, '_');
+  return post({ type: 'render-premium', brand: brandPayload(), fontBuffers: _fonts, logoWhiteBlob: _logoW, logoColorBlob: _logoC,
+    premType: cr.type, dir: cr.dir, vals: Object.assign({ url: b.url }, cr.vals), w: dim[0], h: dim[1], scale: scale,
+    filename: safe + '_' + cr.type + '_' + cr.dir + '_' + (fmt || creativeFormat) + '.png' });
 }
 
 // ── The campaign run ──
@@ -253,7 +321,7 @@ async function runCampaign(){
   ['stCopy','stCrea','stEmail','stPosts'].forEach(id => { $('#' + id).hidden = true; });
   $('#creaGrid').innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
   try {
-    const r = await fetch(API_BASE + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-app-key': APP_KEY }, body: JSON.stringify({ task: 'campaign', brief, platform }) });
+    const r = await fetch(API_BASE + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-app-key': APP_KEY }, body: JSON.stringify({ task: 'campaign', brief, platform, brandVoice: (currentBrand().voice || '').slice(0, 600) }) });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || ('Server error ' + r.status));
     lastCampaign = data.campaign;
@@ -277,37 +345,14 @@ function renderResults(c){
       <div class="tags">${(v.hashtags || []).map(h => '<span class="tag">#' + esc(h) + '</span>').join('')}</div>
       <div class="actions">
         <button class="mini" onclick='copyText(${JSON.stringify(v.headline + '\n\n' + v.body + '\n\n' + v.cta + '\n' + (v.hashtags || []).map(h => '#' + h).join(' '))})'>⧉ Copy</button>
-        <button class="mini hot" onclick='toStudio(${JSON.stringify(v.headline)}, ${JSON.stringify(v.body)})'>🎨 Design in Studio</button>
+        <button class="mini" onclick="rerollCopy(${i}, this)">↻ Reroll</button>
+        <button class="mini hot" onclick='toStudio(${JSON.stringify(v.headline)}, ${JSON.stringify(v.body)})'>🎨 Studio</button>
       </div>
     </div>`).join('');
   $('#stCopy').hidden = !(c.copy || []).length;
 
   // Creatives — render through the real engine
-  const kg = $('#creaGrid');
-  kg.innerHTML = '';
-  (c.creatives || []).forEach(async (cr, i) => {
-    const card = document.createElement('div');
-    card.className = 'card crea'; card.style.animationDelay = (i * 90) + 'ms';
-    card.innerHTML = '<div class="imgwrap"><div class="skel" style="width:100%;border:none;border-radius:0;"></div></div>'
-      + '<div class="meta"><span class="nm">' + esc(cr.type) + ' / ' + esc(cr.dir).toUpperCase() + '</span></div>'
-      + '<div class="actions"><button class="mini dl">⬇ Download PNG</button><button class="mini hot ed">🎨 Fine-tune in Studio</button></div>';
-    kg.appendChild(card);
-    card.querySelector('.dl').onclick = async function(){
-      this.textContent = '…rendering';
-      try { const d = await renderCreative(cr, 2); const a = document.createElement('a'); a.href = URL.createObjectURL(d.blob); a.download = d.filename; a.click(); this.textContent = '⬇ Download PNG'; toast('Downloaded ✓'); }
-      catch(e){ this.textContent = '⬇ Download PNG'; toast('Render failed'); }
-    };
-    card.querySelector('.ed').onclick = function(){
-      try { sessionStorage.setItem('tl_campaign_creative', JSON.stringify(cr)); } catch(e){}
-      location.href = 'studio.html';
-    };
-    try {
-      const d = await renderCreative(cr, 0.6);
-      card.querySelector('.imgwrap').innerHTML = '<img src="' + URL.createObjectURL(d.blob) + '" alt="">';
-    } catch (e) {
-      card.querySelector('.imgwrap').innerHTML = '<div style="padding:30px;color:var(--low);font-size:13px;">Render failed — open in Studio instead.</div>';
-    }
-  });
+  renderCreatives(c);
   $('#stCrea').hidden = !(c.creatives || []).length;
 
   // Email
@@ -340,7 +385,126 @@ function renderResults(c){
   toast('Campaign "' + (c.name || 'Untitled') + '" ready ⚡');
 }
 
+async function rerollCopy(i, btn){
+  const t = btn.textContent; btn.disabled = true; btn.textContent = '…';
+  try {
+    const fresh = await regeneratePiece('copy', i);
+    if (fresh) { lastCampaign.copy[i] = fresh; renderResults(lastCampaign); toast('Angle rerolled ✓'); return; }
+    toast('Reroll failed');
+  } catch(e){ toast('Reroll failed'); }
+  btn.disabled = false; btn.textContent = t;
+}
+
+function renderCreatives(c){
+  const kg = $('#creaGrid');
+  kg.innerHTML = '';
+  (c.creatives || []).forEach(async (cr, i) => {
+    const card = document.createElement('div');
+    card.className = 'card crea'; card.style.animationDelay = (i * 90) + 'ms';
+    card.innerHTML = '<div class="imgwrap"><div class="skel" style="width:100%;border:none;border-radius:0;"></div></div>'
+      + '<div class="meta"><span class="nm">' + esc(cr.type) + ' / ' + esc(cr.dir).toUpperCase() + ' · ' + esc(creativeFormat) + '</span></div>'
+      + '<div class="actions">'
+      +   '<button class="mini dl">⬇ PNG</button>'
+      +   '<button class="mini all">⬇ All 3 sizes</button>'
+      +   '<button class="mini rg">↻ Reroll</button>'
+      +   '<button class="mini hot ed">🎨 Studio</button>'
+      + '</div>';
+    kg.appendChild(card);
+
+    card.querySelector('.dl').onclick = async function(){
+      const t = this.textContent; this.textContent = '…';
+      try { const d = await renderCreative(cr, 2); const a = document.createElement('a'); a.href = URL.createObjectURL(d.blob); a.download = d.filename; a.click(); toast('Downloaded ✓'); }
+      catch(e){ toast('Render failed'); }
+      this.textContent = t;
+    };
+    card.querySelector('.all').onclick = async function(){
+      const t = this.textContent; this.disabled = true;
+      for (const f of ['square','portrait','landscape']) {
+        this.textContent = '…' + f.slice(0,4);
+        try { const d = await renderCreative(cr, 2, f); const a = document.createElement('a'); a.href = URL.createObjectURL(d.blob); a.download = d.filename; a.click(); await new Promise(r => setTimeout(r, 400)); }
+        catch(e){}
+      }
+      this.textContent = t; this.disabled = false; toast('All 3 sizes downloaded ✓');
+    };
+    card.querySelector('.rg').onclick = async function(){
+      const t = this.textContent; this.disabled = true; this.textContent = '…';
+      try {
+        const fresh = await regeneratePiece('creative', i);
+        if (fresh) { lastCampaign.creatives[i] = fresh; renderCreatives(lastCampaign); toast('Creative rerolled ✓'); return; }
+        toast('Reroll failed');
+      } catch(e){ toast('Reroll failed'); }
+      this.textContent = t; this.disabled = false;
+    };
+    card.querySelector('.ed').onclick = function(){
+      try { sessionStorage.setItem('tl_campaign_creative', JSON.stringify(cr)); } catch(e){}
+      location.href = 'studio.html';
+    };
+
+    try {
+      const d = await renderCreative(cr, 0.6);
+      card.querySelector('.imgwrap').innerHTML = '<img src="' + URL.createObjectURL(d.blob) + '" alt="">';
+    } catch (e) {
+      card.querySelector('.imgwrap').innerHTML = '<div style="padding:30px;color:var(--low);font-size:13px;">Render failed — open in Studio instead.</div>';
+    }
+  });
+}
+
+// Reroll ONE piece against the same brief, telling the model what to avoid repeating.
+async function regeneratePiece(kind, index){
+  const brief = $('#brief').value.trim(); if (!brief || !lastCampaign) return null;
+  const r = await fetch(API_BASE + '/api/generate', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+    body: JSON.stringify({ task:'campaign', brief, platform, brandVoice: (currentBrand().voice || '').slice(0, 600),
+      regenerate: kind, avoid: JSON.stringify(lastCampaign[kind === 'creative' ? 'creatives' : 'copy']).slice(0, 1200) }) });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'failed');
+  const c = data.campaign;
+  if (kind === 'creative') return (c.creatives || [])[0] || null;
+  return (c.copy || [])[0] || null;
+}
+
+// ── Save / reopen campaigns (account-synced via api/projects.js) ──
+const PROJECTS_URL = API_BASE + '/api/projects';
+async function saveCampaign(){
+  if (!lastCampaign) return;
+  try {
+    const r = await fetch(PROJECTS_URL, { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ op:'save', type:'campaign', title: lastCampaign.name || 'Campaign',
+        data: { campaign: lastCampaign, brief: $('#brief').value, platform, format: creativeFormat } }) });
+    if (!r.ok) throw new Error('save failed');
+    toast('Campaign saved ✓'); loadSaved();
+  } catch(e){ toast('Save needs sign-in'); }
+}
+async function loadSaved(){
+  try {
+    const r = await fetch(PROJECTS_URL + '?type=campaign');
+    if (!r.ok) return;
+    const list = ((await r.json()).projects || []).slice(0, 8);
+    const bar = $('#savedBar'), box = $('#savedList');
+    if (!list.length) { bar.hidden = true; return; }
+    box.innerHTML = list.map(p => '<button class="schip" data-id="' + esc(p.id) + '">' + esc(p.title || 'Campaign') + '</button>').join(' ');
+    box.querySelectorAll('.schip').forEach(el => el.onclick = () => openSaved(el.dataset.id));
+    bar.hidden = false;
+  } catch(e){}
+}
+async function openSaved(id){
+  try {
+    const full = await (await fetch(PROJECTS_URL + '?id=' + id)).json();
+    const d = full.project && full.project.data; if (!d || !d.campaign) return;
+    $('#brief').value = d.brief || '';
+    if (d.platform) { platform = d.platform; document.querySelectorAll('#platSeg button').forEach(x => x.classList.toggle('on', x.dataset.p === platform)); }
+    if (d.format) { creativeFormat = d.format; document.querySelectorAll('#fmtSeg button').forEach(x => x.classList.toggle('on', x.dataset.f === creativeFormat)); }
+    lastCampaign = d.campaign; renderResults(d.campaign);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch(e){ toast('Could not open'); }
+}
+
 // ── Handoffs ──
+function toVideo(){
+  if (!lastCampaign) return;
+  const hooks = (lastCampaign.copy || []).map(v => v.headline).filter(Boolean);
+  try { sessionStorage.setItem('tl_campaign_video', JSON.stringify({ name: lastCampaign.name, hooks, caption: (lastCampaign.posts || [])[0] && lastCampaign.posts[0].text })); } catch(e){}
+  location.href = 'video.html';
+}
 function toStudio(headline, body){
   try { sessionStorage.setItem('tl_handoff', JSON.stringify({ headline, body, platform })); } catch(e){}
   location.href = 'studio.html';
@@ -355,6 +519,11 @@ function toSchedule(){
   try { sessionStorage.setItem('tl_campaign_posts', JSON.stringify(lastCampaign.posts)); } catch(e){}
   location.href = 'schedule.html';
 }
+
+// ── Init ──
+showBrandChip();
+window.addEventListener('volt:ready', () => { pullBrandKit(); loadSaved(); });
+if (window.voltSession) { pullBrandKit(); loadSaved(); }
 </script>
 </body>
 </html>

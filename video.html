@@ -1920,10 +1920,42 @@ function applyCopyHandoff(){
   setStatus('✨ Hook loaded from Copy Lab — upload your clip and the hook is ready to go.');
 }
 
+// Campaign page → "Make a short": load the campaign's headlines as ready hook options.
+function applyCampaignHandoff(){
+  let raw; try { raw = sessionStorage.getItem('tl_campaign_video'); } catch(e){ return false; }
+  if (!raw) return false;
+  try { sessionStorage.removeItem('tl_campaign_video'); } catch(e){}
+  let h; try { h = JSON.parse(raw); } catch(e){ return false; }
+  if (!h || !Array.isArray(h.hooks) || !h.hooks.length) return false;
+  useAsHook(h.hooks[0]);
+  const rest = h.hooks.slice(1).filter(Boolean);
+  setStatus('⚡ Hook loaded from Campaign "' + (h.name || '') + '"'
+    + (rest.length ? ' — ' + rest.length + ' more angle' + (rest.length > 1 ? 's' : '') + ' available below.' : '.'));
+  // Offer the other headlines as one-click hook swaps.
+  if (rest.length) {
+    const host = document.getElementById('hookText');
+    if (host && host.parentElement) {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;';
+      rest.forEach(t => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'mini';
+        b.style.cssText = 'font-size:11px;padding:6px 10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        b.textContent = t.length > 42 ? t.slice(0, 42) + '…' : t;
+        b.title = t;
+        b.onclick = () => useAsHook(t);
+        bar.appendChild(b);
+      });
+      host.parentElement.appendChild(bar);
+    }
+  }
+  return true;
+}
+
 // init
 refreshBrand();
 setFormat('9x16');
-applyCopyHandoff();
+if (!applyCampaignHandoff()) applyCopyHandoff();
 </script>
 
 <div id="looksModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">

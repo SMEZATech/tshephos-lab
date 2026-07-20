@@ -475,11 +475,24 @@ let BRAND = {
     cta:   'Read Insight',
     url:   'smesouthafrica.co.za'
 };
+// Darken/lighten a #rrggbb by a ratio (-1..1). Used to derive the premium deep-shade from the brand.
+function shadeHex(hex, ratio) {
+    const h = String(hex || '').replace('#', '');
+    if (h.length !== 6) return hex;
+    const n = parseInt(h, 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const f = (v) => Math.max(0, Math.min(255, Math.round(ratio < 0 ? v * (1 + ratio) : v + (255 - v) * ratio)));
+    return '#' + [f(r), f(g), f(b)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
 // Apply per-render brand overrides (colours + cta + url); white/black/gray stay structural.
 function applyBrandToWorker(b) {
     if (!b) return;
     if (b.primary)   BRAND.red  = b.primary;
     if (b.secondary) BRAND.navy = b.secondary;
+    // Premium designs paint from PC, NOT from BRAND — without this every premium design stays
+    // locked to SME's colours no matter which Brand Kit is active.
+    if (b.primary)   PC.red  = b.primary;
+    if (b.secondary) { PC.navy = b.secondary; PC.navy2 = shadeHex(b.secondary, -0.38); }
     if (b.cta)       BRAND.cta  = b.cta;
     if (b.url)       BRAND.url  = b.url;
 }

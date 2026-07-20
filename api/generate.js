@@ -687,14 +687,24 @@ export default async function handler(req, res) {
       const sysCampaign =
         "You are the head of marketing for South African SMEs. From ONE campaign brief you produce a complete, coherent, ready-to-ship campaign. " +
         "Everything must share one message and voice. Be concrete and South African (Rand amounts, SA context). Reply ONLY with valid JSON.";
+      // Reroll ONE piece: same brief, but return a single fresh item that differs from what's there.
+      const regen = String(body.regenerate || "").toLowerCase();
+      const avoid = String(body.avoid || "").slice(0, 1500);
+      const regenNote = (regen === "copy" || regen === "creative")
+        ? "\n\nREGENERATE MODE — return ONLY ONE " + (regen === "copy" ? "copy angle (copy array of length 1; creatives/posts may be empty arrays and email empty strings)" : "creative (creatives array of length 1; copy/posts may be empty arrays and email empty strings)") +
+          ". It must be MEANINGFULLY DIFFERENT from these existing ones — different angle, different wording" + (regen === "creative" ? ", and prefer a different type/dir combination" : "") + ":\n" + avoid
+        : "";
       const prompt =
-        "CAMPAIGN BRIEF: " + brief + (platform ? "\nPRIMARY PLATFORM: " + platform : "") + promptExtras + pubNote +
+        "CAMPAIGN BRIEF: " + brief + (platform ? "\nPRIMARY PLATFORM: " + platform : "") + promptExtras + pubNote + regenNote +
         "\n\nProduce JSON exactly in this shape:\n" +
         '{ "name": "short campaign name", ' +
         '"copy": [3 items: {"framework":"angle name","headline":"","body":"<=220 chars","cta":"","hashtags":["",""]}], ' +
         '"creatives": [3 items: {"type":"funding|solutions|newsletter|resources","dir":"a|b|c","vals":{...}}], ' +
         '"email": {"subject":"","brief":"2-4 sentence brief a newsletter writer would expand into a section"}, ' +
         '"posts": [4 items: {"platform":"linkedin|instagram|facebook|x","day":"Mon..Sun","time":"HH:MM","text":"ready-to-post caption <=280 chars"}] }\n\n' +
+        "POSTS RULES — the 4 posts must span at least THREE DIFFERENT platforms (never all the same one). Lead with " + (platform || "linkedin") +
+        ", then use the others to fit their native style: LinkedIn = professional insight, Instagram = visual/short with emoji, Facebook = community/conversational, X = punchy one-liner. " +
+        "Spread them across different days, and write each caption in that platform's voice — do not reuse one caption verbatim across platforms.\n\n" +
         "CREATIVE RULES — pick the 3 design templates that best fit the brief (vary them), and fill vals with EXACTLY the keys for the chosen type/dir (SHORT punchy values that fit a social graphic):\n" + specTxt +
         "\nField hints: head<=60 chars, sub<=140, cta<=30 ending with an arrow, big is 1-3 words/number, i1-i3 use 'bold part|rest' format, rating like '4.8'.";
       const text = await callProvider(prompt, { system: sysCampaign, temperature: 0.8, maxTokens: 3000, json: true });
