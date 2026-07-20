@@ -1130,8 +1130,14 @@ function frame(now){
 requestAnimationFrame(frame);
 
 // ---- export ----
-$('#exportBtn').onclick = async () => {
+// startExport(fileName?) returns a promise that resolves when the file is saved —
+// the batch "Chop all" flow awaits it per clip. The button path just fires it.
+let _exportResolve = null, _exportName = null;
+$('#exportBtn').onclick = () => startExport();
+async function startExport(fileName){
   if(state.recording || !state.loaded) return;
+  _exportName = fileName || null;
+  const done = new Promise(res => { _exportResolve = res; });
   ensureAudio();
   if(audioCtx && audioCtx.state === 'suspended'){ try{ await audioCtx.resume(); }catch(e){} }
 
@@ -1156,7 +1162,9 @@ $('#exportBtn').onclick = async () => {
     mediaRecorder = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: (state.upscale>1 ? 20000000 : 8000000) });
   }catch(err){
     applyRenderScale(1);
-    setStatus('Could not start the recorder on this device: '+err.message, true); return;
+    setStatus('Could not start the recorder on this device: '+err.message, true);
+    if(_exportResolve){ _exportResolve({ ok:false }); _exportResolve = null; }
+    return done;
   }
   mediaRecorder.ondataavailable = ev => { if(ev.data && ev.data.size>0) chunks.push(ev.data); };
   mediaRecorder.onstop = finalizeExport;
@@ -1168,7 +1176,8 @@ $('#exportBtn').onclick = async () => {
   $('#exportBtn').disabled = true;
   $('#exportLbl').innerHTML = '<span class="spinner"></span> Recording '+totalDur().toFixed(0)+'s…';
   setStatus('⏺ Recording in real time — leave this tab in focus until it finishes.', true);
-};
+  return done;
+}
 
 function stopExport(){
   if(!state.recording) return;
@@ -1185,8 +1194,12 @@ function resetAfterExport(){ t = 0; mainPlaying = false; state.playing = true; t
 function downloadWebm(blob){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'sme-short-'+state.format+'.webm';
+  a.download = (_exportName ? _exportName + '.webm' : 'sme-short-'+state.format+'.webm');
   a.click();
+}
+function exportDone(ok){
+  if(_exportResolve){ const r = _exportResolve; _exportResolve = null; r({ ok: ok !== false }); }
+  _exportName = null;
 }
 function finalizeExport(){
   const blob = new Blob(chunks, { type:'video/webm' });
@@ -1197,6 +1210,7 @@ function finalizeExport(){
   $('#exportBtn').disabled = false;
   $('#exportLbl').textContent = exportLabel();
   setStatus('✅ Exported — check your downloads.');
+  exportDone(true);
   resetAfterExport();
 }
 async function exportToMp4(blob){
@@ -1204,7 +1218,7 @@ async function exportToMp4(blob){
   setStatus('Converting to MP4 — this runs locally, a few seconds…', true);
   try{
     const buf = await blob.arrayBuffer();
-    const res = await window.voltNative.toMp4(buf, 'sme-short-'+state.format+'.mp4', { enhance: state.upscale>1 });
+    const res = await window.voltNative.toMp4(buf, (_exportName ? _exportName + '.mp4' : 'sme-short-'+state.format+'.mp4'), { enhance: state.upscale>1 });
     if(res && res.ok){ setStatus('✅ Saved MP4 — '+res.path); }
     else if(res && res.canceled){ setStatus('Export canceled.'); }
     else { throw new Error((res && res.error) || 'Conversion failed.'); }
@@ -1214,6 +1228,7 @@ async function exportToMp4(blob){
   }finally{
     $('#exportBtn').disabled = false;
     $('#exportLbl').textContent = exportLabel();
+    exportDone(true);
     resetAfterExport();
   }
 }
@@ -1742,8 +1757,72 @@ function renderHighlights(hs){
       + '</div>'
       + '<span class="hl-go">Trim to this →</span>'
     + '</div>';
-  }).join('');
+  }).join('')
+  + '<div style="display:flex;align-items:center;gap:12px;margin-top:4px;">'
+    + '<button class="btn" id="hlChopAll" style="width:auto;padding:12px 22px;">⚡ Chop all '+hs.length+' into shorts</button>'
+    + '<span class="cap-ed-hint">Exports every highlight as its own branded, captioned short — one after the other, hands-off (~'
+    + Math.ceil(hs.reduce((s,h)=>s+(h.end-h.start),0) + hs.length*(introDur()+outroDur()))+'s total).</span>'
+  + '</div>';
   list.style.display='flex';
+  const ca = $('#hlChopAll'); if(ca) ca.onclick = chopAllHighlights;
+}
+
+// ---- Chop all: batch-export every highlight as its own short. Captions are re-based from the
+// already-transcribed lines (times are trim-relative), so no re-transcription is needed. ----
+function slugify(s){ return String(s||'clip').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40) || 'clip'; }
+function rebaseCaptions(h){
+  // keep lines that overlap [h.start, h.end] (into-relative), clamp + shift to the new clip's t=0
+  const out = [];
+  for(const L of state.lines){
+    if(L.end <= h.start || L.start >= h.end) continue;
+    const words = (L.words||[]).filter(w => w.end > h.start && w.start < h.end)
+      .map(w => ({ word: w.word, start: Math.max(0, w.start - h.start), end: Math.min(h.end - h.start, w.end - h.start) }));
+    if(!words.length) continue;
+    out.push({ words, start: Math.max(0, L.start - h.start), end: Math.min(h.end - h.start, L.end - h.start) });
+  }
+  return out;
+}
+async function chopAllHighlights(){
+  if(state.recording || !state.loaded || !hlData.length) return;
+  const snap = {
+    trimStart: state.trimStart, trimEnd: state.trimEnd,
+    lines: state.lines, words: state.words, captionsOn: state.captionsOn,
+    hookOn: state.hookOn, hookText: $('#hookText').value
+  };
+  const btn = $('#hlChopAll'); if(btn) btn.disabled = true;
+  let doneCount = 0;
+  try{
+    for(let i=0;i<hlData.length;i++){
+      const h = hlData[i];
+      // absolute trim for this chop — ALWAYS from the snapshot window, not the mutated one
+      let ns = snap.trimStart + h.start, ne = snap.trimStart + h.end;
+      ns = Math.max(0, Math.min(ns, state.duration));
+      ne = Math.max(ns + 1, Math.min(ne, state.duration));
+      state.trimStart = ns; state.trimEnd = ne;
+      // captions inherited from the master transcription, shifted to this clip
+      const rebased = rebaseCaptions(h);
+      state.lines = rebased; state.captionsOn = rebased.length > 0;
+      // per-clip hook
+      if(h.hook){ $('#hookText').value = h.hook; state.hookOn = true; }
+      setHlStatus('⚡ Chopping '+(i+1)+'/'+hlData.length+' — “'+(h.title||('Moment '+(i+1)))+'” ('+Math.round(ne-ns)+'s)… keep this tab focused.', 'busy');
+      const res = await startExport('sme-'+String(i+1).padStart(2,'0')+'-'+slugify(h.title));
+      if(!res || res.ok === false) throw new Error('Recorder failed on clip '+(i+1)+' — '+doneCount+' clip(s) were saved.');
+      doneCount++;
+    }
+    setHlStatus('✅ Chopped '+doneCount+'/'+hlData.length+' shorts — check your downloads.', 'ok');
+  }catch(err){
+    setHlStatus(err.message, 'err');
+  }finally{
+    state.trimStart = snap.trimStart; state.trimEnd = snap.trimEnd;
+    state.lines = snap.lines; state.words = snap.words; state.captionsOn = snap.captionsOn;
+    state.hookOn = snap.hookOn; $('#hookText').value = snap.hookText;
+    const ts=$('#trimStart'), te=$('#trimEnd');
+    if(ts) ts.value = snap.trimStart.toFixed(1);
+    if(te) te.value = snap.trimEnd.toFixed(1);
+    updateTrimRead(); renderCapEditor();
+    if(btn) btn.disabled = false;
+    restart();
+  }
 }
 function applyHighlight(i){
   const h = hlData[i]; if(!h) return;
