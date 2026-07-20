@@ -474,7 +474,7 @@ export default async function handler(req, res) {
     let brainNote = "";
     try {
       const oid = req.volt && req.volt.orgId;
-      if (oid && (task === "copy" || task === "email")) {
+      if (oid && (task === "copy" || task === "email" || task === "campaign")) {
         const rows = await sbRest("org_insight?select=data&org_id=eq." + encodeURIComponent(oid) + "&kind=eq.summary&limit=1");
         const s = rows && rows[0] && rows[0].data;
         if (s && s.status === "ready") {

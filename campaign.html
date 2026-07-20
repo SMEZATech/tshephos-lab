@@ -165,6 +165,14 @@
     <div class="error" id="err" hidden></div>
   </section>
 
+  <section id="brainPanel" style="display:none; margin-top:20px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:16px; padding:18px 20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+      <span class="lbl" style="margin:0; color:var(--accent);">🧠 What Volt has learned — every campaign is generated WITH this</span>
+      <button class="mini" id="brainRefresh" title="Recompute from your latest performance">↻ Refresh</button>
+    </div>
+    <div id="brainBody"><p class="go-note" style="margin:0;">Loading…</p></div>
+  </section>
+
   <section class="stage" id="stCopy" hidden>
     <div class="shead">
       <span class="t">Ad copy</span><span class="k">3 angles</span>
@@ -549,11 +557,35 @@ function toSchedule(){
   location.href = 'schedule.html';
 }
 
+// ── Volt Brain: show WHAT the generator is being steered by (same insights the server
+//    injects into the campaign prompt — visible instead of silent). ──
+function renderBrain(s){
+  const body = $('#brainBody'), panel = $('#brainPanel');
+  if (!s){ panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  if (s.status === 'learning'){ body.innerHTML = '<p class="go-note" style="margin:0;">' + esc(s.note || 'Volt is still learning — keep creating and checking Stats.') + '</p>'; return; }
+  if (s.status !== 'ready'){ body.innerHTML = '<p class="go-note" style="margin:0;">No insights yet.</p>'; return; }
+  const list = (title, arr, col) => (arr && arr.length) ? '<div style="margin-bottom:9px;"><span class="lbl" style="margin:0 0 4px; color:' + col + ';">' + title + '</span><ul style="margin:0; padding-left:18px; font-size:13.5px; line-height:1.55; color:var(--text);">' + arr.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '';
+  let h = list('Do more ✓', s.do_more, 'var(--good)') + list('Avoid ✕', s.do_less, 'var(--low)') + list('Hooks that land', s.hooks, 'var(--info)');
+  if (s.hashtags && s.hashtags.length) h += '<div class="tags" style="margin-top:6px;">' + s.hashtags.map(t => '<span class="tag">#' + esc(String(t).replace(/^#/, '')) + '</span>').join('') + '</div>';
+  if (s.evidence) h += '<p class="go-note" style="margin:9px 0 0;">' + esc(s.evidence) + '</p>';
+  body.innerHTML = h || '<p class="go-note" style="margin:0;">No clear patterns yet — keep publishing.</p>';
+}
+async function loadBrain(force){
+  try{
+    const opts = force ? { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ action:'refresh' }) } : {};
+    const r = await fetch(API_BASE + '/api/brain' + (force ? '' : '?action=insights'), opts);
+    if (!r.ok){ $('#brainPanel').style.display = 'none'; return; }
+    renderBrain((await r.json()).summary);
+  }catch(e){ $('#brainPanel').style.display = 'none'; }
+}
+{ const rb = $('#brainRefresh'); if (rb) rb.onclick = () => { $('#brainBody').innerHTML = '<p class="go-note" style="margin:0;">Recomputing from your latest posts…</p>'; loadBrain(true); }; }
+
 // ── Init ──
 showBrandChip();
 restore();   // bring back the last campaign on this device before anything else
-window.addEventListener('volt:ready', () => { pullBrandKit(); loadSaved(); });
-if (window.voltSession) { pullBrandKit(); loadSaved(); }
+window.addEventListener('volt:ready', () => { pullBrandKit(); loadSaved(); loadBrain(false); });
+if (window.voltSession) { pullBrandKit(); loadSaved(); loadBrain(false); }
 </script>
 </body>
 </html>
