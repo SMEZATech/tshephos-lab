@@ -236,6 +236,24 @@
         </div>
       </div>
 
+      <div class="blk" id="clipsBlk" style="opacity:.4; pointer-events:none;">
+        <label class="lbl"><span class="num">2b</span>More clips <span style="font-weight:400;color:var(--faint);">(optional)</span></label>
+        <div id="clipList" style="display:flex;flex-direction:column;gap:7px;margin-bottom:9px;"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="mini" id="addClipBtn">➕ Add clip</button>
+          <input type="file" id="clipFile" accept="video/*" style="display:none;" />
+          <span style="display:flex;align-items:center;gap:6px;">
+            <span class="lbl" style="margin:0;">Transition</span>
+            <div class="seg" id="transSeg" style="display:inline-flex;">
+              <button data-x="cut">Cut</button>
+              <button data-x="fade">Fade</button>
+              <button data-x="cross" class="on">Dissolve</button>
+            </div>
+          </span>
+        </div>
+        <p class="note" id="clipsNote" style="margin-top:8px;">Clips play in order after your main clip. Captions &amp; pause-tightening apply to the main clip.</p>
+      </div>
+
       <div class="blk">
         <label class="lbl"><span class="num">3</span>Format &amp; framing</label>
         <div class="seg" id="fmtSeg">
@@ -538,19 +556,52 @@ const state = {
   words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
   hookOn:false, hookDur:2.5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
-  brand:null, exportFmt:'mp4', upscale:1, layers:[],
+  brand:null, exportFmt:'mp4', upscale:1, layers:[], transition:'cross',
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
 let brandLogoImg=null, brandLogoSrc='';   // logo from the active brand (fallback when no upload)
-let t=0, lastTime=performance.now(), recStart=0, mainPlaying=false;
+let t=0, lastTime=performance.now(), recStart=0, mainPlaying=false, activeSegIdx=-1;
+let mainClipName = '';
 let mediaRecorder=null, chunks=[];
 let audioCtx=null, dest=null, transcribeDest=null, vidSrcNode=null, vidGain=null, musSrcNode=null, musGain=null;
 
 const INTRO_DUR=2.5, OUTRO_DUR=3.0;
 function introDur(){ return state.introOn ? INTRO_DUR : 0; }
 function outroDur(){ return state.outroOn ? OUTRO_DUR : 0; }
+// Clip 1 (the primary upload, videoEl) — trim + tightened pauses apply here.
 function clipDur(){ return Math.max(0, state.trimEnd - state.trimStart - (state.skipTotal || 0)); }
+
+// ================= MULTI-CLIP TIMELINE =================
+// extraClips are appended AFTER the primary clip. Each has its own <video> + audio node, and
+// only ONE ever plays at a time, so the export mix stays clean. Transitions are drawn from a
+// snapshot of the outgoing frame (no risky simultaneous playback, real crossfade look).
+const TRANS_DUR = 0.5;
+let extraClips = [];                 // [{ id, el, src, name, trimStart, trimEnd, duration, ready, srcNode, gain }]
+let transSnap = null, transSnapFor = -1;   // offscreen snapshot of the last frame before a boundary
+function extraDur(c){ return Math.max(0, c.trimEnd - c.trimStart); }
+function timelineDur(){ return clipDur() + extraClips.reduce((s,c)=>s+extraDur(c), 0); }
+// Which clip is on screen at `into` seconds into the timeline → {idx, el, local, segStart, segDur}
+// idx -1 = the primary clip.
+function clipAt(into){
+  const d0 = clipDur();
+  if(into < d0 || !extraClips.length) return { idx:-1, el:videoEl, local:into, segStart:0, segDur:d0 };
+  let acc = d0;
+  for(let i=0;i<extraClips.length;i++){
+    const c = extraClips[i], dc = extraDur(c);
+    if(into < acc + dc || i === extraClips.length-1) return { idx:i, el:c.el, local:into-acc, segStart:acc, segDur:dc, clip:c };
+    acc += dc;
+  }
+  return { idx:-1, el:videoEl, local:into, segStart:0, segDur:d0 };
+}
+function clipSrcTime(seg, local){
+  if(seg.idx === -1) return state.trimStart + srcOfEff(local);   // primary honours tightened pauses
+  return seg.clip.trimStart + local;
+}
+function pauseInactive(activeEl){
+  if(videoEl !== activeEl && !videoEl.paused){ try{ videoEl.pause(); }catch(e){} }
+  extraClips.forEach(c => { if(c.el !== activeEl && !c.el.paused){ try{ c.el.pause(); }catch(e){} } });
+}
 
 // ---- Tighten pauses: dead-air regions skipped during playback AND export. ----
 // Skips live in SOURCE seconds relative to trimStart: {s, e, cumBefore}. Caption times are
@@ -567,7 +618,7 @@ function srcOfEff(eff){
   for(const k of (state.skips || [])){ if(eff >= (k.s - k.cumBefore)) src += (k.e - k.s); else break; }
   return src;
 }
-function totalDur(){ return introDur() + clipDur() + outroDur(); }
+function totalDur(){ return introDur() + timelineDur() + outroDur(); }
 
 function fmtTime(s){ s=Math.max(0,s||0); const m=Math.floor(s/60), ss=Math.floor(s%60); return m+':'+String(ss).padStart(2,'0'); }
 
@@ -583,6 +634,7 @@ function setLook(l){
 // ---- file inputs ----
 $('#videoFile').addEventListener('change', e => {
   const file = e.target.files[0]; if(!file) return;
+  mainClipName = file.name || '';
   loadVideoSrc(URL.createObjectURL(file));
 });
 // Load a clip from any object/blob URL (used by file upload AND link import).
@@ -598,6 +650,8 @@ function loadVideoSrc(src){
     te.max = state.duration.toFixed(1); te.value = state.trimEnd.toFixed(1);
     state.loaded = true;
     $('#trimBlk').style.opacity='1'; $('#trimBlk').style.pointerEvents='auto';
+    { const cb=$('#clipsBlk'); if(cb){ cb.style.opacity='1'; cb.style.pointerEvents='auto'; } }
+    if(typeof renderClipList==='function') renderClipList();
     $('#exportBtn').disabled = false;
     $('#capBtn').disabled = false;
     $('#stageEmpty').style.display='none';
@@ -768,8 +822,19 @@ function ensureAudio(){
   // speech-only stream for transcription (NO music mixed in)
   transcribeDest = audioCtx.createMediaStreamDestination();
   vidGain.connect(transcribeDest);
+  ensureAllClipNodes();
   ensureMusicNode();
 }
+// Route an appended clip's audio into the same export mix (once per element).
+function ensureClipNode(c){
+  if(!audioCtx || !c || c.srcNode) return;
+  try{
+    c.srcNode = audioCtx.createMediaElementSource(c.el);
+    c.gain = audioCtx.createGain(); c.gain.gain.value = 1.0;
+    c.srcNode.connect(c.gain); c.gain.connect(dest); c.gain.connect(audioCtx.destination);
+  }catch(e){ /* already connected */ }
+}
+function ensureAllClipNodes(){ extraClips.forEach(ensureClipNode); }
 function ensureMusicNode(){
   if(!audioCtx || !musicEl.src || musSrcNode) return;
   try{
@@ -1106,37 +1171,73 @@ function frame(now){
     if(state.recording){ t = (now - recStart)/1000; }
     else if(state.playing){ t += dt; if(t >= totalDur()){ t = 0; mainPlaying=false; try{ videoEl.currentTime = state.trimStart; }catch(e){} if(musicEl.src && !state.recording){ musicEl.currentTime=0; } } }
 
-    const iD = introDur(), cD = clipDur();
+    const iD = introDur(), cD = timelineDur();
     ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
 
     if(state.introOn && t < iD){
       if(!videoEl.paused) videoEl.pause();
+      pauseInactive(null);
       drawIntro(t / Math.max(0.001,iD));
     } else if(t < iD + cD){
-      // main clip
+      // main timeline — one or more clips, played in order
       const into = t - iD;
-      if(!mainPlaying){
-        mainPlaying = true;
-        try{ videoEl.currentTime = state.trimStart + srcOfEff(into); }catch(e){}
-        if(state.playing || state.recording) videoEl.play().catch(()=>{});
+      const seg = clipAt(into);
+      const el = seg.el;
+      if(!mainPlaying || activeSegIdx !== seg.idx){
+        // entering a new clip: snapshot the outgoing frame so the transition can cross-dissolve
+        if(mainPlaying && activeSegIdx !== seg.idx && state.transition === 'cross'){
+          try{
+            if(!transSnap){ transSnap = document.createElement('canvas'); }
+            transSnap.width = W; transSnap.height = H;
+            transSnap.getContext('2d').drawImage(cv, 0, 0, W, H);
+            transSnapFor = seg.idx;
+          }catch(e){ transSnap = null; }
+        }
+        mainPlaying = true; activeSegIdx = seg.idx;
+        pauseInactive(el);
+        // an element that has ENDED refuses some seeks — nudge it back before seeking
+        if(el.ended){ try{ el.currentTime = 0; }catch(e){} }
+        try{ el.currentTime = clipSrcTime(seg, seg.local); }catch(e){}
+        if(state.playing || state.recording) el.play().catch(()=>{});
       }
-      // tightened pauses: when the source hits a dead-air region, jump past it and
-      // resync the clock to the region's (zero-width) effective position
-      if(state.skips && state.skips.length){
-        const srcInto = videoEl.currentTime - state.trimStart;
+      // tightened pauses (primary clip only): jump past dead air and resync the clock
+      if(seg.idx === -1 && state.skips && state.skips.length){
+        const srcInto = el.currentTime - state.trimStart;
         for(const k of state.skips){
           if(srcInto >= k.s - 0.05 && srcInto < k.e){
-            try{ videoEl.currentTime = state.trimStart + k.e; }catch(e){}
+            try{ el.currentTime = state.trimStart + k.e; }catch(e){}
             t = iD + (k.s - k.cumBefore);
             break;
           }
         }
       }
-      // safety: keep within trim
-      if(videoEl.currentTime > state.trimEnd){ try{ videoEl.currentTime = state.trimEnd; }catch(e){} }
-      if(state.fill==='blur') drawBlurFill(videoEl, videoEl.videoWidth, videoEl.videoHeight);
-      else drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight, FOCUS[state.focus]);
+      // safety: keep within this clip's trim
+      const segEndSrc = seg.idx === -1 ? state.trimEnd : seg.clip.trimEnd;
+      if(el.currentTime > segEndSrc){ try{ el.currentTime = segEndSrc; }catch(e){} }
+      if(state.fill==='blur') drawBlurFill(el, el.videoWidth, el.videoHeight);
+      else drawCover(el, el.videoWidth, el.videoHeight, FOCUS[state.focus]);
       applyLook();
+      // ---- transition at the boundary INTO this clip ----
+      if(extraClips.length && seg.segStart > 0 && state.transition !== 'cut'){
+        const sinceCut = into - seg.segStart;
+        if(sinceCut < TRANS_DUR){
+          const p = Math.max(0, Math.min(1, sinceCut / TRANS_DUR));
+          if(state.transition === 'cross' && transSnap && transSnapFor === seg.idx){
+            ctx.save(); ctx.globalAlpha = 1 - p; ctx.drawImage(transSnap, 0, 0, W, H); ctx.restore();
+          } else if(state.transition === 'fade'){
+            // dip through black: out over the first half, in over the second
+            const a = p < 0.5 ? (1 - p*2) : 0;
+            if(a > 0){ ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore(); }
+          }
+        }
+      }
+      if(extraClips.length && state.transition === 'fade' && seg.segDur > 0){
+        const toEnd = (seg.segStart + seg.segDur) - into;
+        if(toEnd < TRANS_DUR/2 && (seg.segStart + seg.segDur) < cD - 0.01){
+          const a = Math.max(0, Math.min(1, 1 - (toEnd / (TRANS_DUR/2))));
+          ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore();
+        }
+      }
       if(state.hookOn) drawHook(into);
       if(state.nameOn) drawNameTag(into);
       if(state.captionsOn && state.lines.length){ drawCaptions(into); updateLiveRow(into); }
@@ -1667,6 +1768,92 @@ function tightenPauses(){
   restart();
 }
 { const pb=$('#pauseBtn'); if(pb) pb.onclick = tightenPauses; }
+
+// ================= MULTI-CLIP: add / trim / reorder / remove =================
+let _clipUid = 0;
+function renderClipList(){
+  const list = $('#clipList'); if(!list) return;
+  const rows = [];
+  rows.push('<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#0D0F15;">'
+    + '<span style="font-family:var(--fm);font-size:10.5px;color:var(--accent);">MAIN</span>'
+    + '<span style="flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escAttr(mainClipName || 'Your clip') + '</span>'
+    + '<span style="font-family:var(--fm);font-size:11px;color:var(--dim);">' + clipDur().toFixed(1) + 's</span>'
+  + '</div>');
+  extraClips.forEach((c,i)=>{
+    rows.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#0D0F15;">'
+      + '<span style="font-family:var(--fm);font-size:10.5px;color:var(--dim);">' + (i+2) + '</span>'
+      + '<span style="flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escAttr(c.name) + '</span>'
+      + '<input type="number" class="cl-tr" data-i="' + i + '" data-k="trimStart" value="' + c.trimStart.toFixed(1) + '" min="0" max="' + (c.duration||0).toFixed(1) + '" step="0.1" title="Start" style="width:58px;background:#0A0B0F;border:1px solid var(--border-2);border-radius:7px;color:var(--text);font-size:11.5px;padding:4px 6px;">'
+      + '<input type="number" class="cl-tr" data-i="' + i + '" data-k="trimEnd" value="' + c.trimEnd.toFixed(1) + '" min="0" max="' + (c.duration||0).toFixed(1) + '" step="0.1" title="End" style="width:58px;background:#0A0B0F;border:1px solid var(--border-2);border-radius:7px;color:var(--text);font-size:11.5px;padding:4px 6px;">'
+      + '<span style="font-family:var(--fm);font-size:11px;color:var(--dim);width:38px;text-align:right;">' + extraDur(c).toFixed(1) + 's</span>'
+      + '<button class="mini cl-up" data-i="' + i + '" title="Move earlier" ' + (i===0?'disabled':'') + ' style="padding:5px 8px;">↑</button>'
+      + '<button class="mini cl-del" data-i="' + i + '" title="Remove clip" style="padding:5px 8px;">✕</button>'
+    + '</div>');
+  });
+  list.innerHTML = rows.join('');
+  const note = $('#clipsNote');
+  if(note) note.textContent = extraClips.length
+    ? 'Timeline: ' + timelineDur().toFixed(1) + 's across ' + (extraClips.length+1) + ' clips. Captions & pause-tightening apply to the main clip.'
+    : 'Clips play in order after your main clip. Captions & pause-tightening apply to the main clip.';
+  list.querySelectorAll('.cl-tr').forEach(inp => inp.addEventListener('change', e=>{
+    const c = extraClips[+e.target.dataset.i]; if(!c) return;
+    let v = parseFloat(e.target.value); if(!isFinite(v)) return;
+    v = Math.max(0, c.duration ? Math.min(c.duration, v) : v);
+    if(e.target.dataset.k === 'trimStart') c.trimStart = Math.min(v, c.trimEnd - 0.3);
+    else c.trimEnd = Math.max(v, c.trimStart + 0.3);
+    renderClipList(); restart();
+  }));
+  list.querySelectorAll('.cl-up').forEach(b => b.addEventListener('click', ()=>{
+    const i = +b.dataset.i; if(i<=0) return;
+    const tmp = extraClips[i-1]; extraClips[i-1] = extraClips[i]; extraClips[i] = tmp;
+    renderClipList(); restart();
+  }));
+  list.querySelectorAll('.cl-del').forEach(b => b.addEventListener('click', ()=>{
+    const i = +b.dataset.i; const c = extraClips[i]; if(!c) return;
+    try{ c.el.pause(); if(c.src && c.src.startsWith('blob:')) URL.revokeObjectURL(c.src); c.el.remove(); }catch(e){}
+    extraClips.splice(i,1); activeSegIdx = -99; renderClipList(); restart();
+  }));
+}
+function addClipFile(file){
+  if(!file) return;
+  const c = { id: ++_clipUid, name: file.name || ('Clip ' + (extraClips.length+2)),
+    src: URL.createObjectURL(file), trimStart: 0, trimEnd: 0, duration: 0, ready: false, el: null };
+  const el = document.createElement('video');
+  el.playsInline = true; el.preload = 'auto'; el.muted = false; el.style.display = 'none';
+  el.crossOrigin = 'anonymous';
+  el.src = c.src; c.el = el;
+  document.body.appendChild(el);
+  el.addEventListener('loadedmetadata', ()=>{
+    // Some containers (stream-recorded WebM) report Infinity/NaN — fall back so trim stays usable.
+    const d = el.duration;
+    c.duration = (isFinite(d) && d > 0) ? d : 0;
+    c.trimStart = 0;
+    c.trimEnd = c.duration ? Math.min(c.duration, 15) : 15;
+    c.ready = true;
+    ensureClipNode(c);
+    renderClipList();
+    setStatus('Added “' + c.name + '” — ' + extraDur(c).toFixed(1) + 's. Timeline is now ' + timelineDur().toFixed(1) + 's.');
+  });
+  el.addEventListener('error', ()=>{
+    setStatus('Could not read “' + c.name + '” — try MP4 or WebM.', true);
+    const i = extraClips.indexOf(c); if(i>=0){ extraClips.splice(i,1); renderClipList(); }
+  });
+  extraClips.push(c);
+  renderClipList();
+}
+{
+  const ab = $('#addClipBtn'), cf = $('#clipFile');
+  if(ab && cf){
+    ab.onclick = ()=>cf.click();
+    cf.addEventListener('change', e=>{ const f = e.target.files && e.target.files[0]; if(f) addClipFile(f); e.target.value=''; });
+  }
+  const ts = $('#transSeg');
+  if(ts) ts.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    state.transition = b.dataset.x;
+    ts.querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+  });
+}
 
 // ---- caption editor (Canva-style line list) ----
 let lastLiveRow = -1;
