@@ -9,7 +9,7 @@
 // Dormant until env is set: needs SUPABASE_* (auth) + PAYSTACK_SECRET_KEY (paid plans).
 // Reading usage works with just Supabase; subscribe/verify need Paystack.
 
-import { setCors, requireSession, PLANS, monthUsage, getOrgPlan, setOrgPlan } from "./_guard.js";
+import { setCors, requireSession, PLANS, monthUsage, getOrgPlan, setOrgPlan, sbRest } from "./_guard.js";
 
 const PAYSTACK = "https://api.paystack.co";
 
@@ -27,6 +27,31 @@ export default async function handler(req, res) {
     if (req.method === "GET" && action === "plans") {
       const plans = Object.keys(PLANS).map((id) => ({ id, label: PLANS[id].label, aiLimit: PLANS[id].aiLimit, priceZar: PLANS[id].priceZar }));
       return res.status(200).json({ plans });
+    }
+
+    // Per-tool usage breakdown for this month — turns the single "used" number into
+    // "where is our AI spend actually going". Read-only.
+    if (req.method === "GET" && action === "breakdown") {
+      const d0 = new Date();
+      const since = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 1)).toISOString();
+      const rows = (await sbRest(
+        "usage_event?select=tool,kind,units,provider,model,created_at&org_id=eq." + encodeURIComponent(orgId) +
+        "&created_at=gte." + encodeURIComponent(since) + "&limit=2000")) || [];
+      const byTool = {}, byProvider = {};
+      let total = 0;
+      for (const r of rows) {
+        const u = Number(r && r.units) || 1;
+        const t = String((r && (r.tool || r.kind)) || "other");
+        const p = String((r && r.provider) || "unknown");
+        byTool[t] = (byTool[t] || 0) + u;
+        byProvider[p] = (byProvider[p] || 0) + u;
+        total += u;
+      }
+      const sort = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([name, units]) => ({ name, units }));
+      return res.status(200).json({
+        period: since.slice(0, 7), total, events: rows.length,
+        byTool: sort(byTool), byProvider: sort(byProvider),
+      });
     }
 
     if (req.method === "GET" && action === "usage") {

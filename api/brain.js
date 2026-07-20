@@ -82,6 +82,26 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    // Recent client-side crashes for this org — so a break for ANY user is visible in /health.html
+    // instead of waiting for someone to report it. Read-only, no AI spend.
+    if (req.method === "GET" && String(req.query.action || "") === "errors") {
+      const enc0 = encodeURIComponent(orgId);
+      const rows = (await sbRest(
+        "content_event?select=detail,created_at&org_id=eq." + enc0 +
+        "&event=eq.client_error&order=created_at.desc&limit=50")) || [];
+      const seen = new Map();
+      for (const r of rows) {
+        const d = (r && r.detail) || {};
+        const k = String(d.page || "") + "|" + String(d.message || "");
+        if (!k.trim() || k === "|") continue;
+        const cur = seen.get(k);
+        if (cur) { cur.count++; continue; }
+        seen.set(k, { page: String(d.page || ""), message: String(d.message || "").slice(0, 240),
+          src: String(d.src || ""), line: d.line || null, lastAt: r.created_at, count: 1 });
+      }
+      return res.status(200).json({ errors: Array.from(seen.values()).slice(0, 20) });
+    }
+
     const key = (req.headers["x-gemini-key"] && String(req.headers["x-gemini-key"])) || process.env.GEMINI_API_KEY;
     const enc = encodeURIComponent(orgId);
     const rows = (await sbRest("org_insight?select=data,updated_at&org_id=eq." + enc + "&kind=eq.summary&limit=1")) || [];

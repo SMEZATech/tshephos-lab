@@ -46,6 +46,36 @@
       }).catch(function () {});
     } catch (e) {}
   };
+  /* ---------- crash reporting: a break for ANY user is visible to us, not just the one who hits it.
+     Fire-and-forget, deduped, capped — never interferes with the page. ---------- */
+  (function () {
+    var sent = {}, count = 0, MAX = 8;
+    function report(kind, msg, extra) {
+      try {
+        msg = String(msg || "").slice(0, 300);
+        if (!msg || count >= MAX) return;
+        var key = kind + "|" + msg;
+        if (sent[key]) return;
+        sent[key] = 1; count++;
+        var page = (location.pathname.split("/").pop() || "index.html");
+        fetch("https://tshephos-lab.vercel.app/api/brain", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "event", contentId: null, event: "client_error",
+            detail: Object.assign({ kind: kind, message: msg, page: page, ua: navigator.userAgent.slice(0, 120) }, extra || {}) }),
+          keepalive: true,
+        }).catch(function () {});
+      } catch (e) {}
+    }
+    window.addEventListener("error", function (e) {
+      report("error", e && e.message, { src: e && e.filename ? String(e.filename).split("/").pop() : "", line: e && e.lineno });
+    });
+    window.addEventListener("unhandledrejection", function (e) {
+      var r = e && e.reason;
+      report("unhandledrejection", r && (r.message || r), {});
+    });
+    window.voltReportError = report;
+  })();
+
   var _fetch = window.fetch ? window.fetch.bind(window) : null;
   if (_fetch) {
     // Local AI: when enabled on desktop, run Copy/Email generation on the user's Ollama.

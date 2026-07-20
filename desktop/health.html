@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<!-- Volt — Health. End-to-end check of every API. © 2026 Tshepho Joel. -->
+<html lang="en">
+<head>
+<script src="volt-auth.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volt — Health</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Plus+Jakarta+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0A0B0F;--surface:#14171F;--border:rgba(255,255,255,.09);--border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3;--dim:#888F9D;--faint:#5B616D;--accent:#B6FF3D;--good:#57E39A;--mid:#FFC857;--low:#FF7C7C;--info:#7FC8FF;
+    --fd:'Unbounded',system-ui;--fb:'Plus Jakarta Sans',system-ui;--fm:'JetBrains Mono',monospace;}
+  *{box-sizing:border-box;} html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fb);}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 22px 60px;}
+  h1{font-family:var(--fd);font-weight:800;font-size:26px;margin:0 0 6px;}
+  .sub{color:var(--dim);font-size:14px;line-height:1.55;margin:0 0 20px;max-width:660px;}
+  .topbar{display:flex;gap:8px;align-items:center;margin-bottom:22px;flex-wrap:wrap;}
+  .tab{font-family:var(--fm);font-size:12px;font-weight:700;padding:9px 15px;border-radius:11px;border:1px solid var(--border-2);color:var(--dim);text-decoration:none;}
+  .tab:hover{color:var(--text);border-color:var(--accent);} .tab.active{background:var(--accent);color:#0A0B0F;border-color:var(--accent);}
+  #banner{padding:16px 20px;border-radius:12px;font-weight:700;font-size:15px;margin-bottom:18px;background:var(--surface);border:1px solid var(--border);}
+  #banner.pass{background:#0f2a1c;color:var(--good);border-color:#57E39A44;}
+  #banner.fail{background:#2a0f0f;color:var(--low);border-color:#FF7C7C44;}
+  #banner.warn{background:#2a2410;color:var(--mid);border-color:#FFC85744;}
+  .ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
+  .btn{font-family:var(--fb);font-weight:800;font-size:14px;color:#0A0B0F;background:var(--accent);border:none;border-radius:11px;padding:12px 20px;cursor:pointer;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border-2);}
+  .note{font-size:12.5px;color:var(--faint);}
+  .grp{font-family:var(--fm);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:22px 0 8px;}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;}
+  th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top;}
+  th{background:var(--surface);color:var(--dim);text-transform:uppercase;font-size:10px;letter-spacing:.06em;font-family:var(--fm);}
+  td.st{font-family:var(--fm);font-weight:700;white-space:nowrap;}
+  .ok{color:var(--good);} .bad{color:var(--low);} .skip{color:var(--faint);} .warnc{color:var(--mid);}
+  td.ms{font-family:var(--fm);color:var(--faint);text-align:right;white-space:nowrap;}
+  .detail{color:var(--dim);font-size:11.5px;}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="campaign.html">⚡ Campaign</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="analytics.html">📊 Stats</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="schedule.html">📅 Schedule</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <a class="tab" href="videotok.html">📝 Transcribe</a>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
+  <h1>Volt Health</h1>
+  <p class="sub">Checks every API end to end — auth, reads, AI generation and the render engine — so a break anywhere is visible before a user finds it. Free checks run automatically; AI checks consume quota so they're opt-in.</p>
+
+  <div id="banner">Running free checks…</div>
+  <div class="ctl">
+    <button class="btn" id="runAi" onclick="runAiChecks()">▶ Run AI checks (uses quota)</button>
+    <button class="btn ghost" onclick="location.reload()">↻ Re-run free checks</button>
+    <a class="btn ghost" href="smoke.html" style="text-decoration:none;display:inline-block;">🎨 Studio render smoke (59)</a>
+    <span class="note" id="aiNote">AI checks make ~4 real generations.</span>
+  </div>
+  <div id="out"></div>
+</main>
+
+<script>
+const API = 'https://tshephos-lab.vercel.app/api';
+const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
+const results = [];
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function signedIn(){ return !!window.voltSession; }
+
+function section(title, rows){
+  const d = document.createElement('div');
+  d.innerHTML = '<div class="grp">' + esc(title) + '</div><table><thead><tr><th>Check</th><th>Status</th><th>Detail</th><th style="text-align:right;">ms</th></tr></thead><tbody>'
+    + rows.map(r => '<tr><td>' + esc(r.name) + '</td><td class="st ' + r.cls + '">' + r.label + '</td><td class="detail">' + esc(r.detail || '') + '</td><td class="ms">' + (r.ms != null ? r.ms : '') + '</td></tr>').join('')
+    + '</tbody></table>';
+  document.getElementById('out').appendChild(d);
+}
+
+async function check(name, fn, opts){
+  opts = opts || {};
+  const t0 = performance.now();
+  let r;
+  try {
+    const v = await fn();
+    r = v === 'SKIP' ? { cls:'skip', label:'SKIP', detail: opts.skipWhy || 'not applicable' }
+      : (v && v.warn) ? { cls:'warnc', label:'WARN', detail: v.detail }
+      : { cls:'ok', label:'PASS', detail: (v && v.detail) || '' };
+  } catch (e) {
+    r = { cls:'bad', label:'FAIL', detail: e.message };
+  }
+  r.name = name; r.ms = Math.round(performance.now() - t0);
+  results.push(r);
+  return r;
+}
+
+// fetch that treats non-2xx as failure, with the server's error text surfaced
+async function api(path, init){
+  const r = await fetch(API + path, init);
+  let body = null;
+  try { body = await r.json(); } catch(e){}
+  if (!r.ok) throw new Error('HTTP ' + r.status + (body && body.error ? ' — ' + body.error : ''));
+  return body || {};
+}
+function post(task, extra){
+  return api('/generate', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+    body: JSON.stringify(Object.assign({ task }, extra || {})) });
+}
+
+function paint(){
+  const real = results.filter(r => r.cls !== 'skip');
+  const failed = real.filter(r => r.cls === 'bad').length;
+  const warned = real.filter(r => r.cls === 'warnc').length;
+  const b = document.getElementById('banner');
+  b.className = failed ? 'fail' : (warned ? 'warn' : 'pass');
+  b.textContent = (failed ? '❌ ' + failed + ' FAILING' : (warned ? '⚠ ' + warned + ' warning' + (warned>1?'s':'') : '✅ ALL HEALTHY'))
+    + ' — ' + real.filter(r => r.cls === 'ok').length + '/' + real.length + ' checks passed'
+    + (results.some(r => r.cls === 'skip') ? ' (' + results.filter(r=>r.cls==='skip').length + ' skipped)' : '');
+}
+
+(async () => {
+  // ── 1. Session ──
+  const s1 = await check('Signed-in session', async () => {
+    if (!signedIn()) return { warn:true, detail:'Not signed in — auth-gated checks will skip. Sign in for a full run.' };
+    return { detail:'session active' };
+  });
+  section('Session', [s1]);
+
+  // ── 2. Read-only endpoints (no AI spend) ──
+  const reads = [];
+  reads.push(await check('billing · plans', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/billing?action=plans');
+    if (!d.plans || !d.plans.length) throw new Error('no plans returned');
+    return { detail: d.plans.length + ' plan(s)' };
+  }, { skipWhy:'needs sign-in' }));
+  reads.push(await check('billing · usage', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/billing?action=usage');
+    return { detail: 'used ' + (d.used != null ? d.used : '?') + (d.limit != null ? ' / ' + d.limit : '') };
+  }, { skipWhy:'needs sign-in' }));
+  reads.push(await check('projects · list', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/projects?type=campaign');
+    return { detail: (d.projects || []).length + ' saved campaign(s)' };
+  }, { skipWhy:'needs sign-in' }));
+  reads.push(await check('projects · brandkit', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/projects?type=brandkit');
+    if (!(d.projects || []).length) return { warn:true, detail:'no Brand Kit synced yet — open Studio once' };
+    return { detail:'brand kit synced' };
+  }, { skipWhy:'needs sign-in' }));
+  reads.push(await check('billing · spend by tool', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/billing?action=breakdown');
+    if (!d.total) return { detail:'no AI usage yet this month' };
+    return { detail: d.total + ' units (' + d.period + ') — ' + d.byTool.slice(0,5).map(t => t.name + ' ' + t.units).join(', ')
+      + ' · via ' + d.byProvider.map(p => p.name).join('/') };
+  }, { skipWhy:'needs sign-in' }));
+  reads.push(await check('postiz · channels', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/postiz?action=channels');
+    const n = (d.channels || []).length;
+    if (!n) return { warn:true, detail:'0 channels connected — Schedule/Stats will be empty' };
+    return { detail: n + ' channel(s): ' + d.channels.map(c => c.platform).join(', ') };
+  }, { skipWhy:'needs sign-in' }));
+  section('Reads (no AI spend)', reads);
+  paint();
+
+  // ── 3. Render engine (free, local) ──
+  const eng = [];
+  eng.push(await check('Studio worker engine boots', async () => {
+    const html = await (await fetch('studio.html', { cache:'no-store' })).text();
+    const m = html.match(/<script id="worker-src"[^>]*>([\s\S]*?)<\/script>/);
+    if (!m) throw new Error('worker-src block not found in studio.html');
+    const w = new Worker(URL.createObjectURL(new Blob([m[1]], { type:'application/javascript' })));
+    const logo = await (await (async () => {
+      const c = new OffscreenCanvas(200,60), x = c.getContext('2d');
+      x.fillStyle = '#fff'; x.font = '700 40px sans-serif'; x.fillText('L', 8, 45);
+      return c.convertToBlob({ type:'image/png' });
+    })());
+    const out = await new Promise((res, rej) => {
+      const t = setTimeout(() => rej(new Error('render timeout 15s')), 15000);
+      w.onmessage = e => { if (e.data.type === 'done'){ clearTimeout(t); res(e.data); } else if (e.data.type === 'error'){ clearTimeout(t); rej(new Error(e.data.message)); } };
+      w.onerror = e => { clearTimeout(t); rej(new Error(e.message || 'worker crash')); };
+      w.postMessage({ type:'render-premium', brand:{ primary:'#9c1c1f', secondary:'#0a2c3d', cta:'Read', url:'x.co.za' },
+        fontBuffers:{}, logoWhiteBlob:logo, logoColorBlob:logo, premType:'funding', dir:'a', vals:{}, w:1080, h:1080, scale:0.4, filename:'h.png' });
+    });
+    const bmp = await createImageBitmap(out.blob);
+    w.terminate();
+    if (bmp.width < 100) throw new Error('render too small');
+    return { detail:'rendered ' + bmp.width + 'x' + bmp.height };
+  }));
+  section('Render engine', eng);
+  paint();
+
+  // ── 4. Recent client crashes (any user, any page) ──
+  const crash = [];
+  crash.push(await check('No recent client errors', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/brain?action=errors');
+    const list = d.errors || [];
+    if (!list.length) return { detail:'none reported' };
+    return { warn:true, detail: list.length + ' distinct: ' + list.slice(0,3).map(e => e.page + ' — ' + e.message.slice(0,60) + (e.count>1?' (x'+e.count+')':'')).join('  ·  ') };
+  }, { skipWhy:'needs sign-in' }));
+  section('Client crashes (last 50 events)', crash);
+  paint();
+
+  document.getElementById('banner').textContent += ' · free checks done — AI checks not run yet';
+})();
+
+async function runAiChecks(){
+  const btn = document.getElementById('runAi');
+  btn.disabled = true; btn.textContent = '▶ Running…';
+  const ai = [];
+  ai.push(await check('generate · copy', async () => {
+    const d = await post('copy', { offer:'Health check — bookkeeping service for SA SMEs', audience:'small business owners', platform:'Meta', count:1 });
+    if (!d.variations || !d.variations.length) throw new Error('no variations');
+    return { detail:'"' + String(d.variations[0].headline || '').slice(0, 46) + '…"' };
+  }));
+  ai.push(await check('generate · campaign', async () => {
+    const d = await post('campaign', { brief:'Health check — free webinar on SME funding, Thursday 6pm.', platform:'linkedin' });
+    const c = d.campaign;
+    if (!c) throw new Error('no campaign');
+    const plats = new Set((c.posts || []).map(p => p.platform));
+    const detail = (c.copy||[]).length + ' copy, ' + (c.creatives||[]).length + ' creatives, ' + (c.posts||[]).length + ' posts / ' + plats.size + ' platforms';
+    if (plats.size < 3 && (c.posts||[]).length >= 3) return { warn:true, detail: detail + ' — platform diversity low' };
+    return { detail };
+  }));
+  ai.push(await check('generate · email', async () => {
+    const d = await post('email', { brief:'Health check — short note about SME funding readiness.' });
+    if (!d.emailBody || d.emailBody.length < 40) throw new Error('empty email body');
+    return { detail: d.emailBody.length + ' chars of HTML' };
+  }));
+  ai.push(await check('generate · videocopy', async () => {
+    const d = await post('videocopy', { transcript:'Today I want to talk about how small businesses in South Africa can get funding ready before they apply to any lender.', platform:'linkedin' });
+    if (!d.videocopy || !d.videocopy.caption) throw new Error('no caption');
+    return { detail:(d.videocopy.hooks||[]).length + ' hooks, ' + (d.videocopy.hashtags||[]).length + ' tags' };
+  }));
+  section('AI generation (consumes quota)', ai);
+  paint();
+  btn.textContent = '✓ AI checks done';
+  document.getElementById('aiNote').textContent = 'Reload to run again.';
+}
+</script>
+</body>
+</html>
