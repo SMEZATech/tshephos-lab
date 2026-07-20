@@ -16,6 +16,20 @@ const KIT_URL = KIT_BASE + "/broadcasts";
 const MAX_TEST_RECIPIENTS = 3;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+// Kit resolves Liquid merge tags at send time; Resend does not, so a raw test would show
+// "Hi {{ subscriber.first_name | default: "Boss" }}" and read as broken. Resolve them to the
+// values Kit would use, so the proof looks exactly like the real send.
+function resolveMergeTags(html) {
+  return String(html)
+    // {{ anything | default: "Value" }} → Value
+    .replace(/\{\{\s*[^}]*?\|\s*default\s*:\s*["']([^"']*)["']\s*\}\}/g, "$1")
+    // common bare tags → a plausible stand-in
+    .replace(/\{\{\s*subscriber\.first_name\s*\}\}/gi, "Boss")
+    .replace(/\{\{\s*subscriber\.email_address\s*\}\}/gi, "you@example.co.za")
+    // anything still unresolved → drop it rather than show raw Liquid
+    .replace(/\{\{[^}]*\}\}/g, "");
+}
+
 // Send a TEST copy of the newsletter to a real inbox, BEFORE anything reaches Kit — so the draft
 // can be finalised inside Volt. Lives here rather than in its own api/ file because Vercel's Hobby
 // plan caps a deployment at 12 Serverless Functions and we were exactly at the ceiling; both
@@ -55,7 +69,7 @@ async function handleTestSend(req, res, body) {
       body: JSON.stringify({
         from, to,
         subject: "[TEST] " + subject,   // never mistakable for the real send
-        html,
+        html: resolveMergeTags(html),
         ...(body.previewText ? { text: String(body.previewText).slice(0, 300) } : {}),
       }),
     });
