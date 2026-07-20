@@ -173,6 +173,15 @@ function sessionReady(){
     return { detail: d.total + ' units (' + d.period + ') — ' + d.byTool.slice(0,5).map(t => t.name + ' ' + t.units).join(', ')
       + ' · via ' + d.byProvider.map(p => p.name).join('/') };
   }, { skipWhy:'needs sign-in' }));
+  reads.push(await check('email · test sending', async () => {
+    if (!signedIn()) return 'SKIP';
+    // probe with a deliberately invalid payload: 400 = configured, 503 = key missing
+    const r = await fetch(API + '/sendtest', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({}) });
+    const d = await r.json().catch(()=>({}));
+    if (r.status === 503) return { warn:true, detail:'not set up — add a free RESEND_API_KEY in Vercel to enable "Send test"' };
+    if (r.status === 400) return { detail:'configured and reachable' };
+    throw new Error('unexpected ' + r.status + (d.error ? ' — ' + d.error : ''));
+  }, { skipWhy:'needs sign-in' }));
   reads.push(await check('postiz · channels', async () => {
     if (!signedIn()) return 'SKIP';
     const d = await api('/postiz?action=channels');

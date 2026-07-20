@@ -1324,8 +1324,14 @@ function renderPreview(bodyHtml){
         <div class="right">
           <button class="mini" id="copyBtn">${ICON.copy} Copy HTML</button>
           <button class="mini" id="dlBtn">${ICON.down} Download .html</button>
+          <button class="mini" id="testBtn" title="Send a real test copy to your inbox — before it ever goes to Kit">📨 Send test</button>
           <button class="mini kit" id="kitBtn" title="Create a draft broadcast in Kit">✉ Send to Kit</button>
         </div>
+      </div>
+      <div id="testRow" style="display:none; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+        <input id="testTo" type="text" placeholder="you@smesouthafrica.co.za (comma-separate up to 3)" style="flex:1; min-width:240px;" />
+        <button class="mini" id="testGo">Send it</button>
+        <button class="mini" id="testCancel">Cancel</button>
       </div>
       <div id="kitStatus" class="kit-status"></div>
       <div class="etoolbar" id="etoolbar">
@@ -1361,6 +1367,7 @@ function renderPreview(bodyHtml){
   document.getElementById('copyBtn').addEventListener('click', copyHtml);
   document.getElementById('dlBtn').addEventListener('click', downloadHtml);
   const kb = document.getElementById('kitBtn'); if(kb) kb.addEventListener('click', sendToKit);
+  wireTestSend();   // the toolbar is rebuilt on every render, so re-bind the test-send row too
   document.getElementById('pseg').addEventListener('click', e => {
     const b = e.target.closest('button'); if(!b) return;
     setPreviewMode(b.dataset.m);
@@ -1370,6 +1377,53 @@ function renderPreview(bodyHtml){
 
 // Create a draft broadcast in Kit from the assembled (edited) HTML.
 function setKitStatus(msg, kind){ const s=document.getElementById('kitStatus'); if(!s) return; s.innerHTML=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
+// ---- Send a REAL test copy to an inbox, before anything reaches Kit ----
+// Sends the same full HTML document the preview renders, so what lands in Outlook/Gmail is
+// exactly what Kit would send.
+function testRecipientMemoryKey(){ return 'volt_test_recipients'; }
+async function sendTestEmail(){
+  const row = document.getElementById('testRow');
+  const to = (document.getElementById('testTo').value || '').trim();
+  const subject = ($('#subject') ? $('#subject').value : '').trim();
+  if(!lastFragment){ setKitStatus('Build the email first.', 'err'); return; }
+  if(!subject){ setKitStatus('Add an email subject before sending a test.', 'err'); if($('#subject')) $('#subject').focus(); return; }
+  if(!to){ setKitStatus('Add an email address to send the test to.', 'err'); return; }
+  const btn = document.getElementById('testGo');
+  setKitStatus('Sending test…', 'busy'); if(btn) btn.disabled = true;
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/sendtest', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ to, subject, previewText: ($('#previewText') ? $('#previewText').value : '').trim(),
+                             html: previewDoc(lastFragment) })
+    });
+    let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the test sender.'); }
+    if(r.status===503 && data.error==='NOT_CONFIGURED') throw new Error(data.message || 'Test sending isn’t set up yet.');
+    if(!r.ok) throw new Error((data && (data.message||data.error)) || 'Test send failed.');
+    try{ localStorage.setItem(testRecipientMemoryKey(), to); }catch(_){}
+    setKitStatus('✅ Test sent to ' + esc((data.to||[to]).join(', ')) + ' — check the inbox (subject starts with [TEST]).', 'ok');
+    if(row) row.style.display = 'none';
+  }catch(err){ setKitStatus(esc(err.message), 'err'); }
+  finally{ if(btn) btn.disabled = false; }
+}
+// renderPreview() rebuilds the toolbar markup, so these must be re-bound after every render.
+function wireTestSend(){
+  const tb = document.getElementById('testBtn'), row = document.getElementById('testRow'),
+        go = document.getElementById('testGo'), cancel = document.getElementById('testCancel'),
+        toIn = document.getElementById('testTo');
+  if(!tb || !row) return;
+  tb.addEventListener('click', ()=>{
+    const open = row.style.display !== 'none';
+    row.style.display = open ? 'none' : 'flex';
+    if(!open){
+      try{ const last = localStorage.getItem(testRecipientMemoryKey()); if(last && !toIn.value) toIn.value = last; }catch(_){}
+      toIn.focus();
+    }
+  });
+  if(go) go.addEventListener('click', sendTestEmail);
+  if(cancel) cancel.addEventListener('click', ()=>{ row.style.display='none'; });
+  if(toIn) toIn.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendTestEmail(); } });
+}
+
 async function sendToKit(){
   const btn = document.getElementById('kitBtn');
   const subject = ($('#subject') ? $('#subject').value : '').trim();
