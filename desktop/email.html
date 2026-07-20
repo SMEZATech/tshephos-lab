@@ -1324,6 +1324,7 @@ function renderPreview(bodyHtml){
         <div class="right">
           <button class="mini" id="copyBtn">${ICON.copy} Copy HTML</button>
           <button class="mini" id="dlBtn">${ICON.down} Download .html</button>
+          <button class="mini" id="pfBtn" title="Deliverability & QA check — broken links, Gmail clipping, spam triggers, UTM coverage">🛫 Pre-flight</button>
           <button class="mini" id="testBtn" title="Send a real test copy to your inbox — before it ever goes to Kit">📨 Send test</button>
           <button class="mini kit" id="kitBtn" title="Create a draft broadcast in Kit">✉ Send to Kit</button>
         </div>
@@ -1336,6 +1337,15 @@ function renderPreview(bodyHtml){
         <button class="mini" id="testCancel">Cancel</button>
       </div>
       <div id="kitStatus" class="kit-status"></div>
+      <div id="pfPanel" style="display:none; margin-top:10px; background:#0D0F15; border:1px solid var(--border); border-radius:12px; padding:14px 16px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:9px;">
+          <span id="pfVerdict" style="font-family:var(--fm); font-size:12px; font-weight:700;"></span>
+          <span style="flex:1;"></span>
+          <button class="mini" id="pfUtm" style="display:none;">🏷 Auto-tag links for Stats</button>
+          <button class="mini" id="pfClose">✕</button>
+        </div>
+        <div id="pfList" style="display:flex; flex-direction:column; gap:6px; font-size:12.5px; line-height:1.5;"></div>
+      </div>
       <div class="etoolbar" id="etoolbar">
         <button class="mini" data-cmd="bold" title="Bold (Ctrl+B)" onmousedown="event.preventDefault()"><b>B</b></button>
         <button class="mini" data-cmd="italic" title="Italic (Ctrl+I)" onmousedown="event.preventDefault()"><i>I</i></button>
@@ -1408,6 +1418,130 @@ async function sendTestEmail(){
   finally{ if(btn) btn.disabled = false; }
 }
 // renderPreview() rebuilds the toolbar markup, so these must be re-bound after every render.
+// ===================== 🛫 PRE-FLIGHT — deliverability & QA linter =====================
+// The checks a world-class newsletter operation runs before every send: Gmail's 102KB clip
+// threshold, broken/placeholder links, missing alts, spam triggers, subject/preview hygiene,
+// and UTM coverage so Stats can attribute the traffic. Pure client-side, no AI spend.
+const GMAIL_CLIP_KB = 102;
+const SPAMMY = /\b(free money|100% free|act now|winner|congratulations you|risk[- ]free|guarantee[d]?|click here|limited time only|urgent response|make money fast)\b/i;
+function preflightRun(){
+  const issues = [];
+  const add = (level, area, msg) => issues.push({ level, area, msg });
+  const subject = ($('#subject') ? $('#subject').value : '').trim();
+  const preview = ($('#previewText') ? $('#previewText').value : '').trim();
+  const html = lastFragment ? previewDoc(lastFragment) : '';
+
+  if(!html){ add('fail','Body','Nothing built yet — generate or import the email first.'); return issues; }
+
+  // ---- size: Gmail clips past ~102KB and hides everything below the fold ----
+  const kb = new Blob([html]).size / 1024;
+  if(kb > GMAIL_CLIP_KB) add('fail','Size','Email is ' + kb.toFixed(0) + 'KB — Gmail CLIPS at ~' + GMAIL_CLIP_KB + 'KB and hides the rest (including the footer/unsubscribe). Trim sections or shorten copy.');
+  else if(kb > 85) add('warn','Size','Email is ' + kb.toFixed(0) + 'KB — close to Gmail\'s ~' + GMAIL_CLIP_KB + 'KB clip point. Keep an eye on it.');
+  else add('ok','Size', kb.toFixed(0) + 'KB — well under Gmail\'s clip threshold.');
+
+  // ---- subject & preview text ----
+  if(!subject) add('fail','Subject','No subject set.');
+  else {
+    if(subject.length > 60) add('warn','Subject', subject.length + ' chars — Gmail truncates around ~60. Front-load the hook.');
+    if(subject === subject.toUpperCase() && /[A-Z]/.test(subject)) add('warn','Subject','ALL CAPS subjects trip spam filters and read like shouting.');
+    if((subject.match(/!/g) || []).length > 1) add('warn','Subject','Multiple exclamation marks — a classic spam-filter trigger.');
+    if(SPAMMY.test(subject)) add('warn','Subject','Contains a spam-trigger phrase (' + (subject.match(SPAMMY)||[''])[0] + ') — consider rewording.');
+  }
+  if(!preview) add('warn','Preview','No preview text — inboxes will show the first line of the body instead ("View in your browser" used to hijack this slot).');
+  else if(preview.length > 110) add('warn','Preview', preview.length + ' chars — most clients cut preview text around ~90–110.');
+
+  // ---- parse and inspect the actual document ----
+  let doc; try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch(e){ add('fail','HTML','Could not parse the assembled HTML.'); return issues; }
+
+  // Shell/footer links (site home, socials) live in the fixed template, not the body — the
+  // 🏷 auto-tagger can't reach them, so counting them would leave a warning nobody can clear.
+  let shellHrefs = new Set();
+  try {
+    const shellDoc = new DOMParser().parseFromString(previewDoc(assemble('', false)), 'text/html');
+    [].forEach.call(shellDoc.querySelectorAll('a[href]'), a => shellHrefs.add(a.getAttribute('href')));
+  } catch(e){}
+
+  const anchors = [].slice.call(doc.querySelectorAll('a[href]'));
+  let placeholder = 0, insecure = 0, empty = 0, untagged = 0, taggable = 0;
+  anchors.forEach(a => {
+    const href = (a.getAttribute('href') || '').trim();
+    const text = (a.textContent || '').trim();
+    if(!href || href === '#' ) empty++;
+    else if(/\[[^\]]*\]|example\.com|your-?link|link-?here|url-?here|localhost|^blob:/i.test(href)) placeholder++;
+    else if(/^http:\/\//i.test(href)) insecure++;
+    if(/smesouthafrica\.co\.za/i.test(href) && !/^mailto:/i.test(href) && !shellHrefs.has(href)){
+      taggable++;
+      if(!/[?&]utm_/i.test(href)) untagged++;
+    }
+    if(!text && !a.querySelector('img')) add('warn','Links','A link has no visible text or image — screen readers and some clients render it as dead space.');
+  });
+  if(placeholder) add('fail','Links', placeholder + ' placeholder link' + (placeholder>1?'s':'') + ' (e.g. "[Webinar Link]", example.com) — these WILL ship broken.');
+  if(empty) add('fail','Links', empty + ' empty link' + (empty>1?'s':'') + ' (href="#" or blank).');
+  if(insecure) add('warn','Links', insecure + ' link' + (insecure>1?'s':'') + ' still on http:// — some clients flag mixed security.');
+  if(!placeholder && !empty && !insecure) add('ok','Links', anchors.length + ' links, none broken or placeholder.');
+
+  // ---- UTM coverage: the difference between "we sent it" and "we know what it drove" ----
+  if(taggable){
+    if(untagged) add('warn','Tracking', untagged + ' of ' + taggable + ' smesouthafrica.co.za link' + (taggable>1?'s':'') + ' have no UTM tags — Stats can\'t attribute that traffic to this newsletter. Use 🏷 Auto-tag.');
+    else add('ok','Tracking','All ' + taggable + ' site links carry UTM tags — Stats will attribute this send.');
+  }
+
+  // ---- images ----
+  const imgs = [].slice.call(doc.querySelectorAll('img'));
+  const noAlt = imgs.filter(i => !(i.getAttribute('alt') || '').trim()).length;
+  const dataUri = imgs.filter(i => /^data:/i.test(i.getAttribute('src') || '')).length;
+  if(noAlt) add('warn','Images', noAlt + ' image' + (noAlt>1?'s':'') + ' missing alt text — with images blocked (Outlook default) those spots go blank.');
+  if(dataUri) add('fail','Images', dataUri + ' embedded data: image' + (dataUri>1?'s':'') + ' — Gmail/Outlook strip these. Use 📤 hosted images instead.');
+  if(!noAlt && !dataUri && imgs.length) add('ok','Images', imgs.length + ' images, all with alt text and hosted.');
+
+  // ---- body-level spam scan ----
+  const bodyText = (doc.body && doc.body.textContent) || '';
+  if(SPAMMY.test(bodyText)) add('warn','Copy','Body contains a spam-trigger phrase (' + (bodyText.match(SPAMMY)||[''])[0] + ').');
+
+  return issues;
+}
+let _pfLastIssues = [];
+function preflightShow(){
+  const issues = preflightRun(); _pfLastIssues = issues;
+  const panel = $('#pfPanel'), list = $('#pfList'), verdict = $('#pfVerdict'), utmBtn = $('#pfUtm');
+  const fails = issues.filter(i => i.level === 'fail').length;
+  const warns = issues.filter(i => i.level === 'warn').length;
+  const ICON2 = { fail:'⛔', warn:'⚠️', ok:'✅' };
+  const COL = { fail:'var(--low)', warn:'var(--mid)', ok:'var(--good)' };
+  list.innerHTML = issues
+    .sort((a,b) => ({fail:0,warn:1,ok:2}[a.level]) - ({fail:0,warn:1,ok:2}[b.level]))
+    .map(i => '<div style="display:flex; gap:8px; align-items:flex-start;"><span>' + ICON2[i.level] + '</span>'
+      + '<span><b style="color:' + COL[i.level] + ';">' + esc(i.area) + '</b> — ' + esc(i.msg) + '</span></div>').join('');
+  verdict.textContent = fails ? '⛔ ' + fails + ' blocker' + (fails>1?'s':'') + (warns ? ' · ' + warns + ' warning' + (warns>1?'s':'') : '')
+    : warns ? '⚠️ ' + warns + ' warning' + (warns>1?'s':'') + ' — sendable, but look'
+    : '✅ Clear for take-off';
+  verdict.style.color = fails ? 'var(--low)' : warns ? 'var(--mid)' : 'var(--good)';
+  utmBtn.style.display = issues.some(i => i.area === 'Tracking' && i.level === 'warn') ? '' : 'none';
+  panel.style.display = 'block';
+  return issues;
+}
+// Add UTMs to every untagged smesouthafrica.co.za link so Stats can attribute the send.
+// Campaign slug comes from the subject + date; platform links (Spotify/YouTube/social) untouched.
+function autoUtmTag(){
+  if(!state.body){ setKitStatus('Build the email first.', 'err'); return; }
+  const subject = ($('#subject') ? $('#subject').value : '').trim();
+  const d = new Date();
+  const slug = (subject || 'sme-brief').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40) || 'sme-brief';
+  const campaign = d.toISOString().slice(0,10) + '-' + slug;
+  let n = 0;
+  const tagged = String(state.body).replace(/href="([^"]+)"/g, (m, href) => {
+    if(!/smesouthafrica\.co\.za/i.test(href) || /^mailto:/i.test(href) || /[?&]utm_/i.test(href)) return m;
+    n++;
+    return 'href="' + href + (href.indexOf('?') > -1 ? '&' : '?')
+      + 'utm_source=sme-brief&utm_medium=email&utm_campaign=' + encodeURIComponent(campaign) + '"';
+  });
+  if(!n){ setKitStatus('All site links are already tagged.', 'ok'); preflightShow(); return; }
+  state.editedContent = null; state.freeform = false;   // body-level rewrite → rebuild the preview from it
+  renderPreview(tagged);
+  setKitStatus('🏷 Tagged ' + n + ' link' + (n>1?'s':'') + ' with utm_campaign=' + campaign + ' — Stats can now attribute this send.', 'ok');
+  setTimeout(preflightShow, 300);
+}
+
 function wireTestSend(){
   const tb = document.getElementById('testBtn'), row = document.getElementById('testRow'),
         go = document.getElementById('testGo'), cancel = document.getElementById('testCancel'),
@@ -1432,10 +1566,26 @@ function wireTestSend(){
   if(go) go.addEventListener('click', sendTestEmail);
   if(cancel) cancel.addEventListener('click', ()=>{ row.style.display='none'; });
   if(toIn) toIn.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); sendTestEmail(); } });
+  // pre-flight lives in the same rebuilt toolbar
+  const pf = document.getElementById('pfBtn'); if(pf) pf.addEventListener('click', preflightShow);
+  const pfc = document.getElementById('pfClose'); if(pfc) pfc.addEventListener('click', ()=>{ $('#pfPanel').style.display='none'; });
+  const pfu = document.getElementById('pfUtm'); if(pfu) pfu.addEventListener('click', autoUtmTag);
 }
 
+let _pfOverride = false;
 async function sendToKit(){
   const btn = document.getElementById('kitBtn');
+  // Pre-flight gate: blockers stop the first click and show exactly what's wrong.
+  // A second click within 20s sends anyway — informed override, not a hard wall.
+  const gate = preflightRun().filter(i => i.level === 'fail');
+  if(gate.length && !_pfOverride){
+    preflightShow();
+    _pfOverride = true;
+    setTimeout(()=>{ _pfOverride = false; }, 20000);
+    setKitStatus('⛔ Pre-flight found ' + gate.length + ' blocker' + (gate.length>1?'s':'') + ' (see panel above). Fix them, or click Send to Kit again to send anyway.', 'err');
+    return;
+  }
+  _pfOverride = false;
   const subject = ($('#subject') ? $('#subject').value : '').trim();
   const previewText = ($('#previewText') ? $('#previewText').value : '').trim();
   if(!lastFragment){ setKitStatus('Build the email first.', 'err'); return; }
