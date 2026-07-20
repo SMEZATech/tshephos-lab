@@ -590,9 +590,6 @@ const SHELL_TOP_LIGHT = `<div id="body" style="background-color: #f0f2f5; paddin
                 <p style="margin-top: 0; font-weight: 600;">Hi 👋 {{ subscriber.first_name | default: "Boss" }},</p>
 `;
 
-// Tiny "view in browser" preheader — deliverability insurance; prepended above whichever shell is used.
-const VIEW_IN_BROWSER = `<div style="max-width: 600px; margin: 0 auto 8px auto; text-align: center; font-family: 'Roboto', Arial, sans-serif; font-size: 11px; color: #94a3b8;"><a href="https://smesouthafrica.co.za/newsletter/" target="_blank" style="color: #94a3b8 !important; text-decoration: underline; font-weight: normal; border: none;">View in your browser</a></div>
-`;
 
 const SHELL_BOTTOM = `
                 <div class="mobile-padding" style="background-color: #f8fafc; border-radius: 12px; padding: 25px 20px; border: 1px solid #e2e8f0; text-align: center; margin-top: 35px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
@@ -931,6 +928,24 @@ function podcastBlock(p){
   if(p.apple) plat.push(`<a href="${escAttr(p.apple)}" target="_blank" style="color:#cbd5e1 !important;text-decoration:none;border:none;font-weight:600;">${icon('https://img.icons8.com/ios-filled/50/FFFFFF/mac-os.png','Apple Podcasts')}Apple</a>`);
   if(p.youtube) plat.push(`<a href="${escAttr(p.youtube)}" target="_blank" style="color:#cbd5e1 !important;text-decoration:none;border:none;font-weight:600;">${icon('https://img.icons8.com/color/48/youtube-play.png','YouTube')}YouTube</a>`);
   const platRow = plat.length ? `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top:25px;border-top:1px solid #1e293b;"><tr><td style="padding-top:20px;font-family:'Roboto',sans-serif;font-size:13px;color:#64748b;">Available on: &nbsp;&nbsp;${plat.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ')}</td></tr></table>` : '';
+  // ---- Bulletproof "Play Episode" button ----
+  // Outlook (Word engine) ignores border-radius/box-shadow and mangles padding on <a>, which is why
+  // this used to render as a squashed outline. VML gives Outlook a real rounded pill; every other
+  // client gets the table button. Renders ONLY when there's a link — never ship a dead button.
+  const btnLabel = String(p.btn || '▶ Play Episode').trim() || '▶ Play Episode';
+  const epLink = String(p.link || '').trim();
+  const vmlW = Math.min(320, Math.max(170, btnLabel.replace(/[^\x20-\x7E]/g, '').length * 11 + 70));
+  const playBtn = epLink ? `<div>
+                                    <!--[if mso]>
+                                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escAttr(epLink)}" style="height:46px;v-text-anchor:middle;width:${vmlW}px;" arcsize="50%" stroke="f" fillcolor="#9c1c1f">
+                                      <w:anchorlock/>
+                                      <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;">${esc(btnLabel)}</center>
+                                    </v:roundrect>
+                                    <![endif]-->
+                                    <!--[if !mso]><!-- -->
+                                    <table role="presentation" border="0" cellspacing="0" cellpadding="0"><tr><td align="center" bgcolor="#9c1c1f" style="border-radius:50px;"><a href="${escAttr(epLink)}" target="_blank" style="display:inline-block;padding:14px 32px;font-family:'Oswald',Arial,sans-serif;font-size:14px;font-weight:700;color:#ffffff !important;text-decoration:none;border-radius:50px;text-transform:uppercase;letter-spacing:1px;border:none;">${esc(btnLabel)}</a></td></tr></table>
+                                    <!--<![endif]-->
+                                  </div>` : '';
   return `
                 ${HR}
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#020617;background:linear-gradient(145deg, #0f172a 0%, #020617 100%);border-radius:16px;margin-bottom:25px;box-shadow:0 12px 30px rgba(0,0,0,0.15);border:1px solid #1e293b;overflow:hidden;">
@@ -944,7 +959,7 @@ function podcastBlock(p){
                                     ${guest}
                                     <h3 style="margin:0 0 10px 0;font-family:'Oswald',sans-serif;font-size:24px;color:#ffffff;font-weight:900;line-height:1.2;">${esc(p.title)}</h3>
                                     ${p.desc ? `<p style="margin:0 0 20px 0;font-family:'Roboto',sans-serif;color:#94a3b8;line-height:1.6;font-size:15px;">${esc(p.desc)}</p>` : ''}
-                                    <table border="0" cellspacing="0" cellpadding="0"><tr><td align="center" bgcolor="#9c1c1f" style="border-radius:50px;box-shadow:0 6px 16px rgba(156,28,31,0.3);"><a href="${escAttr(p.link)}" target="_blank" style="display:inline-block;padding:12px 28px;font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:#ffffff !important;text-decoration:none;border-radius:50px;text-transform:uppercase;letter-spacing:1px;border:none;">${esc(p.btn || '▶ Play Episode')}</a></td></tr></table>
+                                    ${playBtn}
                                 </td>
                             </tr></table>
                             ${platRow}
@@ -978,10 +993,11 @@ function sponsoredBlock(p){
 function taskBlock(p){
   const ritual = esc((p.ritual || "This Week's Action").trim());
   const shout = p.shout ? `<p style="margin: 0 0 14px 0; padding: 9px 13px; background-color: rgba(255,255,255,0.08); border-radius: 8px; font-family: 'Roboto', sans-serif; color: #ffe1e1; font-size: 13px; line-height: 1.5;">🎉 ${esc(p.shout)}</p>` : '';
-  // One-tap poll: each option becomes a bulletproof (table-based) reply button — lowest-friction ask.
+  // Prompt pills — deliberately NOT links. These read as a nudge, not a click target; wiring them
+  // to mailto: sent replies nobody wanted and made a non-interactive design look interactive.
   const opts = Array.isArray(p.poll) ? p.poll.filter(Boolean).slice(0, 4) : [];
   const poll = opts.length ? `<div style="margin: 18px 0 0 0;">${opts.map(o =>
-    `<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="display: inline-block; margin: 0 8px 8px 0;"><tr><td align="center" bgcolor="#ffb1b1" style="border-radius: 8px;"><a href="mailto:info@smesouthafrica.co.za?subject=${encodeURIComponent('My answer: ' + o)}" target="_blank" style="display: inline-block; padding: 10px 18px; font-family: 'Roboto', sans-serif; font-size: 14px; font-weight: 700; color: #0a2c3d; text-decoration: none; border-radius: 8px;">${esc(o)}</a></td></tr></table>`
+    `<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="display: inline-block; margin: 0 8px 8px 0;"><tr><td align="center" bgcolor="#ffb1b1" style="border-radius: 8px; padding: 10px 18px; font-family: 'Roboto', Arial, sans-serif; font-size: 14px; font-weight: 700; color: #0a2c3d;">${esc(o)}</td></tr></table>`
   ).join('')}</div>` : '';
   return `
                 ${HR}
@@ -1253,7 +1269,7 @@ function assemble(bodyHtml, editable){
   const inner = currentContent(bodyHtml);
   // Everything between the shell (body + all sections) is editable — text & links, not the shell design.
   const content = editable ? '<div class="volt-editable">' + inner + '</div>' : inner;
-  return VIEW_IN_BROWSER + shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom();
+  return shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom();
 }
 // Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
 // centred container with safe defaults. Used for pasted/imported HTML.
