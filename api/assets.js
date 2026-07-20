@@ -36,15 +36,30 @@ async function photos(q) {
       if (results.length) return { provider: "pexels", results };
     } catch (e) {}
   }
-  // Keyless floor: Openverse (CC-licensed images, no key required)
-  const d = await J(await fetch("https://api.openverse.org/v1/images/?page_size=24&q=" + encodeURIComponent(q), {
-    headers: { "User-Agent": "VoltMarketing/1.0 (smesouthafrica.co.za)" } }));
-  return {
-    provider: "openverse",
-    results: (d.results || []).map((p) => ({
+  // Keyless: Openverse (CC images) — has started requiring auth for some anon traffic, so tolerate failure
+  try {
+    const d = await J(await fetch("https://api.openverse.org/v1/images/?page_size=24&q=" + encodeURIComponent(q), {
+      headers: { "User-Agent": "VoltMarketing/1.0 (smesouthafrica.co.za)" } }));
+    const results = (d.results || []).map((p) => ({
       thumb: p.thumbnail || p.url, full: p.url,
       alt: p.title || "", credit: (p.creator ? p.creator + " · Openverse (CC)" : "Openverse (CC)"),
-    })).filter((x) => x.thumb && x.full),
+    })).filter((x) => x.thumb && x.full);
+    if (results.length) return { provider: "openverse", results };
+  } catch (e) {}
+  // Keyless FLOOR: Wikimedia Commons — open API, no key, no auth, ever
+  const cd = await J(await fetch("https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=" +
+    encodeURIComponent(q) + "&gsrnamespace=6&gsrlimit=24&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=400&format=json&origin=*", {
+    headers: { "User-Agent": "VoltMarketing/1.0 (smesouthafrica.co.za)" } }));
+  const pages = (cd.query && cd.query.pages) ? Object.values(cd.query.pages) : [];
+  return {
+    provider: "wikimedia",
+    results: pages.map((p) => {
+      const ii = p.imageinfo && p.imageinfo[0];
+      if (!ii || !/\.(jpe?g|png|webp)$/i.test(ii.url || "")) return null;
+      const artist = ii.extmetadata && ii.extmetadata.Artist && String(ii.extmetadata.Artist.value || "").replace(/<[^>]+>/g, "").slice(0, 40);
+      return { thumb: ii.thumburl || ii.url, full: ii.url, alt: String(p.title || "").replace(/^File:/, ""),
+               credit: (artist ? artist + " · " : "") + "Wikimedia Commons" };
+    }).filter(Boolean),
   };
 }
 
