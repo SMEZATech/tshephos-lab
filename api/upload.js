@@ -44,10 +44,11 @@ async function supabaseUpload(buf, filename, contentType, orgId) {
 export default async function handler(req, res) {
   if (await blocked(req, res, { id: "upload", limit: 15, windowSec: 60 })) return;
 
-  const isDesktop = req.headers["x-client"] === "desktop";
-  const wpUrl = (isDesktop ? req.headers["x-wp-url"] : process.env.WP_URL) || "";
-  const wpUser = (isDesktop ? req.headers["x-wp-user"] : process.env.WP_USER) || "";
-  const wpKey = (isDesktop ? req.headers["x-wp-key"] : process.env.WP_APP_PASSWORD) || "";
+  // Personal creds win when supplied; otherwise the org's env creds — a desktop user without
+  // personal WP creds was silently skipping the org's WordPress and landing on Supabase.
+  const wpUrl = (req.headers["x-wp-url"] || process.env.WP_URL || "").toString().trim();
+  const wpUser = (req.headers["x-wp-user"] || process.env.WP_USER || "").toString().trim();
+  const wpKey = (req.headers["x-wp-key"] || process.env.WP_APP_PASSWORD || "").toString().trim();
   const wpReady = !!(wpUrl && wpUser && wpKey);
 
   try {
