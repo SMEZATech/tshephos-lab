@@ -116,7 +116,7 @@
 
     // 3) Creative matrix: 5 themes x 3 formats
     const themeSigs = {};
-    for (const th of ['classic', 'cinematic', 'modern', 'editorial', 'bold']) {
+    for (const th of ['classic', 'navy', 'cinematic', 'modern', 'editorial', 'bold']) {
       for (const f of ['square', 'landscape', 'portrait']) {
         const st = { ...baseState, theme: th, format: f };
         const r = await run('standard/' + th + '/' + f,

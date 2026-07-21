@@ -264,6 +264,7 @@
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">4. Design Theme</label>
                 <div class="grid grid-cols-3 gap-2">
                     <button onclick="setTheme('classic')" id="theme-classic" class="theme-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Classic</button>
+                    <button onclick="setTheme('navy')" id="theme-navy" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Navy</button>
                     <button onclick="setTheme('cinematic')" id="theme-cinematic" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Cinematic</button>
                     <button onclick="setTheme('modern')" id="theme-modern" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Modern</button>
                     <button onclick="setTheme('editorial')" id="theme-editorial" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Editorial</button>
@@ -858,6 +859,15 @@ class CanvasRenderer {
 const Layouts = {
 
     // ----- STANDARD: CLASSIC -----
+    // Navy — the calmer counterpart to Classic. Identical layout, brand colours swapped, so the
+    // panel reads SME navy with red as the accent. Exists because leaning on one red look for
+    // every post makes the brand feel repetitive; this gives the same structure a second identity.
+    navy(r, s, assets) {
+        const red = BRAND.red, navy = BRAND.navy;
+        BRAND.red = navy; BRAND.navy = red;
+        try { Layouts.classic(r, s, assets); }
+        finally { BRAND.red = red; BRAND.navy = navy; }
+    },
     classic(r, s, assets) {
         const W = r.w, H = r.h;
         const isLand = s.format === 'landscape';
@@ -1497,6 +1507,7 @@ function renderSlide(state, slideIdx, assets, scale) {
         else if (state.theme === 'modern')    Layouts.modern(r, state, assets);
         else if (state.theme === 'editorial') Layouts.editorial(r, state, assets);
         else if (state.theme === 'bold')      Layouts.bold(r, state, assets);
+        else if (state.theme === 'navy')      Layouts.navy(r, state, assets);
         else                                  Layouts.classic(r, state, assets);
     } else if (state.campaign === 'carousel') {
         const slideText = state.slides[slideIdx] || '';

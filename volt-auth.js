@@ -863,6 +863,63 @@
     clear: function (name) { try { localStorage.removeItem(this.key(name)); } catch (e) {} return true; },
   };
 
+  /* ---------- org settings: which modules / designs are retired ----------
+     Written only by the owner (server-enforced in api/projects.js), READ by everyone — this is
+     where the reading half happens. Cached so nav doesn't flicker on load; refreshed in the
+     background. Retiring hides a thing from the pickers; it never deletes anything. */
+  var OS_LS = "volt_orgsettings";
+  function orgSettings() {
+    try { var c = JSON.parse(localStorage.getItem(OS_LS) || "null"); return (c && c.v) || {}; } catch (e) { return {}; }
+  }
+  window.voltOrgSettings = orgSettings;
+  function retired(group, key) {
+    var s = orgSettings();
+    return !!(s && s[group] && s[group][key] === false);
+  }
+  window.voltRetired = retired;
+  function applyOrgSettings() {
+    var s = orgSettings();
+    if (!s || (!s.modules && !s.themes && !s.premium)) return;
+    // nav tabs + rail entries for retired modules
+    Object.keys(s.modules || {}).forEach(function (k) {
+      if (s.modules[k] !== false) return;
+      var sel = 'a[href="' + k + '.html"]';
+      [].forEach.call(document.querySelectorAll(sel), function (a) {
+        if (a.classList.contains("tab") || a.classList.contains("nav-tab") || a.classList.contains("r-t")) a.style.display = "none";
+      });
+    });
+    // Studio theme buttons (#theme-classic…) and premium content types (#ct-funding…)
+    Object.keys(s.themes || {}).forEach(function (k) {
+      if (s.themes[k] === false) { var el = document.getElementById("theme-" + k); if (el) el.style.display = "none"; }
+    });
+    Object.keys(s.premium || {}).forEach(function (k) {
+      if (s.premium[k] === false) { var el = document.getElementById("ct-" + k); if (el) el.style.display = "none"; }
+    });
+    try { document.dispatchEvent(new CustomEvent("volt:orgsettings", { detail: s })); } catch (e) {}
+  }
+  window.voltApplyOrgSettings = applyOrgSettings;
+  function refreshOrgSettings() {
+    fetch("https://tshephos-lab.vercel.app/api/projects?type=orgsettings")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        var row = d && (d.projects || [])[0];
+        if (!row) return;
+        return fetch("https://tshephos-lab.vercel.app/api/projects?id=" + row.id)
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (full) {
+            var v = full && full.project && full.project.data;
+            if (!v) return;
+            try { localStorage.setItem(OS_LS, JSON.stringify({ t: Date.now(), v: v })); } catch (e) {}
+            applyOrgSettings();
+          });
+      })
+      .catch(function () {});
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", applyOrgSettings);
+  else applyOrgSettings();
+  window.addEventListener("load", applyOrgSettings);
+  window.addEventListener("volt:ready", refreshOrgSettings);
+
   /* ---------- universal autosave — never lose typed work ---------- */
   function autosaveKey() { return "volt_autosave_" + (location.pathname.split("/").pop() || "index").toLowerCase(); }
   function autosaveFields() {

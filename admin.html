@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<!-- Volt — Admin. Owner-only control of which modules and designs are live. © 2026 Tshepho Joel. -->
+<html lang="en">
+<head>
+<script src="volt-auth.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volt — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0A0B0F;--surface:#14171F;--surface-2:#1A1E28;--border:rgba(255,255,255,.09);--border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3;--dim:#888F9D;--faint:#5B616D;--accent:#B6FF3D;--accent-press:#a3ec2b;--good:#57E39A;--mid:#FFC857;--low:#FF7C7C;--info:#7FC8FF;
+    --fd:'Unbounded',system-ui;--fb:'Plus Jakarta Sans',system-ui;--fm:'JetBrains Mono',monospace;}
+  *{box-sizing:border-box;} html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fb);}
+  .wrap{max-width:960px;margin:0 auto;padding:28px 22px 70px;}
+  .topbar{display:flex;gap:8px;align-items:center;margin-bottom:22px;flex-wrap:wrap;}
+  .tab{font-family:var(--fm);font-size:12px;font-weight:700;padding:9px 15px;border-radius:11px;border:1px solid var(--border-2);color:var(--dim);text-decoration:none;}
+  .tab:hover{color:var(--text);border-color:var(--accent);} .tab.active{background:var(--accent);color:#0A0B0F;border-color:var(--accent);}
+  h1{font-family:var(--fd);font-weight:800;font-size:27px;margin:0 0 6px;}
+  .sub{color:var(--dim);font-size:14.5px;line-height:1.55;margin:0 0 22px;max-width:660px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin-bottom:16px;}
+  .card h2{font-family:var(--fd);font-weight:700;font-size:17px;margin:0 0 4px;}
+  .card .h-note{color:var(--dim);font-size:13px;line-height:1.5;margin:0 0 16px;}
+  .row{display:flex;align-items:center;gap:13px;padding:11px 13px;border:1px solid var(--border);border-radius:11px;background:#0D0F15;margin-bottom:8px;}
+  .row .emoji{font-size:17px;width:24px;text-align:center;flex:none;}
+  .row .nm{font-weight:600;font-size:14px;}
+  .row .ds{font-size:12px;color:var(--faint);line-height:1.4;}
+  .row .grow{flex:1;min-width:0;}
+  .row.off{opacity:.55;}
+  .sw{position:relative;width:44px;height:25px;border-radius:100px;background:#2a2f3a;border:1px solid var(--border-2);cursor:pointer;flex:none;transition:background .15s;}
+  .sw::after{content:'';position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#8b93a1;transition:transform .16s,background .16s;}
+  .sw.on{background:rgba(182,255,61,.25);border-color:var(--accent);}
+  .sw.on::after{transform:translateX(19px);background:var(--accent);}
+  .sw.locked{opacity:.4;cursor:not-allowed;}
+  .pill{font-family:var(--fm);font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:.05em;flex:none;}
+  .pill.live{background:rgba(87,227,154,.12);color:var(--good);border:1px solid rgba(87,227,154,.3);}
+  .pill.retired{background:rgba(255,124,124,.1);color:var(--low);border:1px solid rgba(255,124,124,.3);}
+  .swatch{width:26px;height:26px;border-radius:7px;border:1px solid var(--border-2);flex:none;}
+  .btn{font-family:var(--fb);font-weight:800;font-size:14px;color:#0A0B0F;background:var(--accent);border:none;border-radius:11px;padding:12px 22px;cursor:pointer;}
+  .btn:hover{background:var(--accent-press);} .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border-2);}
+  .bar{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(10,11,15,0),var(--bg) 40%);padding:18px 0 6px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .status{font-family:var(--fm);font-size:12.5px;color:var(--dim);}
+  .status.ok{color:var(--good);} .status.err{color:var(--low);} .status.busy{color:var(--info);}
+  .gate{max-width:520px;margin:14vh auto;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:36px 30px;}
+  .gate h2{font-family:var(--fd);font-size:20px;margin:0 0 10px;}
+  .gate p{color:var(--dim);font-size:14px;line-height:1.6;margin:0;}
+  .hint{background:rgba(127,200,255,.07);border:1px solid rgba(127,200,255,.25);border-radius:11px;padding:12px 15px;font-size:13px;line-height:1.6;color:#cfe6ff;margin-top:6px;}
+</style>
+</head>
+<body>
+<main class="wrap" id="root" style="display:none;">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="campaign.html">⚡ Campaign</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="analytics.html">📊 Stats</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="schedule.html">📅 Schedule</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <a class="tab" href="videotok.html">📝 Transcribe</a>
+    <span class="tab active">🛠 Admin</span>
+  </nav>
+
+  <h1>Admin</h1>
+  <p class="sub">Owner-only control of what your team can use. Turning something off <b>retires</b> it — nothing is deleted, work made with it is untouched, and you can bring it back any time. Changes apply to everyone in the org.</p>
+
+  <div class="card">
+    <h2>Modules</h2>
+    <p class="h-note">Hide a tool from the navigation and the desktop rail. Anyone who has it open keeps working; it just stops being offered.</p>
+    <div id="modList"></div>
+  </div>
+
+  <div class="card">
+    <h2>Studio designs</h2>
+    <p class="h-note">Retire a look that's been overused. Retired designs disappear from Studio's picker but every graphic already exported stays exactly as it is.</p>
+    <div id="themeList"></div>
+    <div class="hint" id="varietyHint"></div>
+  </div>
+
+  <div class="card">
+    <h2>Premium content types</h2>
+    <p class="h-note">The Funding / Solutions / Newsletter / Resources design families used by Studio and Campaign.</p>
+    <div id="premList"></div>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="saveBtn">Save changes</button>
+    <button class="btn ghost" id="resetBtn">Reset to all-on</button>
+    <span class="status" id="status"></span>
+  </div>
+</main>
+
+<div class="gate" id="gate" style="display:none;">
+  <h2 id="gateTitle">Checking access…</h2>
+  <p id="gateMsg">One moment.</p>
+</div>
+
+<script>
+const API = 'https://tshephos-lab.vercel.app/api';
+const ADMIN_EMAIL = 'joel@smesouthafrica.co.za';
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// What can be toggled. Keys here are the contract the rest of the app reads.
+const MODULES = [
+  { k:'index',     e:'✍️', n:'Copy Lab',   d:'Ranked ad angles' },
+  { k:'campaign',  e:'⚡', n:'Campaign',   d:'One brief → whole campaign' },
+  { k:'studio',    e:'🎨', n:'Studio',     d:'Graphics + Brand Kit', locked:true },
+  { k:'analytics', e:'📊', n:'Stats',      d:'Performance & insights' },
+  { k:'email',     e:'✉️', n:'Email',      d:'Newsletter builder' },
+  { k:'schedule',  e:'📅', n:'Schedule',   d:'Publish via Postiz' },
+  { k:'video',     e:'🎬', n:'Video',      d:'Webinar → branded short' },
+  { k:'videotok',  e:'📝', n:'Transcribe', d:'Transcripts, articles, YT meta' },
+  { k:'freeform',  e:'🖌️', n:'Freeform',   d:'Free-form design canvas (desktop rail only)' },
+  { k:'guide',     e:'📖', n:'Guide',      d:'How-to documentation' },
+];
+const THEMES = [
+  { k:'classic',   n:'Classic',   d:'Red panel + image — the heavy red look', sw:'#9c1c1f' },
+  { k:'navy',      n:'Navy',      d:'Same layout on SME navy — the calmer alternative', sw:'#0a2c3d', isNew:true },
+  { k:'cinematic', n:'Cinematic', d:'Full-bleed image, dark gradient',        sw:'#111827' },
+  { k:'modern',    n:'Modern',    d:'Light, clean, editorial spacing',        sw:'#f3f5f9' },
+  { k:'editorial', n:'Editorial', d:'Paper-white, typographic',               sw:'#ffffff' },
+  { k:'bold',      n:'Bold',      d:'Oversized type, high contrast',          sw:'#0a2c3d' },
+];
+const PREM = [
+  { k:'funding',    n:'Business Funding',    d:'3 directions' },
+  { k:'solutions',  n:'Solutions & Reviews', d:'3 directions' },
+  { k:'newsletter', n:'Newsletter',          d:'3 directions' },
+  { k:'resources',  n:'Resources',           d:'3 directions' },
+];
+
+let settings = { modules:{}, themes:{}, premium:{} };
+let settingsId = null;
+
+function isOn(group, key){ const v = settings[group] && settings[group][key]; return v !== false; }
+function setOn(group, key, on){ settings[group] = settings[group] || {}; settings[group][key] = !!on; }
+
+function rowHtml(group, item){
+  const on = isOn(group, item.k);
+  return '<div class="row ' + (on?'':'off') + '" data-g="' + group + '" data-k="' + item.k + '">'
+    + (item.sw ? '<span class="swatch" style="background:' + item.sw + ';"></span>' : '<span class="emoji">' + (item.e||'▪') + '</span>')
+    + '<span class="grow"><span class="nm">' + esc(item.n) + (item.isNew ? ' <span class="pill live">new</span>' : '') + '</span>'
+    + '<div class="ds">' + esc(item.d) + '</div></span>'
+    + '<span class="pill ' + (on?'live':'retired') + '">' + (on?'Live':'Retired') + '</span>'
+    + '<div class="sw ' + (on?'on':'') + (item.locked?' locked':'') + '" title="' + (item.locked?'Studio can’t be turned off — it powers Campaign creatives':'Toggle') + '"></div>'
+    + '</div>';
+}
+function render(){
+  $('#modList').innerHTML   = MODULES.map(m => rowHtml('modules', m)).join('');
+  $('#themeList').innerHTML = THEMES.map(t => rowHtml('themes', t)).join('');
+  $('#premList').innerHTML  = PREM.map(p => rowHtml('premium', p)).join('');
+  document.querySelectorAll('.sw').forEach(sw => sw.addEventListener('click', () => {
+    if(sw.classList.contains('locked')) return;
+    const row = sw.closest('.row');
+    setOn(row.dataset.g, row.dataset.k, !isOn(row.dataset.g, row.dataset.k));
+    render();
+    setStatus('Unsaved changes — hit Save.', 'busy');
+  }));
+  const retired = THEMES.filter(t => !isOn('themes', t.k)).map(t => t.n);
+  $('#varietyHint').innerHTML = retired.length
+    ? '🎯 Retired: <b>' + retired.map(esc).join(', ') + '</b>. Studio will stop offering ' + (retired.length>1?'them':'it') + ' — existing graphics are unaffected.'
+    : '💡 Overuse is a real problem: one look everywhere makes the brand feel repetitive. Retire the tired one and Studio will steer your team to the rest.';
+}
+function setStatus(msg, kind){ const el = $('#status'); el.textContent = msg || ''; el.className = 'status' + (kind ? ' ' + kind : ''); }
+
+async function load(){
+  try{
+    const list = await (await fetch(API + '/projects?type=orgsettings')).json();
+    const row = (list.projects || [])[0];
+    if(row){
+      settingsId = row.id;
+      const full = await (await fetch(API + '/projects?id=' + row.id)).json();
+      const d = full.project && full.project.data;
+      if(d) settings = { modules:d.modules||{}, themes:d.themes||{}, premium:d.premium||{} };
+    }
+  }catch(e){}
+  render();
+}
+async function save(){
+  const btn = $('#saveBtn'); btn.disabled = true; setStatus('Saving…', 'busy');
+  try{
+    const r = await fetch(API + '/projects', { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ op:'save', id: settingsId, type:'orgsettings', title:'Volt module settings', data: settings }) });
+    const d = await r.json().catch(()=>({}));
+    if(r.status === 403) throw new Error(d.error || 'Only the account owner can change these.');
+    if(!r.ok) throw new Error(d.error || 'Save failed.');
+    if(d.project && d.project.id) settingsId = d.project.id;
+    try{ localStorage.setItem('volt_orgsettings', JSON.stringify({ t:Date.now(), v:settings })); }catch(e){}
+    setStatus('✅ Saved — applies to everyone in the org.', 'ok');
+  }catch(e){ setStatus(e.message, 'err'); }
+  finally{ btn.disabled = false; }
+}
+
+function boot(){
+  const email = String((window.voltSession && window.voltSession.user && window.voltSession.user.email) || '').toLowerCase();
+  if(!email){
+    $('#gate').style.display = 'block';
+    $('#gateTitle').textContent = 'Sign in required';
+    $('#gateMsg').textContent = 'Admin is only available to the account owner. Sign in to continue.';
+    return;
+  }
+  if(email !== ADMIN_EMAIL){
+    $('#gate').style.display = 'block';
+    $('#gateTitle').textContent = '🔒 Owner only';
+    $('#gateMsg').innerHTML = 'This page is restricted to the account owner.<br><br>You are signed in as <b>' + esc(email) + '</b>. The server enforces this too — module settings can only be changed by the owner.';
+    return;
+  }
+  $('#root').style.display = 'block';
+  $('#saveBtn').addEventListener('click', save);
+  $('#resetBtn').addEventListener('click', ()=>{ settings = { modules:{}, themes:{}, premium:{} }; render(); setStatus('All modules and designs back on — hit Save.', 'busy'); });
+  load();
+}
+window.addEventListener('volt:ready', boot);
+if(window.voltSession) boot();
+setTimeout(()=>{ if($('#root').style.display === 'none' && $('#gate').style.display === 'none') boot(); }, 2500);
+</script>
+</body>
+</html>

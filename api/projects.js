@@ -12,6 +12,11 @@ import { setCors, rateLimit, requireSession, db } from "./_guard.js";
 
 const enc = (v) => encodeURIComponent(String(v));
 
+// Org settings are owner-only to WRITE (everyone reads them — that is how enforcement works).
+const isAdmin = (s) =>
+  String((s && s.user && s.user.email) || "").toLowerCase() ===
+  (process.env.VOLT_ADMIN_EMAIL || "joel@smesouthafrica.co.za").toLowerCase();
+
 export default async function handler(req, res) {
   setCors(req, res, "GET, POST, OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -46,6 +51,10 @@ export default async function handler(req, res) {
 
     if (op === "delete") {
       if (!body.id) return res.status(400).json({ error: "Missing id." });
+      const cur = (await store.select("project", "select=type&id=eq." + enc(body.id))) || [];
+      if (cur[0] && cur[0].type === "orgsettings" && !isAdmin(s)) {
+        return res.status(403).json({ error: "Only the account owner can change module settings." });
+      }
       await store.remove("project", "id=eq." + enc(body.id));
       return res.status(200).json({ ok: true });
     }
@@ -55,6 +64,20 @@ export default async function handler(req, res) {
     const title = String(body.title || "Untitled").slice(0, 200);
     const data = (body.data && typeof body.data === "object") ? body.data : {};
     if (!type) return res.status(400).json({ error: "Missing type." });
+
+    // Org settings (which modules/designs are live) are OWNER-ONLY. Everyone in the org must be
+    // able to READ them — that's how enforcement works on every page — but only the owner writes.
+    // Enforced here, server-side: hiding the admin page in the UI would not be a control.
+    let effectiveType = type;
+    if (body.id) {
+      // An update sends the id, not the type — so read the stored type, or a non-owner could
+      // edit the settings row simply by omitting type.
+      const cur = (await store.select("project", "select=type&id=eq." + enc(body.id))) || [];
+      if (cur[0] && cur[0].type) effectiveType = cur[0].type;
+    }
+    if (effectiveType === "orgsettings" && !isAdmin(s)) {
+      return res.status(403).json({ error: "Only the account owner can change module settings." });
+    }
     if (JSON.stringify(data).length > 600000) return res.status(413).json({ error: "That project is too large to save." });
 
     const rows = body.id
