@@ -895,7 +895,50 @@
     Object.keys(s.premium || {}).forEach(function (k) {
       if (s.premium[k] === false) { var el = document.getElementById("ct-" + k); if (el) el.style.display = "none"; }
     });
+    announceRetired(s);
     try { document.dispatchEvent(new CustomEvent("volt:orgsettings", { detail: s })); } catch (e) {}
+  }
+  // Tell the team WHY something vanished — once per retired design, not on every load. Without
+  // this a design silently disappears and people assume the tool broke.
+  var RETIRE_SEEN = "volt_retire_seen_v1";
+  var RETIRE_LABEL = {
+    classic: { n: "Classic", why: "our primary red", to: "Navy" },
+    navy: { n: "Navy", why: "the navy look", to: "Classic" },
+    cinematic: { n: "Cinematic", why: "the full-bleed look", to: "another design" },
+    modern: { n: "Modern", why: "the light look", to: "another design" },
+    editorial: { n: "Editorial", why: "the paper look", to: "another design" },
+    bold: { n: "Bold", why: "the oversized-type look", to: "another design" }
+  };
+  function announceRetired(s) {
+    if (!s || !s.themes) return;
+    var seen = {};
+    try { seen = JSON.parse(localStorage.getItem(RETIRE_SEEN) || "{}"); } catch (e) {}
+    var fresh = Object.keys(s.themes).filter(function (k) { return s.themes[k] === false && !seen[k]; });
+    if (!fresh.length) return;
+    var k = fresh[0], meta = RETIRE_LABEL[k] || { n: k, why: "that design", to: "another design" };
+    fresh.forEach(function (x) { seen[x] = Date.now(); });
+    try { localStorage.setItem(RETIRE_SEEN, JSON.stringify(seen)); } catch (e) {}
+    // A 2.6s toast is too easy to miss for something that changes what the team can use —
+    // this stays until it's dismissed.
+    setTimeout(function () {
+      if (document.getElementById("va-retire")) return;
+      var n = document.createElement("div");
+      n.id = "va-retire";
+      n.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:100060;max-width:390px;" +
+        "background:linear-gradient(180deg,#14171F,#11141b);border:1px solid rgba(182,255,61,.35);" +
+        "border-radius:14px;padding:16px 18px;box-shadow:0 18px 44px rgba(0,0,0,.55);" +
+        "font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#ECEEF3;font-size:13.5px;line-height:1.55;";
+      n.innerHTML =
+        '<div style="font-weight:800;margin-bottom:6px;">🎨 ' + meta.n + ' has been retired</div>' +
+        '<div style="color:#888F9D;">' + meta.why.charAt(0).toUpperCase() + meta.why.slice(1) +
+        ' has been used a lot lately — time to switch things up. Studio now opens on <b style="color:#B6FF3D;">' +
+        meta.to + '</b>.</div>' +
+        '<div style="color:#5B616D;font-size:12px;margin-top:8px;">Nothing you\'ve already made has changed.</div>' +
+        '<button style="margin-top:12px;background:#B6FF3D;color:#0A0B0F;border:none;border-radius:9px;' +
+        'padding:8px 15px;font-weight:800;font-size:12.5px;cursor:pointer;font-family:inherit;">Got it</button>';
+      n.querySelector("button").onclick = function () { n.remove(); };
+      document.body.appendChild(n);
+    }, 900);
   }
   window.voltApplyOrgSettings = applyOrgSettings;
   function refreshOrgSettings() {

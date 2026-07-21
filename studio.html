@@ -263,8 +263,8 @@
             <div id="theme-controls">
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">4. Design Theme</label>
                 <div class="grid grid-cols-3 gap-2">
-                    <button onclick="setTheme('classic')" id="theme-classic" class="theme-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Classic</button>
-                    <button onclick="setTheme('navy')" id="theme-navy" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Navy</button>
+                    <button onclick="setTheme('classic')" id="theme-classic" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Classic</button>
+                    <button onclick="setTheme('navy')" id="theme-navy" class="theme-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Navy</button>
                     <button onclick="setTheme('cinematic')" id="theme-cinematic" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Cinematic</button>
                     <button onclick="setTheme('modern')" id="theme-modern" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Modern</button>
                     <button onclick="setTheme('editorial')" id="theme-editorial" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Editorial</button>
@@ -2154,7 +2154,7 @@ self.onmessage = async (e) => {
         premiumDir:   'a',       // A / B / C direction within a premium content type
         campaign:     'standard',
         format:       'landscape',
-        theme:        'classic',
+        theme:        'navy',
         showFooter:   true,
         currentSlide: 0,
         slides: [
@@ -2530,6 +2530,18 @@ self.onmessage = async (e) => {
     // =============================================================
     // 9. VIEW & STATE CONTROLLERS (button handlers)
     // =============================================================
+    // Preference order when the current theme has been retired. Navy first — it's the calm
+    // counterpart to Classic, so the fallback still looks deliberate rather than random.
+    const THEME_ORDER = ['navy', 'classic', 'cinematic', 'modern', 'editorial', 'bold'];
+    function themeRetired(k) { return !!(window.voltRetired && window.voltRetired('themes', k)); }
+    function avoidRetiredTheme() {
+        if (!themeRetired(state.theme)) return false;
+        const next = THEME_ORDER.find(k => k !== state.theme && !themeRetired(k));
+        if (!next) return false;                       // everything retired — leave it alone
+        setTheme(next);
+        return true;
+    }
+
     function setTheme(themeName) {
         state.theme = themeName;
         document.querySelectorAll('.theme-btn').forEach(b => {
@@ -3477,7 +3489,11 @@ self.onmessage = async (e) => {
         renderFeed();
         updateAdvisor();
         // If Campaign handed off a premium creative, load it; else Copy Lab; else default Standard.
+        // Never open on a design the owner has retired — fall through to the first live one.
+        // (Retirement can land after this tab was already open, so re-check when settings arrive.)
+        avoidRetiredTheme();
         if (!applyCampaignCreative() && !applyCopyLabHandoff()) setCampaign('standard');
+        document.addEventListener('volt:orgsettings', () => { if (avoidRetiredTheme()) renderLayout(); });
         window.addEventListener('resize', resizeWrapper);
 
         // Kick off font preload in background — don't block UI
