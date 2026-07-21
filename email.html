@@ -892,7 +892,7 @@ function contentBlock(p){
 function webinarBlock(p){
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #0a2c3d; border-radius: 8px; margin: 0 0 25px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+                <table data-volt="webinar" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #0a2c3d; border-radius: 8px; margin: 0 0 25px 0; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
                     <tr><td class="webinar-banner-td" style="padding: 25px;">
                         <p style="margin: 0 0 8px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #9c1c1f; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">🔴 Live Webinar</p>
                         <h2 class="webinar-title" style="margin: 0 0 8px 0; font-size: 20px;">${esc(p.title)}</h2>
@@ -906,7 +906,7 @@ function webinarBlock(p){
 function resourceBlock(p){
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 2px dashed #9c1c1f; border-radius: 12px; margin: 30px 0; box-shadow: 0 8px 20px rgba(156,28,31,0.08); overflow: hidden;">
+                <table data-volt="resource" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border: 2px dashed #9c1c1f; border-radius: 12px; margin: 30px 0; box-shadow: 0 8px 20px rgba(156,28,31,0.08); overflow: hidden;">
                     <tr><td style="padding: 35px 25px; text-align: center; background-image: radial-gradient(circle at 50% 0%, rgba(156,28,31,0.04) 0%, transparent 70%);">
                         <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #9c1c1f; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;">SME RESOURCE</p>
                         <h3 style="margin: 0 0 15px 0; font-family: 'Oswald', sans-serif; font-size: 24px; color: #0a2c3d; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 900; line-height: 1.2;">${esc(p.title)}</h3>
@@ -948,7 +948,7 @@ function podcastBlock(p){
                                   </div>` : '';
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#020617;background:linear-gradient(145deg, #0f172a 0%, #020617 100%);border-radius:16px;margin-bottom:25px;box-shadow:0 12px 30px rgba(0,0,0,0.15);border:1px solid #1e293b;overflow:hidden;">
+                <table data-volt="podcast" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#020617;background:linear-gradient(145deg, #0f172a 0%, #020617 100%);border-radius:16px;margin-bottom:25px;box-shadow:0 12px 30px rgba(0,0,0,0.15);border:1px solid #1e293b;overflow:hidden;">
                     <tr><td style="padding:0;">
                         <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td height="4" bgcolor="#9c1c1f" style="font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
                         <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td style="padding:30px 28px;">
@@ -979,7 +979,7 @@ function sponsoredBlock(p){
     : '';
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fafbfc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 25px 0;">
+                <table data-volt="sponsored" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fafbfc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 25px 0;">
                     <tr><td style="padding: 28px 26px;">
                         <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 11px; color: #94a3b8; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">✦ In Partnership With${p.brand ? ' ' + esc(p.brand) : ''}</p>
                         <h2 style="margin: 0 0 12px 0; font-size: 20px;">${esc(p.title)}</h2>
@@ -1001,7 +1001,7 @@ function taskBlock(p){
   ).join('')}</div>` : '';
   return `
                 ${HR}
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #061f2b 100%); border-radius: 14px; margin: 25px 0; box-shadow: 0 10px 25px rgba(10,44,61,0.2);">
+                <table data-volt="task" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0a2c3d; background: linear-gradient(135deg, #0a2c3d 0%, #061f2b 100%); border-radius: 14px; margin: 25px 0; box-shadow: 0 10px 25px rgba(10,44,61,0.2);">
                     <tr><td style="padding: 30px 28px;">
                         <p style="margin: 0 0 10px 0; font-family: 'Oswald', sans-serif; font-size: 12px; color: #ffb1b1; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;">👉 ${ritual}</p>
                         ${shout}
@@ -1151,7 +1151,7 @@ function opportunityBlock(p){
                             </td>
                         </tr></table>` : '';
   return `
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 10px; margin: 0 0 20px 0; overflow: hidden; background-color: #ffffff;">
+                <table data-volt="opportunity" width="100%" border="0" cellspacing="0" cellpadding="0" style="border: 1px solid #e2e8f0; border-radius: 10px; margin: 0 0 20px 0; overflow: hidden; background-color: #ffffff;">
                     <tr><td style="background-color: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0;">
                         <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
                             <td align="left"><h3 style="margin: 0; font-family: 'Oswald', sans-serif; font-size: 18px; color: #0f172a;">${esc(p.title)}</h3></td>
@@ -1233,6 +1233,18 @@ const PROMO_BUILDERS = {
   signature: () => signatureBlock({ name:promoVal('sg-name'), role:promoVal('sg-role'), email:promoVal('sg-email'), phone:promoVal('sg-phone'), photo:promoVal('sg-photo'), linkedin:promoVal('sg-linkedin') }),
   custom: () => promoVal('cs-html')
 };
+// The individual promo blocks, in panel order — blending needs them separate, not pre-joined.
+function collectPromoList(){
+  const blocks = [];
+  document.querySelectorAll('.promos .promo').forEach(promo => {
+    const head = promo.querySelector('.promo-head'); if(!head) return;
+    const key = head.getAttribute('data-toggle');
+    if(!key || !state.promos[key] || !state.promos[key].on) return;
+    const html = PROMO_BUILDERS[key] ? PROMO_BUILDERS[key]() : '';
+    if(html) blocks.push(html);
+  });
+  return blocks;
+}
 function collectPromos(){
   const blocks = [];
   document.querySelectorAll('.promos .promo').forEach(promo => {
@@ -1256,8 +1268,37 @@ function shellTopWithGreeting(){
 }
 // The whole editable content area: body + promos, unless the user has inline-edited (freeform),
 // in which case their edited blob is the source of truth.
+// Promo blocks default to being appended after the body. state.blendPromos weaves them BETWEEN
+// content sections instead, so they read as part of the newsletter rather than an ad slab at the
+// end — first one lands after the opening section, the rest spread evenly through the remainder.
+function blendPromosInto(bodyHtml, promoList){
+  if(!promoList.length) return bodyHtml || '';
+  const parts = String(bodyHtml || '').split(/(?=<h2)/i);   // split at each section heading
+  if(parts.length < 2) return (bodyHtml || '') + '\n' + promoList.join('\n');
+  // insertion slots: after section 1, then spread the rest across what's left
+  const slots = [];
+  const first = Math.min(2, parts.length - 1);              // early — within 2 sections of the greeting
+  slots.push(first);
+  const remaining = promoList.length - 1;
+  for(let i = 1; i <= remaining; i++){
+    const at = first + Math.round(i * (parts.length - first) / (remaining + 1));
+    slots.push(Math.min(parts.length, Math.max(first + i, at)));
+  }
+  const out = [];
+  for(let i = 0; i < parts.length; i++){
+    out.push(parts[i]);
+    slots.forEach((s, si) => { if(s === i + 1 && promoList[si]) out.push('\n' + promoList[si] + '\n'); });
+  }
+  // anything that didn't fit (more promos than sections) goes at the end, in order
+  slots.forEach((s, si) => { if(s > parts.length && promoList[si]) out.push('\n' + promoList[si] + '\n'); });
+  return out.join('');
+}
 function currentContent(bodyHtml){
   if(state.freeform && state.editedContent != null) return state.editedContent;
+  if(state.blendPromos){
+    const list = collectPromoList();
+    if(list.length) return blendPromosInto(bodyHtml, list);
+  }
   const promos = collectPromos();
   return (bodyHtml || '') + (promos ? '\n' + promos : '');
 }
@@ -1341,6 +1382,8 @@ function renderPreview(bodyHtml){
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:9px;">
           <span id="pfVerdict" style="font-family:var(--fm); font-size:12px; font-weight:700;"></span>
           <span style="flex:1;"></span>
+          <button class="mini" id="pfBlend" style="display:none;">✦ Blend promos</button>
+          <button class="mini" id="pfGrammar">🔤 Deep grammar check</button>
           <button class="mini" id="pfUtm" style="display:none;">🏷 Auto-tag links for Stats</button>
           <button class="mini" id="pfClose">✕</button>
         </div>
@@ -1495,10 +1538,90 @@ function preflightRun(){
   if(!noAlt && !dataUri && imgs.length) add('ok','Images', imgs.length + ' images, all with alt text and hosted.');
 
   // ---- body-level spam scan ----
-  const bodyText = (doc.body && doc.body.textContent) || '';
+  // Strip style/script first — their textContent is CSS, which the typo scan would read as prose
+  // ("doubled 8px 8px"). Only real copy should be linted.
+  let bodyText = '';
+  try {
+    const clone = doc.body.cloneNode(true);
+    [].forEach.call(clone.querySelectorAll('style,script,title'), n => n.remove());
+    bodyText = clone.textContent || '';
+  } catch(e){ bodyText = (doc.body && doc.body.textContent) || ''; }
   if(SPAMMY.test(bodyText)) add('warn','Copy','Body contains a spam-trigger phrase (' + (bodyText.match(SPAMMY)||[''])[0] + ').');
 
+  // ---- EDITORIAL STANDARDS ----
+  // (a) Salutation rotation — the same opener every week trains readers to skim past it.
+  const greetNow = normGreet($('#greeting') ? $('#greeting').value : '');
+  if(greetNow){
+    const hist = greetHistory().filter(g => g === greetNow).length;
+    const recent = greetHistory().slice(0, 6);
+    const inRow = recent.filter(g => g === greetNow).length;
+    if(inRow >= 3) add('fail','Salutation','"' + greetNow + '" has opened ' + inRow + ' of your last ' + recent.length + ' sends — that\'s 3+ weeks of the same greeting. Change it.');
+    else if(inRow === 2) add('warn','Salutation','"' + greetNow + '" opened your last ' + inRow + ' sends — one more and it\'s a rut.');
+    else add('ok','Salutation','Fresh opener — not repeated recently.');
+  }
+
+  // (b) Promo placement — promotional blocks must be WOVEN into the read, not stacked at the end.
+  // House rule: something promotional should land within the first 2 content sections after the
+  // salutation, and they must not all be bunched at the bottom.
+  const flow = [];
+  const scan = (node) => {
+    [].forEach.call(node.children || [], (el) => {
+      const promo = el.getAttribute && el.getAttribute('data-volt');
+      if(promo){ flow.push({ kind:'promo', key:promo }); return; }
+      if(/^H[123]$/.test(el.tagName)) flow.push({ kind:'heading' });
+      else if(el.tagName === 'P' && (el.textContent||'').trim().length > 80) flow.push({ kind:'para' });
+      else scan(el);
+    });
+  };
+  try { scan(doc.body); } catch(e){}
+  const promoIdx = flow.map((f,i) => f.kind==='promo' ? i : -1).filter(i => i >= 0);
+  const contentIdx = flow.map((f,i) => f.kind!=='promo' ? i : -1).filter(i => i >= 0);
+  if(promoIdx.length && contentIdx.length){
+    // how many content sections precede the FIRST promo?
+    const beforeFirst = contentIdx.filter(i => i < promoIdx[0]).length;
+    // are they all in the last third of the email?
+    const cut = flow.length * 0.62;
+    const stacked = promoIdx.length > 1 && promoIdx.every(i => i > cut);
+    if(beforeFirst > 4) add('warn','Structure','The first promo block sits ' + beforeFirst + ' sections down — readers drop off before it. Aim for one within the first 2 sections after the greeting.');
+    else if(beforeFirst <= 2) add('ok','Structure','First promo lands early (' + beforeFirst + ' section' + (beforeFirst===1?'':'s') + ' in) — it blends into the read.');
+    if(stacked) add('warn','Structure','All ' + promoIdx.length + ' promo blocks are stacked at the bottom — interleave them between sections so they read as part of the newsletter. Use ✦ Blend promos.');
+    else if(promoIdx.length > 1) add('ok','Structure', promoIdx.length + ' promo blocks are spread through the email, not bunched.');
+  } else if(!promoIdx.length){
+    add('warn','Structure','No podcast / resource / promotional block in this issue — nothing is being promoted.');
+  }
+
+  // (c) Quick typo pass (instant, offline). The deeper grammar check runs on demand.
+  const typos = quickTypoScan(bodyText);
+  if(typos.length) add('warn','Copy', typos.length + ' possible typo' + (typos.length>1?'s':'') + ': ' + typos.slice(0,3).join(' · ') + (typos.length>3 ? ' …' : ''));
+
   return issues;
+}
+
+// Instant, dependency-free typo pass: doubled words, spacing before punctuation, missing space
+// after a full stop, lowercase sentence starts, and a few habitual SA-business misspellings.
+const COMMON_MISSPELL = {
+  'recieve':'receive','seperate':'separate','definately':'definitely','occured':'occurred',
+  'buisness':'business','busines':'business','entrepeneur':'entrepreneur','enterpreneur':'entrepreneur',
+  'oppurtunity':'opportunity','oportunity':'opportunity','accomodate':'accommodate','wich':'which',
+  'thier':'their','teh':'the','adn':'and','goverment':'government','managment':'management',
+  'sucessful':'successful','succesful':'successful','availaible':'available','avalable':'available',
+  'finacial':'financial','entrepreneurhip':'entrepreneurship','comitted':'committed','begining':'beginning'
+};
+function quickTypoScan(text){
+  const out = [];
+  const t = String(text || '').replace(/\s+/g, ' ');
+  // doubled words — letters only, 2+ chars, so "0 0" / "8px 8px" style noise can't qualify
+  const dbl = (t.match(/\b([A-Za-z]{2,})\s+\1\b/gi) || []).filter(d => {
+    const w = d.split(/\s+/)[0].toLowerCase();
+    return !['that','had','very','no','so'].includes(w);   // legitimately repeatable in English
+  });
+  dbl.slice(0,3).forEach(d => out.push('doubled "' + d.trim() + '"'));
+  if(/\s+[,.;:!?]/.test(t)) out.push('space before punctuation');
+  if(/[a-z]\.[A-Z]/.test(t)) out.push('missing space after a full stop');
+  const words = t.toLowerCase().match(/[a-z']+/g) || [];
+  const seen = new Set();
+  words.forEach(w => { if(COMMON_MISSPELL[w] && !seen.has(w)){ seen.add(w); out.push('"' + w + '" → "' + COMMON_MISSPELL[w] + '"'); } });
+  return out;
 }
 let _pfLastIssues = [];
 function preflightShow(){
@@ -1517,8 +1640,59 @@ function preflightShow(){
     : '✅ Clear for take-off';
   verdict.style.color = fails ? 'var(--low)' : warns ? 'var(--mid)' : 'var(--good)';
   utmBtn.style.display = issues.some(i => i.area === 'Tracking' && i.level === 'warn') ? '' : 'none';
+  const blendBtn = $('#pfBlend');
+  if(blendBtn){
+    const wants = issues.some(i => i.area === 'Structure' && i.level === 'warn');
+    blendBtn.style.display = wants ? '' : 'none';
+    blendBtn.textContent = state.blendPromos ? '✦ Un-blend promos' : '✦ Blend promos';
+  }
   panel.style.display = 'block';
   return issues;
+}
+// Weave the promo blocks through the content instead of stacking them at the end.
+function toggleBlendPromos(){
+  state.blendPromos = !state.blendPromos;
+  renderPreview(state.body);
+  setTimeout(()=>{
+    preflightShow();
+    setKitStatus(state.blendPromos
+      ? '✦ Promos woven between sections — the first now lands early instead of all sitting at the bottom.'
+      : 'Promos moved back to the end of the email.', 'ok');
+  }, 350);
+}
+
+// ---- Deep grammar/spelling pass via LanguageTool's free public API (no key, no cost) ----
+async function deepGrammarCheck(){
+  const btn = $('#pfGrammar'); const list = $('#pfList');
+  if(!lastFragment){ setKitStatus('Build the email first.', 'err'); return; }
+  const doc = new DOMParser().parseFromString(previewDoc(lastFragment), 'text/html');
+  const text = ((doc.body && doc.body.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 18000);
+  if(!text){ setKitStatus('No text to check.', 'err'); return; }
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = '🔤 Checking…';
+  try{
+    const body = new URLSearchParams({ text, language: 'en-ZA', level: 'default' });
+    const r = await fetch('https://api.languagetool.org/v2/check', {
+      method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body });
+    if(!r.ok) throw new Error('Grammar service unavailable (' + r.status + ') — try again shortly.');
+    const d = await r.json();
+    const matches = (d.matches || []).filter(m => {
+      const c = (m.rule && m.rule.category && m.rule.category.id) || '';
+      return c !== 'REDUNDANCY' && c !== 'STYLE';   // keep it to real errors, not taste
+    });
+    const rows = matches.slice(0, 12).map(m => {
+      const ctx = m.context ? m.context.text.slice(Math.max(0, m.context.offset - 18), m.context.offset + m.context.length + 18) : '';
+      const fix = (m.replacements || []).slice(0,2).map(x => x.value).filter(Boolean).join(' / ');
+      return '<div style="display:flex; gap:8px; align-items:flex-start;"><span>✍️</span><span><b style="color:var(--mid);">' + esc(m.shortMessage || m.message || 'Issue')
+        + '</b> — “…' + esc(ctx) + '…”' + (fix ? ' → <b style="color:var(--good);">' + esc(fix) + '</b>' : '') + '</span></div>';
+    }).join('');
+    list.insertAdjacentHTML('afterbegin',
+      '<div style="border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:8px;">'
+      + '<div style="font-family:var(--fm); font-size:11px; color:' + (matches.length ? 'var(--mid)' : 'var(--good)') + '; margin-bottom:6px;">'
+      + (matches.length ? '✍️ ' + matches.length + ' grammar/spelling issue' + (matches.length>1?'s':'') + (matches.length>12 ? ' (first 12)' : '') : '✅ No grammar or spelling issues found')
+      + '</div>' + rows + '</div>');
+    setKitStatus(matches.length ? 'Grammar check: ' + matches.length + ' issue(s) — see the panel.' : '✅ Grammar check clean.', matches.length ? 'busy' : 'ok');
+  }catch(e){ setKitStatus(e.message, 'err'); }
+  finally{ btn.disabled = false; btn.textContent = orig; }
 }
 // Add UTMs to every untagged smesouthafrica.co.za link so Stats can attribute the send.
 // Campaign slug comes from the subject + date; platform links (Spotify/YouTube/social) untouched.
@@ -1570,6 +1744,8 @@ function wireTestSend(){
   const pf = document.getElementById('pfBtn'); if(pf) pf.addEventListener('click', preflightShow);
   const pfc = document.getElementById('pfClose'); if(pfc) pfc.addEventListener('click', ()=>{ $('#pfPanel').style.display='none'; });
   const pfu = document.getElementById('pfUtm'); if(pfu) pfu.addEventListener('click', autoUtmTag);
+  const pfb = document.getElementById('pfBlend'); if(pfb) pfb.addEventListener('click', toggleBlendPromos);
+  const pfg = document.getElementById('pfGrammar'); if(pfg) pfg.addEventListener('click', deepGrammarCheck);
 }
 
 let _pfOverride = false;
