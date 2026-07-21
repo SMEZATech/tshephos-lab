@@ -1471,13 +1471,21 @@ const Layouts = {
         else r.fillBg('#111111');
         const pad = Math.round(W * 0.05);
         const boxW = W - pad * 2;
-        const boxH = Math.round(H * 0.26);
+        // Typography scale applies here too — meme was the ONE layout ignoring userScale, so the
+        // slider appeared dead. The band grows with the text (capped at 38% per band so the top
+        // and bottom can never collide) and the type ceiling scales with it.
+        const us = Math.max(0.6, Math.min(1.4, s.userScale || 1));
+        const boxH = Math.round(H * Math.max(0.14, Math.min(0.38, 0.26 * us)));
+        const maxSize = Math.round(H * 0.13 * us);
         const fontBase = { family: 'Oswald', weight: '900' };
         const drawBand = (text, atBottom) => {
             if (!text || !text.trim()) return;
-            const fit = r.fitFontSize(String(text).toUpperCase(), fontBase, boxW, boxH, 1.05, { max: Math.round(H * 0.13), min: 24 });
+            const fit = r.fitFontSize(String(text).toUpperCase(), fontBase, boxW, boxH, 1.05, { max: maxSize, min: 24 });
             if (!fit.lines.length) return;
-            const y0 = atBottom ? (H - pad - fit.totalH + fit.size * 0.82) : (pad + fit.size * 0.82);
+            // The renderer runs with textBaseline='top', so y is the TOP of the first line.
+            // The old '+ size * 0.82' compensated for a baseline that isn't in play and pushed
+            // the bottom band clean off the canvas — hence the cut-off last line.
+            const y0 = atBottom ? (H - pad - fit.totalH) : pad;
             r.drawLines(fit.lines, { ...fontBase, size: fit.size }, pad, y0, boxW, {
                 align: 'center', color: '#ffffff',
                 stroke: '#000000', strokeWidth: Math.max(6, Math.round(fit.size * 0.14)),
