@@ -2203,6 +2203,7 @@ self.onmessage = async (e) => {
         document.documentElement.style.setProperty('--bp', b.primary);
         document.documentElement.style.setProperty('--bs', b.secondary);
         logoBlob = null;                 // invalidate cached export logo so the new one is fetched
+        colorLogoBlob = null; _colorLogoSrc = null;   // …and the light-background logo
         ensureLogoBlob();
         const tagEl = document.getElementById('in-tag');
         if (tagEl) tagEl.value = b.tag;
@@ -2253,6 +2254,12 @@ self.onmessage = async (e) => {
           +     '<div class="flex-1"><input id="bk-logo-file" type="file" accept="image/*" class="w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer"><p class="text-[10px] text-slate-500 mt-1">Uploads embed in the design (no CORS issues). Keep under ~300&nbsp;KB.</p></div>'
           +   '</div>'
           + '</div>'
+          + '<div class="mb-5"><label class="bk-lbl">Logo for light designs <span class="text-slate-500 font-normal">— optional: a dark/colour version, used when a design has a light background</span></label>'
+          +   '<div class="flex items-center gap-3">'
+          +     '<div class="w-24 h-12 rounded border border-slate-700 flex items-center justify-center overflow-hidden shrink-0" style="background:#ffffff;">' + (editing.logoDark ? '<img src="' + editing.logoDark + '" class="max-w-full max-h-full object-contain">' : '<span class="text-[10px] text-slate-500">falls back</span>') + '</div>'
+          +     '<div class="flex-1"><input id="bk-logodark-file" type="file" accept="image/*" class="w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer"><p class="text-[10px] text-slate-500 mt-1">Without this, light designs reuse the logo above — which can disappear if it is white.</p></div>'
+          +   '</div>'
+          + '</div>'
           + '<div class="mb-5"><label class="bk-lbl">Brand voice <span class="text-slate-500 font-normal">— how your copy should sound (used by the Copy Lab &amp; Email AI)</span></label>'
           +   '<textarea id="bk-voice" class="bk-in" rows="3" placeholder="e.g. Confident, practical and warm. Plain English, short punchy sentences, no jargon. Speaks to founders like a knowledgeable mentor.">' + sanitizeHTML(editing.voice || '') + '</textarea>'
           + '</div>'
@@ -2285,6 +2292,14 @@ self.onmessage = async (e) => {
             if (f.size > 400000) showToast('Logo is ' + Math.round(f.size / 1024) + 'KB — try to keep under ~300KB.');
             const rd = new FileReader();
             rd.onload = () => { _bkEditing.logo = rd.result; renderBrandKit(); };
+            rd.readAsDataURL(f);
+        };
+        const ldf = document.getElementById('bk-logodark-file');
+        if (ldf) ldf.onchange = (e) => {
+            const f = e.target.files[0]; if (!f) return;
+            if (f.size > 400000) showToast('Logo is ' + Math.round(f.size / 1024) + 'KB — try to keep under ~300KB.');
+            const rd = new FileReader();
+            rd.onload = () => { _bkEditing.logoDark = rd.result; renderBrandKit(); };
             rd.readAsDataURL(f);
         };
         const sv = document.getElementById('bk-save'); if (sv) sv.onclick = bkSave;
@@ -2447,11 +2462,18 @@ self.onmessage = async (e) => {
     // Colour logo for premium light-background designs (white logo would be invisible there).
     // Always the COLOUR SME logo (the default brand logo is the white one, which would vanish on
     // light backgrounds). Custom-brand support for premium can layer on later.
-    let colorLogoBlob = null;
+    let colorLogoBlob = null, _colorLogoSrc = null;
+    // Logo for LIGHT backgrounds. This used to always fetch SME's colour asset, which stamped the
+    // SME logo onto every other brand's creative. Now: the brand's own dark-bg logo if it has one,
+    // else its normal logo, and SME's asset ONLY when SME is the active brand.
+    const SME_COLOR_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png';
     async function ensureColorLogoBlob() {
-        if (colorLogoBlob) return colorLogoBlob;
+        const b = currentBrand() || {};
+        const src = b.logoDark || (b.id === 'sme' ? SME_COLOR_LOGO : (b.logo || SME_COLOR_LOGO));
+        if (colorLogoBlob && _colorLogoSrc === src) return colorLogoBlob;
+        _colorLogoSrc = src;
         try {
-            const r = await fetch('https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png', { mode: 'cors' });
+            const r = await fetch(src, { mode: 'cors' });
             colorLogoBlob = await r.blob();
         } catch (err) { colorLogoBlob = null; }
         return colorLogoBlob;
