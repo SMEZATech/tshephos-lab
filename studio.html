@@ -1544,6 +1544,39 @@ function renderSlide(state, slideIdx, assets, scale) {
 // ============ PREMIUM CONTENT-TYPE RENDERER (canvas engine; 1080x1080) ============
 // Renders the same designs shown in the preview, natively on canvas → clean PNG export (no taint).
 const PC = { navy:'#0a2c3d', navy2:'#061f2b', red:'#9c1c1f', off:'#fcf7f8', ink:'#0f172a', slate:'#475569', line:'#e2e8f0', paper:'#ffffff', cbd:'#cbd5e1', f8:'#f8fafc', white:'#ffffff' };
+// ---- Brand-safe contrast ----------------------------------------------------------------
+// PC's colours come from the ACTIVE Brand Kit, so "navy" may not be dark and "paper" may not be
+// light. Never assume: derive readable text from the real background luminance (WCAG relative
+// luminance + contrast ratio). One brand with a light secondary was enough to prove the point —
+// it rendered white text on a near-white panel.
+function pLum(hex) {
+    const h = String(hex || '').replace('#', '').trim();
+    if (h.length !== 6) return 0;
+    const n = parseInt(h, 16);
+    if (!isFinite(n)) return 0;
+    const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+function pContrast(a, b) {
+    const la = pLum(a), lb = pLum(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+function pIsLight(hex) { return pLum(hex) > 0.42; }
+function pInk(bg) { return pIsLight(bg) ? PC.ink : PC.white; }           // body/heading on bg
+function pSubInk(bg) { return pIsLight(bg) ? PC.slate : PC.cbd; }        // secondary text on bg
+function pOn(bg, whenDark, whenLight) { return pIsLight(bg) ? whenLight : whenDark; }
+function pShade(hex, ratio) {
+    const h = String(hex || '').replace('#', '');
+    if (h.length !== 6) return hex;
+    const n = parseInt(h, 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const f = v => Math.max(0, Math.min(255, Math.round(ratio < 0 ? v * (1 + ratio) : v + (255 - v) * ratio)));
+    return '#' + [f(r), f(g), f(b)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
 function pPill(r, x, y, text, bg, fg) {
     const f = { family: 'Oswald', weight: '700', size: 30 };
     const t = String(text || '').toUpperCase(), padX = 34, padY = 17, h = 30 + padY * 2;
@@ -1595,11 +1628,11 @@ function drawProviders(r, dir, v, a) {
         let y = pLogo(r, a, false);
         y += pPill(r, pad, y, v.pill || 'For service providers', PC.red, '#fff') + 34;
         const big = String(v.big || '150+');
-        r.drawLines([big], { family: 'Oswald', weight: '900', size: 190 }, pad, y, iW, { color: PC.white }); y += 205;
+        r.drawLines([big], { family: 'Oswald', weight: '900', size: 190 }, pad, y, iW, { color: pInk(PC.navy) }); y += 205;
         r.drawLines([String(v.bigLabel || 'categories of buyers looking right now').toUpperCase()],
             { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: PC.red }); y += 70;
         const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 200, 1.05, { max: 74, min: 40 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.05 });
         pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
         return;
     }
@@ -1611,10 +1644,10 @@ function drawProviders(r, dir, v, a) {
         r.drawLines([String(v.eyebrow || 'Zero commission').toUpperCase()],
             { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
         const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 104, min: 48 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.navy, lineHeight: 1.03 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
         y += fit.totalH + 28;
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.slate, lineHeight: 1.42 });
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
         y += sub.length * 40 * 1.42 + 40;
         [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, PC.ink); y += 82; } });
         pButton(r, pad, H - pad - 112, iW, v.cta || 'Claim your listing →', PC.navy, '#fff');
@@ -1627,12 +1660,12 @@ function drawProviders(r, dir, v, a) {
     let y = pLogo(r, a, false);
     y += pPill(r, pad, y, v.pill || 'Grow your business', PC.red, '#fff') + 34;
     const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.04, { max: 96, min: 46 });
-    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: PC.white, lineHeight: 1.04 });
+    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.04 });
     y += fitA.totalH + 26;
     const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.42 });
+    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.42 });
     y += subA.length * 40 * 1.42 + 38;
-    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, PC.f8); y += 82; } });
+    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, pInk(PC.navy)); y += 82; } });
     pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
     pFoot(r, v.url || '', '', false);
 }
@@ -1666,7 +1699,7 @@ function drawFindPros(r, dir, v, a) {
         r.drawLines([String(v.eyebrow || 'Looking for').toUpperCase()],
             { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.cbd }); y += 60;
         const fitC = r.fitFontSize(String(v.category || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 260, 1.02, { max: 118, min: 52 });
-        r.drawLines(fitC.lines, { family: 'Oswald', weight: '700', size: fitC.size }, pad, y, iW, { color: PC.white, lineHeight: 1.02 });
+        r.drawLines(fitC.lines, { family: 'Oswald', weight: '700', size: fitC.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.02 });
         y += fitC.totalH + 30;
         // expert-count strip
         r.fillRoundRect(pad, y, iW, 132, 26, PC.red);
@@ -1674,7 +1707,7 @@ function drawFindPros(r, dir, v, a) {
             { family: 'Oswald', weight: '700', size: 46 }, pad, y + 42, iW, { color: '#fff', align: 'center' });
         y += 132 + 34;
         const subC = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(subC, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 });
+        r.drawLines(subC, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.4 });
         pButton(r, pad, H - pad - 112, iW, v.cta || 'Compare quotes →', PC.white, PC.navy);
         pFoot(r, v.url || '', '', false);
         return;
@@ -1687,10 +1720,10 @@ function drawFindPros(r, dir, v, a) {
     r.drawLines([String(v.eyebrow || 'One request. Many quotes.').toUpperCase()],
         { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
     const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 100, min: 46 });
-    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: PC.navy, lineHeight: 1.03 });
+    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
     y += fitA.totalH + 26;
     const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.slate, lineHeight: 1.42 });
+    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
     y += subA.length * 40 * 1.42 + 36;
     [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.navy, PC.ink); y += 82; } });
     pButton(r, pad, H - pad - 112, iW, v.cta || 'Get instant quotes →', PC.red, '#fff');
@@ -1701,12 +1734,19 @@ function drawFindPros(r, dir, v, a) {
 function drawLandscape(r, type, dir, v, a) {
     const W = r.w, H = r.h, pad = 70, key = type + '.' + dir;
     r.ctx.textBaseline = 'top';
-    const light = ['solutions.c', 'newsletter.b', 'resources.b'].indexOf(key) !== -1;
+    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
-    let txt = '#fff', accent = '#ff6b4a', barC = PC.red, btnBg = PC.red, subC = PC.cbd, logo = a.logoW;
-    if (red) { r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br'); r.radialGlow(0, H, 440, 'rgba(10,44,61,0.4)', 'rgba(10,44,61,0)'); accent = PC.off; barC = PC.navy; btnBg = PC.navy; subC = PC.off; }
-    else if (light) { r.fillBg(PC.paper); txt = PC.navy; accent = PC.red; barC = PC.red; btnBg = PC.red; subC = PC.slate; logo = a.logoC; }
-    else { r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br'); r.radialGlow(W, 0, 460, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)'); }
+    // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
+    // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
+    // therefore derived from the actual background luminance, for every brand, forever.
+    let bgRef, accent = pOn(PC.red, PC.off, '#ff6b4a'), barC = PC.red, btnBg = PC.red;
+    if (red) { r.linearGradient(0, 0, W, H, [[0, PC.red], [1, pShade(PC.red, -0.2)]], 'br'); r.radialGlow(0, H, 440, 'rgba(10,44,61,0.4)', 'rgba(10,44,61,0)'); bgRef = PC.red; barC = PC.navy; btnBg = PC.navy; accent = pOn(PC.red, PC.off, PC.off); }
+    else if (light) { r.fillBg(PC.paper); bgRef = PC.paper; barC = PC.red; btnBg = PC.red; accent = PC.red; }
+    else { r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br'); r.radialGlow(W, 0, 460, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)'); bgRef = PC.navy; }
+    const txt = pInk(bgRef), subC = pSubInk(bgRef), logo = pIsLight(bgRef) ? a.logoC : a.logoW;
+    // keep the kicker legible too — an accent that vanishes into the background is no accent
+    if (pContrast(accent, bgRef) < 2.2) accent = pInk(bgRef);
+    if (pContrast(barC, bgRef) < 1.6) barC = pInk(bgRef);
     if (logo) r.drawContain(logo, pad, pad, 200, 50, { });
     const kicker = String(v.eyebrow || v.pill || '').toUpperCase();
     const title = String(v.head || v.name || v.big || '').toUpperCase();
@@ -1721,8 +1761,10 @@ function drawLandscape(r, type, dir, v, a) {
     const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
     r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, colW, { color: txt, lineHeight: 1.03 }); y += fit.totalH + 16;
     if (sub) { const sl = r.wrap(sub, { family: 'Roboto', weight: '400', size: 32 }, colW).slice(0, 2); r.drawLines(sl, { family: 'Roboto', weight: '400', size: 32 }, pad, y, colW, { color: subC, lineHeight: 1.35 }); }
-    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(), bw = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, bw, 80, 12, btnBg); r.drawLines([t], f, pad, btnY + 24, bw, { color: '#fff', align: 'center' }); }
-    r.drawLines(['smesouthafrica.co.za'], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 30, W - pad * 2, { color: light ? PC.slate : 'rgba(255,255,255,0.6)', align: 'right' });
+    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(), bw = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, bw, 80, 12, btnBg); r.drawLines([t], f, pad, btnY + 24, bw, { color: pInk(btnBg), align: 'center' }); }
+    // the brand's own site, not a hardcoded one — this was still saying smesouthafrica.co.za on
+    // creatives made for another brand
+    r.drawLines([String(v.url || BRAND.url || '')], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 30, W - pad * 2, { color: subC, align: 'right' });
 }
 // SME logo top-left (light=true → colour logo for light backgrounds; else white). Returns the y to
 // start content below the logo, so every premium creative is branded like the default creative.
