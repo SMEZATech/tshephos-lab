@@ -201,6 +201,8 @@
                     <button onclick="setContentType('solutions')" id="ct-solutions" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">◆ Solutions</button>
                     <button onclick="setContentType('newsletter')" id="ct-newsletter" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">✉ Newsletter</button>
                     <button onclick="setContentType('resources')" id="ct-resources" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">▤ Resources</button>
+                    <button onclick="setContentType('providers')" id="ct-providers" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🤝 Get Providers</button>
+                    <button onclick="setContentType('findpros')" id="ct-findpros" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🔎 Find Providers</button>
                 </div>
                 <p class="text-[10px] text-slate-500 leading-snug mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
             </div>
@@ -1570,7 +1572,128 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'solutions') return drawSolutions(r, dir, v, assets);
     if (type === 'newsletter') return drawNewsletter(r, dir, v, assets);
     if (type === 'resources') return drawResources(r, dir, v, assets);
+    if (type === 'providers') return drawProviders(r, dir, v, assets);
+    if (type === 'findpros')  return drawFindPros(r, dir, v, assets);
     r.fillBg(PC.navy); // safety fallback
+}
+
+// ===================== B2B MARKETPLACE FAMILIES =====================
+// A marketplace has two audiences and they need opposite arguments, so they get their own
+// families rather than being bent out of the publisher designs:
+//   providers → supply side: "list your company", leads, no commission
+//   findpros  → demand side: "get quotes", vetted experts, speed
+// Deliberately brand-agnostic: every colour comes from PC (which derives from the ACTIVE Brand
+// Kit), so Serv renders in Serv's colours and any future marketplace brand works unchanged.
+
+// Supply side — recruit service providers onto the marketplace.
+function drawProviders(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+
+    if (dir === 'b') { // Leads counter — the "what you get" proof
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        r.radialGlow(W, 0, 560, 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)');
+        let y = pLogo(r, a, false);
+        y += pPill(r, pad, y, v.pill || 'For service providers', PC.red, '#fff') + 34;
+        const big = String(v.big || '150+');
+        r.drawLines([big], { family: 'Oswald', weight: '900', size: 190 }, pad, y, iW, { color: PC.white }); y += 205;
+        r.drawLines([String(v.bigLabel || 'categories of buyers looking right now').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: PC.red }); y += 70;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 200, 1.05, { max: 74, min: 40 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 });
+        pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
+        return;
+    }
+
+    if (dir === 'c') { // Zero commission — the money argument, light and confident
+        r.fillBg(PC.paper);
+        r.rect(0, 0, W, 22, PC.red);
+        let y = pLogo(r, a, true) + 10;
+        r.drawLines([String(v.eyebrow || 'Zero commission').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 104, min: 48 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.navy, lineHeight: 1.03 });
+        y += fit.totalH + 28;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.slate, lineHeight: 1.42 });
+        y += sub.length * 40 * 1.42 + 40;
+        [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, PC.ink); y += 82; } });
+        pButton(r, pad, H - pad - 112, iW, v.cta || 'Claim your listing →', PC.navy, '#fff');
+        return;
+    }
+
+    // A: The pitch — headline + three reasons to join, dark and direct
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
+    r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
+    let y = pLogo(r, a, false);
+    y += pPill(r, pad, y, v.pill || 'Grow your business', PC.red, '#fff') + 34;
+    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.04, { max: 96, min: 46 });
+    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: PC.white, lineHeight: 1.04 });
+    y += fitA.totalH + 26;
+    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.42 });
+    y += subA.length * 40 * 1.42 + 38;
+    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, PC.f8); y += 82; } });
+    pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
+    pFoot(r, v.url || '', '', false);
+}
+
+// Demand side — get businesses requesting quotes from vetted providers.
+function drawFindPros(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+
+    if (dir === 'b') { // Verified badge — trust is the differentiator
+        r.fillBg(PC.paper);
+        let y = pLogoC(r, a, true) + 12;
+        // badge
+        const bs = 190, bx = (W - bs) / 2;
+        r.fillRoundRect(bx, y, bs, bs, bs / 2, PC.navy);
+        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 120 }, bx, y + 30, bs, { color: PC.white, align: 'center' });
+        y += bs + 34;
+        r.drawLines([String(v.eyebrow || 'Manually verified').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: PC.red, align: 'center' }); y += 60;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 240, 1.04, { max: 84, min: 44 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.navy, align: 'center', lineHeight: 1.04 });
+        y += fit.totalH + 26;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.slate, align: 'center', lineHeight: 1.4 });
+        pButton(r, pad, H - pad - 112, iW, v.cta || 'Get instant quotes →', PC.red, '#fff');
+        return;
+    }
+
+    if (dir === 'c') { // Category spotlight — concrete: this service, this many experts
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        let y = pLogo(r, a, false);
+        r.drawLines([String(v.eyebrow || 'Looking for').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.cbd }); y += 60;
+        const fitC = r.fitFontSize(String(v.category || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 260, 1.02, { max: 118, min: 52 });
+        r.drawLines(fitC.lines, { family: 'Oswald', weight: '700', size: fitC.size }, pad, y, iW, { color: PC.white, lineHeight: 1.02 });
+        y += fitC.totalH + 30;
+        // expert-count strip
+        r.fillRoundRect(pad, y, iW, 132, 26, PC.red);
+        r.drawLines([String(v.count || '40+ vetted experts').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 46 }, pad, y + 42, iW, { color: '#fff', align: 'center' });
+        y += 132 + 34;
+        const subC = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+        r.drawLines(subC, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 });
+        pButton(r, pad, H - pad - 112, iW, v.cta || 'Compare quotes →', PC.white, PC.navy);
+        pFoot(r, v.url || '', '', false);
+        return;
+    }
+
+    // A: Ask once, compare many — the core marketplace promise
+    r.fillBg(PC.paper);
+    r.rect(0, 0, 26, H, PC.red);
+    let y = pLogo(r, a, true) + 8;
+    r.drawLines([String(v.eyebrow || 'One request. Many quotes.').toUpperCase()],
+        { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
+    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 100, min: 46 });
+    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: PC.navy, lineHeight: 1.03 });
+    y += fitA.totalH + 26;
+    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.slate, lineHeight: 1.42 });
+    y += subA.length * 40 * 1.42 + 36;
+    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.navy, PC.ink); y += 82; } });
+    pButton(r, pad, H - pad - 112, iW, v.cta || 'Get instant quotes →', PC.red, '#fff');
 }
 // Dedicated LANDSCAPE (LinkedIn 1200x628) layout — a real horizontal banner, not a squeezed square.
 // Generic across all content types: logo, kicker, headline, sub, CTA laid out wide, with the design's
@@ -2605,13 +2728,25 @@ self.onmessage = async (e) => {
         b:{ name:'This Week Inside', fields:{ pill:'Tuesday Brief', issue:'Issue #142', head:'This week inside', i1:'2026 Tax Act|the 3 changes SMEs must action now', i2:'R500m fund|opens for township businesses', i3:'Tool of the week|get paid 3× faster', cta:'Get it free in your inbox →' } },
         c:{ name:'Social Proof', fields:{ eyebrow:'Join the movement', big:'60,000+', sub:'SA founders read it', placeholder:'you@business.co.za', btn:'Join', meta:'Free · Unsubscribe anytime' } }
       }},
+      // ---- B2B marketplace (two-sided). Brand-agnostic: colours/logo/url come from the active
+      // Brand Kit, so a marketplace brand like Serv renders in its own identity. ----
+      providers: { label:'Marketplace · Get providers', dirs:{
+        a:{ name:'The Pitch', fields:{ pill:'For service providers', head:'Get found by businesses ready to buy.', sub:'List your company on the marketplace and receive qualified enquiries from businesses actively looking for what you do.', i1:'Verified profile that builds trust instantly', i2:'Quality leads, not cold outreach', i3:'Zero commission — you negotiate directly', cta:'List your company →', url:'serv.co.za' } },
+        b:{ name:'Demand Counter', fields:{ pill:'For service providers', big:'150+', bigLabel:'categories of buyers looking right now', head:'Your next client is already searching.', cta:'List your company →' } },
+        c:{ name:'Zero Commission', fields:{ eyebrow:'Zero commission', head:'Keep every rand you earn.', sub:'We connect you with the business and step aside — no cut of your invoice, no middleman on your pricing.', i1:'No commission on any job you win', i2:'Negotiate directly with the client', i3:'Verified listing, no monthly lock-in', cta:'Claim your listing →' } }
+      }},
+      findpros: { label:'Marketplace · Find providers', dirs:{
+        a:{ name:'One Request, Many Quotes', fields:{ eyebrow:'One request. Many quotes.', head:'Stop chasing suppliers. Let them come to you.', sub:'Describe what you need once and receive competitive quotes from vetted South African providers.', i1:'Quotes back within 24 hours', i2:'Every provider manually verified', i3:'Compare rates before you commit', cta:'Get instant quotes →' } },
+        b:{ name:'Verified Badge', fields:{ eyebrow:'Manually verified', head:'Every provider is checked before they reach you.', sub:'CIPC registration and B-BBEE credentials verified by hand — so you hire with confidence, not hope.', cta:'Browse the directory →' } },
+        c:{ name:'Category Spotlight', fields:{ eyebrow:'Looking for', category:'Web Developers', count:'40+ vetted experts', sub:'Compare quotes from verified South African specialists — free, and no obligation to hire.', cta:'Compare quotes →', url:'serv.co.za' } }
+      }},
       resources: { label:'Resources', dirs:{
         a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
         b:{ name:'Checklist Preview', fields:{ eyebrow:'Free Resource', head:'Funding readiness checklist', i1:'Up-to-date management accounts', i2:'Clean, separate bank statements', i3:'Tax & CIPC compliance sorted', locked:'+ 9 more inside…', cta:'Get the full checklist →' } },
         c:{ name:'Bold Typography', fields:{ big:'FREE', head:'The SME Growth Toolkit', sub:'7 templates every founder needs — one download.', i1:'Cash-flow forecast (Excel)', i2:'Investor one-pager (Editable)', i3:'Pricing calculator + more', cta:'Grab it free →' } }
       }}
     };
-    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right' };
+    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count' };
 
     let premVals = {}; // live editable values for the current type+dir
     function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }
@@ -2686,7 +2821,7 @@ self.onmessage = async (e) => {
     }
     function setContentType(type){
       state.contentType = type;
-      const types = ['creative','funding','solutions','newsletter','resources'];
+      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros'];
       types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
         btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
       const isCreative = type === 'creative';

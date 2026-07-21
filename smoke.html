@@ -149,7 +149,7 @@
     }
 
     // 5) Premium matrix: 4 types x 3 dirs x 3 sizes (empty vals — draw fns have fallbacks; smoke = no-crash + non-blank)
-    for (const pt of ['funding', 'solutions', 'newsletter', 'resources']) {
+    for (const pt of ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros']) {
       for (const dir of ['a', 'b', 'c']) {
         for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
           await run('premium/' + pt + '/' + dir + '/' + sz,
