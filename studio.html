@@ -1662,23 +1662,28 @@ function drawProviders(r, dir, v, a) {
         r.ctx.fill();
         r.ctx.restore();
         let y = pLogo(r, a, false);
-        y += pPill(r, pad, y, v.pill || 'For service providers', 'rgba(255,255,255,0.14)', '#fff') + 36;
-        // Big number — huge Oswald black, "+" glyph tinted red
+        y += pPill(r, pad, y, v.pill || 'For service providers', 'rgba(255,255,255,0.14)', '#fff') + 32;
+        // Big number — fit into iW-so a wider figure ("1500+") still lands inside the frame,
+        // and the "+" tag sits in the arc's negative space rather than butting up against text.
         const bigTxt = String(v.big || '450');
         const plusTxt = String(v.plus || '+');
-        const bigFont = { family: 'Oswald', weight: '900', size: 260 };
+        const bigFit = r.fitFontSize(bigTxt + plusTxt, { family: 'Oswald', weight: '900' }, iW - 20, 240, 1.0, { max: 260, min: 140 });
+        const bigFont = { family: 'Oswald', weight: '900', size: bigFit.size };
         const bigW = r.textWidth(bigTxt, bigFont);
-        const plusFont = { family: 'Oswald', weight: '900', size: 260 };
         r.drawLines([bigTxt], bigFont, pad, y, iW, { color: '#fff' });
-        r.drawLines([plusTxt], plusFont, pad + bigW + 6, y, iW, { color: PC.red });
-        y += 260 + 8;
+        r.drawLines([plusTxt], bigFont, pad + bigW + 6, y, iW, { color: PC.red });
+        y += bigFit.size + 6;
         const labelFit = r.fitFontSize(String(v.bigLabel || 'New business requests posted this week.').toUpperCase(),
-            { family: 'Oswald', weight: '700' }, iW, 140, 1.05, { max: 44, min: 26 });
+            { family: 'Oswald', weight: '700' }, iW, 120, 1.05, { max: 40, min: 24 });
         r.drawLines(labelFit.lines, { family: 'Oswald', weight: '700', size: labelFit.size }, pad, y, iW,
             { color: PC.cbd, lineHeight: 1.08 });
-        y += labelFit.totalH + 22;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 34 }, iW);
-        r.drawLines(sub.slice(0, 3), { family: 'Roboto', weight: '400', size: 34 }, pad, y, iW,
+        y += labelFit.totalH + 18;
+        // Clamp sub to whatever room remains above the CTA — no overlap possible
+        const ctaTop = H - pad - 112 - 20;
+        const subSize = 32, subLine = subSize * 1.4;
+        const maxSubLines = Math.max(1, Math.floor((ctaTop - y) / subLine));
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW).slice(0, maxSubLines);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW,
             { color: PC.cbd, lineHeight: 1.4 });
         pButton(r, pad, H - pad - 112, iW, v.cta || 'Claim your free profile', '#fff', PC.navy);
         pFoot(r, v.url || '', '', false);
@@ -1702,19 +1707,26 @@ function drawProviders(r, dir, v, a) {
         const eyeW = r.textWidth(eyeT, eyeF);
         r.drawLines([eyeT], eyeF, W - pad - eyeW, pad + 8, eyeW, { color: PC.red });
         let y = pad + 132;
-        const fit = r.fitFontSize(String(v.head || 'Keep every single Rand you earn.').toUpperCase(),
-            { family: 'Oswald', weight: '900' }, iW, 360, 1.02, { max: 108, min: 46 });
+        // Budget space above the CTA and the inline tag so the headline+sub never crash into them
+        const tagSize = 28, tagH = tagSize + 24;
+        const ctaTop = H - pad - 112 - 20;
+        const availH = ctaTop - y - tagH - 30;                        // leave 30 gap before tag
+        const headMaxH = Math.min(340, Math.round(availH * 0.62));
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
+            { family: 'Oswald', weight: '900' }, iW, headMaxH, 1.02, { max: 100, min: 44 });
         r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
             { color: pInk(PC.paper), lineHeight: 1.02 });
-        y += fit.totalH + 24;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '500', size: 38 }, iW);
-        r.drawLines(sub.slice(0, 3), { family: 'Roboto', weight: '500', size: 38 }, pad, y, iW,
-            { color: PC.slate, lineHeight: 1.42 });
-        y += Math.min(sub.length, 3) * 38 * 1.42 + 20;
+        y += fit.totalH + 22;
+        const subSize = 34, subLine = subSize * 1.4;
+        const maxSubLines = Math.max(1, Math.floor((ctaTop - y - tagH - 20) / subLine));
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '500', size: subSize }, iW).slice(0, maxSubLines);
+        r.drawLines(sub, { family: 'Roboto', weight: '500', size: subSize }, pad, y, iW,
+            { color: PC.slate, lineHeight: 1.4 });
+        y += sub.length * subLine + 18;
         // Inline tag — small dark pill: "You negotiate directly."
         const tagT = String(v.tag || 'You negotiate directly.').toUpperCase();
-        const tagF = { family: 'Roboto', weight: '700', size: 28 };
-        const tagPadX = 24, tagPadY = 12, tagH = 28 + tagPadY * 2;
+        const tagF = { family: 'Roboto', weight: '700', size: tagSize };
+        const tagPadX = 24, tagPadY = 12;
         const tagW = r.textWidth(tagT, tagF) + tagPadX * 2;
         r.fillRoundRect(pad, y, tagW, tagH, 8, PC.navy);
         r.drawLines([tagT], tagF, pad + tagPadX, y + tagPadY, tagW, { color: pInk(PC.navy) });
@@ -1723,17 +1735,28 @@ function drawProviders(r, dir, v, a) {
     }
 
     // A: The pitch — headline + three reasons to join, dark and direct
+    // Layout budget: everything above the CTA must fit in (H - pad - 112 - 30) - y. We size the
+    // headline dynamically against the remaining space and cap the sub to 2 lines so a long
+    // subhead can't push the 3 bullets under the bottom-anchored CTA (previously it overlapped).
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
     let y = pLogo(r, a, false);
-    y += pPill(r, pad, y, v.pill || 'Grow your business', PC.red, '#fff') + 34;
-    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.04, { max: 96, min: 46 });
+    y += pPill(r, pad, y, v.pill || 'Grow your business', PC.red, '#fff') + 30;
+    const bulletsA = [v.i1, v.i2, v.i3].filter(Boolean);
+    const bulletBlockH = bulletsA.length * 82;
+    const ctaTop = H - pad - 112 - 30;                            // 30 = breathing space above CTA
+    const subLinesMax = 2, subSize = 36, subLine = subSize * 1.4;
+    const subMaxH = subLinesMax * subLine;
+    const headMaxH = Math.max(160, ctaTop - y - subMaxH - bulletBlockH - 60);
+    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, headMaxH, 1.04, { max: 84, min: 42 });
     r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.04 });
-    y += fitA.totalH + 26;
-    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.42 });
-    y += subA.length * 40 * 1.42 + 38;
-    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, pInk(PC.navy)); y += 82; } });
+    y += fitA.totalH + 22;
+    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW).slice(0, subLinesMax);
+    r.drawLines(subA, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.4 });
+    y += subA.length * subLine + 24;
+    // Anchor bullets to the bottom of the content zone so they never drift into the CTA
+    const bulletsTop = Math.max(y, ctaTop - bulletBlockH);
+    bulletsA.forEach((t, i) => { pBullet(r, pad, bulletsTop + i * 82, t, PC.red, pInk(PC.navy)); });
     pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
     pFoot(r, v.url || '', '', false);
 }
@@ -1792,14 +1815,21 @@ function drawFindPros(r, dir, v, a) {
         const catW = r.textWidth(catT, catF) + catPadX * 2;
         r.fillRoundRect(pad, y, catW, catH, 10, 'rgba(156,28,31,0.10)');
         r.drawLines([catT], catF, pad + catPadX, y + catPadY, catW, { color: PC.red });
-        y += catH + 30;
+        y += catH + 26;
+        // Reserve space for sub + CTA gap so the headline can't push the sub under the CTA.
+        const ctaTop = H - pad - 112 - 20;
+        const subSize = 34, subLine = subSize * 1.4;
+        const subMaxLines = 3, subMaxH = subMaxLines * subLine;
+        const headMaxH = Math.max(160, ctaTop - y - subMaxH - 30);
         const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
-            { family: 'Oswald', weight: '900' }, iW, 380, 1.05, { max: 110, min: 48 });
+            { family: 'Oswald', weight: '900' }, iW, headMaxH, 1.05, { max: 96, min: 44 });
         r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
             { color: pInk(PC.paper), lineHeight: 1.05 });
-        y += fit.totalH + 26;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(sub.slice(0, 3), { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW,
+        y += fit.totalH + 22;
+        const remainingLines = Math.max(1, Math.floor((ctaTop - y) / subLine));
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW)
+            .slice(0, Math.min(subMaxLines, remainingLines));
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW,
             { color: PC.slate, lineHeight: 1.4 });
         pButton(r, pad, H - pad - 112, iW, v.cta || 'Compare quotes free', PC.red, '#fff');
         pFoot(r, v.url || '', '', true);
@@ -1832,31 +1862,37 @@ function drawFindPros(r, dir, v, a) {
         r.ctx.restore();
         r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 54 }, bx, by + 16, badgeS,
             { color: '#fff', align: 'center' });
-        y += 20;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
-            { family: 'Oswald', weight: '900' }, iW, 320, 1.05, { max: 96, min: 44 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
-            { color: '#fff', lineHeight: 1.05 });
-        y += fit.totalH + 22;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 34 }, iW);
-        r.drawLines(sub.slice(0, 2), { family: 'Roboto', weight: '400', size: 34 }, pad, y, iW,
-            { color: PC.cbd, lineHeight: 1.4 });
-        y += Math.min(sub.length, 2) * 34 * 1.4 + 26;
-        // Verified rows — two dark cards, red check + white uppercase label
+        y += 16;
+        // Rows are anchored to the bottom of the content zone so the headline can grow without
+        // pushing them into the outlined CTA. subs cap dynamically to what's left after that.
+        const btnY = H - pad - 112, btnH = 112, gapAboveBtn = 24;
         const rowT = [v.i1 || 'CIPC registration verified', v.i2 || 'B-BBEE level checked'].filter(Boolean);
         const rowH = 78, rowGap = 14;
+        const rowsBlockH = rowT.length * (rowH + rowGap) - rowGap;
+        const rowsTop = btnY - gapAboveBtn - rowsBlockH;
+        const subSize = 32, subLine = subSize * 1.4;
+        const headMaxH = Math.max(200, rowsTop - y - 2 * subLine - 30);
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
+            { family: 'Oswald', weight: '900' }, iW, headMaxH, 1.05, { max: 90, min: 42 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
+            { color: '#fff', lineHeight: 1.05 });
+        y += fit.totalH + 20;
+        const maxSubLines = Math.max(1, Math.floor((rowsTop - y - 16) / subLine));
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW).slice(0, maxSubLines);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW,
+            { color: PC.cbd, lineHeight: 1.4 });
+        // Verified rows — bottom-anchored dark cards, red check + white uppercase label
+        let ry = rowsTop;
         rowT.forEach(t => {
-            r.fillRoundRect(pad, y, iW, rowH, 14, 'rgba(255,255,255,0.06)');
-            // red check chip
-            r.fillRoundRect(pad + 16, y + 16, 46, 46, 12, PC.red);
-            r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 30 }, pad + 16, y + 24, 46,
+            r.fillRoundRect(pad, ry, iW, rowH, 14, 'rgba(255,255,255,0.06)');
+            r.fillRoundRect(pad + 16, ry + 16, 46, 46, 12, PC.red);
+            r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 30 }, pad + 16, ry + 24, 46,
                 { color: '#fff', align: 'center' });
             r.drawLines([String(t).toUpperCase()], { family: 'Oswald', weight: '700', size: 28 },
-                pad + 16 + 46 + 18, y + 24, iW - 90, { color: '#fff' });
-            y += rowH + rowGap;
+                pad + 16 + 46 + 18, ry + 24, iW - 90, { color: '#fff' });
+            ry += rowH + rowGap;
         });
         // Outlined CTA — red border, transparent fill (matches the mockup)
-        const btnY = H - pad - 112, btnH = 112;
         r.ctx.save();
         r.roundRectPath(pad, btnY, iW, btnH, 22);
         r.ctx.strokeStyle = PC.red;
@@ -2198,11 +2234,16 @@ self.onmessage = async (e) => {
                 const yOff = (H - W) / 2;
                 // Extend the design's OWN top/bottom edge rows to fill the bands so the background
                 // (gradients included) continues seamlessly — a flat sampled colour left a visible seam.
-                const px = sq.ctx.getImageData(3, 3, 1, 1).data;
+                // Sample BELOW any thin accent strip (some designs paint a 20–26px coloured bar at the
+                // very top); otherwise the strip gets stretched into a giant coloured band across the
+                // whole yOff area in portrait mode. `scale` maps logical → backing-store pixels.
+                const bandSampleY = Math.max(1, Math.round(30 * scale) + 4); // safely under any strip
+                const bandBottomSampleY = sq.canvas.height - 1 - bandSampleY;
+                const px = sq.ctx.getImageData(3, bandSampleY, 1, 1).data;
                 r.fillBg('rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ')');   // base under the stretch
                 r.ctx.imageSmoothingEnabled = true;
-                r.ctx.drawImage(sq.canvas, 0, 0, sq.canvas.width, 1, 0, 0, W, yOff);                     // top band = top edge
-                r.ctx.drawImage(sq.canvas, 0, sq.canvas.height - 1, sq.canvas.width, 1, 0, H - yOff, W, yOff); // bottom band = bottom edge
+                r.ctx.drawImage(sq.canvas, 0, bandSampleY, sq.canvas.width, 1, 0, 0, W, yOff);                     // top band = row just below any accent strip
+                r.ctx.drawImage(sq.canvas, 0, bandBottomSampleY, sq.canvas.width, 1, 0, H - yOff, W, yOff);        // bottom band mirrors the same logic
                 r.ctx.drawImage(sq.canvas, 0, yOff, W, W);                    // the design itself, centered
             } else {
                 r = new CanvasRenderer(W, H, scale); // square: native
