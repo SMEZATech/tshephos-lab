@@ -210,11 +210,7 @@
             <!-- Premium content-type controls (hidden for Creative) -->
             <div id="premium-controls" class="hidden">
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">Design direction</label>
-                <div class="grid grid-cols-3 gap-2 mb-3" id="premium-dirs">
-                    <button onclick="setPremiumDir('a')" id="pdir-a" class="pdir-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-2.5 rounded-lg border border-red-500 text-[11px] uppercase tracking-wide">A</button>
-                    <button onclick="setPremiumDir('b')" id="pdir-b" class="pdir-btn bg-slate-800 text-slate-400 font-bold py-2.5 rounded-lg border border-slate-600 text-[11px] uppercase tracking-wide">B</button>
-                    <button onclick="setPremiumDir('c')" id="pdir-c" class="pdir-btn bg-slate-800 text-slate-400 font-bold py-2.5 rounded-lg border border-slate-600 text-[11px] uppercase tracking-wide">C</button>
-                </div>
+                <div class="grid grid-cols-5 gap-2 mb-3" id="premium-dirs"></div>
                 <p class="text-[11px] font-bold text-slate-300 mb-1" id="pdir-name"></p>
                 <div id="premium-fields" class="flex flex-col gap-2"></div>
             </div>
@@ -1654,6 +1650,78 @@ function drawProviders(r, dir, v, a) {
         return;
     }
 
+    if (dir === 'd') { // Lead Magnet — dark card, corner arc, giant demand counter
+        r.fillBg(PC.navy);
+        // Corner arc: red disc anchored top-right, most of it outside the canvas so only the
+        // bottom-left quadrant remains — a bold Serv-style accent that scales at any dimension.
+        const arcR = Math.round(Math.min(W, H) * 0.42);
+        r.ctx.save();
+        r.ctx.fillStyle = PC.red;
+        r.ctx.beginPath();
+        r.ctx.arc(W, 0, arcR, 0, Math.PI * 2);
+        r.ctx.fill();
+        r.ctx.restore();
+        let y = pLogo(r, a, false);
+        y += pPill(r, pad, y, v.pill || 'For service providers', 'rgba(255,255,255,0.14)', '#fff') + 36;
+        // Big number — huge Oswald black, "+" glyph tinted red
+        const bigTxt = String(v.big || '450');
+        const plusTxt = String(v.plus || '+');
+        const bigFont = { family: 'Oswald', weight: '900', size: 260 };
+        const bigW = r.textWidth(bigTxt, bigFont);
+        const plusFont = { family: 'Oswald', weight: '900', size: 260 };
+        r.drawLines([bigTxt], bigFont, pad, y, iW, { color: '#fff' });
+        r.drawLines([plusTxt], plusFont, pad + bigW + 6, y, iW, { color: PC.red });
+        y += 260 + 8;
+        const labelFit = r.fitFontSize(String(v.bigLabel || 'New business requests posted this week.').toUpperCase(),
+            { family: 'Oswald', weight: '700' }, iW, 140, 1.05, { max: 44, min: 26 });
+        r.drawLines(labelFit.lines, { family: 'Oswald', weight: '700', size: labelFit.size }, pad, y, iW,
+            { color: PC.cbd, lineHeight: 1.08 });
+        y += labelFit.totalH + 22;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 34 }, iW);
+        r.drawLines(sub.slice(0, 3), { family: 'Roboto', weight: '400', size: 34 }, pad, y, iW,
+            { color: PC.cbd, lineHeight: 1.4 });
+        pButton(r, pad, H - pad - 112, iW, v.cta || 'Claim your free profile', '#fff', PC.navy);
+        pFoot(r, v.url || '', '', false);
+        return;
+    }
+
+    if (dir === 'e') { // Profit Protector — light card, giant 0% watermark, direct-negotiate tag
+        r.fillBg(PC.paper);
+        // Watermark: giant "0%" in near-invisible navy behind the copy
+        r.ctx.save();
+        r.ctx.globalAlpha = 0.06;
+        r.ctx.fillStyle = pInk(PC.paper);
+        r.ctx.font = '900 640px Oswald, sans-serif';
+        r.ctx.textBaseline = 'top';
+        r.ctx.fillText(String(v.watermark || '0%'), pad - 40, Math.round(H * 0.22));
+        r.ctx.restore();
+        // Content — logo top-left, eyebrow chip top-right
+        pLogo(r, a, true);
+        const eyeF = { family: 'Oswald', weight: '900', size: 30 };
+        const eyeT = String(v.eyebrow || 'Grow your firm').toUpperCase();
+        const eyeW = r.textWidth(eyeT, eyeF);
+        r.drawLines([eyeT], eyeF, W - pad - eyeW, pad + 8, eyeW, { color: PC.red });
+        let y = pad + 132;
+        const fit = r.fitFontSize(String(v.head || 'Keep every single Rand you earn.').toUpperCase(),
+            { family: 'Oswald', weight: '900' }, iW, 360, 1.02, { max: 108, min: 46 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
+            { color: pInk(PC.paper), lineHeight: 1.02 });
+        y += fit.totalH + 24;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '500', size: 38 }, iW);
+        r.drawLines(sub.slice(0, 3), { family: 'Roboto', weight: '500', size: 38 }, pad, y, iW,
+            { color: PC.slate, lineHeight: 1.42 });
+        y += Math.min(sub.length, 3) * 38 * 1.42 + 20;
+        // Inline tag — small dark pill: "You negotiate directly."
+        const tagT = String(v.tag || 'You negotiate directly.').toUpperCase();
+        const tagF = { family: 'Roboto', weight: '700', size: 28 };
+        const tagPadX = 24, tagPadY = 12, tagH = 28 + tagPadY * 2;
+        const tagW = r.textWidth(tagT, tagF) + tagPadX * 2;
+        r.fillRoundRect(pad, y, tagW, tagH, 8, PC.navy);
+        r.drawLines([tagT], tagF, pad + tagPadX, y + tagPadY, tagW, { color: pInk(PC.navy) });
+        pButton(r, pad, H - pad - 112, iW, v.cta || 'Start quoting now', PC.red, '#fff');
+        return;
+    }
+
     // A: The pitch — headline + three reasons to join, dark and direct
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
@@ -1713,6 +1781,94 @@ function drawFindPros(r, dir, v, a) {
         return;
     }
 
+    if (dir === 'd') { // Problem Solver — clean white card with a red top edge and a category pill
+        r.fillBg(PC.paper);
+        r.rect(0, 0, W, 22, PC.red); // top edge accent
+        let y = pLogo(r, a, true) + 8;
+        // Category pill — subtle red tint, mono-red text (mirrors the mockup badge)
+        const catT = String(v.category || 'Marketing & Design').toUpperCase();
+        const catF = { family: 'Oswald', weight: '900', size: 28 };
+        const catPadX = 22, catPadY = 12, catH = 28 + catPadY * 2;
+        const catW = r.textWidth(catT, catF) + catPadX * 2;
+        r.fillRoundRect(pad, y, catW, catH, 10, 'rgba(156,28,31,0.10)');
+        r.drawLines([catT], catF, pad + catPadX, y + catPadY, catW, { color: PC.red });
+        y += catH + 30;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
+            { family: 'Oswald', weight: '900' }, iW, 380, 1.05, { max: 110, min: 48 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
+            { color: pInk(PC.paper), lineHeight: 1.05 });
+        y += fit.totalH + 26;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+        r.drawLines(sub.slice(0, 3), { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW,
+            { color: PC.slate, lineHeight: 1.4 });
+        pButton(r, pad, H - pad - 112, iW, v.cta || 'Compare quotes free', PC.red, '#fff');
+        pFoot(r, v.url || '', '', true);
+        return;
+    }
+
+    if (dir === 'e') { // Trust Metric — dark card, shield badge top-right, verified check rows
+        r.fillBg(PC.ink); // deep near-black — a distinct family alongside navy
+        // Background shield graphic, ultra-faint, bottom-right
+        r.ctx.save();
+        r.ctx.globalAlpha = 0.05;
+        r.ctx.fillStyle = '#fff';
+        r.ctx.font = '900 620px Oswald, sans-serif';
+        r.ctx.textBaseline = 'top';
+        r.ctx.fillText('✓', W - 500, H - 640);
+        r.ctx.restore();
+        let y = pLogo(r, a, false);
+        // Shield badge top-right — filled navy circle, red ring, white check
+        const badgeS = 92, bx = W - pad - badgeS, by = pad;
+        r.ctx.save();
+        r.ctx.fillStyle = PC.navy;
+        r.ctx.beginPath();
+        r.ctx.arc(bx + badgeS / 2, by + badgeS / 2, badgeS / 2, 0, Math.PI * 2);
+        r.ctx.fill();
+        r.ctx.strokeStyle = PC.red;
+        r.ctx.lineWidth = 5;
+        r.ctx.beginPath();
+        r.ctx.arc(bx + badgeS / 2, by + badgeS / 2, badgeS / 2 - 2, 0, Math.PI * 2);
+        r.ctx.stroke();
+        r.ctx.restore();
+        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 54 }, bx, by + 16, badgeS,
+            { color: '#fff', align: 'center' });
+        y += 20;
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
+            { family: 'Oswald', weight: '900' }, iW, 320, 1.05, { max: 96, min: 44 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
+            { color: '#fff', lineHeight: 1.05 });
+        y += fit.totalH + 22;
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 34 }, iW);
+        r.drawLines(sub.slice(0, 2), { family: 'Roboto', weight: '400', size: 34 }, pad, y, iW,
+            { color: PC.cbd, lineHeight: 1.4 });
+        y += Math.min(sub.length, 2) * 34 * 1.4 + 26;
+        // Verified rows — two dark cards, red check + white uppercase label
+        const rowT = [v.i1 || 'CIPC registration verified', v.i2 || 'B-BBEE level checked'].filter(Boolean);
+        const rowH = 78, rowGap = 14;
+        rowT.forEach(t => {
+            r.fillRoundRect(pad, y, iW, rowH, 14, 'rgba(255,255,255,0.06)');
+            // red check chip
+            r.fillRoundRect(pad + 16, y + 16, 46, 46, 12, PC.red);
+            r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 30 }, pad + 16, y + 24, 46,
+                { color: '#fff', align: 'center' });
+            r.drawLines([String(t).toUpperCase()], { family: 'Oswald', weight: '700', size: 28 },
+                pad + 16 + 46 + 18, y + 24, iW - 90, { color: '#fff' });
+            y += rowH + rowGap;
+        });
+        // Outlined CTA — red border, transparent fill (matches the mockup)
+        const btnY = H - pad - 112, btnH = 112;
+        r.ctx.save();
+        r.roundRectPath(pad, btnY, iW, btnH, 22);
+        r.ctx.strokeStyle = PC.red;
+        r.ctx.lineWidth = 5;
+        r.ctx.stroke();
+        r.ctx.restore();
+        r.drawLines([String(v.cta || 'Browse verified experts').toUpperCase()],
+            { family: 'Oswald', weight: '900', size: 40 }, pad, btnY + (btnH - 40) / 2, iW,
+            { color: '#fff', align: 'center' });
+        return;
+    }
+
     // A: Ask once, compare many — the core marketplace promise
     r.fillBg(PC.paper);
     r.rect(0, 0, 26, H, PC.red);
@@ -1734,7 +1890,7 @@ function drawFindPros(r, dir, v, a) {
 function drawLandscape(r, type, dir, v, a) {
     const W = r.w, H = r.h, pad = 70, key = type + '.' + dir;
     r.ctx.textBaseline = 'top';
-    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b'].indexOf(key) !== -1;
+    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'providers.e', 'findpros.a', 'findpros.b', 'findpros.d'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
     // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
     // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
@@ -2797,12 +2953,16 @@ self.onmessage = async (e) => {
       providers: { label:'Marketplace · Get providers', dirs:{
         a:{ name:'The Pitch', fields:{ pill:'For service providers', head:'Get found by businesses ready to buy.', sub:'List your company on the marketplace and receive qualified enquiries from businesses actively looking for what you do.', i1:'Verified profile that builds trust instantly', i2:'Quality leads, not cold outreach', i3:'Zero commission — you negotiate directly', cta:'List your company →', url:'serv.co.za' } },
         b:{ name:'Demand Counter', fields:{ pill:'For service providers', big:'150+', bigLabel:'categories of buyers looking right now', head:'Your next client is already searching.', cta:'List your company →' } },
-        c:{ name:'Zero Commission', fields:{ eyebrow:'Zero commission', head:'Keep every rand you earn.', sub:'We connect you with the business and step aside — no cut of your invoice, no middleman on your pricing.', i1:'No commission on any job you win', i2:'Negotiate directly with the client', i3:'Verified listing, no monthly lock-in', cta:'Claim your listing →' } }
+        c:{ name:'Zero Commission', fields:{ eyebrow:'Zero commission', head:'Keep every rand you earn.', sub:'We connect you with the business and step aside — no cut of your invoice, no middleman on your pricing.', i1:'No commission on any job you win', i2:'Negotiate directly with the client', i3:'Verified listing, no monthly lock-in', cta:'Claim your listing →' } },
+        d:{ name:'Lead Magnet', fields:{ pill:'For service providers', big:'450', plus:'+', bigLabel:'New business requests posted this week.', sub:'Your next client is already looking for you. List your services today and get matched with qualified B2B leads.', cta:'Claim your free profile', url:'serv.co.za' } },
+        e:{ name:'Profit Protector', fields:{ eyebrow:'Grow your firm', watermark:'0%', head:'Keep every single Rand you earn.', sub:'We connect you with the client and step aside. Zero commission. Zero hidden fees.', tag:'You negotiate directly.', cta:'Start quoting now', url:'serv.co.za' } }
       }},
       findpros: { label:'Marketplace · Find providers', dirs:{
         a:{ name:'One Request, Many Quotes', fields:{ eyebrow:'One request. Many quotes.', head:'Stop chasing suppliers. Let them come to you.', sub:'Describe what you need once and receive competitive quotes from vetted South African providers.', i1:'Quotes back within 24 hours', i2:'Every provider manually verified', i3:'Compare rates before you commit', cta:'Get instant quotes →' } },
         b:{ name:'Verified Badge', fields:{ eyebrow:'Manually verified', head:'Every provider is checked before they reach you.', sub:'CIPC registration and B-BBEE credentials verified by hand — so you hire with confidence, not hope.', cta:'Browse the directory →' } },
-        c:{ name:'Category Spotlight', fields:{ eyebrow:'Looking for', category:'Web Developers', count:'40+ vetted experts', sub:'Compare quotes from verified South African specialists — free, and no obligation to hire.', cta:'Compare quotes →', url:'serv.co.za' } }
+        c:{ name:'Category Spotlight', fields:{ eyebrow:'Looking for', category:'Web Developers', count:'40+ vetted experts', sub:'Compare quotes from verified South African specialists — free, and no obligation to hire.', cta:'Compare quotes →', url:'serv.co.za' } },
+        d:{ name:'Problem Solver', fields:{ category:'Marketing & Design', head:'Stop chasing agencies. Let them pitch to you.', sub:'Post your project once. Get up to 5 competitive quotes from verified South African agencies in 24 hours.', cta:'Compare quotes free', url:'serv.co.za' } },
+        e:{ name:'Trust Metric', fields:{ head:'Hire with confidence, not hope.', sub:"Every business on Serv is manually verified. We check CIPC documents and B-BBEE statuses so you don't have to.", i1:'CIPC registration verified', i2:'B-BBEE level checked', cta:'Browse verified experts', url:'serv.co.za' } }
       }},
       resources: { label:'Resources', dirs:{
         a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
@@ -2810,7 +2970,7 @@ self.onmessage = async (e) => {
         c:{ name:'Bold Typography', fields:{ big:'FREE', head:'The SME Growth Toolkit', sub:'7 templates every founder needs — one download.', i1:'Cash-flow forecast (Excel)', i2:'Investor one-pager (Editable)', i3:'Pricing calculator + more', cta:'Grab it free →' } }
       }}
     };
-    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count' };
+    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count', plus:'Big-number suffix', watermark:'Watermark text', tag:'Inline tag' };
 
     let premVals = {}; // live editable values for the current type+dir
     function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }
@@ -2877,10 +3037,24 @@ self.onmessage = async (e) => {
       if (typeof showToast === 'function') showToast('Exported: ' + result.filename, 'success');
       if (typeof recordExport === 'function') recordExport();
     }
+    // Render the direction buttons from the active type's registry — the D/E slots only appear on
+    // families that define them, so adding variants to PREMIUM is enough to expose them in the UI.
+    function renderPremiumDirs(){
+      const wrap = document.getElementById('premium-dirs'); if(!wrap) return;
+      const t = PREMIUM[state.contentType];
+      if(!t){ wrap.innerHTML = ''; return; }
+      const keys = Object.keys(t.dirs);
+      wrap.className = 'grid gap-2 mb-3 grid-cols-' + Math.max(3, Math.min(keys.length, 5));
+      wrap.innerHTML = keys.map(k => {
+        const on = k === state.premiumDir;
+        const cls = 'pdir-btn font-bold py-2.5 rounded-lg text-[11px] uppercase tracking-wide ' +
+          (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600');
+        return '<button onclick="setPremiumDir(\''+k+'\')" id="pdir-'+k+'" class="'+cls+'">'+k.toUpperCase()+'</button>';
+      }).join('');
+    }
     function setPremiumDir(dir){
       state.premiumDir = dir;
-      ['a','b','c'].forEach(x => { const btn = document.getElementById('pdir-'+x); if(btn){ const on = x===dir;
-        btn.className = 'pdir-btn font-bold py-2.5 rounded-lg text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
+      renderPremiumDirs();
       loadPremDefaults(); renderPremFields(); renderPremiumPreview();
     }
     function setContentType(type){
@@ -2896,7 +3070,9 @@ self.onmessage = async (e) => {
       const hint = document.getElementById('ct-hint');
       if(isCreative){ renderLayout(); return; }
       if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
-      if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction (A/B/C) and edit the text. Export gives a 1080×1080 PNG.';
+      const nDirs = Object.keys(PREMIUM[type].dirs).length;
+      const dirRange = nDirs > 1 ? '(A–' + String.fromCharCode(64 + nDirs) + ')' : '';
+      if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction ' + dirRange + ' and edit the text. Export gives a 1080×1080 PNG.';
       state.premiumDir = 'a'; setPremiumDir('a');
     }
 

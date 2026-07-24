@@ -148,9 +148,11 @@
       await run(name, { type: 'render-single', state: { ...baseState, ...mut }, brand, slideIdx, featuredBlob, logoBlob, fontBuffers: {}, scale: S, filename: 't.png' }, exp[0] * S, exp[1] * S);
     }
 
-    // 5) Premium matrix: 4 types x 3 dirs x 3 sizes (empty vals — draw fns have fallbacks; smoke = no-crash + non-blank)
-    for (const pt of ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros']) {
-      for (const dir of ['a', 'b', 'c']) {
+    // 5) Premium matrix: every type x every dir x 3 sizes (empty vals — draw fns have fallbacks; smoke = no-crash + non-blank).
+    // Providers/findpros carry D/E slots for the Serv marketplace designs; funding/etc stop at C — iterate dirs per type.
+    const PREM_DIRS = { funding:['a','b','c'], solutions:['a','b','c'], newsletter:['a','b','c'], resources:['a','b','c'], providers:['a','b','c','d','e'], findpros:['a','b','c','d','e'] };
+    for (const pt of Object.keys(PREM_DIRS)) {
+      for (const dir of PREM_DIRS[pt]) {
         for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
           await run('premium/' + pt + '/' + dir + '/' + sz,
             { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: {}, w: wh[0], h: wh[1], scale: S, filename: 't.png' },
