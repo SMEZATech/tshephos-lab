@@ -1606,319 +1606,457 @@ function drawPremium(r, type, dir, v, assets) {
     r.fillBg(PC.navy); // safety fallback
 }
 
-// ===================== B2B MARKETPLACE FAMILIES =====================
-// A marketplace has two audiences and they need opposite arguments, so they get their own
-// families rather than being bent out of the publisher designs:
-//   providers → supply side: "list your company", leads, no commission
+// Premium types that lay themselves out from the real canvas at any aspect ratio. Anything listed
+// here bypasses drawLandscape and the portrait band-fill in the worker's render-premium branch.
+const PREM_NATIVE_AR = { providers: true, findpros: true };
+
+// ============ B2B MARKETPLACE FAMILIES — native, any aspect ratio ============
+// A marketplace has two audiences that need opposite arguments, so each gets its own family:
+//   providers → supply side: "list your company", leads, zero commission
 //   findpros  → demand side: "get quotes", vetted experts, speed
-// Deliberately brand-agnostic: every colour comes from PC (which derives from the ACTIVE Brand
-// Kit), so Serv renders in Serv's colours and any future marketplace brand works unchanged.
+//
+// These two families render NATIVELY at whatever W x H is asked for (1:1, 4:5, 1.91:1). The
+// generic premium path renders a square and then pads portrait by stretching a single edge row
+// into bands — that turned a thin accent strip into a giant colour slab, left the copy cramped
+// in the middle third, and wasted the extra height entirely. Here each layout receives the real
+// canvas: portrait spends its extra room on a genuinely larger headline and honest spacing, and
+// landscape becomes a real banner with a left column instead of a squeezed square.
+//
+// Every colour derives from PC (which tracks the ACTIVE Brand Kit), so Serv renders in Serv's
+// identity and any future marketplace brand works unchanged. No hardcoded brand rgba anywhere —
+// the old glows were locked to SME red and bled pink over other brands' backgrounds.
 
-// Supply side — recruit service providers onto the marketplace.
-function drawProviders(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+// Per-render layout metrics. Type and spacing scale off the SHORT edge so a wide banner never
+// gets absurd type and a tall portrait keeps proportional padding.
+function mL(r) {
+    const W = r.w, H = r.h;
+    const land = W > H * 1.15;
+    const port = H > W * 1.08;
+    const k = Math.min(W, H) / 1080;                            // 1.0 at a 1080 short edge
+    const pad = Math.round((land ? 62 : 78) * k);
+    const colW = land ? Math.round(W * 0.58) : W - pad * 2;     // landscape keeps a right-hand void
+    const ctaH = Math.round((land ? 84 : 106) * k);
+    const footH = Math.round(38 * k);                            // room for the url line
+    const ctaY = H - pad - ctaH - (land ? 0 : footH);
+    const s = n => Math.max(1, Math.round(n * k));
+    // Type punch: a 4:5 canvas has ~25% more height than a square at the same width, so the caps
+    // grow with it. Without this the headline stayed at its square size and portrait rendered a
+    // correct-but-empty design with a dead band between the sub and the CTA.
+    const tp = port ? 1.26 : 1;
+    return { W, H, land, port, k, pad, colW, ctaH, ctaY, footH, s, tp };
+}
+// Feature-row height. Designs precompute their feature block from this, so it must be the single
+// source of truth shared with mFeature().
+function mRowH(L) { return L.s(62 * (L.port ? 1.16 : 1)); }
+// rgba() from a brand hex, so glows/tints follow the brand instead of a baked-in colour.
+function mAlpha(hex, a) {
+    const h = String(hex || '').replace('#', '').trim();
+    if (h.length !== 6) return 'rgba(0,0,0,' + a + ')';
+    const n = parseInt(h, 16);
+    if (!isFinite(n)) return 'rgba(0,0,0,' + a + ')';
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+// A readable accent on a given background — if the brand's primary vanishes into its secondary,
+// fall back to plain ink rather than drawing an invisible kicker.
+function mAccent(bg) { return pContrast(PC.red, bg) < 2.2 ? pInk(bg) : PC.red; }
 
-    if (dir === 'b') { // Leads counter — the "what you get" proof
-        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-        r.radialGlow(W, 0, 560, 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)');
-        let y = pLogo(r, a, false);
-        y += pPill(r, pad, y, v.pill || 'For service providers', PC.red, '#fff') + 34;
-        const big = String(v.big || '150+');
-        r.drawLines([big], { family: 'Oswald', weight: '900', size: 190 }, pad, y, iW, { color: pInk(PC.navy) }); y += 205;
-        r.drawLines([String(v.bigLabel || 'categories of buyers looking right now').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: PC.red }); y += 70;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 200, 1.05, { max: 74, min: 40 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.05 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
-        return;
-    }
-
-    if (dir === 'c') { // Zero commission — the money argument, light and confident
-        r.fillBg(PC.paper);
-        r.rect(0, 0, W, 22, PC.red);
-        let y = pLogo(r, a, true) + 10;
-        r.drawLines([String(v.eyebrow || 'Zero commission').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 104, min: 48 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
-        y += fit.totalH + 28;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
-        y += sub.length * 40 * 1.42 + 40;
-        [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, PC.ink); y += 82; } });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Claim your listing →', PC.navy, '#fff');
-        return;
-    }
-
-    if (dir === 'd') { // Lead Magnet — dark card, corner arc, giant demand counter
-        r.fillBg(PC.navy);
-        // Corner arc: red disc anchored top-right, most of it outside the canvas so only the
-        // bottom-left quadrant remains — a bold Serv-style accent that scales at any dimension.
-        const arcR = Math.round(Math.min(W, H) * 0.42);
-        r.ctx.save();
-        r.ctx.fillStyle = PC.red;
-        r.ctx.beginPath();
-        r.ctx.arc(W, 0, arcR, 0, Math.PI * 2);
-        r.ctx.fill();
-        r.ctx.restore();
-        let y = pLogo(r, a, false);
-        y += pPill(r, pad, y, v.pill || 'For service providers', 'rgba(255,255,255,0.14)', '#fff') + 32;
-        // Big number — fit into iW-so a wider figure ("1500+") still lands inside the frame,
-        // and the "+" tag sits in the arc's negative space rather than butting up against text.
-        const bigTxt = String(v.big || '450');
-        const plusTxt = String(v.plus || '+');
-        const bigFit = r.fitFontSize(bigTxt + plusTxt, { family: 'Oswald', weight: '900' }, iW - 20, 240, 1.0, { max: 260, min: 140 });
-        const bigFont = { family: 'Oswald', weight: '900', size: bigFit.size };
-        const bigW = r.textWidth(bigTxt, bigFont);
-        r.drawLines([bigTxt], bigFont, pad, y, iW, { color: '#fff' });
-        r.drawLines([plusTxt], bigFont, pad + bigW + 6, y, iW, { color: PC.red });
-        y += bigFit.size + 6;
-        const labelFit = r.fitFontSize(String(v.bigLabel || 'New business requests posted this week.').toUpperCase(),
-            { family: 'Oswald', weight: '700' }, iW, 120, 1.05, { max: 40, min: 24 });
-        r.drawLines(labelFit.lines, { family: 'Oswald', weight: '700', size: labelFit.size }, pad, y, iW,
-            { color: PC.cbd, lineHeight: 1.08 });
-        y += labelFit.totalH + 18;
-        // Clamp sub to whatever room remains above the CTA — no overlap possible
-        const ctaTop = H - pad - 112 - 20;
-        const subSize = 32, subLine = subSize * 1.4;
-        const maxSubLines = Math.max(1, Math.floor((ctaTop - y) / subLine));
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW).slice(0, maxSubLines);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW,
-            { color: PC.cbd, lineHeight: 1.4 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Claim your free profile', '#fff', PC.navy);
-        pFoot(r, v.url || '', '', false);
-        return;
-    }
-
-    if (dir === 'e') { // Profit Protector — light card, giant 0% watermark, direct-negotiate tag
-        r.fillBg(PC.paper);
-        // Watermark: giant "0%" in near-invisible navy behind the copy
-        r.ctx.save();
-        r.ctx.globalAlpha = 0.06;
-        r.ctx.fillStyle = pInk(PC.paper);
-        r.ctx.font = '900 640px Oswald, sans-serif';
-        r.ctx.textBaseline = 'top';
-        r.ctx.fillText(String(v.watermark || '0%'), pad - 40, Math.round(H * 0.22));
-        r.ctx.restore();
-        // Content — logo top-left, eyebrow chip top-right
-        pLogo(r, a, true);
-        const eyeF = { family: 'Oswald', weight: '900', size: 30 };
-        const eyeT = String(v.eyebrow || 'Grow your firm').toUpperCase();
-        const eyeW = r.textWidth(eyeT, eyeF);
-        r.drawLines([eyeT], eyeF, W - pad - eyeW, pad + 8, eyeW, { color: PC.red });
-        let y = pad + 132;
-        // Budget space above the CTA and the inline tag so the headline+sub never crash into them
-        const tagSize = 28, tagH = tagSize + 24;
-        const ctaTop = H - pad - 112 - 20;
-        const availH = ctaTop - y - tagH - 30;                        // leave 30 gap before tag
-        const headMaxH = Math.min(340, Math.round(availH * 0.62));
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
-            { family: 'Oswald', weight: '900' }, iW, headMaxH, 1.02, { max: 100, min: 44 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
-            { color: pInk(PC.paper), lineHeight: 1.02 });
-        y += fit.totalH + 22;
-        const subSize = 34, subLine = subSize * 1.4;
-        const maxSubLines = Math.max(1, Math.floor((ctaTop - y - tagH - 20) / subLine));
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '500', size: subSize }, iW).slice(0, maxSubLines);
-        r.drawLines(sub, { family: 'Roboto', weight: '500', size: subSize }, pad, y, iW,
-            { color: PC.slate, lineHeight: 1.4 });
-        y += sub.length * subLine + 18;
-        // Inline tag — small dark pill: "You negotiate directly."
-        const tagT = String(v.tag || 'You negotiate directly.').toUpperCase();
-        const tagF = { family: 'Roboto', weight: '700', size: tagSize };
-        const tagPadX = 24, tagPadY = 12;
-        const tagW = r.textWidth(tagT, tagF) + tagPadX * 2;
-        r.fillRoundRect(pad, y, tagW, tagH, 8, PC.navy);
-        r.drawLines([tagT], tagF, pad + tagPadX, y + tagPadY, tagW, { color: pInk(PC.navy) });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Start quoting now', PC.red, '#fff');
-        return;
-    }
-
-    // A: The pitch — headline + three reasons to join, dark and direct
-    // Layout budget: everything above the CTA must fit in (H - pad - 112 - 30) - y. We size the
-    // headline dynamically against the remaining space and cap the sub to 2 lines so a long
-    // subhead can't push the 3 bullets under the bottom-anchored CTA (previously it overlapped).
-    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
-    r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
-    let y = pLogo(r, a, false);
-    y += pPill(r, pad, y, v.pill || 'Grow your business', PC.red, '#fff') + 30;
-    const bulletsA = [v.i1, v.i2, v.i3].filter(Boolean);
-    const bulletBlockH = bulletsA.length * 82;
-    const ctaTop = H - pad - 112 - 30;                            // 30 = breathing space above CTA
-    const subLinesMax = 2, subSize = 36, subLine = subSize * 1.4;
-    const subMaxH = subLinesMax * subLine;
-    const headMaxH = Math.max(160, ctaTop - y - subMaxH - bulletBlockH - 60);
-    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, headMaxH, 1.04, { max: 84, min: 42 });
-    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.04 });
-    y += fitA.totalH + 22;
-    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW).slice(0, subLinesMax);
-    r.drawLines(subA, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.4 });
-    y += subA.length * subLine + 24;
-    // Anchor bullets to the bottom of the content zone so they never drift into the CTA
-    const bulletsTop = Math.max(y, ctaTop - bulletBlockH);
-    bulletsA.forEach((t, i) => { pBullet(r, pad, bulletsTop + i * 82, t, PC.red, pInk(PC.navy)); });
-    pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
-    pFoot(r, v.url || '', '', false);
+// ---- backgrounds ----
+function mBgDark(r, L) {                                        // brand secondary + primary glow
+    r.linearGradient(0, 0, L.W, L.H, [[0, PC.navy], [1, PC.navy2]], 'br');
+    r.radialGlow(0, L.H, Math.round(Math.min(L.W, L.H) * 0.72), mAlpha(PC.red, 0.32), mAlpha(PC.red, 0));
+    return PC.navy;
+}
+function mBgPaper(r, L, rail) {                                 // light card with an accent rail
+    r.fillBg(PC.paper);
+    if (rail !== false) r.rect(0, 0, L.s(22), L.H, PC.red);     // vertical rail survives every crop
+    return PC.paper;
+}
+function mBgInk(r, L) {                                         // near-black, for the trust story
+    const ink = pIsLight(PC.navy) ? '#0b0d12' : pShade(PC.navy, -0.55);
+    r.fillBg(ink);
+    r.radialGlow(L.W, 0, Math.round(Math.min(L.W, L.H) * 0.66), mAlpha(PC.red, 0.20), mAlpha(PC.red, 0));
+    return ink;
 }
 
-// Demand side — get businesses requesting quotes from vetted providers.
-function drawFindPros(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
-
-    if (dir === 'b') { // Verified badge — trust is the differentiator
-        r.fillBg(PC.paper);
-        let y = pLogoC(r, a, true) + 12;
-        // badge
-        const bs = 190, bx = (W - bs) / 2;
-        r.fillRoundRect(bx, y, bs, bs, bs / 2, PC.navy);
-        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 120 }, bx, y + 30, bs, { color: PC.white, align: 'center' });
-        y += bs + 34;
-        r.drawLines([String(v.eyebrow || 'Manually verified').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: PC.red, align: 'center' }); y += 60;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 240, 1.04, { max: 84, min: 44 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.navy, align: 'center', lineHeight: 1.04 });
-        y += fit.totalH + 26;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.slate, align: 'center', lineHeight: 1.4 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Get instant quotes →', PC.red, '#fff');
-        return;
-    }
-
-    if (dir === 'c') { // Category spotlight — concrete: this service, this many experts
-        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-        let y = pLogo(r, a, false);
-        r.drawLines([String(v.eyebrow || 'Looking for').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.cbd }); y += 60;
-        const fitC = r.fitFontSize(String(v.category || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 260, 1.02, { max: 118, min: 52 });
-        r.drawLines(fitC.lines, { family: 'Oswald', weight: '700', size: fitC.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.02 });
-        y += fitC.totalH + 30;
-        // expert-count strip
-        r.fillRoundRect(pad, y, iW, 132, 26, PC.red);
-        r.drawLines([String(v.count || '40+ vetted experts').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 46 }, pad, y + 42, iW, { color: '#fff', align: 'center' });
-        y += 132 + 34;
-        const subC = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(subC, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.4 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Compare quotes →', PC.white, PC.navy);
-        pFoot(r, v.url || '', '', false);
-        return;
-    }
-
-    if (dir === 'd') { // Problem Solver — clean white card with a red top edge and a category pill
-        r.fillBg(PC.paper);
-        r.rect(0, 0, W, 22, PC.red); // top edge accent
-        let y = pLogo(r, a, true) + 8;
-        // Category pill — subtle red tint, mono-red text (mirrors the mockup badge)
-        const catT = String(v.category || 'Marketing & Design').toUpperCase();
-        const catF = { family: 'Oswald', weight: '900', size: 28 };
-        const catPadX = 22, catPadY = 12, catH = 28 + catPadY * 2;
-        const catW = r.textWidth(catT, catF) + catPadX * 2;
-        r.fillRoundRect(pad, y, catW, catH, 10, 'rgba(156,28,31,0.10)');
-        r.drawLines([catT], catF, pad + catPadX, y + catPadY, catW, { color: PC.red });
-        y += catH + 26;
-        // Reserve space for sub + CTA gap so the headline can't push the sub under the CTA.
-        const ctaTop = H - pad - 112 - 20;
-        const subSize = 34, subLine = subSize * 1.4;
-        const subMaxLines = 3, subMaxH = subMaxLines * subLine;
-        const headMaxH = Math.max(160, ctaTop - y - subMaxH - 30);
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
-            { family: 'Oswald', weight: '900' }, iW, headMaxH, 1.05, { max: 96, min: 44 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
-            { color: pInk(PC.paper), lineHeight: 1.05 });
-        y += fit.totalH + 22;
-        const remainingLines = Math.max(1, Math.floor((ctaTop - y) / subLine));
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW)
-            .slice(0, Math.min(subMaxLines, remainingLines));
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW,
-            { color: PC.slate, lineHeight: 1.4 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Compare quotes free', PC.red, '#fff');
-        pFoot(r, v.url || '', '', true);
-        return;
-    }
-
-    if (dir === 'e') { // Trust Metric — dark card, shield badge top-right, verified check rows
-        r.fillBg(PC.ink); // deep near-black — a distinct family alongside navy
-        // Background shield graphic, ultra-faint, bottom-right
+// ---- pieces ----
+function mLogo(r, a, L, bg, center) {
+    const lg = pIsLight(bg) ? a.logoC : a.logoW;
+    const lw = L.s(186), lh = L.s(50);
+    if (lg) r.drawContain(lg, center ? (L.W - lw) / 2 : L.pad + (L.land ? 0 : L.s(8)), L.pad, lw, lh, {});
+    return L.pad + lh + L.s(22);
+}
+function mPill(r, L, x, y, text, bg, fg, size) {
+    const f = { family: 'Oswald', weight: '700', size: L.s(size || 28) };
+    const t = String(text || '').toUpperCase();
+    const px = L.s(26), py = L.s(14), h = f.size + py * 2;
+    const w = r.textWidth(t, f) + px * 2;
+    r.fillRoundRect(x, y, w, h, h / 2, bg);
+    r.drawLines([t], f, x + px, y + py, w, { color: fg });
+    return h;
+}
+function mKicker(r, L, x, y, text, color, center) {
+    const f = { family: 'Oswald', weight: '700', size: L.s(29) };
+    r.drawLines([String(text || '').toUpperCase()], f, x, y, L.colW,
+        { color: color, align: center ? 'center' : 'left' });
+    return f.size + L.s(16);
+}
+// One feature line: brand check chip + a single line of label. Optional card behind it.
+function mFeature(r, L, x, y, w, text, chipBg, chipFg, txtColor, cardBg) {
+    const rowH = mRowH(L), cs = Math.round(rowH * 0.71), inset = cardBg ? L.s(14) : 0;
+    if (cardBg) r.fillRoundRect(x, y, w, rowH, L.s(12), cardBg);
+    const cy = y + (rowH - cs) / 2;
+    r.fillRoundRect(x + inset, cy, cs, cs, L.s(11), chipBg);
+    r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: Math.round(cs * 0.57) }, x + inset,
+        cy + cs * 0.2, cs, { color: chipFg, align: 'center' });
+    const tx = x + inset + cs + L.s(18);
+    const f = { family: 'Roboto', weight: '500', size: L.s(30 * (L.port ? 1.1 : 1)) };
+    const line = r.wrap(String(text || ''), f, w - (tx - x) - inset - L.s(6))[0] || '';
+    r.drawLines([line], f, tx, y + (rowH - f.size) / 2 - L.s(2), w, { color: txtColor });
+    return rowH;
+}
+// CTA. Full-bleed in square/portrait; hugs its label in landscape so the banner breathes.
+function mCTA(r, L, text, bg, fg, outline) {
+    const t = String(text || '').toUpperCase();
+    const f = { family: 'Oswald', weight: '700', size: L.s(L.land ? 29 : 37) };
+    const w = L.land ? Math.min(L.colW, r.textWidth(t, f) + L.s(76)) : L.colW;
+    const rad = L.s(18), ty = L.ctaY + (L.ctaH - f.size) / 2;
+    if (outline) {
         r.ctx.save();
-        r.ctx.globalAlpha = 0.05;
-        r.ctx.fillStyle = '#fff';
-        r.ctx.font = '900 620px Oswald, sans-serif';
-        r.ctx.textBaseline = 'top';
-        r.ctx.fillText('✓', W - 500, H - 640);
+        r.roundRectPath(L.pad, L.ctaY, w, L.ctaH, rad);
+        r.ctx.strokeStyle = bg; r.ctx.lineWidth = Math.max(3, L.s(5)); r.ctx.stroke();
         r.ctx.restore();
-        let y = pLogo(r, a, false);
-        // Shield badge top-right — filled navy circle, red ring, white check
-        const badgeS = 92, bx = W - pad - badgeS, by = pad;
+    } else {
+        r.fillRoundRect(L.pad, L.ctaY, w, L.ctaH, rad, bg);
+    }
+    r.drawLines([t], f, L.pad, ty, w, { color: fg, align: 'center' });
+}
+function mFoot(r, L, url, bg) {
+    if (!url || L.land) return;                                  // landscape CTA already sits at the base
+    const f = { family: 'Oswald', weight: '700', size: L.s(25) };
+    r.drawLines([String(url)], f, L.pad, L.H - L.pad - f.size, L.colW, { color: pSubInk(bg) });
+}
+// Headline + sub sized against the space that is ACTUALLY left above the CTA. Portrait hands over
+// a bigger budget, so the same call yields a bigger headline instead of a stretched background.
+// Pass opts.centreIn to optically centre the pair inside [y, bottom] — used by the designs that
+// have nothing bottom-anchored, which otherwise strand their copy in the top half of a 4:5 canvas.
+function mHeadSub(r, L, y, bottom, head, sub, inkC, subC, opts) {
+    opts = opts || {};
+    const center = !!opts.center;
+    const subSize = L.s((opts.subSize || 34) * (L.port ? 1.1 : 1)), subLine = subSize * 1.4;
+    const subCap = opts.subLines || 3;
+    const gap = L.s(opts.gap === undefined ? 22 : opts.gap);
+    const reserve = Math.min(subCap, 2) * subLine + gap;         // keep room for at least 2 sub lines
+    const headMax = Math.max(L.s(120), bottom - y - reserve);
+    const headT = String(head || '').toUpperCase();
+    const cap = mWordCap(r, headT, 'Oswald', '900', L.colW, L.s((opts.headMax || 96) * L.tp));
+    const hf = r.fitFontSize(headT, { family: 'Oswald', weight: '900' },
+        L.colW, headMax, 1.04, { max: cap, min: Math.min(L.s(38), cap) });
+    // Measure the sub against the space the headline leaves, so the block height is known up front.
+    const afterHead = y + hf.totalH + gap;
+    const fits = Math.max(1, Math.floor((bottom - afterHead) / subLine));
+    const lines = r.wrap(String(sub || ''), { family: 'Roboto', weight: '400', size: subSize }, L.colW)
+        .slice(0, Math.min(subCap, fits));
+    if (opts.centreIn) y = mCentre(y, bottom, hf.totalH + gap + lines.length * subLine);
+    r.drawLines(hf.lines, { family: 'Oswald', weight: '900', size: hf.size }, L.pad, y, L.colW,
+        { color: inkC, lineHeight: 1.04, align: center ? 'center' : 'left' });
+    y += hf.totalH + gap;
+    if (lines.length) {
+        r.drawLines(lines, { family: 'Roboto', weight: '400', size: subSize }, L.pad, y, L.colW,
+            { color: subC, lineHeight: 1.4, align: center ? 'center' : 'left' });
+        y += lines.length * subLine;
+    }
+    return y;
+}
+// A number so large it IS the design. Fits inside the column at every aspect.
+// Split measure/draw so callers can total a block's height BEFORE committing to a y — that is what
+// lets the tall formats optically centre instead of flowing from the top and leaving a dead third.
+function mNumFit(r, L, maxH, value, suffix) {
+    return r.fitFontSize(String(value || '') + String(suffix || ''), { family: 'Oswald', weight: '900' },
+        L.colW, maxH, 1.0, { max: L.s(250 * L.tp), min: L.s(96) });
+}
+function mNumDraw(r, L, y, size, value, suffix, numC, sufC) {
+    const nTxt = String(value || ''), sTxt = String(suffix || '');
+    const f = { family: 'Oswald', weight: '900', size: size };
+    r.drawLines([nTxt], f, L.pad, y, L.colW, { color: numC });
+    if (sTxt) r.drawLines([sTxt], f, L.pad + r.textWidth(nTxt, f) + L.s(6), y, L.colW, { color: sufC });
+    return size;
+}
+// Place a measured block inside [top, bottom]. Sits slightly above true centre, which reads as
+// deliberate composition rather than "content drifted to the middle".
+function mCentre(top, bottom, blockH) {
+    return top + Math.max(0, (bottom - top - blockH)) * 0.38;
+}
+// Largest font size at which the LONGEST WORD still fits the column.
+// fitFontSize's width guard measures lines only after wrapping, so once a single word is wider than
+// the box the wrapper hard-breaks it and the guard sees a short line that "fits" — which is how
+// "DEVELOPERS" rendered as "DEVELOPE / RS". Width scales linearly with size, so one reference
+// measurement gives the true ceiling.
+function mWordCap(r, text, family, weight, maxW, cap) {
+    const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return cap;
+    const REF = 100;
+    let widest = 0;
+    for (const w of words) {
+        const ww = r.textWidth(w, { family: family, weight: weight, size: REF });
+        if (ww > widest) widest = ww;
+    }
+    if (widest <= 0) return cap;
+    // fitFontSize wraps at 97% of the box, and the export worker can render a hair wider than the
+    // preview when a weight is only partly loaded. Budget for both or the word still breaks.
+    const usable = maxW * 0.94;
+    return Math.max(8, Math.min(cap, Math.floor(usable * REF / widest)));
+}
+
+// ---------------- SUPPLY SIDE — recruit providers onto the marketplace ----------------
+function drawProviders(r, dir, v, a) {
+    const L = mL(r);
+    r.ctx.textBaseline = 'top';
+
+    if (dir === 'b' || dir === 'd') {
+        // Demand proof. B is the plain counter; D (Lead Magnet) adds the corner arc.
+        const bg = mBgDark(r, L);
+        if (dir === 'd') {                                       // arc anchored off-canvas, top-right
+            const rad = Math.round(Math.min(L.W, L.H) * (L.land ? 0.44 : 0.36));
+            r.ctx.save(); r.ctx.fillStyle = PC.red;
+            r.ctx.beginPath(); r.ctx.arc(L.W, 0, rad, 0, Math.PI * 2); r.ctx.fill(); r.ctx.restore();
+        }
+        let y = mLogo(r, a, L, bg);
+        y += mPill(r, L, L.pad, y, v.pill || 'For service providers',
+            dir === 'd' ? mAlpha(pInk(bg), 0.16) : PC.red, pInk(bg)) + L.s(30);
+        // Measure number + label + sub as one block, then centre it in the zone above the CTA.
+        // Flowing straight down from the header left the bottom third of a 4:5 canvas empty.
+        // On D the accent arc sits in the number's row, so tinting the suffix with the accent would
+        // paint magenta on magenta — the arc already carries the brand, so the suffix stays ink.
+        const zTop = y, zBot = L.ctaY - L.s(18), room = zBot - zTop;
+        const gapN = L.s(6), gapL = L.s(18), ss = L.s(31 * (L.port ? 1.1 : 1)), sl = ss * 1.4;
+        const nf = mNumFit(r, L, Math.round(room * 0.50), v.big || '450', v.plus || '+');
+        const lf = r.fitFontSize(String(v.bigLabel || '').toUpperCase(), { family: 'Oswald', weight: '700' },
+            L.colW, Math.round(room * 0.26), 1.08, { max: L.s(42 * L.tp), min: L.s(24) });
+        const subAll = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: ss }, L.colW);
+        const fixedH = nf.size + gapN + lf.totalH + gapL;
+        const sub = subAll.slice(0, Math.max(0, Math.floor((room - fixedH) / sl)));
+        const blockH = fixedH + sub.length * sl;
+        y = mCentre(zTop, zBot, blockH);
+        y += mNumDraw(r, L, y, nf.size, v.big || '450', v.plus || '+',
+            pInk(bg), dir === 'd' ? pInk(bg) : mAccent(bg)) + gapN;
+        r.drawLines(lf.lines, { family: 'Oswald', weight: '700', size: lf.size }, L.pad, y, L.colW,
+            { color: pSubInk(bg), lineHeight: 1.1 });
+        y += lf.totalH + gapL;
+        if (sub.length) r.drawLines(sub, { family: 'Roboto', weight: '400', size: ss }, L.pad, y, L.colW,
+            { color: pSubInk(bg), lineHeight: 1.4 });
+        mCTA(r, L, v.cta || 'List your company →',
+            dir === 'd' ? pInk(bg) : PC.red, dir === 'd' ? PC.navy : pInk(PC.red));
+        mFoot(r, L, v.url, bg);
+        return;
+    }
+
+    if (dir === 'c') {
+        // Zero commission — the money argument, light and confident.
+        const bg = mBgPaper(r, L);
+        let y = mLogo(r, a, L, bg);
+        y += mKicker(r, L, L.pad, y, v.eyebrow || 'Zero commission', mAccent(bg));
+        const feats = [v.i1, v.i2, v.i3].filter(Boolean);
+        const featH = feats.length * mRowH(L) + Math.max(0, feats.length - 1) * L.s(10);
+        y = mHeadSub(r, L, y, L.ctaY - featH - L.s(34), v.head, v.sub, pInk(bg), pSubInk(bg),
+            { subSize: 34, subLines: 3, headMax: 100 });
+        let fy = Math.max(y + L.s(28), L.ctaY - featH - L.s(20));  // bottom-anchored, never under CTA
+        feats.forEach(t => { fy += mFeature(r, L, L.pad, fy, L.colW, t, PC.red, pInk(PC.red), pInk(bg)) + L.s(10); });
+        mCTA(r, L, v.cta || 'Claim your listing →', PC.navy, pInk(PC.navy));
+        mFoot(r, L, v.url, bg);
+        return;
+    }
+
+    if (dir === 'e') {
+        // Profit Protector — a giant 0% behind the promise, then the negotiate-direct tag.
+        const bg = mBgPaper(r, L, false);
+        // Watermark: sized to the canvas and right-anchored so it reads as a deliberate ghost mark
+        // behind the copy. A fixed 600px glyph bled off a landscape banner and swamped the sub.
+        {
+            const wmT = String(v.watermark || '0%');
+            const wmSize = Math.round(Math.min(L.H * 0.62, L.W * 0.46));
+            const wf = { family: 'Oswald', weight: '900', size: wmSize };
+            r.ctx.save();
+            r.ctx.globalAlpha = 0.08; r.ctx.fillStyle = pInk(bg);
+            r.drawLines([wmT], wf, L.W - L.pad - r.textWidth(wmT, wf), Math.round(L.H * 0.30), L.W, { color: pInk(bg) });
+            r.ctx.restore();
+        }
+        let y = mLogo(r, a, L, bg);
+        const ef = { family: 'Oswald', weight: '900', size: L.s(28) };
+        const eT = String(v.eyebrow || 'Grow your firm').toUpperCase();
+        r.drawLines([eT], ef, L.W - L.pad - r.textWidth(eT, ef), L.pad + L.s(10), r.textWidth(eT, ef),
+            { color: mAccent(bg) });
+        y += L.s(16);
+        const tagF = { family: 'Roboto', weight: '700', size: L.s(27) };
+        const tagH = tagF.size + L.s(24);
+        y = mHeadSub(r, L, y, L.ctaY - tagH - L.s(34), v.head, v.sub, pInk(bg), pSubInk(bg),
+            { subSize: 33, subLines: 3, headMax: 104 });
+        const tagT = String(v.tag || '').toUpperCase();
+        if (tagT) {
+            const ty = Math.max(y + L.s(22), L.ctaY - tagH - L.s(22));
+            const tw = r.textWidth(tagT, tagF) + L.s(44);
+            r.fillRoundRect(L.pad, ty, tw, tagH, L.s(8), PC.navy);
+            r.drawLines([tagT], tagF, L.pad + L.s(22), ty + L.s(12), tw, { color: pInk(PC.navy) });
+        }
+        mCTA(r, L, v.cta || 'Start quoting now', PC.red, pInk(PC.red));
+        mFoot(r, L, v.url, bg);
+        return;
+    }
+
+    // A: The Pitch — headline, sub, three reasons to join. Dark and direct.
+    const bg = mBgDark(r, L);
+    let y = mLogo(r, a, L, bg);
+    y += mPill(r, L, L.pad, y, v.pill || 'For service providers', PC.red, pInk(PC.red)) + L.s(28);
+    const feats = [v.i1, v.i2, v.i3].filter(Boolean);
+    const featH = feats.length * mRowH(L) + Math.max(0, feats.length - 1) * L.s(10);
+    y = mHeadSub(r, L, y, L.ctaY - featH - L.s(34), v.head, v.sub, pInk(bg), pSubInk(bg),
+        { subSize: 33, subLines: 3, headMax: 92 });
+    // Features are anchored just above the CTA, so no amount of copy can slide them underneath it.
+    let fy = Math.max(y + L.s(26), L.ctaY - featH - L.s(20));
+    feats.forEach(t => { fy += mFeature(r, L, L.pad, fy, L.colW, t, PC.red, pInk(PC.red), pInk(bg)) + L.s(10); });
+    mCTA(r, L, v.cta || 'List your company →', PC.red, pInk(PC.red));
+    mFoot(r, L, v.url, bg);
+}
+
+// ---------------- DEMAND SIDE — get buyers requesting quotes ----------------
+function drawFindPros(r, dir, v, a) {
+    const L = mL(r);
+    r.ctx.textBaseline = 'top';
+
+    if (dir === 'b') {
+        // Verified badge — trust is the differentiator. Centred, and now COMPACT: the badge sits
+        // right under the logo and the copy follows it, instead of three islands with dead space.
+        const bg = mBgPaper(r, L, false);
+        r.rect(0, 0, L.W, L.s(20), PC.red);
+        // A wide banner has no vertical room for a stacked centre column — the badge and the kicker
+        // ended up on the same band and collided. Landscape puts the badge opposite a left-aligned
+        // column; square/portrait keep the centred stack the concept was drawn for.
+        const mid = !L.land;
+        const bs = L.s(L.land ? 96 : 168);
+        let y = mLogo(r, a, L, bg, mid) + L.s(10);
+        const bx = mid ? (L.W - bs) / 2 : L.W - L.pad - bs;
+        const by = mid ? y : L.pad;
         r.ctx.save();
         r.ctx.fillStyle = PC.navy;
-        r.ctx.beginPath();
-        r.ctx.arc(bx + badgeS / 2, by + badgeS / 2, badgeS / 2, 0, Math.PI * 2);
-        r.ctx.fill();
-        r.ctx.strokeStyle = PC.red;
-        r.ctx.lineWidth = 5;
-        r.ctx.beginPath();
-        r.ctx.arc(bx + badgeS / 2, by + badgeS / 2, badgeS / 2 - 2, 0, Math.PI * 2);
-        r.ctx.stroke();
+        r.ctx.beginPath(); r.ctx.arc(bx + bs / 2, by + bs / 2, bs / 2, 0, Math.PI * 2); r.ctx.fill();
         r.ctx.restore();
-        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 54 }, bx, by + 16, badgeS,
-            { color: '#fff', align: 'center' });
-        y += 16;
-        // Rows are anchored to the bottom of the content zone so the headline can grow without
-        // pushing them into the outlined CTA. subs cap dynamically to what's left after that.
-        const btnY = H - pad - 112, btnH = 112, gapAboveBtn = 24;
-        const rowT = [v.i1 || 'CIPC registration verified', v.i2 || 'B-BBEE level checked'].filter(Boolean);
-        const rowH = 78, rowGap = 14;
-        const rowsBlockH = rowT.length * (rowH + rowGap) - rowGap;
-        const rowsTop = btnY - gapAboveBtn - rowsBlockH;
-        const subSize = 32, subLine = subSize * 1.4;
-        const headMaxH = Math.max(200, rowsTop - y - 2 * subLine - 30);
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(),
-            { family: 'Oswald', weight: '900' }, iW, headMaxH, 1.05, { max: 90, min: 42 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '900', size: fit.size }, pad, y, iW,
-            { color: '#fff', lineHeight: 1.05 });
-        y += fit.totalH + 20;
-        const maxSubLines = Math.max(1, Math.floor((rowsTop - y - 16) / subLine));
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, iW).slice(0, maxSubLines);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW,
-            { color: PC.cbd, lineHeight: 1.4 });
-        // Verified rows — bottom-anchored dark cards, red check + white uppercase label
-        let ry = rowsTop;
-        rowT.forEach(t => {
-            r.fillRoundRect(pad, ry, iW, rowH, 14, 'rgba(255,255,255,0.06)');
-            r.fillRoundRect(pad + 16, ry + 16, 46, 46, 12, PC.red);
-            r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 30 }, pad + 16, ry + 24, 46,
-                { color: '#fff', align: 'center' });
-            r.drawLines([String(t).toUpperCase()], { family: 'Oswald', weight: '700', size: 28 },
-                pad + 16 + 46 + 18, ry + 24, iW - 90, { color: '#fff' });
-            ry += rowH + rowGap;
-        });
-        // Outlined CTA — red border, transparent fill (matches the mockup)
-        r.ctx.save();
-        r.roundRectPath(pad, btnY, iW, btnH, 22);
-        r.ctx.strokeStyle = PC.red;
-        r.ctx.lineWidth = 5;
-        r.ctx.stroke();
-        r.ctx.restore();
-        r.drawLines([String(v.cta || 'Browse verified experts').toUpperCase()],
-            { family: 'Oswald', weight: '900', size: 40 }, pad, btnY + (btnH - 40) / 2, iW,
-            { color: '#fff', align: 'center' });
+        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: Math.round(bs * 0.56) }, bx,
+            by + bs * 0.20, bs, { color: pInk(PC.navy), align: 'center' });
+        if (mid) y += bs + L.s(26);
+        y += mKicker(r, L, L.pad, y, v.eyebrow || 'Manually verified', mAccent(bg), mid);
+        // Headline + sub sized to the real remaining space. Portrait gets a bigger cap via L.tp,
+        // and the sub keeps every line it needs — it used to clip mid-sentence at 1:1.
+        const ss = L.s(33 * (L.port ? 1.1 : 1)), sl = ss * 1.4;
+        const headMax = Math.max(L.s(120), L.ctaY - y - 3 * sl - L.s(26));
+        const bHeadT = String(v.head || '').toUpperCase();
+        const bCap = mWordCap(r, bHeadT, 'Oswald', '900', L.colW, L.s(86 * L.tp));
+        const hf = r.fitFontSize(bHeadT, { family: 'Oswald', weight: '900' },
+            L.colW, headMax, 1.05, { max: bCap, min: Math.min(L.s(36), bCap) });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '900', size: hf.size }, L.pad, y, L.colW,
+            { color: pInk(bg), align: mid ? 'center' : 'left', lineHeight: 1.05 });
+        y += hf.totalH + L.s(20);
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: ss }, L.colW)
+            .slice(0, Math.max(0, Math.floor((L.ctaY - y - L.s(12)) / sl)));
+        if (sub.length) r.drawLines(sub, { family: 'Roboto', weight: '400', size: ss }, L.pad, y, L.colW,
+            { color: pSubInk(bg), align: mid ? 'center' : 'left', lineHeight: 1.4 });
+        mCTA(r, L, v.cta || 'Browse the directory →', PC.red, pInk(PC.red));
+        mFoot(r, L, v.url, bg);
         return;
     }
 
-    // A: Ask once, compare many — the core marketplace promise
-    r.fillBg(PC.paper);
-    r.rect(0, 0, 26, H, PC.red);
-    let y = pLogo(r, a, true) + 8;
-    r.drawLines([String(v.eyebrow || 'One request. Many quotes.').toUpperCase()],
-        { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
-    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 100, min: 46 });
-    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
-    y += fitA.totalH + 26;
-    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
-    y += subA.length * 40 * 1.42 + 36;
-    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.navy, PC.ink); y += 82; } });
-    pButton(r, pad, H - pad - 112, iW, v.cta || 'Get instant quotes →', PC.red, '#fff');
+    if (dir === 'c') {
+        // Category spotlight — concrete: this service, this many vetted experts.
+        const bg = mBgDark(r, L);
+        let y = mLogo(r, a, L, bg);
+        y += mKicker(r, L, L.pad, y, v.eyebrow || 'Looking for', pSubInk(bg));
+        // Category + expert strip + sub measured as one block, then centred above the CTA — the
+        // tall formats used to strand all three in the top half.
+        const zTop = y, zBot = L.ctaY - L.s(16), room = zBot - zTop;
+        const stripH = L.s(120 * (L.port ? 1.08 : 1)), ss = L.s(33 * (L.port ? 1.1 : 1)), sl = ss * 1.4;
+        const gapC = L.s(26), gapS = L.s(26);
+        const catMax = Math.max(L.s(140), room - stripH - 2 * sl - gapC - gapS);
+        const catT = String(v.category || '').toUpperCase();
+        // Category names are single long words ("DEVELOPERS") — cap by word width or they hard-break.
+        const catCap = mWordCap(r, catT, 'Oswald', '900', L.colW, L.s(116 * L.tp));
+        const cf = r.fitFontSize(catT, { family: 'Oswald', weight: '900' },
+            L.colW, catMax, 1.02, { max: catCap, min: Math.min(L.s(46), catCap) });
+        const subAll = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: ss }, L.colW);
+        const fixedH = cf.totalH + gapC + stripH + gapS;
+        const sub = subAll.slice(0, Math.max(0, Math.floor((room - fixedH) / sl)));
+        y = mCentre(zTop, zBot, fixedH + sub.length * sl);
+        r.drawLines(cf.lines, { family: 'Oswald', weight: '900', size: cf.size }, L.pad, y, L.colW,
+            { color: pInk(bg), lineHeight: 1.02 });
+        y += cf.totalH + gapC;
+        r.fillRoundRect(L.pad, y, L.colW, stripH, L.s(22), PC.red);
+        r.drawLines([String(v.count || '').toUpperCase()], { family: 'Oswald', weight: '700', size: L.s(43) },
+            L.pad, y + (stripH - L.s(43)) / 2, L.colW, { color: pInk(PC.red), align: 'center' });
+        y += stripH + gapS;
+        if (sub.length) r.drawLines(sub, { family: 'Roboto', weight: '400', size: ss }, L.pad, y, L.colW,
+            { color: pSubInk(bg), lineHeight: 1.4 });
+        mCTA(r, L, v.cta || 'Compare quotes →', pInk(bg), PC.navy);
+        mFoot(r, L, v.url, bg);
+        return;
+    }
+
+    if (dir === 'd') {
+        // Problem Solver — a clean white card, category chip, and the whole pitch in one line.
+        const bg = mBgPaper(r, L, false);
+        r.rect(0, 0, L.W, L.s(20), PC.red);                      // thin top rule (native, never stretched)
+        let y = mLogo(r, a, L, bg) + L.s(4);
+        const cT = String(v.category || '').toUpperCase();
+        if (cT) {
+            const cf = { family: 'Oswald', weight: '900', size: L.s(27) };
+            const cpx = L.s(20), cph = cf.size + L.s(22), cw = r.textWidth(cT, cf) + cpx * 2;
+            r.fillRoundRect(L.pad, y, cw, cph, L.s(9), mAlpha(PC.red, 0.12));
+            r.drawLines([cT], cf, L.pad + cpx, y + L.s(11), cw, { color: mAccent(bg) });
+            y += cph + L.s(26);
+        }
+        mHeadSub(r, L, y, L.ctaY - L.s(16), v.head, v.sub, pInk(bg), pSubInk(bg),
+            { subSize: 34, subLines: 4, headMax: 104, centreIn: true });
+        mCTA(r, L, v.cta || 'Compare quotes free', PC.red, pInk(PC.red));
+        mFoot(r, L, v.url, bg);
+        return;
+    }
+
+    if (dir === 'e') {
+        // Trust Metric — near-black, badge, and the verification receipts as rows.
+        const bg = mBgInk(r, L);
+        let y = mLogo(r, a, L, bg);
+        const bs = L.s(86), bx = L.W - L.pad - bs;               // badge sits opposite the logo
+        r.ctx.save();
+        r.ctx.fillStyle = PC.navy;
+        r.ctx.beginPath(); r.ctx.arc(bx + bs / 2, L.pad + bs / 2, bs / 2, 0, Math.PI * 2); r.ctx.fill();
+        r.ctx.strokeStyle = PC.red; r.ctx.lineWidth = Math.max(3, L.s(5));
+        r.ctx.beginPath(); r.ctx.arc(bx + bs / 2, L.pad + bs / 2, bs / 2 - L.s(2), 0, Math.PI * 2); r.ctx.stroke();
+        r.ctx.restore();
+        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: Math.round(bs * 0.55) }, bx,
+            L.pad + bs * 0.18, bs, { color: pInk(PC.navy), align: 'center' });
+        y += L.s(14);
+        const rows = [v.i1, v.i2, v.i3].filter(Boolean);
+        const rowsH = rows.length * mRowH(L) + Math.max(0, rows.length - 1) * L.s(12);
+        y = mHeadSub(r, L, y, L.ctaY - rowsH - L.s(40), v.head, v.sub, pInk(bg), pSubInk(bg),
+            { subSize: 32, subLines: 3, headMax: 90 });
+        let ry = Math.max(y + L.s(26), L.ctaY - rowsH - L.s(26));
+        rows.forEach(t => {
+            ry += mFeature(r, L, L.pad, ry, L.colW, t, PC.red, pInk(PC.red), pInk(bg),
+                mAlpha(pInk(bg), 0.07)) + L.s(12);
+        });
+        mCTA(r, L, v.cta || 'Browse verified experts', PC.red, pInk(bg), true);
+        mFoot(r, L, v.url, bg);
+        return;
+    }
+
+    // A: One request, many quotes — the core marketplace promise.
+    const bg = mBgPaper(r, L);
+    let y = mLogo(r, a, L, bg);
+    y += mKicker(r, L, L.pad, y, v.eyebrow || 'One request. Many quotes.', mAccent(bg));
+    const feats = [v.i1, v.i2, v.i3].filter(Boolean);
+    const featH = feats.length * mRowH(L) + Math.max(0, feats.length - 1) * L.s(10);
+    y = mHeadSub(r, L, y, L.ctaY - featH - L.s(34), v.head, v.sub, pInk(bg), pSubInk(bg),
+        { subSize: 34, subLines: 3, headMax: 98 });
+    let fy = Math.max(y + L.s(26), L.ctaY - featH - L.s(20));
+    feats.forEach(t => { fy += mFeature(r, L, L.pad, fy, L.colW, t, PC.navy, pInk(PC.navy), pInk(bg)) + L.s(10); });
+    mCTA(r, L, v.cta || 'Get instant quotes →', PC.red, pInk(PC.red));
+    mFoot(r, L, v.url, bg);
 }
 // Dedicated LANDSCAPE (LinkedIn 1200x628) layout — a real horizontal banner, not a squeezed square.
 // Generic across all content types: logo, kicker, headline, sub, CTA laid out wide, with the design's
@@ -1926,7 +2064,9 @@ function drawFindPros(r, dir, v, a) {
 function drawLandscape(r, type, dir, v, a) {
     const W = r.w, H = r.h, pad = 70, key = type + '.' + dir;
     r.ctx.textBaseline = 'top';
-    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'providers.e', 'findpros.a', 'findpros.b', 'findpros.d'].indexOf(key) !== -1;
+    // providers.* / findpros.* are absent on purpose — they render natively at every aspect ratio
+    // (see PREM_NATIVE_AR) and never reach this generic wide layout.
+    const light = ['solutions.c', 'newsletter.b', 'resources.b'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
     // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
     // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
@@ -2222,7 +2362,13 @@ self.onmessage = async (e) => {
             const logoC = await blobToBitmap(msg.logoColorBlob);
             const W = msg.w || 1080, H = msg.h || 1080, scale = msg.scale || 2;
             let r;
-            if (W > H * 1.2) {
+            // The marketplace families lay themselves out from the real canvas, so they skip both
+            // the generic wide layout and the square-then-stretch portrait hack: every aspect gets
+            // a purpose-built composition instead of a squeezed square with padded bands.
+            if (PREM_NATIVE_AR[msg.premType]) {
+                r = new CanvasRenderer(W, H, scale);
+                drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
+            } else if (W > H * 1.2) {
                 r = new CanvasRenderer(W, H, scale); // dedicated wide layout
                 drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
             } else if (H > W * 1.12) {
