@@ -262,14 +262,40 @@ $('#vtGen').addEventListener('click', async ()=>{
     let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the generator.'); }
     if(r.status===401) throw new Error('Please sign in.');
     if(!r.ok) throw new Error((d&&d.error)||'Generation failed.');
-    if(platform==='youtube') renderYT(d.ytmeta);
-    else if(platform==='article') renderArticle(d.article);
-    else if(platform==='email') renderEmail(d.email);
-    else renderSocial(d.videocopy);
+    paintResults(platform, d);
+    saveVtSession(platform, d, transcript);
     setStatus('Done ✓','ok');
   }catch(e){ setStatus((e&&e.message)||'Failed — try again.','err'); }
   finally{ btn.disabled=false; }
 });
+
+// ---- Session restore -------------------------------------------------------------------
+// A transcribe run costs a Whisper call and the generated metadata is the deliverable — losing it
+// on a tab switch means paying for it twice. Keep the platform, the raw API payload and the
+// transcript, and repaint from them on the next visit.
+function paintResults(platform, d){
+  if(!d) return;
+  if(platform==='youtube') renderYT(d.ytmeta);
+  else if(platform==='article') renderArticle(d.article);
+  else if(platform==='email') renderEmail(d.email);
+  else renderSocial(d.videocopy);
+}
+function saveVtSession(platform, d, transcript){
+  if(!window.voltState) return;
+  try{ window.voltState.save('videotok', { platform, data:d, transcript:String(transcript||'').slice(0,20000) }); }catch(e){}
+}
+(function restoreVtSession(){
+  if(!window.voltState) return;
+  const s = window.voltState.load('videotok');
+  if(!s || !s.data) return;
+  const tr = document.getElementById('vtTranscript');
+  if(tr && !tr.value && s.transcript) tr.value = s.transcript;
+  if(s.platform){
+    platform = s.platform;
+    document.querySelectorAll('#vtPlat button').forEach(x => x.classList.toggle('on', x.dataset.p === s.platform));
+  }
+  try{ paintResults(s.platform, s.data); setStatus('↩ Restored your last run.','ok'); }catch(e){}
+})();
 
 function copyBtn(id){ return '<button class="mini" data-copy="'+id+'">Copy</button>'; }
 function renderYT(m){

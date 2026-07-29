@@ -1835,6 +1835,81 @@ function drawFindPros(r, dir, v, a) {
     pButton(r, pad, btnY, iW, v.cta || 'Get instant quotes →', accA.fill, accA.on);
 }
 
+// ---- Listening-platform marks ------------------------------------------------------------
+// Drawn as VECTOR PATHS, not fetched images: the export canvas must stay untainted (webSecurity
+// is deliberately off in the desktop shell, and a cross-origin logo would break toBlob), and this
+// also means the marks are crisp at any export scale and work offline.
+// Each drawer fills a `s`-sized square at (x,y) and returns the width it consumed.
+function pmSpotify(r, x, y, s) {
+    const c = r.ctx, cx = x + s / 2, cy = y + s / 2;
+    c.save();
+    c.fillStyle = '#1DB954'; c.beginPath(); c.arc(cx, cy, s / 2, 0, Math.PI * 2); c.fill();
+    // Three concentric sound waves, widest at the top. The radii must be spaced further apart than
+    // the stroke widths or the three arcs merge into one blob — which is exactly what happened.
+    c.strokeStyle = '#ffffff'; c.lineCap = 'round';
+    const oy = cy + s * 0.26;
+    [[0.40, 0.074, 0.80, 0.20], [0.29, 0.062, 0.76, 0.24], [0.19, 0.050, 0.72, 0.28]].forEach(function (w) {
+        c.lineWidth = s * w[1];
+        c.beginPath();
+        c.arc(cx, oy, s * w[0], -Math.PI * w[2], -Math.PI * w[3]);
+        c.stroke();
+    });
+    c.restore();
+    return s;
+}
+function pmYouTube(r, x, y, s) {
+    const c = r.ctx, w = s * 1.42, h = s * 0.99, ry = y + (s - h) / 2;
+    c.save();
+    c.fillStyle = '#FF0000'; r.roundRectPath(x, ry, w, h, h * 0.28); c.fill();
+    c.fillStyle = '#ffffff'; c.beginPath();
+    c.moveTo(x + w * 0.40, ry + h * 0.26);
+    c.lineTo(x + w * 0.40, ry + h * 0.74);
+    c.lineTo(x + w * 0.67, ry + h * 0.50);
+    c.closePath(); c.fill();
+    c.restore();
+    return w;
+}
+function pmApple(r, x, y, s) {
+    const c = r.ctx, cx = x + s / 2, cy = y + s / 2;
+    c.save();
+    // purple disc + a simple microphone glyph (capsule head, stand, base)
+    c.fillStyle = '#9933CC'; c.beginPath(); c.arc(cx, cy, s / 2, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#ffffff';
+    r.roundRectPath(cx - s * 0.10, cy - s * 0.30, s * 0.20, s * 0.34, s * 0.10); c.fill();
+    c.strokeStyle = '#ffffff'; c.lineWidth = s * 0.062; c.lineCap = 'round';
+    c.beginPath(); c.arc(cx, cy - s * 0.06, s * 0.19, 0, Math.PI); c.stroke();
+    c.beginPath(); c.moveTo(cx, cy + s * 0.13); c.lineTo(cx, cy + s * 0.26); c.stroke();
+    c.beginPath(); c.moveTo(cx - s * 0.13, cy + s * 0.29); c.lineTo(cx + s * 0.13, cy + s * 0.29); c.stroke();
+    c.restore();
+    return s;
+}
+// Renders the marks the user actually listed (matching on name) with an "ON" label, left-aligned
+// at (x,y). Returns the total width drawn. Unknown names are skipped rather than guessed at.
+const PLATFORM_MARKS = [
+    { re: /spot/i,                 draw: pmSpotify },
+    { re: /apple|itunes|podcasts?$/i, draw: pmApple },
+    { re: /you\s*-?\s*tube|yt/i,   draw: pmYouTube }
+];
+function pPlatforms(r, x, y, s, list, labelColor) {
+    const names = String(list == null ? 'Spotify · Apple Podcasts · YouTube' : list)
+        .split(/[·,|/]+/).map(function (t) { return t.trim(); }).filter(Boolean);
+    const drawers = [];
+    names.forEach(function (n) {
+        for (let i = 0; i < PLATFORM_MARKS.length; i++) {
+            if (PLATFORM_MARKS[i].re.test(n) && drawers.indexOf(PLATFORM_MARKS[i].draw) === -1) {
+                drawers.push(PLATFORM_MARKS[i].draw); return;
+            }
+        }
+    });
+    if (!drawers.length) return 0;
+    const lf = { family: 'Roboto', weight: '700', size: Math.round(s * 0.46) };
+    const lw = r.textWidth('LISTEN ON', lf);
+    r.drawLines(['LISTEN ON'], lf, x, y + (s - lf.size) / 2, lw + 4, { color: labelColor });
+    let cx = x + lw + s * 0.55;
+    drawers.forEach(function (d) { cx += d(r, cx, y, s) + s * 0.32; });
+    return cx - x;
+}
+
 // ===================== PODCAST =====================
 // Built from smesouthafrica.co.za/podcast — show identity + episode + guest + where to listen.
 // Guest photo is optional: when a Featured Image is loaded it's used, otherwise each direction
@@ -1877,7 +1952,7 @@ function drawPodcast(r, dir, v, a) {
         let y = pLogoC(r, a, PC.navy) + pV(8);
         r.drawLines([String(v.eyebrow || 'Now playing').toUpperCase()],
             { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: acc.text, align: 'center' }); y += pV(58);
-        r.drawLines([String(v.show || 'SME South Africa Podcast').toUpperCase()],
+        r.drawLines([String(v.show || 'SME Podcast').toUpperCase()],
             { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: pSubInk(PC.navy), align: 'center' }); y += pV(74);
         const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.06, { max: pT(92), min: 42 });
         r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, 0, y, W, { color: pInk(PC.navy), align: 'center', lineHeight: 1.06 });
@@ -1893,7 +1968,9 @@ function drawPodcast(r, dir, v, a) {
             r.fillRoundRect(pad + i * (bw + gapW), wy + (wh - bh) / 2, bw, bh, bw / 2, i % 3 === 0 ? acc.fill : pOn(PC.navy, 'rgba(255,255,255,0.34)', 'rgba(0,0,0,0.24)'));
         }
         pButton(r, pad, btnY, iW, v.cta || 'Listen now →', acc.fill, acc.on);
-        pFootAt(r, btnY - pV(50), String(v.platforms || 'Spotify · Apple · YouTube'), String(v.url || ''), false, pSubInk(PC.navy));
+        // Platform LOGOS bottom-left, the site bottom-right — both clear of the pinned CTA.
+        { const ms = pV(50); pPlatforms(r, pad, btnY - pV(26) - ms, ms, v.platforms, pSubInk(PC.navy)); }
+        pFootAt(r, btnY - pV(50), '', String(v.url || ''), false, pSubInk(PC.navy));
         return;
     }
 
@@ -1902,8 +1979,14 @@ function drawPodcast(r, dir, v, a) {
     r.radialGlow(0, H, 560, 'rgba(156,28,31,0.32)', 'rgba(156,28,31,0)');
     const acc = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
-    // No emoji in the pill — Oswald has no glyph for it and it rendered as tofu.
-    y += pPill(r, pad, y, String(v.show || 'SME South Africa Podcast'), acc.fill, acc.on) + pV(18);
+    // Show name rides TOP-RIGHT on the logo line — a masthead, not a pill in the content column,
+    // so the episode title starts higher and reads as the headline it is. (No emoji: Oswald has no
+    // glyph for it and it rendered as tofu.)
+    { const showT = String(v.show || 'SME Podcast').toUpperCase();
+      const sf = { family: 'Oswald', weight: '700', size: 32 };
+      const sw = r.textWidth(showT, sf), bh = pV(58);
+      r.fillRoundRect(W - pad - sw - 44, pad - 12, sw + 44, bh, bh / 2, acc.fill);
+      r.drawLines([showT], sf, W - pad - sw - 44, pad - 12 + (bh - 32) / 2, sw + 44, { color: acc.on, align: 'center' }); }
     if (v.tagline) { r.drawLines([String(v.tagline).toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: pSubInk(PC.navy) }); y += pV(52); }
     if (v.ep) { r.drawLines([String(v.ep).toUpperCase()], { family: 'Roboto', weight: '700', size: 30 }, pad, y, iW, { color: acc.text }); y += pV(50); }
     r.rect(pad, y, 120, 10, acc.fill); y += pV(34);
@@ -1921,8 +2004,8 @@ function drawPodcast(r, dir, v, a) {
         r.drawLines([String(v.guest).toUpperCase()], { family: 'Oswald', weight: '700', size: 42 }, pad, y, iW, { color: pInk(PC.navy) }); y += pV(50);
         if (v.role) r.drawLines([String(v.role)], { family: 'Roboto', weight: '400', size: 32 }, pad, y, iW, { color: pSubInk(PC.navy) });
     }
-    r.drawLines([String(v.platforms || 'Spotify · Apple · YouTube').toUpperCase()],
-        { family: 'Roboto', weight: '700', size: 28 }, pad, btnY - pV(56), iW, { color: pSubInk(PC.navy) });
+    // Real platform marks instead of a text list — the logos are what people scan for.
+    { const ms = pV(52); pPlatforms(r, pad, btnY - pV(30) - ms, ms, v.platforms, pSubInk(PC.navy)); }
     pButton(r, pad, btnY, iW, v.cta || 'Listen now →', acc.fill, acc.on);
 }
 
@@ -1986,33 +2069,39 @@ function drawMerch(r, dir, v, a) {
     // The PHOTO yields to the COPY, not the other way round. Measure the text block first and give
     // the image whatever is left (capped at ~52% of the frame). A fixed 560px band pushed the
     // description off portrait entirely.
+    const hasPic = !!a.featured;
     const priceF = { family: 'Oswald', weight: '700', size: pT(52) };
     const priceT = String(v.price || '');
     const chipW = priceT ? r.textWidth(priceT, priceF) + 52 : 0;
     const nameW = iW - (chipW ? chipW + 30 : 0);
     const nfA = r.fitFontSize(String(v.name || '').toUpperCase(), { family: 'Oswald', weight: '700' }, nameW, pV(190), 1.03, { max: pT(78), min: 36 });
     const subAll = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-    const textH = pV(44) + nfA.totalH + pV(22) + Math.min(3, subAll.length) * 38 * 1.4 + pV(28);
-    const imgH = Math.max(pV(300), Math.min(Math.round(H * 0.52), btnY - pV(52) - textH));
-    if (a.featured) r.drawCover(a.featured, 0, 0, W, imgH, 0.5, 0.5, 0, 1);
+    // Without a photo the name lives INSIDE the panel, so the block below it is only the sub.
+    const textH = pV(44) + (hasPic ? nfA.totalH + pV(22) : 0) + Math.min(3, subAll.length) * 38 * 1.4 + pV(28);
+    const imgH = Math.max(pV(300), Math.min(Math.round(H * (hasPic ? 0.52 : 0.6)), btnY - pV(52) - textH));
+    if (hasPic) r.drawCover(a.featured, 0, 0, W, imgH, 0.5, 0.5, 0, 1);
     else {
-        // No product shot yet — a branded colour field, not a blank hole.
+        // No product shot yet: the NAME becomes the visual and is not repeated below, so the
+        // panel reads as a deliberate typographic drop rather than a placeholder with a caption.
         r.linearGradient(0, 0, W, imgH, [[0, PC.navy], [1, PC.navy2]], 'br');
-        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(64) }, pad, imgH / 2 - pT(32), iW, { color: pInk(PC.navy), align: 'center' });
+        const hf = r.fitFontSize(String(v.name || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, imgH - pV(180), 1.04, { max: pT(92), min: 40 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, (imgH - hf.totalH) / 2, iW, { color: pInk(PC.navy), align: 'center', lineHeight: 1.04 });
     }
     // Brand mark over the photo, top-left — a product post with no logo is somebody else's product.
     { const lg = a.logoW; if (lg) { r.ctx.save(); r.ctx.shadowColor = 'rgba(0,0,0,0.55)'; r.ctx.shadowBlur = 18; r.drawContain(lg, pad, pad - 8, 176, 50, { }); r.ctx.restore(); } }
     // kicker pill floats over the image, bottom-left — anchors the drop without hiding the product
     pPill(r, pad, imgH - (PG ? PG.pill : 64) - pV(28), v.kicker || 'New drop', accA.fill, accA.on);
     let y = imgH + pV(44);
-    r.drawLines(nfA.lines, { family: 'Oswald', weight: '700', size: nfA.size }, pad, y, nameW, { color: pInk(PC.paper), lineHeight: 1.03 });
-    // price chip, right-aligned on the first line of the name
-    if (priceT) {
-        const ch = pT(52) + 34;
-        r.fillRoundRect(W - pad - chipW, y - pV(6), chipW, ch, 14, accA.fill);
-        r.drawLines([priceT], priceF, W - pad - chipW, y - pV(6) + 17, chipW, { color: accA.on, align: 'center' });
+    if (hasPic) {
+        r.drawLines(nfA.lines, { family: 'Oswald', weight: '700', size: nfA.size }, pad, y, nameW, { color: pInk(PC.paper), lineHeight: 1.03 });
+        // price chip, right-aligned on the first line of the name — only when a price is given
+        if (priceT) {
+            const ch = pT(52) + 34;
+            r.fillRoundRect(W - pad - chipW, y - pV(6), chipW, ch, 14, accA.fill);
+            r.drawLines([priceT], priceF, W - pad - chipW, y - pV(6) + 17, chipW, { color: accA.on, align: 'center' });
+        }
+        y += nfA.totalH + pV(22);
     }
-    y += nfA.totalH + pV(22);
     // The trust line is pinned above the CTA, so the sub only gets the lines that actually fit —
     // otherwise a long description printed straight through it.
     const trustY = btnY - pV(52);
@@ -3092,16 +3181,20 @@ self.onmessage = async (e) => {
       // ---- Podcast (smesouthafrica.co.za/podcast). Episode card / guest pull-quote / audiogram.
       // Load a Featured Image to get the guest photo; without one each direction stays typographic.
       podcast: { label:'Podcast', dirs:{
-        a:{ name:'Episode Card', fields:{ show:'SME South Africa Podcast', tagline:'Cut the noise. Find the signal.', ep:'Episode 42', head:'The funding mistake that costs founders millions.', guest:'Jenna Sprenger', role:'Founder & CEO, Fundrr', platforms:'Spotify · Apple · YouTube', cta:'Listen now →', url:'smesouthafrica.co.za/podcast' } },
+        a:{ name:'Episode Card', fields:{ show:'SME Podcast', tagline:'Cut the noise. Find the signal.', ep:'Episode 42', head:'The funding mistake that costs founders millions.', guest:'Jenna Sprenger', role:'Founder & CEO, Fundrr', platforms:'Spotify · Apple Podcasts · YouTube', cta:'Listen now →', url:'smesouthafrica.co.za/podcast' } },
         b:{ name:'Guest Pull-Quote', fields:{ eyebrow:'On the podcast', quote:'You do not need more funding. You need a business a funder can actually say yes to.', guest:'Jenna Sprenger', role:'Founder & CEO, Fundrr', cta:'Hear the full episode →' } },
-        c:{ name:'Now Playing', fields:{ eyebrow:'Now playing', show:'SME South Africa Podcast', head:'How to price for profit, not for approval.', guest:'Jenna Sprenger', platforms:'Spotify · Apple · YouTube', cta:'Start listening →', url:'smesouthafrica.co.za/podcast' } }
+        c:{ name:'Now Playing', fields:{ eyebrow:'Now playing', show:'SME Podcast', head:'How to price for profit, not for approval.', guest:'Jenna Sprenger', platforms:'Spotify · Apple Podcasts · YouTube', cta:'Start listening →', url:'smesouthafrica.co.za/podcast' } }
       }},
       // ---- Merch / Store (smesouthafrica.co.za/shop). Product, price, and the two things that
       // close an online sale in SA: shipping reach and payment trust.
-      merch: { label:'Merch / Store', dirs:{
-        a:{ name:'Product Drop', fields:{ kicker:'New drop', name:"Founder's Edition White T-Shirt", price:'R230', sub:'Premium cotton, cut for long days and late pitches. Built for founders.', trust:'SA-wide shipping · Secure checkout', cta:'Shop the collection →', url:'smesouthafrica.co.za/shop' } },
-        b:{ name:'Price Hero', fields:{ eyebrow:'Built for founders', price:'R120', name:'Signature Red Cap', i1:'Structured six-panel, embroidered mark', i2:'Adjustable — one size, fits properly', i3:'Ships anywhere in South Africa', trust:'SA-wide shipping · Secure checkout', cta:'Get yours →' } },
-        c:{ name:'The Collection', fields:{ eyebrow:'The store is open', head:'Equip your growth.', p1:'Signature Red Cap|R120', p2:'Insulated Water Bottle|R100', p3:"Founder's Edition Tee|R230", trust:'SA-wide shipping · Secure checkout', cta:'Shop the collection →', url:'smesouthafrica.co.za/shop' } }
+      // Price is OPT-IN, not the default. A post that answers "what is it and what does it cost"
+      // leaves no reason to open the shop — the job of the creative is the click, so the price
+      // lives on the product page. Direction B is the deliberate exception: it exists for when the
+      // price IS the hook (a markdown, a launch price), so it keeps its number.
+      merch: { label:'Merch', dirs:{
+        a:{ name:'Product Drop', fields:{ kicker:'New drop', name:"Founder's Edition White T-Shirt", price:'', sub:'Premium cotton, cut for long days and late pitches. Built for founders.', trust:'SA-wide shipping · Secure checkout', cta:'Shop the drop →', url:'smesouthafrica.co.za/shop' } },
+        b:{ name:'Price Hero (when price is the hook)', fields:{ eyebrow:'Built for founders', price:'R120', name:'Signature Red Cap', i1:'Structured six-panel, embroidered mark', i2:'Adjustable — one size, fits properly', i3:'Ships anywhere in South Africa', trust:'SA-wide shipping · Secure checkout', cta:'Get yours →' } },
+        c:{ name:'The Collection', fields:{ eyebrow:"The Founder's Kit", head:'Equip your growth.', p1:'Signature Red Cap', p2:'Insulated Water Bottle', p3:"Founder's Edition Tee", trust:'SA-wide shipping · Secure checkout', cta:'See the full kit →', url:'smesouthafrica.co.za/shop' } }
       }},
       resources: { label:'Resources', dirs:{
         a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
@@ -3111,7 +3204,7 @@ self.onmessage = async (e) => {
     };
     const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count',
       show:'Show name', tagline:'Show tagline', ep:'Episode number', role:'Guest role', guest:'Guest name', quote:'Quote', platforms:'Available on',
-      kicker:'Kicker', price:'Price', p1:'Product 1 (name | price)', p2:'Product 2 (name | price)', p3:'Product 3 (name | price)' };
+      kicker:'Kicker', price:'Price (blank = drive clicks)', p1:'Product 1 (add | price to show it)', p2:'Product 2 (add | price to show it)', p3:'Product 3 (add | price to show it)' };
 
     let premVals = {}; // live editable values for the current type+dir
     function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }
@@ -4049,7 +4142,10 @@ self.onmessage = async (e) => {
         // Never open on a design the owner has retired — fall through to the first live one.
         // (Retirement can land after this tab was already open, so re-check when settings arrive.)
         avoidRetiredTheme();
-        if (!applyCampaignCreative() && !applyCopyLabHandoff()) setCampaign('standard');
+        // A hand-off always wins over a restored session — it's the more recent intent.
+        window._voltHandoff = applyCampaignCreative() || applyCopyLabHandoff() || false;
+        if (!window._voltHandoff && !restoreStudioSession()) setCampaign('standard');
+        registerStudioAutosave();
         document.addEventListener('volt:orgsettings', () => { if (avoidRetiredTheme()) renderLayout(); });
         window.addEventListener('resize', resizeWrapper);
 
@@ -4082,7 +4178,68 @@ self.onmessage = async (e) => {
     window.auditTipAction = auditTipAction;
     window.openBrandKit = openBrandKit;
     window.closeBrandKit = closeBrandKit;
-    </script>
+
+    // ---- Session restore -------------------------------------------------------------------
+    // Studio had NO persistence: set up a design, switch tabs, come back to the stock defaults.
+    // The text inputs are covered by volt-auth's field autosave, but the things that decide WHICH
+    // design you're looking at (content type, direction, campaign, theme, format, carousel slides
+    // and the premium field values, which have no ids) only live in JS — so they go through the
+    // module-state hook. The clip/image blobs are deliberately NOT stored: too big for
+    // localStorage, and a stale product photo is worse than re-picking one.
+    let _studioRestoring = false;
+    function studioSnapshot() {
+        if (_studioRestoring) return null;
+        return {
+            contentType: state.contentType, premiumDir: state.premiumDir,
+            campaign: state.campaign, theme: state.theme, format: state.format,
+            showFooter: state.showFooter, currentSlide: state.currentSlide,
+            slides: state.slides.slice(),
+            premVals: state.contentType === 'creative' ? null : Object.assign({}, premVals)
+        };
+    }
+    function applyStudioSnapshot(s) {
+        if (!s || window._voltHandoff) return false;   // a hand-off is the more recent intent
+        _studioRestoring = true;
+        try {
+            if (Array.isArray(s.slides) && s.slides.length) state.slides = s.slides.slice();
+            if (typeof s.showFooter === 'boolean') {
+                state.showFooter = s.showFooter;
+                const f = document.getElementById('toggle-footer'); if (f) f.checked = s.showFooter;
+            }
+            if (typeof s.currentSlide === 'number') state.currentSlide = s.currentSlide;
+            if (s.format) setFormat(s.format);
+            if (s.contentType && s.contentType !== 'creative' && PREMIUM[s.contentType]) {
+                setContentType(s.contentType);
+                // setContentType resets to direction A and reloads defaults — re-apply both after.
+                if (s.premiumDir) setPremiumDir(s.premiumDir);
+                if (s.premVals && typeof s.premVals === 'object') {
+                    premVals = Object.assign({}, premVals, s.premVals);
+                    renderPremFields(); renderPremiumPreview();
+                }
+            } else {
+                setContentType('creative');
+                if (s.campaign) setCampaign(s.campaign);
+                if (s.theme) setTheme(s.theme);
+            }
+            return true;
+        } finally { _studioRestoring = false; }
+    }
+    function restoreStudioSession() {
+        // Only used as the pre-autosave fallback path; the hook below handles the normal case.
+        const s = window.voltState && window.voltState.load('studio');
+        return applyStudioSnapshot(s);
+    }
+    function registerStudioAutosave() {
+        // Mirror into voltState too so restoreStudioSession() has something to read on first paint.
+        const push = () => { try { window.voltState && window.voltState.save('studio', studioSnapshot()); } catch (e) {} };
+        if (window.voltRegisterAutosave) {
+            window.voltRegisterAutosave('studio', {
+                snapshot: () => { const s = studioSnapshot(); if (s) push(); return s; },
+                restore: (s) => applyStudioSnapshot(s)
+            });
+        } else { setInterval(push, 15000); }
+    }
+</script>
 
 </body>
 </html>

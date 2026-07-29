@@ -2303,10 +2303,57 @@ function applyCampaignHandoff(){
   return true;
 }
 
+// ---- Session restore -------------------------------------------------------------------
+// The Video tool had NO persistence: set up a look, generate captions (a paid Whisper call), come
+// back and it's all gone. serializeLook()/restoreLook() already describe the whole style setup, so
+// autosave reuses them and adds the transcript, which is the expensive part to lose. The CLIP
+// itself is not stored — a video blob does not belong in localStorage — so a restored session
+// waits for you to re-pick the file with every setting already in place.
+(function registerVideoAutosave(){
+  if (!window.voltRegisterAutosave) return;
+  let restoring = false;
+  window.voltRegisterAutosave('video', {
+    snapshot: function(){
+      if (restoring) return null;
+      try {
+        const look = serializeLook();
+        // Cap the transcript so one long clip can't blow the localStorage quota for every other tool.
+        const lines = (state.lines || []).slice(0, 400);
+        return { look: look, lines: lines, words: lines.length ? (state.words || []).slice(0, 4000) : [],
+                 trimStart: state.trimStart, trimEnd: state.trimEnd, platform: state.postPlatform };
+      } catch (e) { return null; }
+    },
+    restore: function(d){
+      if (!d || !d.look) return false;
+      // A hand-off from Copy Lab / Campaign is the more recent intent — never overwrite it.
+      if (window._voltHandoff) return false;
+      restoring = true;
+      try {
+        restoreLook(d.look);
+        if (d.platform) {
+          state.postPlatform = d.platform;
+          document.querySelectorAll('#pcPlatSeg button').forEach(b => b.classList.toggle('on', b.dataset.pp === d.platform));
+        }
+        if (Array.isArray(d.lines) && d.lines.length) {
+          state.lines = d.lines; state.words = Array.isArray(d.words) ? d.words : [];
+          state.captionsOn = true;
+          // The editor only makes sense once a clip is back; keep the transcript and tell them why.
+          try { renderCapEditor(); } catch (e) {}
+          setStatus('↩ Restored your look and captions — re-open your clip to keep going.');
+        } else {
+          setStatus('↩ Restored your look — re-open your clip to keep going.');
+        }
+        return true;
+      } catch (e) { return false; }
+      finally { restoring = false; }
+    }
+  });
+})();
+
 // init
 refreshBrand();
 setFormat('9x16');
-if (!applyCampaignHandoff()) applyCopyHandoff();
+window._voltHandoff = applyCampaignHandoff() || applyCopyHandoff() || false;
 </script>
 
 <div id="looksModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">

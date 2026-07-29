@@ -202,6 +202,47 @@
   document.addEventListener('keydown', e=>{ const o = active(); if((e.key==='Delete'||e.key==='Backspace') && o && !(o.isEditing)){ const tag=(document.activeElement&&document.activeElement.tagName)||''; if(tag!=='INPUT' && tag!=='TEXTAREA' && tag!=='SELECT'){ e.preventDefault(); fc.remove(o); fc.renderAll(); } } });
   window.addEventListener('resize', ()=>sizeCanvas($$('ff-size').value));
   sizeCanvas('1200x628');
+
+  // ---- Session restore ------------------------------------------------------------------
+  // A freeform layout is pure Fabric state — nothing lived in an input, so leaving the tab lost
+  // the whole canvas. fc.toJSON() round-trips it. Embedded images serialise as their src, so an
+  // AI-generated or background-removed image comes back as a data URL and can push the payload
+  // over the localStorage quota; voltState.save() refuses anything oversized and returns false,
+  // which we surface rather than pretending it saved.
+  let ffRestoring = false;
+  const ffSnapshot = () => {
+    if (ffRestoring) return null;
+    try {
+      if (!fc.getObjects().length) return null;
+      return { size: $$('ff-size').value, bg: fc.backgroundColor || '#ffffff', json: fc.toJSON() };
+    } catch (e) { return null; }
+  };
+  const ffApply = (s) => {
+    if (!s || !s.json) return false;
+    ffRestoring = true;
+    try {
+      if (s.size && $$('ff-size')) { $$('ff-size').value = s.size; sizeCanvas(s.size); }
+      fc.loadFromJSON(s.json, () => {
+        if (s.bg) fc.setBackgroundColor(s.bg, () => {});
+        fc.renderAll(); ffRestoring = false;
+      });
+      if (s.bg && $$('ff-bg')) $$('ff-bg').value = s.bg;
+      return true;
+    } catch (e) { ffRestoring = false; return false; }
+  };
+  if (window.voltRegisterAutosave) window.voltRegisterAutosave('freeform', { snapshot: ffSnapshot, restore: ffApply });
+  if (window.voltState) {
+    const saved = window.voltState.load('freeform');
+    if (saved) ffApply(saved);
+    const push = () => {
+      const v = ffSnapshot(); if (!v) return;
+      if (window.voltState.save('freeform', v) === false && $$('ff-status'))
+        $$('ff-status').textContent = 'Canvas too large to autosave — download the PNG to keep it.';
+    };
+    // Fabric fires these on every add / move / edit; debounce so a drag doesn't thrash storage.
+    let ffT; const touch = () => { clearTimeout(ffT); ffT = setTimeout(push, 900); };
+    ['object:added','object:modified','object:removed','text:changed'].forEach(ev => fc.on(ev, touch));
+  }
 })();
 </script>
 </body>

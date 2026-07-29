@@ -315,8 +315,8 @@ Keep it warm and practical."></textarea>
         <div class="promo-fields">
           <input id="mc-title" placeholder="Product name — e.g. Founder's Edition White T-Shirt" />
           <div class="row">
-            <input class="field-sm" id="mc-price" placeholder="Price — e.g. R230" />
-            <input class="field-sm" id="mc-was" placeholder="Was-price (optional) — e.g. R290" />
+            <input class="field-sm" id="mc-price" placeholder="Price (optional) — leave blank to drive clicks" />
+            <input class="field-sm" id="mc-was" placeholder="Was-price (optional) — only for a real markdown" />
           </div>
           <input id="mc-image" placeholder="Product photo URL (optional) — upload to WordPress first" />
           <textarea id="mc-desc" rows="2" placeholder="One or two lines — why a founder wants this."></textarea>
@@ -324,12 +324,12 @@ Keep it warm and practical."></textarea>
             <input class="field-sm" id="mc-link" placeholder="Button link — full URL" />
             <input class="field-sm" id="mc-btn" placeholder="Button text — e.g. Shop now" />
           </div>
-          <textarea id="mc-also" rows="2" placeholder="Also in the store (optional) — one per line as Name | Price, e.g. Signature Red Cap | R120"></textarea>
+          <textarea id="mc-also" rows="2" placeholder="Also in the shop (optional) — one product per line. Add “| R120” only if you want the price shown."></textarea>
           <div class="row">
-            <input class="field-sm" id="mc-eyebrow" value="SME South Africa Store" placeholder="Eyebrow — e.g. SME South Africa Store" />
-            <input class="field-sm" id="mc-trust" value="SA-wide shipping · Secure checkout via PayFast" placeholder="Trust line — shipping &amp; payment" />
+            <input class="field-sm" id="mc-eyebrow" value="The Founder's Kit" placeholder="Eyebrow — e.g. The Founder's Kit" />
+            <input class="field-sm" id="mc-trust" value="SA-wide shipping · Secure checkout" placeholder="Trust line — shipping &amp; payment" />
           </div>
-          <p style="font-size:12.5px; color:var(--faint); margin:8px 0 0; line-height:1.5;">Lead with ONE product — a wall of products reads as a catalogue and gets skipped. Put the rest in “Also in the store”. The trust line is what closes it: shipping reach and payment safety are the two objections.</p>
+          <p style="font-size:12.5px; color:var(--faint); margin:8px 0 0; line-height:1.5;">Lead with ONE product — a wall of products reads as a catalogue and gets skipped. <strong>Leave the price blank unless it's the hook.</strong> If the email answers every question there's no reason left to click through; price belongs on the product page, where they can actually buy. Keep the trust line though — shipping reach is the real objection.</p>
         </div>
       </div>
 
@@ -1045,7 +1045,7 @@ function merchBlock(p){
                     <tr><td style="padding:0;">
                         <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td height="4" bgcolor="#9c1c1f" style="font-size:1px;line-height:1px;border-radius:15px 15px 0 0;">&nbsp;</td></tr></table>
                         <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td style="padding:28px 26px 24px 26px;">
-                            <p style="margin:0 0 18px 0;font-family:'Oswald',sans-serif;font-size:11px;color:#9c1c1f;font-weight:900;text-transform:uppercase;letter-spacing:2px;">🛍️ ${esc(p.eyebrow || 'SME South Africa Store')}</p>
+                            <p style="margin:0 0 18px 0;font-family:'Oswald',sans-serif;font-size:11px;color:#9c1c1f;font-weight:900;text-transform:uppercase;letter-spacing:2px;">🛍️ ${esc(p.eyebrow || "The Founder's Kit")}</p>
                             <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
                                 <td class="col" valign="top" style="padding-right:22px;">
                                     <h3 style="margin:0 0 12px 0;font-family:'Oswald',sans-serif;font-size:23px;color:#0a2c3d;font-weight:900;line-height:1.2;text-transform:uppercase;letter-spacing:0.3px;">${esc(p.title)}</h3>
@@ -1409,6 +1409,8 @@ function currentContent(bodyHtml){
 // are left untouched — this only normalises the sections that were relying on the cascade.
 const BASE_P  = "font-family:'Roboto',Arial,Helvetica,sans-serif;color:#444444;font-size:15px;line-height:1.6;margin:0 0 12px 0;";
 const BASE_H2 = "font-family:'Oswald','Arial Narrow',Arial,sans-serif;color:#0a2c3d;font-size:22px;font-weight:700;line-height:1.35;letter-spacing:0.5px;margin:20px 0 10px 0;";
+const BASE_H3 = "font-family:'Oswald','Arial Narrow',Arial,sans-serif;color:#0a2c3d;font-size:18px;font-weight:700;line-height:1.35;letter-spacing:0.4px;margin:18px 0 8px 0;";
+const BASE_LI = "font-family:'Roboto',Arial,Helvetica,sans-serif;color:#444444;font-size:15px;line-height:1.6;margin:0 0 6px 0;";
 const BASE_RR = "background-color:#f8fafc;padding:15px 18px;border-left:4px solid #9c1c1f;margin:12px 0 20px 0;font-size:14px;line-height:1.5;border-radius:0 8px 8px 0;color:#444444;font-family:'Roboto',Arial,Helvetica,sans-serif;";
 function injectBaseStyle(tag, base){
   if(/font-size\s*:/i.test(tag)) return tag;                 // intentionally-styled component (promo) — leave it
@@ -1422,8 +1424,46 @@ function injectBaseStyle(tag, base){
 function inlineBaseTypography(html){
   return String(html || '')
     .replace(/<p\b[^>]*>/gi,  t => injectBaseStyle(t, BASE_P))
+    .replace(/<h1\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H2))
     .replace(/<h2\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H2))
+    .replace(/<h3\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H3))
+    .replace(/<h4\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H3))
+    .replace(/<li\b[^>]*>/gi, t => injectBaseStyle(t, BASE_LI))
     .replace(/<div\b[^>]*\bclass="[^"]*related-reading[^"]*"[^>]*>/gi, t => injectBaseStyle(t, BASE_RR));
+}
+// ---- Font-family backstop ------------------------------------------------------------------
+// injectBaseStyle() deliberately skips any tag that already sets its own font-size, because those
+// are intentionally-styled components. But "sets a size" is not the same as "sets a face": several
+// blocks (the sponsored/CTA headings, the shell footers, list items, the starter layouts) declared
+// a size and NO family, so in the sent email they inherited whatever the client defaults to —
+// Times in some Outlooks — while the fully-specified blocks stayed on brand. That is the mixed-font
+// report. This final pass guarantees ONE rule with no exceptions: every text-bearing tag in a Volt
+// email carries a family. Headings get Oswald, everything else Roboto. Sizes, colours and spacing
+// are left exactly as the design set them; a tag that already names a family is never touched.
+const FAM_HEAD = "'Oswald','Arial Narrow',Arial,sans-serif";
+const FAM_BODY = "'Roboto',Arial,Helvetica,sans-serif";
+function ensureFontFamily(html){
+  return String(html || '').replace(
+    /<(p|h1|h2|h3|h4|h5|h6|li|ul|ol|td|th|span|a|div|blockquote|strong|em|b|i)\b([^>]*)>/gi,
+    function(tag, name, attrs){
+      if(/font-family\s*:/i.test(attrs)) return tag;                       // already on brand
+      const fam = /^h[1-6]$/i.test(name) ? FAM_HEAD : FAM_BODY;
+      const m = attrs.match(/\bstyle\s*=\s*"([^"]*)"/i);
+      if(m) return tag.replace(m[0], 'style="' + m[1].trim().replace(/;?\s*$/, ';') + 'font-family:' + fam + ';"');
+      return '<' + name + attrs + ' style="font-family:' + fam + ';">';
+    });
+}
+// Blocks were written over time with different fallback chains for the same face — "'Oswald',
+// sans-serif" in one, "'Oswald',Arial,sans-serif" in another. Outlook can't load either webfont, so
+// those chains are what actually renders, and differing chains mean differing faces section to
+// section. Collapse every Oswald/Roboto declaration onto ONE chain so the degradation is identical
+// everywhere. Any other named face (a deliberate monospace, say) is left alone.
+function normalizeFontStacks(html){
+  return String(html || '').replace(/font-family\s*:\s*([^;"]+)/gi, function(decl, list){
+    if(/Oswald/i.test(list)) return 'font-family:' + FAM_HEAD;
+    if(/Roboto/i.test(list)) return 'font-family:' + FAM_BODY;
+    return decl;
+  });
 }
 function assemble(bodyHtml, editable){
   if(state.imported){
@@ -1434,7 +1474,9 @@ function assemble(bodyHtml, editable){
   const inner = inlineBaseTypography(currentContent(bodyHtml));
   // Everything between the shell (body + all sections) is editable — text & links, not the shell design.
   const content = editable ? '<div class="volt-editable">' + inner + '</div>' : inner;
-  return shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom();
+  // The family backstop runs over the WHOLE email, shell included — the header/footer had bare
+  // sized text too, so normalising only the middle still left a face mismatch top and bottom.
+  return normalizeFontStacks(ensureFontFamily(shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom()));
 }
 // Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
 // centred container with safe defaults. Used for pasted/imported HTML.
@@ -2466,6 +2508,39 @@ async function deleteDraft(id){
 // Bring back the last generated email; only fall back to the sample if there's nothing saved.
 if (!restoreEmail()) renderPreview(SAMPLE_BODY);
 
+// ---- Session restore -------------------------------------------------------------------
+// restoreEmail() above only brings back the BODY. The section toggles, every section's fields and
+// the link rows are the rest of the work, and losing those is what "it disappeared" actually felt
+// like. serializeDraft()/restoreDraft() already describe the whole builder, so autosave reuses
+// them — same shape as a saved draft, just kept locally and continuously.
+(function registerEmailAutosave(){
+  if (!window.voltRegisterAutosave) return;
+  let restoring = false;
+  window.voltRegisterAutosave('email', {
+    snapshot: function(){
+      if (restoring) return null;
+      try {
+        const d = serializeDraft();
+        // The sample body is a placeholder, not the user's work — don't persist it.
+        if (d.body === SAMPLE_BODY) d.body = '';
+        const anyPromo = Object.keys(d.promos || {}).some(k => d.promos[k]);
+        const anyField = Object.keys(d.fields || {}).some(k => (d.fields[k] || '').trim());
+        if (!d.body && !d.editedContent && !anyPromo && !anyField) return null;
+        return d;
+      } catch (e) { return null; }
+    },
+    restore: function(d){
+      if (!d) return false;
+      // A brief handed over from Campaign is the more recent intent — never overwrite it.
+      if (window._voltHandoff) return false;
+      restoring = true;
+      try { restoreDraft(d); return true; }
+      catch (e) { return false; }
+      finally { restoring = false; }
+    }
+  });
+})();
+
 // Campaign page → "Write it in Email": prefill the brief (subject line folded in on top).
 (function(){
   let raw; try { raw = sessionStorage.getItem('tl_campaign_email'); } catch(e){ return; }
@@ -2478,6 +2553,7 @@ if (!restoreEmail()) renderPreview(SAMPLE_BODY);
     b.value = (h.subject ? 'Subject: ' + h.subject + '\n\n' : '') + (h.brief || '');
     b.focus();
     b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    window._voltHandoff = true;   // stops the autosave restore from clobbering this brief
   }
 })();
 </script>

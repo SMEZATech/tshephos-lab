@@ -769,6 +769,34 @@ elRes.addEventListener('click', e => {
   if(card){ const sel = document.getElementById('liveChannel'); if(sel){ sel.value = card.getAttribute('data-chan'); state.overview = null; run(); } }
 });
 
+// ---- Session restore -------------------------------------------------------------------
+// A Stats run means live Postiz pulls plus an AI analyst pass. Losing that on a tab switch means
+// paying for it again, so the report is kept and repainted. Only RESULTS are stored — the channel
+// list and the loading flags are refetched, never restored stale.
+(function registerStatsAutosave(){
+  const snapshot = () => {
+    if(!state.dashData && !state.analysis && !state.overview && !state.topPosts) return null;
+    return { platform:state.platform, period:state.period, goal:state.goal, mode:state.mode,
+             metrics:state.metrics, dashData:state.dashData, analysis:state.analysis,
+             overview:state.overview, topPosts:state.topPosts, bestposts:state.bestposts, kit:state.kit };
+  };
+  const apply = (s) => {
+    if(!s) return false;
+    ['platform','period','goal','mode','metrics','dashData','analysis','overview','topPosts','bestposts','kit']
+      .forEach(k => { if(s[k] != null) state[k] = s[k]; });
+    state.loading = false; state.topLoading = false; state.kitLoading = false;
+    render();
+    return true;
+  };
+  if(window.voltRegisterAutosave) window.voltRegisterAutosave('stats', { snapshot, restore: apply });
+  // Mirror through voltState too so the report is on screen at first paint, not 250ms later.
+  if(window.voltState){
+    const s = window.voltState.load('stats');
+    if(s) apply(s);
+    setInterval(() => { const v = snapshot(); if(v) window.voltState.save('stats', v); }, 15000);
+  }
+})();
+
 render();
 </script>
 </body>

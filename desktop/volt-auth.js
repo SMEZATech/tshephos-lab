@@ -963,45 +963,132 @@
   window.addEventListener("load", applyOrgSettings);
   window.addEventListener("volt:ready", refreshOrgSettings);
 
-  /* ---------- universal autosave — never lose typed work ---------- */
+  /* ---------- universal autosave — never lose typed work ----------
+     Text fields alone were not enough. A user would generate an email, edit it in the preview,
+     set up a Studio design or a Video look, come back and find it gone — because none of that
+     lives in an <input>. Autosave now covers four things:
+       1. text inputs / textareas / selects with an id   (as before)
+       2. checkboxes + radios                            (toggles: caption bg, show-footer, ...)
+       3. [contenteditable][id]                          (the email preview editor)
+       4. registered MODULE STATE via window.voltRegisterAutosave — each tool hands over a
+          snapshot of its own state object, which is where the real work actually is.
+     It also flushes on tab-hide and pagehide, because a debounce does not fire if you close fast. */
   function autosaveKey() { return "volt_autosave_" + (location.pathname.split("/").pop() || "index").toLowerCase(); }
+  function autosaveSkip(el) {
+    if (!el || !el.id || /^(va-|vk-)/.test(el.id)) return true;
+    return el.hasAttribute("data-no-save");
+  }
   function autosaveFields() {
     return [].slice.call(document.querySelectorAll("input[id],textarea[id],select[id]")).filter(function (el) {
-      if (/^(va-|vk-)/.test(el.id)) return false;
-      if (el.hasAttribute("data-no-save")) return false;
+      if (autosaveSkip(el)) return false;
       if (el.tagName === "INPUT") {
         var t = (el.type || "text").toLowerCase();
-        if (["password", "file", "range", "color", "checkbox", "radio", "button", "submit", "reset", "hidden"].indexOf(t) >= 0) return false;
+        if (["password", "file", "button", "submit", "reset", "hidden"].indexOf(t) >= 0) return false;
       }
       return true;
     });
   }
-  var autosaveT, autosaveOn = false;
-  function saveAutosave() {
-    var m = {}; autosaveFields().forEach(function (el) { if (el.value) m[el.id] = el.value; });
-    try { if (Object.keys(m).length) localStorage.setItem(autosaveKey(), JSON.stringify({ t: Date.now(), m: m })); else localStorage.removeItem(autosaveKey()); } catch (e) {}
-  }
-  function restoreAutosave() {
-    var raw; try { raw = localStorage.getItem(autosaveKey()); } catch (e) { return; }
-    if (!raw) return; var data; try { data = JSON.parse(raw); } catch (e) { return; }
-    if (!data || !data.m) return; var n = 0;
-    // Only fill fields that are currently EMPTY — never clobber a tool's defaults or a hand-off.
-    autosaveFields().forEach(function (el) {
-      var val = data.m[el.id];
-      if (val != null && val !== "" && !el.value) {
-        el.value = val;
-        try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {}
-        n++;
-      }
+  function autosaveToggles() {
+    return autosaveFields().filter(function (el) {
+      var t = (el.type || "").toLowerCase(); return t === "checkbox" || t === "radio";
     });
-    if (n) showToast("↩ Restored your unsaved edits");
+  }
+  function autosaveValueFields() {
+    return autosaveFields().filter(function (el) {
+      var t = (el.type || "").toLowerCase(); return t !== "checkbox" && t !== "radio";
+    });
+  }
+  function autosaveEditables() {
+    return [].slice.call(document.querySelectorAll("[contenteditable][id]")).filter(function (el) {
+      return !autosaveSkip(el) && el.getAttribute("contenteditable") !== "false";
+    });
+  }
+
+  // Module-state registry. A page calls this once with a snapshot()/restore() pair; snapshot must
+  // return something JSON-serialisable, restore receives it back verbatim on the next load.
+  var autosaveMods = {};
+  window.voltRegisterAutosave = function (name, handlers) {
+    if (!name || !handlers || typeof handlers.snapshot !== "function" || typeof handlers.restore !== "function") return;
+    autosaveMods[name] = handlers;
+    // A page may register AFTER the restore pass has already run (its init is async, or it waits
+    // for fonts/worker). Catch it up immediately instead of silently losing the snapshot.
+    if (autosaveRestored) {
+      var saved = autosaveStored();
+      if (saved && saved.mods && saved.mods[name] != null) {
+        try { if (handlers.restore(saved.mods[name]) !== false) showToast("↩ Restored your unsaved work"); } catch (e) {}
+      }
+    }
+  };
+  function autosaveStored() {
+    var raw; try { raw = localStorage.getItem(autosaveKey()); } catch (e) { return null; }
+    if (!raw) return null; try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  var autosaveT, autosaveOn = false, autosaveRestored = false;
+  function saveAutosave() {
+    if (!autosaveOn) return;
+    var m = {}, c = {}, e2 = {}, mods = {};
+    autosaveValueFields().forEach(function (el) { if (el.value) m[el.id] = el.value; });
+    autosaveToggles().forEach(function (el) { c[el.id] = !!el.checked; });
+    autosaveEditables().forEach(function (el) { if (el.innerHTML && el.innerHTML.trim()) e2[el.id] = el.innerHTML; });
+    Object.keys(autosaveMods).forEach(function (k) {
+      try { var s = autosaveMods[k].snapshot(); if (s != null) mods[k] = s; } catch (err) {}
+    });
+    var payload = { t: Date.now(), m: m, c: c, e: e2, mods: mods };
+    var empty = !Object.keys(m).length && !Object.keys(e2).length && !Object.keys(mods).length;
+    try {
+      if (empty) localStorage.removeItem(autosaveKey());
+      else localStorage.setItem(autosaveKey(), JSON.stringify(payload));
+    } catch (err) {
+      // Quota blown (a Video look or a big email body can be large) — drop module state and retry
+      // with just the fields, so a big snapshot never costs the user their typed copy too.
+      try { localStorage.setItem(autosaveKey(), JSON.stringify({ t: payload.t, m: m, c: c, e: e2, mods: {} })); } catch (e3) {}
+    }
+  }
+  function flushAutosave() { clearTimeout(autosaveT); saveAutosave(); }
+  function restoreAutosave() {
+    if (autosaveRestored) return; autosaveRestored = true;
+    var data = autosaveStored();
+    if (!data) return; var n = 0;
+    var fire = function (el) { try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {} };
+    // Text: only fill fields that are currently EMPTY — never clobber a tool's defaults or a hand-off.
+    if (data.m) autosaveValueFields().forEach(function (el) {
+      var val = data.m[el.id];
+      if (val != null && val !== "" && !el.value) { el.value = val; fire(el); n++; }
+    });
+    // Toggles: restore only when it DIFFERS from the current state, so we don't fire needless events.
+    if (data.c) autosaveToggles().forEach(function (el) {
+      var val = data.c[el.id];
+      if (typeof val === "boolean" && el.checked !== val) { el.checked = val; fire(el); n++; }
+    });
+    // Editable regions: same empty-only rule, measured on text content so whitespace markup
+    // from the editor doesn't read as "already has content".
+    if (data.e) autosaveEditables().forEach(function (el) {
+      var val = data.e[el.id];
+      if (val && !(el.textContent || "").trim()) { el.innerHTML = val; n++; }
+    });
+    // Module state LAST — a tool's restore() typically re-renders from the fields above.
+    if (data.mods) Object.keys(autosaveMods).forEach(function (k) {
+      if (data.mods[k] == null) return;
+      try { if (autosaveMods[k].restore(data.mods[k]) !== false) n++; } catch (err) {}
+    });
+    if (n) showToast("↩ Restored your unsaved work");
   }
   function initAutosave() {
     if (autosaveOn) return; autosaveOn = true;
-    document.addEventListener("input", function (e) {
-      var el = e.target; if (!el || !el.id || /^(va-|vk-)/.test(el.id)) return;
+    var touch = function (e) {
+      var el = e && e.target; if (el && el.id && /^(va-|vk-)/.test(el.id)) return;
       clearTimeout(autosaveT); autosaveT = setTimeout(saveAutosave, 600);
-    }, true);
+    };
+    document.addEventListener("input", touch, true);
+    document.addEventListener("change", touch, true);          // selects, checkboxes, radios
+    // The email/Studio editors mutate the DOM and JS state without any input event — a heartbeat
+    // is the only thing that reliably catches "generated a draft then walked away".
+    setInterval(function () { if (document.visibilityState !== "hidden") saveAutosave(); }, 15000);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flushAutosave(); });
+    window.addEventListener("pagehide", flushAutosave);
+    window.addEventListener("beforeunload", flushAutosave);
+    window.voltAutosaveNow = flushAutosave;                     // pages can force a save after a generate
     if (document.readyState === "complete") setTimeout(restoreAutosave, 250);
     else window.addEventListener("load", function () { setTimeout(restoreAutosave, 250); });
   }
@@ -1032,19 +1119,38 @@
   }
 
   /* ---------- personalized "Jarvis" welcome (everyone) ---------- */
-  // Special titles by email; everyone else is greeted by the name in their email address.
-  var OWNERS = {
-    "joel@smesouthafrica.co.za": { name: "Joel", title: "Master" },
+  // How each person is addressed. The owner keeps "Master"; teammates are greeted formally by
+  // honorific + surname. Supabase gives us an email and nothing else, so a surname has to be
+  // recorded here (or arrive as `first.last@`) — it cannot be guessed from "karabo@...".
+  //
+  // Deliberately NO default honorific for people who aren't listed: guessing "Mr" from a name or
+  // an email would misgender real colleagues, so unknown users are greeted by first name until
+  // they're added below. Adding a teammate is one line.
+  var PEOPLE = {
+    "joel@smesouthafrica.co.za":   { name: "Joel", title: "Master" },
+    "karabo@smesouthafrica.co.za": { surname: "Kgophane", title: "Mr" },
   };
+  function greetingName(em) {
+    var who = PEOPLE[em];
+    if (who) {
+      var label = who.surname || who.name || firstName(em);
+      return (who.title ? who.title + " " : "") + label;
+    }
+    // `first.last@domain` carries a real surname — use it, but still without an assumed honorific.
+    var local = String(em).split("@")[0], parts = local.split(/[._-]+/).filter(Boolean);
+    if (parts.length > 1) {
+      var last = parts[parts.length - 1];
+      return last.charAt(0).toUpperCase() + last.slice(1);
+    }
+    return firstName(em);
+  }
   function maybeGreetOwner() {
     try {
       var em = (session && session.user && session.user.email ? String(session.user.email) : "").toLowerCase();
       if (!em) return;
       if (sessionStorage.getItem("volt_greeted")) return; // once per app session
       sessionStorage.setItem("volt_greeted", "1");
-      var who = OWNERS[em];
-      var name = who ? ((who.title ? who.title + " " : "") + who.name) : firstName(em);
-      showOwnerGreeting("Welcome back, " + name);
+      showOwnerGreeting("Welcome back, " + greetingName(em));
     } catch (e) {}
   }
   function showOwnerGreeting(text) {
