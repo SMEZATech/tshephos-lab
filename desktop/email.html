@@ -1302,12 +1302,41 @@ function currentContent(bodyHtml){
   const promos = collectPromos();
   return (bodyHtml || '') + (promos ? '\n' + promos : '');
 }
+// ---- Email-client typography guard ---------------------------------------------------------
+// The preview honours the shell's <style> block, but many mail clients don't apply block rules to
+// <p>/<h2> — Outlook's Word engine ignores them, and several ESPs/clients strip embedded <style>
+// entirely. The AI body and content sections use BARE <p>/<h2> (they relied on that stylesheet),
+// while every promo block is already fully inline-styled. So in the SENT email the bare sections
+// fell back to each client's default size while the promos kept theirs — sections rendered at
+// different sizes even though the preview looked uniform (exactly the report from the list).
+// Fix: inline the SAME base styles the <style> block declares onto every bare body element, so no
+// section depends on the stylesheet. Tags that already set font-size (all the promo components)
+// are left untouched — this only normalises the sections that were relying on the cascade.
+const BASE_P  = "font-family:'Roboto',Arial,Helvetica,sans-serif;color:#444444;font-size:15px;line-height:1.6;margin:0 0 12px 0;";
+const BASE_H2 = "font-family:'Oswald','Arial Narrow',Arial,sans-serif;color:#0a2c3d;font-size:22px;font-weight:700;line-height:1.35;letter-spacing:0.5px;margin:20px 0 10px 0;";
+const BASE_RR = "background-color:#f8fafc;padding:15px 18px;border-left:4px solid #9c1c1f;margin:12px 0 20px 0;font-size:14px;line-height:1.5;border-radius:0 8px 8px 0;color:#444444;font-family:'Roboto',Arial,Helvetica,sans-serif;";
+function injectBaseStyle(tag, base){
+  if(/font-size\s*:/i.test(tag)) return tag;                 // intentionally-styled component (promo) — leave it
+  const m = tag.match(/\bstyle\s*=\s*"([^"]*)"/i);
+  if(m){                                                     // base first, so an existing decl (e.g. the intro's margin-bottom:0) still wins
+    const merged = base + m[1].trim().replace(/;?\s*$/, ';');
+    return tag.replace(m[0], 'style="' + merged + '"');
+  }
+  return tag.replace(/^<(\w+)/, '<$1 style="' + base + '"');
+}
+function inlineBaseTypography(html){
+  return String(html || '')
+    .replace(/<p\b[^>]*>/gi,  t => injectBaseStyle(t, BASE_P))
+    .replace(/<h2\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H2))
+    .replace(/<div\b[^>]*\bclass="[^"]*related-reading[^"]*"[^>]*>/gi, t => injectBaseStyle(t, BASE_RR));
+}
 function assemble(bodyHtml, editable){
   if(state.imported){
     const b = editable ? '<div class="volt-editable">' + bodyHtml + '</div>' : bodyHtml;
     return protectiveWrap(b);
   }
-  const inner = currentContent(bodyHtml);
+  // Self-contain every section's typography so preview and the sent email match everywhere.
+  const inner = inlineBaseTypography(currentContent(bodyHtml));
   // Everything between the shell (body + all sections) is editable — text & links, not the shell design.
   const content = editable ? '<div class="volt-editable">' + inner + '</div>' : inner;
   return shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom();
