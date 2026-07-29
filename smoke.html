@@ -148,16 +148,39 @@
       await run(name, { type: 'render-single', state: { ...baseState, ...mut }, brand, slideIdx, featuredBlob, logoBlob, fontBuffers: {}, scale: S, filename: 't.png' }, exp[0] * S, exp[1] * S);
     }
 
-    // 5) Premium matrix: every type x every dir x 3 sizes (empty vals — draw fns have fallbacks; smoke = no-crash + non-blank).
-    // Providers/findpros carry D/E slots for the Serv marketplace designs; funding/etc stop at C — iterate dirs per type.
-    const PREM_DIRS = { funding:['a','b','c'], solutions:['a','b','c'], newsletter:['a','b','c'], resources:['a','b','c'], providers:['a','b','c','d','e'], findpros:['a','b','c','d','e'] };
-    for (const pt of Object.keys(PREM_DIRS)) {
-      for (const dir of PREM_DIRS[pt]) {
+    // 5) Premium matrix: every type x every dir x 3 sizes. Every family has exactly A/B/C — the old
+    // D/E entries for providers/findpros did not exist in the PREMIUM registry and silently fell
+    // through to the A branch, so they were reporting coverage that wasn't there.
+    const PREM_TYPES = ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros', 'podcast', 'merch'];
+    // Minimum copy so the non-blank check is meaningful for text-driven directions (the draw fns
+    // default the furniture, but not the headline/quote/product name).
+    const PREM_VALS = {
+      head: 'Smoke test headline for layout verification',
+      quote: 'A pull quote long enough to wrap across more than one line.',
+      sub: 'A subline that wraps so the vertical flow is exercised at every dimension.',
+      category: 'Web Developers', name: 'Signature Red Cap', price: 'R120', big: '150+',
+      guest: 'Test Guest', role: 'Founder, Test Co', ep: 'Episode 42',
+      p1: 'Cap|R120', p2: 'Bottle|R100', p3: 'Tee|R230',
+      i1: 'First supporting point', i2: 'Second supporting point', i3: 'Third supporting point',
+      b1: 'Benefit one', b2: 'Benefit two', b3: 'Benefit three',
+      pro1: 'A pro', pro2: 'Another pro', con1: 'A con', vsLeft: 'A', vsRight: 'B',
+      coverTitle: 'Cover title', coverSub: 'Cover subtext', cardk: 'Label', cardh: 'Card head', cards: 'Card sub'
+    };
+    for (const pt of PREM_TYPES) {
+      for (const dir of ['a', 'b', 'c']) {
         for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
           await run('premium/' + pt + '/' + dir + '/' + sz,
-            { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: {}, w: wh[0], h: wh[1], scale: S, filename: 't.png' },
+            { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, filename: 't.png' },
             wh[0] * S, wh[1] * S);
         }
+      }
+    }
+    // 5b) Podcast/Merch also have a photo path (guest shot / product shot) — cover it.
+    for (const [pt, dir] of [['podcast', 'a'], ['podcast', 'b'], ['merch', 'a']]) {
+      for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
+        await run('premium+photo/' + pt + '/' + dir + '/' + sz,
+          { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, featuredBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, filename: 't.png' },
+          wh[0] * S, wh[1] * S);
       }
     }
 

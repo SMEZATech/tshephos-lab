@@ -203,6 +203,8 @@
                     <button onclick="setContentType('resources')" id="ct-resources" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">▤ Resources</button>
                     <button onclick="setContentType('providers')" id="ct-providers" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🤝 Get Providers</button>
                     <button onclick="setContentType('findpros')" id="ct-findpros" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🔎 Find Providers</button>
+                    <button onclick="setContentType('podcast')" id="ct-podcast" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🎙️ Podcast</button>
+                    <button onclick="setContentType('merch')" id="ct-merch" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🛍️ Merch</button>
                 </div>
                 <p class="text-[10px] text-slate-500 leading-snug mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
             </div>
@@ -217,6 +219,21 @@
                 </div>
                 <p class="text-[11px] font-bold text-slate-300 mb-1" id="pdir-name"></p>
                 <div id="premium-fields" class="flex flex-col gap-2"></div>
+                <!-- Photo slot for the families that use one (Podcast = guest, Merch = product).
+                     Feeds the SAME currentImageBlob path as the Creative featured image, so there
+                     is only one image pipeline to reason about. -->
+                <div id="premium-image" class="hidden mt-3 pt-3 border-t border-slate-700">
+                    <label class="text-xs text-slate-400 block mb-1" id="premium-image-label">Photo</label>
+                    <input type="file" id="prem-image" accept="image/*" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer hover:file:bg-slate-600 transition-colors">
+                    <div class="flex gap-2 mt-2">
+                        <input type="text" id="prem-ai-prompt" placeholder="…or describe it and generate with AI" class="flex-1 bg-slate-900 text-white rounded-md p-2 text-xs border border-slate-600 focus:border-[#B6FF3D] outline-none">
+                        <button id="prem-ai-btn" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Generate</button>
+                    </div>
+                    <div class="flex items-center gap-3 mt-2">
+                        <button id="prem-image-clear" type="button" class="text-[10px] uppercase tracking-wide font-bold text-slate-400 hover:text-white">Remove photo</button>
+                        <p id="prem-image-status" class="text-[10px] text-slate-500 flex-1"></p>
+                    </div>
+                </div>
             </div>
 
             <!-- Step 2: Strategic Format (Creative only) -->
@@ -1565,6 +1582,12 @@ function pContrast(a, b) {
     return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 function pIsLight(hex) { return pLum(hex) > 0.42; }
+function pRgba(hex, alpha) {
+    const h = String(hex || '').replace('#', '').trim();
+    if (h.length !== 6) return 'rgba(0,0,0,' + alpha + ')';
+    const n = parseInt(h, 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+}
 function pInk(bg) { return pIsLight(bg) ? PC.ink : PC.white; }           // body/heading on bg
 function pSubInk(bg) { return pIsLight(bg) ? PC.slate : PC.cbd; }        // secondary text on bg
 function pOn(bg, whenDark, whenLight) { return pIsLight(bg) ? whenLight : whenDark; }
@@ -1577,36 +1600,69 @@ function pShade(hex, ratio) {
     return '#' + [f(r), f(g), f(b)].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
+// ---- Premium geometry (dimension-awareness) ---------------------------------------------
+// Every premium design is AUTHORED at 1080x1080. When the canvas is taller (portrait 1080x1350)
+// the old code rendered the square and letterboxed it with stretched edge rows — which read as a
+// floating box with flat dead bands, and still carried the square's own slack between the copy
+// and the bottom-pinned CTA. Instead we now render NATIVELY at W x H and scale the VERTICAL
+// rhythm (pads, gaps, block heights, type ceilings) by k = H/W. Horizontal metrics and text
+// wrapping are untouched, so nothing re-wraps unexpectedly — the design just breathes into the
+// extra height. At square (k = 1) every value is identical to before, so square is a no-op.
+let PG = null;
+function pGeom(W, H) {
+    const k = Math.max(0.9, Math.min(1.32, H / W));
+    PG = {
+        k: k,
+        pad:  Math.round(82  * Math.min(1.20, k)),   // frame padding
+        btn:  Math.round(112 * Math.min(1.14, k)),   // pButton height
+        pill: Math.round(64  * Math.min(1.10, k)),   // pPill height
+        bul:  Math.round(58  * Math.min(1.10, k)),   // pBullet box
+        v: n => Math.round(n * k),                       // vertical gap / block height
+        t: n => Math.round(n * (1 + (k - 1) * 0.55))     // type ceiling — grows, but gently
+    };
+    return PG;
+}
+function pV(n) { return PG ? PG.v(n) : Math.round(n); }
+function pT(n) { return PG ? PG.t(n) : Math.round(n); }
+function pPad()  { return PG ? PG.pad  : 82; }
+function pBtnH() { return PG ? PG.btn  : 112; }
+
 function pPill(r, x, y, text, bg, fg) {
-    const f = { family: 'Oswald', weight: '700', size: 30 };
-    const t = String(text || '').toUpperCase(), padX = 34, padY = 17, h = 30 + padY * 2;
+    const h = PG ? PG.pill : 64;
+    const fs = Math.round(30 * (h / 64));
+    const f = { family: 'Oswald', weight: '700', size: fs };
+    const t = String(text || '').toUpperCase(), padX = 34;
     const w = r.textWidth(t, f) + padX * 2;
     r.fillRoundRect(x, y, w, h, h / 2, bg);
-    r.drawLines([t], f, x + padX, y + padY, w, { color: fg });
+    r.drawLines([t], f, x + padX, y + (h - fs) / 2, w, { color: fg });
     return h;
 }
 function pButton(r, x, y, w, text, bg, fg) {
-    const h = 112, f = { family: 'Oswald', weight: '700', size: 40 };
+    const h = pBtnH(), fs = Math.round(40 * Math.min(1.1, h / 112));
+    const f = { family: 'Oswald', weight: '700', size: fs };
     r.fillRoundRect(x, y, w, h, 22, bg);
-    r.drawLines([String(text || '').toUpperCase()], f, x, y + (h - 40) / 2, w, { color: fg, align: 'center' });
+    r.drawLines([String(text || '').toUpperCase()], f, x, y + (h - fs) / 2, w, { color: fg, align: 'center' });
     return h;
 }
 function pBullet(r, x, y, text, boxColor, txtColor) {
-    const s = 58;
+    const s = PG ? PG.bul : 58, fs = Math.round(40 * Math.min(1.08, s / 58));
     r.fillRoundRect(x, y, s, s, 16, boxColor);
-    r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 34 }, x, y + 12, s, { color: '#fff', align: 'center' });
-    r.drawLines([String(text || '')], { family: 'Roboto', weight: '400', size: 40 }, x + s + 28, y + 8, 860, { color: txtColor });
+    r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: Math.round(s * 0.586) }, x, y + s * 0.2, s, { color: '#fff', align: 'center' });
+    r.drawLines([String(text || '')], { family: 'Roboto', weight: '400', size: fs }, x + s + 28, y + (s - fs) / 2, r.w - x - s - 28 - pPad(), { color: txtColor });
     return s;
 }
 function drawPremium(r, type, dir, v, assets) {
     r.ctx.textBaseline = 'top';
     v = v || {}; assets = assets || {};
+    pGeom(r.w, r.h);                                  // set the vertical rhythm for this canvas
     if (type === 'funding')   return drawFunding(r, dir, v, assets);
     if (type === 'solutions') return drawSolutions(r, dir, v, assets);
     if (type === 'newsletter') return drawNewsletter(r, dir, v, assets);
     if (type === 'resources') return drawResources(r, dir, v, assets);
     if (type === 'providers') return drawProviders(r, dir, v, assets);
     if (type === 'findpros')  return drawFindPros(r, dir, v, assets);
+    if (type === 'podcast')   return drawPodcast(r, dir, v, assets);
+    if (type === 'merch')     return drawMerch(r, dir, v, assets);
     r.fillBg(PC.navy); // safety fallback
 }
 
@@ -1618,115 +1674,353 @@ function drawPremium(r, type, dir, v, assets) {
 // Deliberately brand-agnostic: every colour comes from PC (which derives from the ACTIVE Brand
 // Kit), so Serv renders in Serv's colours and any future marketplace brand works unchanged.
 
+// ---- Brand-safe fills -------------------------------------------------------------------
+// PC.navy / PC.paper come from the ACTIVE Brand Kit, so "navy on paper" is NOT guaranteed to be
+// dark-on-light. Serv's brand (light secondary) rendered a white CTA with near-white text and an
+// invisible verification badge. pSolid() picks whichever brand colour actually reads against the
+// background, and always returns a legible label colour with it.
+function pSolid(bgRef, prefer, alt) {
+    // 1.35 is the bar for a SOLID BLOCK, not for text: a filled shape only has to be
+    // distinguishable from its background, and its label gets its own colour from pInk(). Holding
+    // fills to a text-grade ratio threw away SME's own red-on-navy (1.42) — which is the brand.
+    const MIN = 1.35, a = prefer, b = alt || PC.red;
+    const fill = pContrast(a, bgRef) >= MIN ? a : (pContrast(b, bgRef) >= MIN ? b : pInk(bgRef));
+    // .fill = block colour, .on = label on that block, .text = the same accent used as TYPE
+    return { fill: fill, on: pInk(fill), text: pAccentText(bgRef, fill) };
+}
+// TEXT in the accent colour needs a real contrast ratio, which a solid fill does not. SME red on
+// SME navy is 1.42 — fine as a block, unreadable as a headline. Lighten (or darken) the accent
+// until it clears 3.0 against the background; give up and use plain ink if it never does.
+function pAccentText(bgRef, accent) {
+    let c = accent || PC.red;
+    if (pContrast(c, bgRef) >= 3) return c;
+    const dir = pIsLight(bgRef) ? -1 : 1;                 // dark bg -> lighten, light bg -> darken
+    for (let i = 1; i <= 8; i++) {
+        const t = pShade(c, dir * i * 0.1);
+        if (pContrast(t, bgRef) >= 3) return t;
+    }
+    return pInk(bgRef);
+}
+
 // Supply side — recruit service providers onto the marketplace.
 function drawProviders(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
 
     if (dir === 'b') { // Leads counter — the "what you get" proof
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         r.radialGlow(W, 0, 560, 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)');
-        let y = pLogo(r, a, false);
-        y += pPill(r, pad, y, v.pill || 'For service providers', PC.red, '#fff') + 34;
+        const acc = pSolid(PC.navy, PC.red, PC.paper);
+        let y = pLogo(r, a, PC.navy);
+        y += pPill(r, pad, y, v.pill || 'For service providers', acc.fill, acc.on) + pV(34);
         const big = String(v.big || '150+');
-        r.drawLines([big], { family: 'Oswald', weight: '900', size: 190 }, pad, y, iW, { color: pInk(PC.navy) }); y += 205;
+        const bigF = { family: 'Oswald', weight: '900', size: pT(190) };
+        r.drawLines([big], bigF, pad, y, iW, { color: pInk(PC.navy) }); y += pT(190) + pV(15);
         r.drawLines([String(v.bigLabel || 'categories of buyers looking right now').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: PC.red }); y += 70;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 200, 1.05, { max: 74, min: 40 });
+            { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: acc.text }); y += pV(70);
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(200), 1.05, { max: pT(74), min: 40 });
         r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.05 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
+        pButton(r, pad, btnY, iW, v.cta || 'List your company →', acc.fill, acc.on);
         return;
     }
 
     if (dir === 'c') { // Zero commission — the money argument, light and confident
         r.fillBg(PC.paper);
-        r.rect(0, 0, W, 22, PC.red);
-        let y = pLogo(r, a, true) + 10;
+        const acc = pSolid(PC.paper, PC.red, PC.navy), cta = pSolid(PC.paper, PC.navy, PC.red);
+        r.rect(0, 0, W, 22, acc.fill);
+        let y = pLogo(r, a, PC.paper) + pV(10);
         r.drawLines([String(v.eyebrow || 'Zero commission').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 104, min: 48 });
+            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(62);
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.03, { max: pT(104), min: 48 });
         r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
-        y += fit.totalH + 28;
+        y += fit.totalH + pV(28);
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
         r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
-        y += sub.length * 40 * 1.42 + 40;
-        [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, PC.ink); y += 82; } });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Claim your listing →', PC.navy, '#fff');
+        y += sub.length * 40 * 1.42 + pV(40);
+        [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, acc.fill, pInk(PC.paper)); y += pV(82); } });
+        pButton(r, pad, btnY, iW, v.cta || 'Claim your listing →', cta.fill, cta.on);
         return;
     }
 
     // A: The pitch — headline + three reasons to join, dark and direct
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
-    let y = pLogo(r, a, false);
-    y += pPill(r, pad, y, v.pill || 'Grow your business', PC.red, '#fff') + 34;
-    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.04, { max: 96, min: 46 });
+    const accA = pSolid(PC.navy, PC.red, PC.paper);
+    let y = pLogo(r, a, PC.navy);
+    // The URL rides on the logo line, top-right. At the bottom it collided with the third bullet,
+    // which grows down towards the pinned CTA and leaves no reliable footer band.
+    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, pad + 12, iW, { color: pSubInk(PC.navy), align: 'right' });
+    y += pPill(r, pad, y, v.pill || 'Grow your business', accA.fill, accA.on) + pV(34);
+    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.04, { max: pT(96), min: 46 });
     r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.04 });
-    y += fitA.totalH + 26;
+    y += fitA.totalH + pV(26);
     const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
     r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.42 });
-    y += subA.length * 40 * 1.42 + 38;
-    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.red, pInk(PC.navy)); y += 82; } });
-    pButton(r, pad, H - pad - 112, iW, v.cta || 'List your company →', PC.red, '#fff');
-    pFoot(r, v.url || '', '', false);
+    y += subA.length * 40 * 1.42 + pV(38);
+    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, accA.fill, pInk(PC.navy)); y += pV(82); } });
+    pButton(r, pad, btnY, iW, v.cta || 'List your company →', accA.fill, accA.on);
 }
 
 // Demand side — get businesses requesting quotes from vetted providers.
 function drawFindPros(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
 
     if (dir === 'b') { // Verified badge — trust is the differentiator
         r.fillBg(PC.paper);
-        let y = pLogoC(r, a, true) + 12;
-        // badge
-        const bs = 190, bx = (W - bs) / 2;
-        r.fillRoundRect(bx, y, bs, bs, bs / 2, PC.navy);
-        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 120 }, bx, y + 30, bs, { color: PC.white, align: 'center' });
-        y += bs + 34;
-        r.drawLines([String(v.eyebrow || 'Manually verified').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: PC.red, align: 'center' }); y += 60;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 240, 1.04, { max: 84, min: 44 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.navy, align: 'center', lineHeight: 1.04 });
-        y += fit.totalH + 26;
+        // The badge and the CTA must both survive a light brand secondary — derive, never assume.
+        const badge = pSolid(PC.paper, PC.navy, PC.red), acc = pSolid(PC.paper, PC.red, PC.navy);
+        const top = pLogoC(r, a, PC.paper) + pV(12);
+        // MEASURE the whole stack, then centre it between the logo and the CTA. Flowing straight
+        // down from the logo is what left a slab of dead canvas above the button in portrait.
+        const bs = pV(190);
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(240), 1.04, { max: pT(84), min: 44 });
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.slate, align: 'center', lineHeight: 1.4 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Get instant quotes →', PC.red, '#fff');
+        const stackH = bs + pV(34) + pV(60) + fit.totalH + pV(26) + sub.length * 38 * 1.4;
+        let y = top + Math.max(0, (btnY - pV(48) - top - stackH) / 2);
+        const bx = (W - bs) / 2;
+        r.fillRoundRect(bx, y, bs, bs, bs / 2, badge.fill);
+        r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: Math.round(bs * 0.63) }, bx, y + bs * 0.16, bs, { color: badge.on, align: 'center' });
+        y += bs + pV(34);
+        r.drawLines([String(v.eyebrow || 'Manually verified').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: acc.text, align: 'center' }); y += pV(60);
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.paper), align: 'center', lineHeight: 1.04 });
+        y += fit.totalH + pV(26);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: pSubInk(PC.paper), align: 'center', lineHeight: 1.4 });
+        pButton(r, pad, btnY, iW, v.cta || 'Get instant quotes →', acc.fill, acc.on);
         return;
     }
 
     if (dir === 'c') { // Category spotlight — concrete: this service, this many experts
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-        let y = pLogo(r, a, false);
-        r.drawLines([String(v.eyebrow || 'Looking for').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.cbd }); y += 60;
-        const fitC = r.fitFontSize(String(v.category || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 260, 1.02, { max: 118, min: 52 });
-        r.drawLines(fitC.lines, { family: 'Oswald', weight: '700', size: fitC.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.02 });
-        y += fitC.totalH + 30;
-        // expert-count strip
-        r.fillRoundRect(pad, y, iW, 132, 26, PC.red);
-        r.drawLines([String(v.count || '40+ vetted experts').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 46 }, pad, y + 42, iW, { color: '#fff', align: 'center' });
-        y += 132 + 34;
+        const strip = pSolid(PC.navy, PC.red, PC.paper);
+        // The CTA sat on a hardcoded white fill with a PC.navy label — on a light brand secondary
+        // that was white-on-white. Both fill and label are now derived.
+        const cta = pSolid(PC.navy, PC.paper, PC.red);
+        const top = pLogo(r, a, PC.navy);
+        const footY = btnY - pV(52);
+        // Measure first, then centre the stack in the space between the logo and the footer/CTA.
+        const fitC = r.fitFontSize(String(v.category || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(260), 1.02, { max: pT(118), min: 52 });
         const subC = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+        const stripH = pV(132);
+        const stackH = pV(60) + fitC.totalH + pV(30) + stripH + pV(34) + subC.length * 38 * 1.4;
+        let y = top + Math.max(0, (footY - pV(26) - top - stackH) / 2);
+        r.drawLines([String(v.eyebrow || 'Looking for').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: pSubInk(PC.navy) }); y += pV(60);
+        r.drawLines(fitC.lines, { family: 'Oswald', weight: '700', size: fitC.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.02 });
+        y += fitC.totalH + pV(30);
+        // expert-count strip
+        r.fillRoundRect(pad, y, iW, stripH, 26, strip.fill);
+        r.drawLines([String(v.count || '40+ vetted experts').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: pT(46) }, pad, y + (stripH - pT(46)) / 2, iW, { color: strip.on, align: 'center' });
+        y += stripH + pV(34);
         r.drawLines(subC, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.4 });
-        pButton(r, pad, H - pad - 112, iW, v.cta || 'Compare quotes →', PC.white, PC.navy);
-        pFoot(r, v.url || '', '', false);
+        pButton(r, pad, btnY, iW, v.cta || 'Compare quotes →', cta.fill, cta.on);
+        pFootAt(r, footY, v.url || '', '', false);   // above the CTA, not printed across it
         return;
     }
 
     // A: Ask once, compare many — the core marketplace promise
     r.fillBg(PC.paper);
-    r.rect(0, 0, 26, H, PC.red);
-    let y = pLogo(r, a, true) + 8;
+    const accA = pSolid(PC.paper, PC.red, PC.navy), bulA = pSolid(PC.paper, PC.navy, PC.red);
+    r.rect(0, 0, 26, H, accA.fill);
+    let y = pLogo(r, a, PC.paper) + pV(8);
     r.drawLines([String(v.eyebrow || 'One request. Many quotes.').toUpperCase()],
-        { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.red }); y += 62;
-    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.03, { max: 100, min: 46 });
+        { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: accA.text }); y += pV(62);
+    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.03, { max: pT(100), min: 46 });
     r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
-    y += fitA.totalH + 26;
+    y += fitA.totalH + pV(26);
     const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
     r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
-    y += subA.length * 40 * 1.42 + 36;
-    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, PC.navy, PC.ink); y += 82; } });
-    pButton(r, pad, H - pad - 112, iW, v.cta || 'Get instant quotes →', PC.red, '#fff');
+    y += subA.length * 40 * 1.42 + pV(36);
+    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, bulA.fill, pInk(PC.paper)); y += pV(82); } });
+    pButton(r, pad, btnY, iW, v.cta || 'Get instant quotes →', accA.fill, accA.on);
+}
+
+// ===================== PODCAST =====================
+// Built from smesouthafrica.co.za/podcast — show identity + episode + guest + where to listen.
+// Guest photo is optional: when a Featured Image is loaded it's used, otherwise each direction
+// falls back to a typographic composition so the design never looks broken.
+function drawPodcast(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+
+    if (dir === 'b') { // Guest pull-quote — the format that actually travels on social
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.red, PC.navy);
+        r.rect(0, 0, W, 22, acc.fill);
+        let y = pLogo(r, a, PC.paper) + pV(10);
+        r.drawLines([String(v.eyebrow || 'On the podcast').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(56);
+        r.drawLines(['“'], { family: 'Oswald', weight: '900', size: pT(150) }, pad - 10, y, iW, { color: acc.text, lineHeight: 1 });
+        y += pV(96);
+        // The quote owns the space between the mark and the attribution block at the bottom.
+        const attrH = pV(150);
+        const qBox = Math.max(pV(200), btnY - pV(40) - attrH - y);
+        const qFit = r.fitFontSize(String(v.quote || ''), { family: 'Oswald', weight: '700' }, iW, qBox, 1.14, { max: pT(76), min: 34 });
+        r.drawLines(qFit.lines, { family: 'Oswald', weight: '700', size: qFit.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.14 });
+        // attribution — photo chip when we have one, initial disc otherwise
+        const ay = btnY - pV(40) - attrH + pV(20), ds = pV(104);
+        if (a.featured) { r.ctx.save(); r.roundRectPath(pad, ay, ds, ds, ds / 2); r.ctx.clip(); r.drawCover(a.featured, pad, ay, ds, ds, 0.5, 0.4, 0, 1); r.ctx.restore(); }
+        else {
+            const disc = pSolid(PC.paper, PC.navy, PC.red);
+            r.fillRoundRect(pad, ay, ds, ds, ds / 2, disc.fill);
+            r.drawLines([String(v.guest || 'G').trim().charAt(0).toUpperCase()], { family: 'Oswald', weight: '700', size: Math.round(ds * 0.44) }, pad, ay + ds * 0.26, ds, { color: disc.on, align: 'center' });
+        }
+        r.drawLines([String(v.guest || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 38 }, pad + ds + 30, ay + pV(12), iW - ds - 30, { color: pInk(PC.paper) });
+        r.drawLines([String(v.role || '')], { family: 'Roboto', weight: '400', size: 32 }, pad + ds + 30, ay + pV(58), iW - ds - 30, { color: pSubInk(PC.paper) });
+        pButton(r, pad, btnY, iW, v.cta || 'Hear the full episode →', acc.fill, acc.on);
+        return;
+    }
+
+    if (dir === 'c') { // Now playing — audiogram poster, centred, with a waveform
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        r.radialGlow(W / 2, 0, 620, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
+        const acc = pSolid(PC.navy, PC.red, PC.paper);
+        let y = pLogoC(r, a, PC.navy) + pV(8);
+        r.drawLines([String(v.eyebrow || 'Now playing').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: acc.text, align: 'center' }); y += pV(58);
+        r.drawLines([String(v.show || 'SME South Africa Podcast').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: pSubInk(PC.navy), align: 'center' }); y += pV(74);
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.06, { max: pT(92), min: 42 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, 0, y, W, { color: pInk(PC.navy), align: 'center', lineHeight: 1.06 });
+        y += fit.totalH + pV(30);
+        if (v.guest) { r.drawLines(['WITH ' + String(v.guest).toUpperCase()], { family: 'Oswald', weight: '700', size: 36 }, 0, y, W, { color: acc.text, align: 'center' }); y += pV(70); }
+        // Waveform — deterministic pseudo-random so the same episode always renders identically.
+        const bars = 41, bw = Math.round(iW / (bars * 1.9)), gapW = (iW - bars * bw) / (bars - 1);
+        const wh = pV(150), wy = Math.min(y + pV(30), btnY - pV(110) - wh);   // clears the platforms footer
+        for (let i = 0; i < bars; i++) {
+            const t = i / (bars - 1);
+            const amp = 0.28 + 0.72 * Math.abs(Math.sin(i * 1.7) * 0.6 + Math.sin(i * 0.55) * 0.4) * (0.55 + 0.45 * Math.sin(Math.PI * t));
+            const bh = Math.max(6, Math.round(wh * amp));
+            r.fillRoundRect(pad + i * (bw + gapW), wy + (wh - bh) / 2, bw, bh, bw / 2, i % 3 === 0 ? acc.fill : pOn(PC.navy, 'rgba(255,255,255,0.34)', 'rgba(0,0,0,0.24)'));
+        }
+        pButton(r, pad, btnY, iW, v.cta || 'Listen now →', acc.fill, acc.on);
+        pFootAt(r, btnY - pV(50), String(v.platforms || 'Spotify · Apple · YouTube'), String(v.url || ''), false, pSubInk(PC.navy));
+        return;
+    }
+
+    // A: Episode card — show identity, episode number, title, guest, where to listen
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
+    r.radialGlow(0, H, 560, 'rgba(156,28,31,0.32)', 'rgba(156,28,31,0)');
+    const acc = pSolid(PC.navy, PC.red, PC.paper);
+    let y = pLogo(r, a, PC.navy);
+    // No emoji in the pill — Oswald has no glyph for it and it rendered as tofu.
+    y += pPill(r, pad, y, String(v.show || 'SME South Africa Podcast'), acc.fill, acc.on) + pV(18);
+    if (v.tagline) { r.drawLines([String(v.tagline).toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: pSubInk(PC.navy) }); y += pV(52); }
+    if (v.ep) { r.drawLines([String(v.ep).toUpperCase()], { family: 'Roboto', weight: '700', size: 30 }, pad, y, iW, { color: acc.text }); y += pV(50); }
+    r.rect(pad, y, 120, 10, acc.fill); y += pV(34);
+    // Guest photo (optional) sits to the right of the title column so the layout works either way.
+    const hasPic = !!a.featured, ps = pV(300);
+    const colW = hasPic ? iW - ps - 40 : iW;
+    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, colW, pV(330), 1.05, { max: pT(hasPic ? 74 : 90), min: 38 });
+    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, colW, { color: pInk(PC.navy), lineHeight: 1.05 });
+    if (hasPic) {
+        r.ctx.save(); r.roundRectPath(W - pad - ps, y, ps, ps, 28); r.ctx.clip();
+        r.drawCover(a.featured, W - pad - ps, y, ps, ps, 0.5, 0.4, 0, 1); r.ctx.restore();
+    }
+    y += Math.max(fitA.totalH, hasPic ? ps : 0) + pV(28);
+    if (v.guest) {
+        r.drawLines([String(v.guest).toUpperCase()], { family: 'Oswald', weight: '700', size: 42 }, pad, y, iW, { color: pInk(PC.navy) }); y += pV(50);
+        if (v.role) r.drawLines([String(v.role)], { family: 'Roboto', weight: '400', size: 32 }, pad, y, iW, { color: pSubInk(PC.navy) });
+    }
+    r.drawLines([String(v.platforms || 'Spotify · Apple · YouTube').toUpperCase()],
+        { family: 'Roboto', weight: '700', size: 28 }, pad, btnY - pV(56), iW, { color: pSubInk(PC.navy) });
+    pButton(r, pad, btnY, iW, v.cta || 'Listen now →', acc.fill, acc.on);
+}
+
+// ===================== MERCH / STORE =====================
+// Built from smesouthafrica.co.za/shop — product, price, and the two things that close a sale
+// online in SA: shipping reach and payment trust.
+function drawMerch(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+
+    if (dir === 'b') { // Price hero — bold typographic, no photo needed
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        r.radialGlow(W, H, 540, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)');
+        const acc = pSolid(PC.navy, PC.red, PC.paper);
+        let y = pLogo(r, a, PC.navy);
+        r.drawLines([String(v.eyebrow || 'Built for founders').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(60);
+        const pf = r.fitFontSize(String(v.price || 'R120'), { family: 'Oswald', weight: '900' }, iW, pV(220), 1.0, { max: pT(210), min: 90 });
+        r.drawLines(pf.lines, { family: 'Oswald', weight: '900', size: pf.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.0 });
+        y += pf.totalH + pV(16);
+        const nf = r.fitFontSize(String(v.name || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(160), 1.04, { max: pT(70), min: 34 });
+        r.drawLines(nf.lines, { family: 'Oswald', weight: '700', size: nf.size }, pad, y, iW, { color: acc.text, lineHeight: 1.04 });
+        y += nf.totalH + pV(34);
+        [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, acc.fill, pInk(PC.navy)); y += pV(82); } });
+        r.drawLines([String(v.trust || 'SA-wide shipping · Secure checkout')],
+            { family: 'Roboto', weight: '700', size: 28 }, pad, btnY - pV(52), iW, { color: pSubInk(PC.navy) });
+        pButton(r, pad, btnY, iW, v.cta || 'Shop the collection →', acc.fill, acc.on);
+        return;
+    }
+
+    if (dir === 'c') { // The collection — three products with prices, catalogue-style
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.red, PC.navy), cta = pSolid(PC.paper, PC.navy, PC.red);
+        r.rect(0, 0, W, 22, acc.fill);
+        let y = pLogo(r, a, PC.paper) + pV(10);
+        r.drawLines([String(v.eyebrow || 'The store is open').toUpperCase()],
+            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(58);
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(200), 1.03, { max: pT(96), min: 44 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
+        y += hf.totalH + pV(40);
+        // "Name | Price" rows — name left, price right, hairline between. Reads like a real list.
+        const rowH = pV(104);
+        [v.p1, v.p2, v.p3].forEach(item => {
+            if (!item) return;
+            const parts = String(item).split('|');
+            const nm = (parts[0] || '').trim(), pr = (parts[1] || '').trim();
+            r.rect(pad, y, 10, rowH - pV(28), acc.fill);
+            r.drawLines([nm.toUpperCase()], { family: 'Oswald', weight: '700', size: 40 }, pad + 32, y + pV(8), iW - 32 - pV(180), { color: pInk(PC.paper) });
+            if (pr) r.drawLines([pr], { family: 'Oswald', weight: '700', size: 44 }, pad, y + pV(6), iW, { color: acc.text, align: 'right' });
+            r.strokeLine(pad, y + rowH - pV(18), W - pad, y + rowH - pV(18), pOn(PC.paper, 'rgba(255,255,255,0.14)', 'rgba(0,0,0,0.10)'), 2);
+            y += rowH;
+        });
+        r.drawLines([String(v.trust || 'SA-wide shipping · Secure checkout')],
+            { family: 'Roboto', weight: '700', size: 28 }, pad, btnY - pV(52), iW, { color: pSubInk(PC.paper) });
+        pButton(r, pad, btnY, iW, v.cta || 'Shop the collection →', cta.fill, cta.on);
+        return;
+    }
+
+    // A: Product drop — photo on top, price + name card below. The classic commerce post.
+    r.fillBg(PC.paper);
+    const accA = pSolid(PC.paper, PC.red, PC.navy);
+    // The PHOTO yields to the COPY, not the other way round. Measure the text block first and give
+    // the image whatever is left (capped at ~52% of the frame). A fixed 560px band pushed the
+    // description off portrait entirely.
+    const priceF = { family: 'Oswald', weight: '700', size: pT(52) };
+    const priceT = String(v.price || '');
+    const chipW = priceT ? r.textWidth(priceT, priceF) + 52 : 0;
+    const nameW = iW - (chipW ? chipW + 30 : 0);
+    const nfA = r.fitFontSize(String(v.name || '').toUpperCase(), { family: 'Oswald', weight: '700' }, nameW, pV(190), 1.03, { max: pT(78), min: 36 });
+    const subAll = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+    const textH = pV(44) + nfA.totalH + pV(22) + Math.min(3, subAll.length) * 38 * 1.4 + pV(28);
+    const imgH = Math.max(pV(300), Math.min(Math.round(H * 0.52), btnY - pV(52) - textH));
+    if (a.featured) r.drawCover(a.featured, 0, 0, W, imgH, 0.5, 0.5, 0, 1);
+    else {
+        // No product shot yet — a branded colour field, not a blank hole.
+        r.linearGradient(0, 0, W, imgH, [[0, PC.navy], [1, PC.navy2]], 'br');
+        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(64) }, pad, imgH / 2 - pT(32), iW, { color: pInk(PC.navy), align: 'center' });
+    }
+    // Brand mark over the photo, top-left — a product post with no logo is somebody else's product.
+    { const lg = a.logoW; if (lg) { r.ctx.save(); r.ctx.shadowColor = 'rgba(0,0,0,0.55)'; r.ctx.shadowBlur = 18; r.drawContain(lg, pad, pad - 8, 176, 50, { }); r.ctx.restore(); } }
+    // kicker pill floats over the image, bottom-left — anchors the drop without hiding the product
+    pPill(r, pad, imgH - (PG ? PG.pill : 64) - pV(28), v.kicker || 'New drop', accA.fill, accA.on);
+    let y = imgH + pV(44);
+    r.drawLines(nfA.lines, { family: 'Oswald', weight: '700', size: nfA.size }, pad, y, nameW, { color: pInk(PC.paper), lineHeight: 1.03 });
+    // price chip, right-aligned on the first line of the name
+    if (priceT) {
+        const ch = pT(52) + 34;
+        r.fillRoundRect(W - pad - chipW, y - pV(6), chipW, ch, 14, accA.fill);
+        r.drawLines([priceT], priceF, W - pad - chipW, y - pV(6) + 17, chipW, { color: accA.on, align: 'center' });
+    }
+    y += nfA.totalH + pV(22);
+    // The trust line is pinned above the CTA, so the sub only gets the lines that actually fit —
+    // otherwise a long description printed straight through it.
+    const trustY = btnY - pV(52);
+    const subFits = Math.max(0, Math.floor((trustY - pV(16) - y) / (38 * 1.4)));
+    r.drawLines(subAll.slice(0, subFits), { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.4 });
+    r.drawLines([String(v.trust || 'SA-wide shipping · Secure checkout')],
+        { family: 'Roboto', weight: '700', size: 28 }, pad, trustY, iW, { color: pSubInk(PC.paper) });
+    pButton(r, pad, btnY, iW, v.cta || 'Shop the collection →', accA.fill, accA.on);
 }
 // Dedicated LANDSCAPE (LinkedIn 1200x628) layout — a real horizontal banner, not a squeezed square.
 // Generic across all content types: logo, kicker, headline, sub, CTA laid out wide, with the design's
@@ -1734,7 +2028,7 @@ function drawFindPros(r, dir, v, a) {
 function drawLandscape(r, type, dir, v, a) {
     const W = r.w, H = r.h, pad = 70, key = type + '.' + dir;
     r.ctx.textBaseline = 'top';
-    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b'].indexOf(key) !== -1;
+    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
     // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
     // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
@@ -1748,11 +2042,27 @@ function drawLandscape(r, type, dir, v, a) {
     if (pContrast(accent, bgRef) < 2.2) accent = pInk(bgRef);
     if (pContrast(barC, bgRef) < 1.6) barC = pInk(bgRef);
     if (logo) r.drawContain(logo, pad, pad, 200, 50, { });
-    const kicker = String(v.eyebrow || v.pill || '').toUpperCase();
-    const title = String(v.head || v.name || v.big || '').toUpperCase();
-    const sub = String(v.sub || '');
+    const kicker = String(v.eyebrow || v.pill || v.show || '').toUpperCase();
+    // Some designs carry their headline under another key (findpros.c = category, merch = name,
+    // podcast.b = quote). Missing them here rendered a banner with NO headline at all.
+    const title = String(v.head || v.quote || v.category || v.name || v.big || '').toUpperCase();
+    // Secondary line: the design's own concrete proof, not just the generic sub.
+    const sub = String(v.sub || v.count || v.price || v.guest || '');
     const cta = v.cta || '';
-    const colW = Math.round(W * 0.9) - pad;
+    // A product/guest shot earns a right-hand image panel — a wide banner with a photo out-performs
+    // a wall of type, and the text column narrows so nothing collides.
+    const hasPic = !!a.featured;
+    const picW = hasPic ? Math.round(W * 0.34) : 0;
+    if (hasPic) {
+        r.drawCover(a.featured, W - picW, 0, picW, H, 0.5, 0.45, 0, 1);
+        // Blend the photo's left edge INTO the background, painting only INSIDE the photo. Fading
+        // the other way (a bg-coloured wash reaching leftwards) laid a flat colour over the page's
+        // own gradient and produced a hard vertical step. The stop is the bg's own RGB at alpha 0 —
+        // 'rgba(0,0,0,0)' would interpolate through black and grey the seam.
+        const fadeW = 150;
+        r.linearGradient(W - picW, 0, fadeW, H, [[0, pRgba(bgRef, 1)], [1, pRgba(bgRef, 0)]], 'right');
+    }
+    const colW = (hasPic ? W - picW - pad * 2 - 30 : Math.round(W * 0.9) - pad);
     const btnY = H - pad - 92;
     let y = pad + 84;
     if (kicker) { r.drawLines([kicker], { family: 'Oswald', weight: '700', size: 30 }, pad, y, colW, { color: accent }); y += 46; }
@@ -1761,22 +2071,38 @@ function drawLandscape(r, type, dir, v, a) {
     const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
     r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, colW, { color: txt, lineHeight: 1.03 }); y += fit.totalH + 16;
     if (sub) { const sl = r.wrap(sub, { family: 'Roboto', weight: '400', size: 32 }, colW).slice(0, 2); r.drawLines(sl, { family: 'Roboto', weight: '400', size: 32 }, pad, y, colW, { color: subC, lineHeight: 1.35 }); }
-    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(), bw = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, bw, 80, 12, btnBg); r.drawLines([t], f, pad, btnY + 24, bw, { color: pInk(btnBg), align: 'center' }); }
-    // the brand's own site, not a hardcoded one — this was still saying smesouthafrica.co.za on
-    // creatives made for another brand
-    r.drawLines([String(v.url || BRAND.url || '')], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 30, W - pad * 2, { color: subC, align: 'right' });
+    let btnW = 0;
+    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(); btnW = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, btnW, 80, 12, btnBg); r.drawLines([t], f, pad, btnY + 24, btnW, { color: pInk(btnBg), align: 'center' }); }
+    // The brand's own site, not a hardcoded one — this was still saying smesouthafrica.co.za on
+    // creatives made for another brand. It sits on the rail to the RIGHT of the CTA, shrinking to
+    // fit; if even 18px won't fit it is dropped rather than printed over the button.
+    const urlT = String(v.url || BRAND.url || '');
+    if (urlT) {
+        const railX = pad + btnW + 24, railW = (pad + (hasPic ? colW : W - pad * 2)) - railX;
+        let us = 26;
+        while (us > 18 && r.textWidth(urlT, { family: 'Oswald', weight: '700', size: us }) > railW) us -= 2;
+        if (r.textWidth(urlT, { family: 'Oswald', weight: '700', size: us }) <= railW)
+            r.drawLines([urlT], { family: 'Oswald', weight: '700', size: us }, railX, btnY + 40 - us / 2, railW, { color: subC, align: 'right' });
+    }
 }
 // SME logo top-left (light=true → colour logo for light backgrounds; else white). Returns the y to
 // start content below the logo, so every premium creative is branded like the default creative.
-function pLogo(r, assets, light) {
-    const pad = 82, lg = light ? assets.logoC : assets.logoW;
-    if (lg) r.drawContain(lg, pad, pad - 8, 176, 50, { });
-    return pad + 50 + 20;
+// `on` is the background the logo sits on: pass the actual colour (preferred — the colour logo is
+// then chosen from real luminance, which matters because PC.navy comes from the Brand Kit and may
+// be light) or a boolean for the legacy call style.
+function pLogoPick(assets, on) {
+    const light = (typeof on === 'string') ? pIsLight(on) : !!on;
+    return light ? assets.logoC : assets.logoW;
 }
-function pLogoC(r, assets, light) {
-    const W = r.w, pad = 82, lg = light ? assets.logoC : assets.logoW;
+function pLogo(r, assets, on) {
+    const pad = pPad(), lg = pLogoPick(assets, on);
+    if (lg) r.drawContain(lg, pad, pad - 8, 176, 50, { });
+    return pad + 50 + pV(20);
+}
+function pLogoC(r, assets, on) {
+    const W = r.w, pad = pPad(), lg = pLogoPick(assets, on);
     if (lg) r.drawContain(lg, (W - 200) / 2, pad - 8, 200, 54, { });
-    return pad + 54 + 16;
+    return pad + 54 + pV(16);
 }
 // shared premium helpers
 function pChip(r, x, y, text, bg, fg) {
@@ -1790,131 +2116,89 @@ function pBorderItem(r, x, y, w, bold, text, bar) {
     const wr = r.wrap(String(text || ''), { family: 'Roboto', weight: '400', size: 34 }, w - 30);
     r.drawLines(wr, { family: 'Roboto', weight: '400', size: 34 }, x + 30, y + 44, w - 30, { color: '#1e293b', lineHeight: 1.3 });
 }
-function pFoot(r, leftText, rightText, light, rightColor) {
-    const pad = 82, iW = r.w - pad * 2;
-    r.drawLines([String(leftText || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, r.h - pad - 30, iW - 200, { color: light ? PC.slate : 'rgba(255,255,255,0.7)' });
-    if (rightText) r.drawLines([String(rightText)], { family: 'Oswald', weight: '700', size: 28 }, pad, r.h - pad - 30, iW, { color: rightColor || PC.red, align: 'right' });
+function pFoot(r, leftText, rightText, light, rightColor) { pFootAt(r, r.h - pPad() - 30, leftText, rightText, light, rightColor); }
+// Explicit-y variant. Designs whose CTA is pinned to the bottom (btnY) must put their footer ABOVE
+// the button — pFoot's default y lands inside it, which is how "serv.co.za" ended up printed
+// across the Compare Quotes button.
+function pFootAt(r, y, leftText, rightText, light, rightColor) {
+    const pad = pPad(), iW = r.w - pad * 2;
+    r.drawLines([String(leftText || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, y, iW - 200, { color: light ? PC.slate : 'rgba(255,255,255,0.7)' });
+    if (rightText) r.drawLines([String(rightText)], { family: 'Oswald', weight: '700', size: 28 }, pad, y, iW, { color: rightColor || PC.red, align: 'right' });
 }
 function drawFunding(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
     if (dir === 'b') {
         r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
         r.radialGlow(0, H, 500, 'rgba(10,44,61,0.45)', 'rgba(10,44,61,0)');
-        let y = pLogo(r, a, false);
-        r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.off }); y += 58;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 260, 1.04, { max: 86, min: 42 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.04 }); y += fit.totalH + 22;
+        let y = pLogo(r, a, PC.red);   // this direction's background is the brand PRIMARY, not navy
+        r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.off }); y += pV(58);
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(260), 1.04, { max: pT(86), min: 42 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.04 }); y += fit.totalH + pV(22);
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
         r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.off, lineHeight: 1.45 });
-        const cardH = 200, cardY = H - pad - 112 - 40 - cardH;
+        const cardH = pV(200), cardY = btnY - pV(40) - cardH;
         r.fillRoundRect(pad, cardY, iW, cardH, 30, PC.paper);
-        r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad + 40, cardY + 38, iW - 80, { color: PC.red });
-        r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cardY + 82, iW - 80, { color: PC.navy });
-        r.drawLines([String(v.cards || '')], { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cardY + 146, iW - 80, { color: PC.slate });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
+        r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad + 40, cardY + pV(38), iW - 80, { color: PC.red });
+        r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cardY + pV(82), iW - 80, { color: PC.navy });
+        r.drawLines([String(v.cards || '')], { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cardY + pV(146), iW - 80, { color: PC.slate });
+        pButton(r, pad, btnY, iW, v.cta, PC.navy, PC.white); return;
     }
     if (dir === 'c') {
         // Big Number — research-driven: concrete number + trust + speed + urgent CTA (out-converts a generic estimator).
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         r.radialGlow(W / 2, H, 620, 'rgba(156,28,31,0.32)', 'rgba(156,28,31,0)');
-        let y = pLogoC(r, a, false) + 4;
-        r.drawLines(['BUSINESS FUNDING'], { family: 'Oswald', weight: '700', size: 30 }, 0, y, W, { color: PC.off, align: 'center' }); y += 66;
+        let y = pLogoC(r, a, PC.navy) + pV(4);
+        r.drawLines(['BUSINESS FUNDING'], { family: 'Oswald', weight: '700', size: 30 }, 0, y, W, { color: PC.off, align: 'center' }); y += pV(66);
         // hero number
-        r.drawLines(['UP TO'], { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: 'rgba(255,255,255,0.55)', align: 'center' }); y += 44;
-        const bf = r.fitFontSize(String(v.big || 'R5 Million').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 200, 1.0, { max: 168, min: 80 });
-        r.drawLines(bf.lines, { family: 'Oswald', weight: '700', size: bf.size }, 0, y, W, { color: '#fff', align: 'center', lineHeight: 1.0 }); y += bf.totalH + 18;
+        r.drawLines(['UP TO'], { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: 'rgba(255,255,255,0.55)', align: 'center' }); y += pV(44);
+        const bf = r.fitFontSize(String(v.big || 'R5 Million').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(200), 1.0, { max: pT(168), min: 80 });
+        r.drawLines(bf.lines, { family: 'Oswald', weight: '700', size: bf.size }, 0, y, W, { color: '#fff', align: 'center', lineHeight: 1.0 }); y += bf.totalH + pV(18);
         r.drawLines(r.wrap(String(v.head || ''), { family: 'Oswald', weight: '700', size: 44 }, iW), { family: 'Oswald', weight: '700', size: 44 }, 0, y, W, { color: '#ffffff', align: 'center', lineHeight: 1.1 });
         // speed chip (pill, centered)
-        y = H - pad - 112 - 190;
+        y = btnY - pV(190);
         { const t = String(v.speed || '').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 26 }, w = r.textWidth(t, f) + 60; r.fillRoundRect((W - w) / 2, y, w, 58, 29, 'rgba(255,255,255,0.08)'); r.ctx.save(); r.ctx.strokeStyle = 'rgba(0,224,143,0.7)'; r.ctx.lineWidth = 2; r.roundRectPath((W - w) / 2, y, w, 58, 29); r.ctx.stroke(); r.ctx.restore(); r.drawLines([t], f, (W - w) / 2, y + 16, w, { color: '#00e08f', align: 'center' }); }
         // trust line
-        r.drawLines([String(v.trust || '')], { family: 'Roboto', weight: '700', size: 28 }, 0, H - pad - 112 - 96, W, { color: 'rgba(255,255,255,0.7)', align: 'center' });
-        pButton(r, pad + 40, H - pad - 112, iW - 80, v.cta, PC.red, PC.white); return;
+        r.drawLines([String(v.trust || '')], { family: 'Roboto', weight: '700', size: 28 }, 0, btnY - pV(96), W, { color: 'rgba(255,255,255,0.7)', align: 'center' });
+        pButton(r, pad + 40, btnY, iW - 80, v.cta, PC.red, PC.white); return;
     }
     // A: The Product Spec (navy)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)');
-    let y = pLogo(r, a, false);
-    y += pPill(r, pad, y, v.pill, PC.red, PC.white) + 34;
-    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 240, 1.02, { max: 96, min: 46 });
-    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.02 }); y += fit.totalH + 20;
+    let y = pLogo(r, a, PC.navy);
+    y += pPill(r, pad, y, v.pill, PC.red, PC.white) + pV(34);
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(240), 1.02, { max: pT(96), min: 46 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.02 }); y += fit.totalH + pV(20);
     const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 }); y += sub.length * 40 * 1.4 + 30;
-    [v.b1, v.b2, v.b3].forEach(b => { if (b) { pBullet(r, pad, y, b, PC.red, PC.f8); y += 58 + 26; } });
-    pButton(r, pad, H - pad - 112 - 52, iW, v.cta, PC.red, PC.white);
+    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 }); y += sub.length * 40 * 1.4 + pV(30);
+    [v.b1, v.b2, v.b3].forEach(b => { if (b) { pBullet(r, pad, y, b, PC.red, PC.f8); y += pV(84); } });
+    pButton(r, pad, btnY - pV(52), iW, v.cta, PC.red, PC.white);
     r.strokeLine(pad, H - pad - 44, W - pad, H - pad - 44, 'rgba(255,255,255,0.1)', 2);
     r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - 30, iW, { color: 'rgba(255,255,255,0.7)' });
 }
-
-function drawReviews(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
-    if (dir === 'b') { // The Verdict (red)
-        r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
-        r.radialGlow(0, H, 520, 'rgba(10,44,61,0.5)', 'rgba(10,44,61,0)');
-        let y = pLogo(r, a, false);
-        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.off }); y += 58;
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 320, 1.05, { max: 88, min: 44 });
-        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.05 }); y += fit.totalH + 24;
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.off, lineHeight: 1.5 });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
-    }
-    if (dir === 'c') { // Pros & Cons Spotlight (light)
-        r.fillBg(PC.paper); r.rect(0, 0, W, 26, PC.navy);
-        let y = pLogo(r, a, true);
-        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += 52;
-        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 58 }, pad, y, iW, { color: PC.navy }); y += 74;
-        r.drawLines([String(v.sub || '')], { family: 'Roboto', weight: '400', size: 34 }, pad, y, iW, { color: PC.slate }); y += 66;
-        const rows = [['✓', v.pro1, PC.red], ['✓', v.pro2, PC.red], ['x', v.con1, PC.slate]].filter(x => x[1]);
-        const cardH = 44 + rows.length * 74; r.fillRoundRect(pad, y, iW, cardH, 24, '#ffffff');
-        r.ctx.save(); r.ctx.strokeStyle = '#eef2f6'; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, cardH, 24); r.ctx.stroke(); r.ctx.restore();
-        let ry = y + 30;
-        rows.forEach(row => { r.fillRoundRect(pad + 30, ry, 54, 54, 14, row[2]); r.drawLines([row[0]], { family: 'Oswald', weight: '900', size: 32 }, pad + 30, ry + 11, 54, { color: '#fff', align: 'center' }); r.drawLines([String(row[1])], { family: 'Roboto', weight: '500', size: 38 }, pad + 30 + 54 + 24, ry + 8, iW - 160, { color: '#1e293b' }); ry += 74; });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
-    }
-    // A: Editorial Deep Dive (navy) — top-down flow, author+footer anchored so they never overlap
-    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, '#041219']], 'br');
-    r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.22)', 'rgba(156,28,31,0)');
-    let y = pLogo(r, a, false);
-    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.off }); y += 56;
-    r.rect(pad, y, 120, 12, PC.red); y += 32;
-    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 250, 1.08, { max: 78, min: 40 });
-    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.08 }); y += fit.totalH + 18;
-    const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.5 });
-    // author row + footer fixed at the bottom (guaranteed gap, no overlap)
-    const authorY = H - pad - 190;
-    r.strokeLine(pad, authorY - 26, W - pad, authorY - 26, 'rgba(255,255,255,0.12)', 2);
-    r.fillRoundRect(pad, authorY, 86, 86, 43, PC.red); r.drawLines([String(v.authorInit || 'ED')], { family: 'Oswald', weight: '700', size: 32 }, pad, authorY + 25, 86, { color: '#fff', align: 'center' });
-    r.drawLines([String(v.author || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad + 106, authorY + 12, iW - 106, { color: '#fff' });
-    r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 28 }, pad + 106, authorY + 50, iW - 106, { color: '#94a3b8' });
-    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 26, iW, { color: 'rgba(255,255,255,0.65)' });
-    r.drawLines([String(v.cta || 'Read Breakdown →')], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 26, iW, { color: PC.red, align: 'right' }); return;
-}
 function drawSolutions(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
     if (dir === 'b') { // The Verdict — head-to-head comparison (unique split composition)
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-        let y = pLogo(r, a, false);
-        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: '#ff6b4a' }); y += 54;
-        r.drawLines(r.wrap(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700', size: 60 }, iW), { family: 'Oswald', weight: '700', size: 60 }, pad, y, iW, { color: PC.white, lineHeight: 1.06 }); y += 150;
+        let y = pLogo(r, a, PC.navy);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: '#ff6b4a' }); y += pV(54);
+        r.drawLines(r.wrap(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700', size: 60 }, iW), { family: 'Oswald', weight: '700', size: 60 }, pad, y, iW, { color: PC.white, lineHeight: 1.06 }); y += pV(150);
         // split VS panel
-        const panelY = y, panelH = 230, mid = W / 2, gap = 14;
+        const panelY = y, panelH = pV(230), mid = W / 2, gap = 14;
         r.fillRoundRect(pad, panelY, mid - pad - gap, panelH, 22, 'rgba(255,255,255,0.06)');
         r.fillRoundRect(mid + gap, panelY, mid - pad - gap, panelH, 22, PC.red);
-        r.drawLines([String(v.vsLeft || 'A')], { family: 'Oswald', weight: '700', size: 68 }, pad, panelY + 74, mid - pad - gap, { color: PC.white, align: 'center' });
-        r.drawLines([String(v.vsRight || 'B')], { family: 'Oswald', weight: '700', size: 68 }, mid + gap, panelY + 74, mid - pad - gap, { color: PC.white, align: 'center' });
+        r.drawLines([String(v.vsLeft || 'A')], { family: 'Oswald', weight: '700', size: 68 }, pad, panelY + (panelH - 68) / 2, mid - pad - gap, { color: PC.white, align: 'center' });
+        r.drawLines([String(v.vsRight || 'B')], { family: 'Oswald', weight: '700', size: 68 }, mid + gap, panelY + (panelH - 68) / 2, mid - pad - gap, { color: PC.white, align: 'center' });
         r.fillRoundRect(mid - 46, panelY + panelH / 2 - 46, 92, 92, 46, '#fff');
         r.drawLines(['VS'], { family: 'Oswald', weight: '700', size: 40 }, mid - 46, panelY + panelH / 2 - 26, 92, { color: PC.navy, align: 'center' });
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 36 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 36 }, pad, panelY + panelH + 34, iW, { color: PC.cbd, lineHeight: 1.4, align: 'center' });
-        pButton(r, pad + 40, H - pad - 112, iW - 80, v.cta, PC.red, PC.white); return;
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 36 }, pad, panelY + panelH + pV(34), iW, { color: PC.cbd, lineHeight: 1.4, align: 'center' });
+        pButton(r, pad + 40, btnY, iW - 80, v.cta, PC.red, PC.white); return;
     }
     if (dir === 'c') { // Rated Pick — light review card with a star rating (unique)
         r.fillBg(PC.paper);
-        let y = pLogo(r, a, true);
-        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += 56;
-        const cardH = 470; r.fillRoundRect(pad, y, iW, cardH, 30, '#ffffff');
+        let y = pLogo(r, a, PC.paper);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += pV(56);
+        const cardH = Math.min(pV(470), btnY - pV(40) - y); r.fillRoundRect(pad, y, iW, cardH, 30, '#ffffff');
         r.ctx.save(); r.ctx.strokeStyle = PC.line; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, cardH, 30); r.ctx.stroke(); r.ctx.restore();
         let cy = y + 40;
         // name + big rating badge
@@ -1922,102 +2206,115 @@ function drawSolutions(r, dir, v, a) {
         r.fillRoundRect(W - pad - 40 - 150, cy - 4, 150, 96, 18, PC.navy);
         r.drawLines([String(v.rating || '4.8')], { family: 'Oswald', weight: '700', size: 52 }, W - pad - 40 - 150, cy + 8, 150, { color: '#fff', align: 'center' });
         r.drawLines(['★★★★★'], { family: 'Roboto', weight: '700', size: 22 }, W - pad - 40 - 150, cy + 64, 150, { color: '#FFC857', align: 'center' });
-        cy += 108;
+        cy += pV(108);
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 34 }, iW - 80);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cy, iW - 80, { color: PC.slate, lineHeight: 1.4 }); cy += sub.length * 34 * 1.4 + 20;
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cy, iW - 80, { color: PC.slate, lineHeight: 1.4 }); cy += sub.length * 34 * 1.4 + pV(20);
         [[v.pro1, true], [v.pro2, true], [v.con1, false]].forEach(row => { if (!row[0]) return;
             r.fillRoundRect(pad + 40, cy, 48, 48, 12, row[1] ? PC.red : PC.slate);
             r.drawLines([row[1] ? '✓' : 'x'], { family: 'Oswald', weight: '900', size: 28 }, pad + 40, cy + 10, 48, { color: '#fff', align: 'center' });
-            r.drawLines([String(row[0])], { family: 'Roboto', weight: '500', size: 34 }, pad + 40 + 68, cy + 6, iW - 200, { color: row[1] ? '#1e293b' : '#64748b' }); cy += 64; });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
+            r.drawLines([String(row[0])], { family: 'Roboto', weight: '500', size: 34 }, pad + 40 + 68, cy + 6, iW - 200, { color: row[1] ? '#1e293b' : '#64748b' }); cy += pV(64); });
+        pButton(r, pad, btnY, iW, v.cta, PC.red, PC.white); return;
     }
     // A: Editorial Deep Dive (navy) — content/authority. Eyebrow given breathing room from the logo;
     // no author byline; a proper CTA button.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, '#041219']], 'br');
     r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.22)', 'rgba(156,28,31,0)');
-    let y = pLogo(r, a, false) + 30;   // extra gap so the eyebrow isn't crowding the logo
-    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: '#ff6b4a' }); y += 58;
-    r.rect(pad, y, 120, 12, PC.red); y += 34;
-    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 320, 1.08, { max: 88, min: 44 });
-    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.08 }); y += fit.totalH + 22;
+    let y = pLogo(r, a, PC.navy) + pV(30);   // extra gap so the eyebrow isn't crowding the logo
+    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: '#ff6b4a' }); y += pV(58);
+    r.rect(pad, y, 120, 12, PC.red); y += pV(34);
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(320), 1.08, { max: pT(88), min: 44 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.08 }); y += fit.totalH + pV(22);
     const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
     r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.5 });
-    pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white);
-    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 26 }, pad, H - pad - 112 - 52, iW, { color: 'rgba(255,255,255,0.6)' }); return;
+    pButton(r, pad, btnY, iW, v.cta, PC.red, PC.white);
+    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 26 }, pad, btnY - pV(52), iW, { color: 'rgba(255,255,255,0.6)' }); return;
 }
 function drawNewsletter(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
     if (dir === 'b') { // This Week Inside (light)
         r.fillBg(PC.paper);
-        let y = pLogo(r, a, true);
+        let y = pLogo(r, a, PC.paper);
         pPill(r, pad, y, v.pill, PC.red, PC.white);
-        r.drawLines([String(v.issue || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y + 16, iW, { color: PC.slate, align: 'right' }); y += 96;
-        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: PC.navy }); y += 86;
-        [v.i1, v.i2, v.i3].forEach(it => { if (it) { const p = String(it).split('|'); pBorderItem(r, pad, y, iW, p[0] || '', p[1] || '', PC.red); y += 98; } });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
+        r.drawLines([String(v.issue || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y + 16, iW, { color: PC.slate, align: 'right' }); y += pV(96);
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: PC.navy }); y += pV(86);
+        [v.i1, v.i2, v.i3].forEach(it => { if (it) { const p = String(it).split('|'); pBorderItem(r, pad, y, iW, p[0] || '', p[1] || '', PC.red); y += pV(98); } });
+        pButton(r, pad, btnY, iW, v.cta, PC.navy, PC.white); return;
     }
     if (dir === 'c') { // Social Proof (red, centered)
         r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
-        let y = pLogoC(r, a, false) + 6;
-        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: PC.off, align: 'center' }); y += 92;
-        r.drawLines([String(v.big || '')], { family: 'Oswald', weight: '700', size: 150 }, 0, y, W, { color: '#fff', align: 'center' }); y += 172;
-        r.drawLines([String(v.sub || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 46 }, 0, y, W, { color: PC.off, align: 'center' }); y += 104;
-        const boxH = 96; r.fillRoundRect(pad, y, iW, boxH, 16, '#fff');
-        r.drawLines([String(v.placeholder || '')], { family: 'Roboto', weight: '400', size: 36 }, pad + 30, y + 30, iW - 240, { color: '#94a3b8' });
-        r.fillRoundRect(pad + iW - 196, y + 14, 182, boxH - 28, 12, PC.navy); r.drawLines([String(v.btn || 'Join').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad + iW - 196, y + 30, 182, { color: '#fff', align: 'center' }); y += boxH + 24;
-        r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, y, W, { color: PC.off, align: 'center' }); return;
+        const top = pLogoC(r, a, PC.red) + pV(6);   // red background here, not navy
+        // The capture field + fine print are BOTTOM-ANCHORED, and the proof stack above is CENTRED
+        // in what's left. Flowing straight down from the logo left ~500px of dead red in portrait.
+        const boxH = pV(96), metaH = pV(54);
+        const boxY = H - pad - metaH - boxH;
+        const bf = r.fitFontSize(String(v.big || ''), { family: 'Oswald', weight: '700' }, iW, pV(190), 1.0, { max: pT(150), min: 70 });
+        const stackH = pV(92) + bf.totalH + pV(22) + 46;
+        let y = top + Math.max(0, (boxY - pV(40) - top - stackH) / 2);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, 0, y, W, { color: PC.off, align: 'center' }); y += pV(92);
+        r.drawLines(bf.lines, { family: 'Oswald', weight: '700', size: bf.size }, 0, y, W, { color: '#fff', align: 'center', lineHeight: 1.0 }); y += bf.totalH + pV(22);
+        r.drawLines([String(v.sub || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 46 }, 0, y, W, { color: PC.off, align: 'center' });
+        r.fillRoundRect(pad, boxY, iW, boxH, 16, '#fff');
+        r.drawLines([String(v.placeholder || '')], { family: 'Roboto', weight: '400', size: 36 }, pad + 30, boxY + (boxH - 36) / 2, iW - 240, { color: '#94a3b8' });
+        r.fillRoundRect(pad + iW - 196, boxY + 14, 182, boxH - 28, 12, PC.navy);
+        r.drawLines([String(v.btn || 'Join').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad + iW - 196, boxY + (boxH - 34) / 2, 182, { color: '#fff', align: 'center' });
+        r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, boxY + boxH + pV(20), W, { color: PC.off, align: 'center' }); return;
     }
     // A: #1 Hero (navy, centered)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(0, 0, 470, 'rgba(156,28,31,0.25)', 'rgba(156,28,31,0)');
-    let y = pLogoC(r, a, false) + 10;
-    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: PC.off, align: 'center' }); y += 74;
-    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, 300, 1.05, { max: 104, min: 50 });
-    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, 0, y, W, { color: PC.white, align: 'center', lineHeight: 1.05 }); y += fit.totalH + 22;
+    let y = pLogoC(r, a, PC.navy) + pV(10);
+    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: PC.off, align: 'center' }); y += pV(74);
+    const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.05, { max: pT(104), min: 50 });
+    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, 0, y, W, { color: PC.white, align: 'center', lineHeight: 1.05 }); y += fit.totalH + pV(22);
     const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, 0, y, W, { color: PC.cbd, align: 'center', lineHeight: 1.4 }); y += sub.length * 40 * 1.4 + 40;
-    pButton(r, pad + 40, y, iW - 80, v.cta, PC.red, PC.white); y += 112 + 22;
-    r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, y, W, { color: '#94a3b8', align: 'center' }); return;
+    r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, 0, y, W, { color: PC.cbd, align: 'center', lineHeight: 1.4 });
+    // CTA + meta bottom-anchored (same reason as dir c) so the hero never floats in dead space.
+    const metaY = H - pad - pV(34);
+    pButton(r, pad + 40, metaY - pV(22) - pBtnH(), iW - 80, v.cta, PC.red, PC.white);
+    r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, metaY, W, { color: '#94a3b8', align: 'center' }); return;
 }
 function drawResources(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = 82, iW = W - pad * 2;
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
     if (dir === 'b') { // Checklist (light)
         r.fillBg(PC.paper); r.rect(0, 0, W, 26, PC.red);
-        let y = pLogo(r, a, true);
-        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += 52;
-        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: PC.navy }); y += 92;
+        let y = pLogo(r, a, PC.paper);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += pV(52);
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: PC.navy }); y += pV(92);
         [[v.i1, true], [v.i2, true], [v.i3, true], [v.locked, false]].forEach(it => {
             if (!it[0]) return;
             if (it[1]) { r.fillRoundRect(pad, y, 58, 58, 16, PC.red); r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 34 }, pad, y + 12, 58, { color: '#fff', align: 'center' }); }
             else { r.ctx.save(); r.ctx.strokeStyle = '#cbd5e1'; r.ctx.lineWidth = 4; r.roundRectPath(pad, y, 58, 58, 16); r.ctx.stroke(); r.ctx.restore(); }
-            r.drawLines([String(it[0])], { family: 'Roboto', weight: it[1] ? '500' : '400', size: 38 }, pad + 86, y + 10, iW - 100, { color: it[1] ? '#1e293b' : '#64748b' }); y += 58 + 26;
+            r.drawLines([String(it[0])], { family: 'Roboto', weight: it[1] ? '500' : '400', size: 38 }, pad + 86, y + 10, iW - 100, { color: it[1] ? '#1e293b' : '#64748b' }); y += pV(84);
         });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.navy, PC.white); return;
+        pButton(r, pad, btnY, iW, v.cta, PC.navy, PC.white); return;
     }
     if (dir === 'c') { // Bold FREE (navy)
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         r.radialGlow(W, H, 480, 'rgba(156,28,31,0.25)', 'rgba(156,28,31,0)');
-        let y = pLogo(r, a, false);
-        r.ctx.save(); r.ctx.strokeStyle = 'rgba(255,255,255,0.22)'; r.ctx.lineWidth = 5; r.setFont({ family: 'Oswald', weight: '700', size: 180 }); r.ctx.textBaseline = 'top'; r.ctx.strokeText(String(v.big || 'FREE'), pad, y); r.ctx.restore(); y += 180;
-        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 56 }, pad, y, iW, { color: '#fff' }); y += 78;
+        let y = pLogo(r, a, PC.navy);
+        const bigS = pT(180);
+        r.ctx.save(); r.ctx.strokeStyle = 'rgba(255,255,255,0.22)'; r.ctx.lineWidth = 5; r.setFont({ family: 'Oswald', weight: '700', size: bigS }); r.ctx.textBaseline = 'top'; r.ctx.strokeText(String(v.big || 'FREE'), pad, y); r.ctx.restore(); y += bigS;
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 56 }, pad, y, iW, { color: '#fff' }); y += pV(78);
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 }); y += sub.length * 38 * 1.4 + 26;
-        [v.i1, v.i2, v.i3].forEach(it => { if (it) { r.drawLines(['→'], { family: 'Oswald', weight: '700', size: 40 }, pad, y, 50, { color: PC.red }); r.drawLines([String(it)], { family: 'Roboto', weight: '400', size: 38 }, pad + 56, y + 2, iW - 56, { color: PC.f8 }); y += 58; } });
-        pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 }); y += sub.length * 38 * 1.4 + pV(26);
+        [v.i1, v.i2, v.i3].forEach(it => { if (it) { r.drawLines(['→'], { family: 'Oswald', weight: '700', size: 40 }, pad, y, 50, { color: PC.red }); r.drawLines([String(it)], { family: 'Roboto', weight: '400', size: 38 }, pad + 56, y + 2, iW - 56, { color: PC.f8 }); y += pV(58); } });
+        pButton(r, pad, btnY, iW, v.cta, PC.red, PC.white); return;
     }
     // A: Guide Mockup (navy, rotated cover, centered) — cover text kept inside the card
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-    let y = pLogoC(r, a, false);
-    { const t = String(v.pill || 'FREE DOWNLOAD').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 30 }, w = r.textWidth(t, f) + 68; r.fillRoundRect((W - w) / 2, y, w, 62, 31, PC.red); r.drawLines([t], f, (W - w) / 2, y + 16, w, { color: '#fff', align: 'center' }); } y += 92;
-    r.ctx.save(); r.ctx.translate(W / 2, y + 165); r.ctx.rotate(-5 * Math.PI / 180);
-    const cw = 360, chh = 300, ci = 34; r.ctx.shadowColor = 'rgba(0,0,0,0.55)'; r.ctx.shadowBlur = 55; r.ctx.shadowOffsetY = 26;
+    let y = pLogoC(r, a, PC.navy);
+    { const t = String(v.pill || 'FREE DOWNLOAD').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 30 }, w = r.textWidth(t, f) + 68; r.fillRoundRect((W - w) / 2, y, w, 62, 31, PC.red); r.drawLines([t], f, (W - w) / 2, y + 16, w, { color: '#fff', align: 'center' }); } y += pV(92);
+    // The mockup card scales with the canvas so portrait doesn't leave a hole around it.
+    const ck = PG ? PG.k : 1;
+    r.ctx.save(); r.ctx.translate(W / 2, y + 165 * ck); r.ctx.rotate(-5 * Math.PI / 180);
+    const cw = Math.round(360 * ck), chh = Math.round(300 * ck), ci = 34; r.ctx.shadowColor = 'rgba(0,0,0,0.55)'; r.ctx.shadowBlur = 55; r.ctx.shadowOffsetY = 26;
     r.fillRoundRect(-cw / 2, -chh / 2, cw, chh, 16, '#fff'); r.ctx.shadowColor = 'transparent';
     r.rect(-cw / 2 + ci, -chh / 2 + ci, 76, 12, PC.red);
     r.drawLines(r.wrap(String(v.coverTitle || '').toUpperCase(), { family: 'Oswald', weight: '700', size: 38 }, cw - ci * 2), { family: 'Oswald', weight: '700', size: 38 }, -cw / 2 + ci, -chh / 2 + ci + 30, cw - ci * 2, { color: PC.navy, lineHeight: 1.1 });
     r.drawLines(r.wrap(String(v.coverSub || ''), { family: 'Roboto', weight: '400', size: 22 }, cw - ci * 2), { family: 'Roboto', weight: '400', size: 22 }, -cw / 2 + ci, chh / 2 - ci - 46, cw - ci * 2, { color: PC.slate, lineHeight: 1.3 });
-    r.ctx.restore(); y += 350;
+    r.ctx.restore(); y += Math.round(350 * ck);
     r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, 0, y, W, { color: '#fff', align: 'center' });
-    pButton(r, pad, H - pad - 112, iW, v.cta, PC.red, PC.white); return;
+    pButton(r, pad, btnY, iW, v.cta, PC.red, PC.white); return;
 }
 
 self.onmessage = async (e) => {
@@ -2028,32 +2325,20 @@ self.onmessage = async (e) => {
             await loadFonts(msg.fontBuffers);
             const logoW = await blobToBitmap(msg.logoWhiteBlob);
             const logoC = await blobToBitmap(msg.logoColorBlob);
+            const featured = await blobToBitmap(msg.featuredBlob);
             const W = msg.w || 1080, H = msg.h || 1080, scale = msg.scale || 2;
-            let r;
+            const r = new CanvasRenderer(W, H, scale);
             if (W > H * 1.2) {
-                r = new CanvasRenderer(W, H, scale); // dedicated wide layout
-                drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
-            } else if (H > W * 1.12) {
-                // Portrait: render the balanced square design and CENTER it vertically (with matching bg
-                // bands) so it sits in the middle instead of stuck at the top with an empty gap below.
-                const sq = new CanvasRenderer(W, W, scale);
-                drawPremium(sq, msg.premType, msg.dir, msg.vals, { logoW, logoC });
-                r = new CanvasRenderer(W, H, scale);
-                const yOff = (H - W) / 2;
-                // Extend the design's OWN top/bottom edge rows to fill the bands so the background
-                // (gradients included) continues seamlessly — a flat sampled colour left a visible seam.
-                const px = sq.ctx.getImageData(3, 3, 1, 1).data;
-                r.fillBg('rgb(' + px[0] + ',' + px[1] + ',' + px[2] + ')');   // base under the stretch
-                r.ctx.imageSmoothingEnabled = true;
-                r.ctx.drawImage(sq.canvas, 0, 0, sq.canvas.width, 1, 0, 0, W, yOff);                     // top band = top edge
-                r.ctx.drawImage(sq.canvas, 0, sq.canvas.height - 1, sq.canvas.width, 1, 0, H - yOff, W, yOff); // bottom band = bottom edge
-                r.ctx.drawImage(sq.canvas, 0, yOff, W, W);                    // the design itself, centered
+                drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC, featured });
             } else {
-                r = new CanvasRenderer(W, H, scale); // square: native
-                drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC });
+                // Square AND portrait both render NATIVELY at the real canvas size. Portrait used to
+                // be a square render letterboxed with stretched edge rows — it read as a floating
+                // card inside flat bands. drawPremium() now scales its own vertical rhythm to the
+                // canvas (see pGeom), so the design is full-bleed at every dimension.
+                drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC, featured });
             }
             const blob = await r.toBlob('image/png', 1.0);
-            if (logoW) logoW.close(); if (logoC) logoC.close();
+            if (logoW) logoW.close(); if (logoC) logoC.close(); if (featured) featured.close();
             self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_premium.png' });
             return;
         }
@@ -2804,13 +3089,29 @@ self.onmessage = async (e) => {
         b:{ name:'Verified Badge', fields:{ eyebrow:'Manually verified', head:'Every provider is checked before they reach you.', sub:'CIPC registration and B-BBEE credentials verified by hand — so you hire with confidence, not hope.', cta:'Browse the directory →' } },
         c:{ name:'Category Spotlight', fields:{ eyebrow:'Looking for', category:'Web Developers', count:'40+ vetted experts', sub:'Compare quotes from verified South African specialists — free, and no obligation to hire.', cta:'Compare quotes →', url:'serv.co.za' } }
       }},
+      // ---- Podcast (smesouthafrica.co.za/podcast). Episode card / guest pull-quote / audiogram.
+      // Load a Featured Image to get the guest photo; without one each direction stays typographic.
+      podcast: { label:'Podcast', dirs:{
+        a:{ name:'Episode Card', fields:{ show:'SME South Africa Podcast', tagline:'Cut the noise. Find the signal.', ep:'Episode 42', head:'The funding mistake that costs founders millions.', guest:'Jenna Sprenger', role:'Founder & CEO, Fundrr', platforms:'Spotify · Apple · YouTube', cta:'Listen now →', url:'smesouthafrica.co.za/podcast' } },
+        b:{ name:'Guest Pull-Quote', fields:{ eyebrow:'On the podcast', quote:'You do not need more funding. You need a business a funder can actually say yes to.', guest:'Jenna Sprenger', role:'Founder & CEO, Fundrr', cta:'Hear the full episode →' } },
+        c:{ name:'Now Playing', fields:{ eyebrow:'Now playing', show:'SME South Africa Podcast', head:'How to price for profit, not for approval.', guest:'Jenna Sprenger', platforms:'Spotify · Apple · YouTube', cta:'Start listening →', url:'smesouthafrica.co.za/podcast' } }
+      }},
+      // ---- Merch / Store (smesouthafrica.co.za/shop). Product, price, and the two things that
+      // close an online sale in SA: shipping reach and payment trust.
+      merch: { label:'Merch / Store', dirs:{
+        a:{ name:'Product Drop', fields:{ kicker:'New drop', name:"Founder's Edition White T-Shirt", price:'R230', sub:'Premium cotton, cut for long days and late pitches. Built for founders.', trust:'SA-wide shipping · Secure checkout', cta:'Shop the collection →', url:'smesouthafrica.co.za/shop' } },
+        b:{ name:'Price Hero', fields:{ eyebrow:'Built for founders', price:'R120', name:'Signature Red Cap', i1:'Structured six-panel, embroidered mark', i2:'Adjustable — one size, fits properly', i3:'Ships anywhere in South Africa', trust:'SA-wide shipping · Secure checkout', cta:'Get yours →' } },
+        c:{ name:'The Collection', fields:{ eyebrow:'The store is open', head:'Equip your growth.', p1:'Signature Red Cap|R120', p2:'Insulated Water Bottle|R100', p3:"Founder's Edition Tee|R230", trust:'SA-wide shipping · Secure checkout', cta:'Shop the collection →', url:'smesouthafrica.co.za/shop' } }
+      }},
       resources: { label:'Resources', dirs:{
         a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
         b:{ name:'Checklist Preview', fields:{ eyebrow:'Free Resource', head:'Funding readiness checklist', i1:'Up-to-date management accounts', i2:'Clean, separate bank statements', i3:'Tax & CIPC compliance sorted', locked:'+ 9 more inside…', cta:'Get the full checklist →' } },
         c:{ name:'Bold Typography', fields:{ big:'FREE', head:'The SME Growth Toolkit', sub:'7 templates every founder needs — one download.', i1:'Cash-flow forecast (Excel)', i2:'Investor one-pager (Editable)', i3:'Pricing calculator + more', cta:'Grab it free →' } }
       }}
     };
-    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count' };
+    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count',
+      show:'Show name', tagline:'Show tagline', ep:'Episode number', role:'Guest role', guest:'Guest name', quote:'Quote', platforms:'Available on',
+      kicker:'Kicker', price:'Price', p1:'Product 1 (name | price)', p2:'Product 2 (name | price)', p3:'Product 3 (name | price)' };
 
     let premVals = {}; // live editable values for the current type+dir
     function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }
@@ -2842,6 +3143,53 @@ self.onmessage = async (e) => {
     // Premium honours the same Dimensions control as Creative (Land/Square/Port).
     const PREM_DIMS = { landscape: [1200, 628], square: [1080, 1080], portrait: [1080, 1350] };
     function premDims(){ const d = PREM_DIMS[state.format] || PREM_DIMS.square; return { w: d[0], h: d[1] }; }
+    // Podcast (guest photo) and Merch (product shot) use the Featured Image when the user has
+    // actually PICKED one. The default stock article image is deliberately withheld — otherwise
+    // every merch post would ship with an unrelated photo instead of the typographic fallback.
+    function premFeatured(){ return (currentImageSrc && currentImageSrc !== DEFAULT_IMG_URL) ? currentImageBlob : null; }
+    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)' };
+    function syncPremImage(){
+        const box = document.getElementById('premium-image'); if (!box) return;
+        const wants = !!PREM_PHOTO[state.contentType];
+        box.classList.toggle('hidden', !wants);
+        if (!wants) return;
+        const lbl = document.getElementById('premium-image-label');
+        if (lbl) lbl.textContent = PREM_PHOTO[state.contentType];
+        const st = document.getElementById('prem-image-status');
+        if (st) st.textContent = premFeatured() ? 'Photo in use.' : 'No photo — the design uses its typographic layout.';
+    }
+    function setPremPhoto(blob){
+        currentImageBlob = blob || null;
+        if (currentImageSrc && currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
+        currentImageSrc = blob ? URL.createObjectURL(blob) : DEFAULT_IMG_URL;
+        if (!blob) currentImageBlob = null;   // force the default-image fetch path to re-run if needed
+        syncPremImage(); renderPremiumPreview();
+    }
+    function initPremImage(){
+        const f = document.getElementById('prem-image');
+        if (f) f.addEventListener('change', e => { const file = e.target.files[0]; if (file) setPremPhoto(file); });
+        const clr = document.getElementById('prem-image-clear');
+        if (clr) clr.addEventListener('click', () => { if (f) f.value = ''; setPremPhoto(null); });
+        const btn = document.getElementById('prem-ai-btn');
+        if (btn) btn.addEventListener('click', async () => {
+            const prompt = (document.getElementById('prem-ai-prompt').value || '').trim();
+            const st = document.getElementById('prem-image-status');
+            const say = m => { if (st) st.textContent = m; };
+            if (!prompt) { say('Describe the photo first.'); return; }
+            const dm = premDims();
+            const aspect = dm.w > dm.h ? '16:9' : (dm.w === dm.h ? '1:1' : '3:4');
+            btn.disabled = true; say('Generating… (a few seconds)');
+            try {
+                const r = await fetch('https://tshephos-lab.vercel.app/api/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, aspect }) });
+                let data = {}; try { data = await r.json(); } catch (_) {}
+                if (r.status === 401) throw new Error('Please sign in to generate images.');
+                if (!r.ok || !data.image) throw new Error(data.error || 'Could not generate an image — try rewording.');
+                setPremPhoto(await (await fetch(data.image)).blob());
+                say('Generated.');
+            } catch (err) { say(err.message || 'Image generation failed.'); }
+            finally { btn.disabled = false; }
+        });
+    }
     let _premChain = Promise.resolve();
     function premPost(payload){
       const run = () => postAndWait(getWorker(), payload, (payload.scale || 1) < 2);
@@ -2856,7 +3204,7 @@ self.onmessage = async (e) => {
       try {
         await ensureLogoBlob(); await ensureColorLogoBlob();
         const dm = premDims();
-        const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, premType: state.contentType, dir: state.premiumDir, vals: premVals, w: dm.w, h: dm.h, scale: 1, filename: 'preview.png' };
+        const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(), premType: state.contentType, dir: state.premiumDir, vals: premVals, w: dm.w, h: dm.h, scale: 1, filename: 'preview.png' };
         const result = await premPost(payload);
         if (myGen !== _premGen || state.contentType === 'creative') return;  // superseded / switched away
         // NOTE: the canvas SIZE is owned synchronously by setFormat/applyPremiumSize — never set it from
@@ -2871,7 +3219,7 @@ self.onmessage = async (e) => {
     async function exportPremium(){
       await ensureLogoBlob(); await ensureColorLogoBlob();
       const fname = 'SME_' + state.contentType + '_' + state.premiumDir + '.png';
-      const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, premType: state.contentType, dir: state.premiumDir, vals: premVals, ...premDims(), scale: 2, filename: fname };
+      const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(), premType: state.contentType, dir: state.premiumDir, vals: premVals, ...premDims(), scale: 2, filename: fname };
       const result = await premPost(payload);
       downloadBlob(result.blob, result.filename);
       if (typeof showToast === 'function') showToast('Exported: ' + result.filename, 'success');
@@ -2881,11 +3229,11 @@ self.onmessage = async (e) => {
       state.premiumDir = dir;
       ['a','b','c'].forEach(x => { const btn = document.getElementById('pdir-'+x); if(btn){ const on = x===dir;
         btn.className = 'pdir-btn font-bold py-2.5 rounded-lg text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
-      loadPremDefaults(); renderPremFields(); renderPremiumPreview();
+      loadPremDefaults(); renderPremFields(); syncPremImage(); renderPremiumPreview();
     }
     function setContentType(type){
       state.contentType = type;
-      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros'];
+      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros','podcast','merch'];
       types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
         btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
       const isCreative = type === 'creative';
@@ -2894,9 +3242,10 @@ self.onmessage = async (e) => {
       const sc = document.getElementById('size-controls'); if(sc) sc.classList.remove('hidden'); // Dimensions apply to premium too
       const zip = document.getElementById('btn-download-zip'); if(zip && !isCreative) zip.classList.add('hidden');
       const hint = document.getElementById('ct-hint');
-      if(isCreative){ renderLayout(); return; }
+      if(isCreative){ syncPremImage(); renderLayout(); return; }
       if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
-      if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction (A/B/C) and edit the text. Export gives a 1080×1080 PNG.';
+      if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction (A/B/C) and edit the text. Dimensions apply: landscape, square and portrait each get their own layout.'
+        + ((type === 'podcast' || type === 'merch') ? ' Load a Featured Image below to use a ' + (type === 'podcast' ? 'guest photo' : 'product shot') + '.' : '');
       state.premiumDir = 'a'; setPremiumDir('a');
     }
 
@@ -3647,6 +3996,7 @@ self.onmessage = async (e) => {
     }
 
     window.addEventListener('load', async function () {
+        initPremImage();
         // Image upload binding
         const imgInput = document.getElementById('in-image');
         if (imgInput) {

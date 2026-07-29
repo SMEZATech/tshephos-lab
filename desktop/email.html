@@ -305,6 +305,34 @@ Keep it warm and practical."></textarea>
         </div>
       </div>
 
+      <div class="promo" id="promo-merch">
+        <div class="promo-head" data-toggle="merch">
+          <span class="em">🛍️</span>
+          <span class="nm">Store / merch</span>
+          <span class="hint">one hero product + the rest of the shelf</span>
+          <span class="sw"></span>
+        </div>
+        <div class="promo-fields">
+          <input id="mc-title" placeholder="Product name — e.g. Founder's Edition White T-Shirt" />
+          <div class="row">
+            <input class="field-sm" id="mc-price" placeholder="Price — e.g. R230" />
+            <input class="field-sm" id="mc-was" placeholder="Was-price (optional) — e.g. R290" />
+          </div>
+          <input id="mc-image" placeholder="Product photo URL (optional) — upload to WordPress first" />
+          <textarea id="mc-desc" rows="2" placeholder="One or two lines — why a founder wants this."></textarea>
+          <div class="row">
+            <input class="field-sm" id="mc-link" placeholder="Button link — full URL" />
+            <input class="field-sm" id="mc-btn" placeholder="Button text — e.g. Shop now" />
+          </div>
+          <textarea id="mc-also" rows="2" placeholder="Also in the store (optional) — one per line as Name | Price, e.g. Signature Red Cap | R120"></textarea>
+          <div class="row">
+            <input class="field-sm" id="mc-eyebrow" value="SME South Africa Store" placeholder="Eyebrow — e.g. SME South Africa Store" />
+            <input class="field-sm" id="mc-trust" value="SA-wide shipping · Secure checkout via PayFast" placeholder="Trust line — shipping &amp; payment" />
+          </div>
+          <p style="font-size:12.5px; color:var(--faint); margin:8px 0 0; line-height:1.5;">Lead with ONE product — a wall of products reads as a catalogue and gets skipped. Put the rest in “Also in the store”. The trust line is what closes it: shipping reach and payment safety are the two objections.</p>
+        </div>
+      </div>
+
       <div class="promo" id="promo-sponsored">
         <div class="promo-head" data-toggle="sponsored">
           <span class="em">✦</span>
@@ -968,6 +996,72 @@ function podcastBlock(p){
                 </table>`;
 }
 
+function merchBlock(p){
+  // Deliberately NOT the podcast card. Podcast is a dark slate panel with the photo on the left;
+  // the store is a light "shelf" card with the product on the RIGHT, a price row, and a navy trust
+  // strip at the foot — so a reader scrolling past can tell the two blocks apart at a glance.
+  const img = p.image
+    ? `<img src="${escAttr(p.image)}" width="150" alt="${escAttr(p.title||'Product')}" style="display:block;width:150px;height:auto;border-radius:12px;border:1px solid #e2e8f0;background-color:#ffffff;">`
+    : `<table border="0" cellspacing="0" cellpadding="0" style="width:150px;height:150px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:12px;"><tr><td align="center" valign="middle" style="font-size:54px;line-height:1;">🛍️</td></tr></table>`;
+  // Price row: the price is the loudest thing after the product name. A was-price only renders when
+  // it's actually given — a fake strikethrough is the fastest way to lose trust.
+  const priceRow = p.price ? `<table border="0" cellspacing="0" cellpadding="0" style="margin:0 0 14px 0;"><tr>
+                                    <td style="font-family:'Oswald',sans-serif;font-size:30px;font-weight:900;color:#9c1c1f;line-height:1;">${esc(p.price)}</td>
+                                    ${p.was ? `<td style="padding-left:12px;font-family:'Roboto',sans-serif;font-size:16px;color:#94a3b8;text-decoration:line-through;">${esc(p.was)}</td>` : ''}
+                                  </tr></table>` : '';
+  // "Also in the store" — Name | Price rows. Keeps the email to ONE hero product without hiding the
+  // rest of the shelf.
+  const alsoItems = (p.also || '').split('\n').map(s => s.trim()).filter(Boolean).slice(0, 4);
+  const also = alsoItems.length ? `<table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-top:22px;border-top:1px solid #e2e8f0;">
+                            <tr><td style="padding-top:16px;">
+                                <p style="margin:0 0 10px 0;font-family:'Oswald',sans-serif;font-size:11px;color:#94a3b8;font-weight:900;text-transform:uppercase;letter-spacing:2px;">Also in the store</p>
+                                <table width="100%" border="0" cellspacing="0" cellpadding="0">${alsoItems.map(it => {
+                                  const parts = it.split('|');
+                                  const nm = (parts[0] || '').trim(), pr = (parts[1] || '').trim();
+                                  return `<tr><td style="padding:6px 0;font-family:'Roboto',sans-serif;font-size:15px;color:#0a2c3d;font-weight:600;">${esc(nm)}</td>`
+                                       + `<td align="right" style="padding:6px 0;font-family:'Oswald',sans-serif;font-size:17px;color:#9c1c1f;font-weight:700;white-space:nowrap;">${esc(pr)}</td></tr>`;
+                                }).join('')}</table>
+                            </td></tr></table>` : '';
+  // Bulletproof button — same VML pattern as the podcast play button (Outlook's Word engine ignores
+  // border-radius and mangles padding on <a>). Renders only when there is a real link.
+  const btnLabel = String(p.btn || 'Shop now').trim() || 'Shop now';
+  const link = String(p.link || '').trim();
+  const vmlW = Math.min(320, Math.max(160, btnLabel.replace(/[^\x20-\x7E]/g, '').length * 11 + 66));
+  const btn = link ? `<div style="margin-top:4px;">
+                                    <!--[if mso]>
+                                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escAttr(link)}" style="height:46px;v-text-anchor:middle;width:${vmlW}px;" arcsize="14%" stroke="f" fillcolor="#9c1c1f">
+                                      <w:anchorlock/>
+                                      <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;">${esc(btnLabel)}</center>
+                                    </v:roundrect>
+                                    <![endif]-->
+                                    <!--[if !mso]><!-- -->
+                                    <table role="presentation" border="0" cellspacing="0" cellpadding="0"><tr><td align="center" bgcolor="#9c1c1f" style="border-radius:6px;"><a href="${escAttr(link)}" target="_blank" style="display:inline-block;padding:14px 30px;font-family:'Oswald',Arial,sans-serif;font-size:14px;font-weight:700;color:#ffffff !important;text-decoration:none;border-radius:6px;text-transform:uppercase;letter-spacing:1.2px;border:none;">${esc(btnLabel)}</a></td></tr></table>
+                                    <!--<![endif]-->
+                                  </div>` : '';
+  const trust = String(p.trust || '').trim();
+  return `
+                ${HR}
+                <table data-volt="merch" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#fbf8f6;border:1px solid #ecdfd9;border-radius:16px;margin:28px 0;box-shadow:0 10px 26px rgba(10,44,61,0.07);overflow:hidden;">
+                    <tr><td style="padding:0;">
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td height="4" bgcolor="#9c1c1f" style="font-size:1px;line-height:1px;border-radius:15px 15px 0 0;">&nbsp;</td></tr></table>
+                        <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td style="padding:28px 26px 24px 26px;">
+                            <p style="margin:0 0 18px 0;font-family:'Oswald',sans-serif;font-size:11px;color:#9c1c1f;font-weight:900;text-transform:uppercase;letter-spacing:2px;">🛍️ ${esc(p.eyebrow || 'SME South Africa Store')}</p>
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0"><tr>
+                                <td class="col" valign="top" style="padding-right:22px;">
+                                    <h3 style="margin:0 0 12px 0;font-family:'Oswald',sans-serif;font-size:23px;color:#0a2c3d;font-weight:900;line-height:1.2;text-transform:uppercase;letter-spacing:0.3px;">${esc(p.title)}</h3>
+                                    ${priceRow}
+                                    ${p.desc ? `<p style="margin:0 0 18px 0;font-family:'Roboto',sans-serif;font-size:15px;color:#475569;line-height:1.6;">${esc(p.desc)}</p>` : ''}
+                                    ${btn}
+                                </td>
+                                <td class="col" width="150" valign="top">${img}</td>
+                            </tr></table>
+                            ${also}
+                        </td></tr></table>
+                        ${trust ? `<table width="100%" border="0" cellspacing="0" cellpadding="0"><tr><td bgcolor="#0a2c3d" style="padding:13px 26px;font-family:'Roboto',sans-serif;font-size:13px;color:#ffffff;font-weight:600;letter-spacing:0.2px;border-radius:0 0 15px 15px;">🚚 ${esc(trust)}</td></tr></table>` : ''}
+                    </td></tr>
+                </table>`;
+}
+
 function sponsoredBlock(p){
   const bl = (p.bullets || '').split('\n').map(s => s.trim()).filter(Boolean);
   const bulletsHtml = bl.length
@@ -1030,7 +1124,7 @@ const SAMPLE_BODY = `<p class="intro-text" style="margin-bottom: 0;">Running a b
                 <div class="related-reading"><span>📚 Related Reading:</span> <a href="https://smesouthafrica.co.za/5-networking-tips-to-help-your-business-grow/" class="related-link">5 Networking Tips To Help Your Business Grow</a></div>`;
 
 const state = { brief:'', loading:false, body:null, previewMode:'desktop', freeform:false, editedContent:null,
-  promos:{ content:{on:false}, webinar:{on:false}, resource:{on:false}, podcast:{on:false}, sponsored:{on:false}, task:{on:false}, opportunity:{on:false}, cta:{on:false}, signature:{on:false}, custom:{on:false} } };
+  promos:{ content:{on:false}, webinar:{on:false}, resource:{on:false}, podcast:{on:false}, merch:{on:false}, sponsored:{on:false}, task:{on:false}, opportunity:{on:false}, cta:{on:false}, signature:{on:false}, custom:{on:false} } };
 
 const elRun=$('#run'), elRunLabel=$('#runlabel'), elErr=$('#error'), elRes=$('#results'), elBrief=$('#brief');
 let lastFragment = '';
@@ -1226,6 +1320,7 @@ const PROMO_BUILDERS = {
   webinar: () => { const t = promoVal('wb-title'); return t ? webinarBlock({ title:t, desc:promoVal('wb-desc'), date:promoVal('wb-date'), link:promoVal('wb-link'), btn:promoVal('wb-btn') }) : ''; },
   resource: () => { const t = promoVal('rs-title'); return t ? resourceBlock({ title:t, desc:promoVal('rs-desc'), link:promoVal('rs-link'), btn:promoVal('rs-btn') }) : ''; },
   podcast: () => { const t = promoVal('pc-title'); return t ? podcastBlock({ title:t, guest:promoVal('pc-guest'), guestLink:promoVal('pc-guestlink'), cover:promoVal('pc-cover'), desc:promoVal('pc-desc'), link:promoVal('pc-link'), btn:promoVal('pc-btn'), spotify:promoVal('pc-spotify'), apple:promoVal('pc-apple'), youtube:promoVal('pc-youtube') }) : ''; },
+  merch: () => { const t = promoVal('mc-title'); return t ? merchBlock({ title:t, price:promoVal('mc-price'), was:promoVal('mc-was'), image:promoVal('mc-image'), desc:promoVal('mc-desc'), link:promoVal('mc-link'), btn:promoVal('mc-btn'), also:($('#mc-also')?$('#mc-also').value:''), eyebrow:promoVal('mc-eyebrow'), trust:promoVal('mc-trust') }) : ''; },
   sponsored: () => { const t = promoVal('sp-title'); return t ? sponsoredBlock({ brand:promoVal('sp-brand'), title:t, body:promoVal('sp-body'), bullets:($('#sp-bullets')?$('#sp-bullets').value:''), link:promoVal('sp-link'), btn:promoVal('sp-btn') }) : ''; },
   task: () => { const t = promoVal('tk-title'); if(!t) return ''; const poll = ($('#tk-poll')?$('#tk-poll').value:'').split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4); return taskBlock({ ritual:promoVal('tk-ritual'), shout:promoVal('tk-shout'), title:t, body:promoVal('tk-body'), poll, cta:promoVal('tk-cta') }); },
   opportunity: () => { const t = promoVal('op-title'); return t ? opportunityBlock({ title:t, tag:promoVal('op-tag'), tagType:($('#op-type')?$('#op-type').value:'grant'), bestFor:promoVal('op-best'), body:promoVal('op-body'), deadline:promoVal('op-deadline'), link:promoVal('op-link'), btn:promoVal('op-btn') }) : ''; },
@@ -2199,7 +2294,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','greeting','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','greeting','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','mc-title','mc-price','mc-was','mc-image','mc-desc','mc-link','mc-btn','mc-also','mc-eyebrow','mc-trust','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
