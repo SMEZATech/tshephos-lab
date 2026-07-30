@@ -4,7 +4,7 @@
 // LLM_ORDER (comma list) or the legacy single LLM_PROVIDER; unlisted providers are appended.
 
 import { blocked, meter, logContent, sbRest } from "./_guard.js";
-import { chatComplete, resolveLlmKeys, llmOrder } from "./_ai.js";
+import { chatComplete, resolveLlmKeys, llmOrder, probeProviders } from "./_ai.js";
 
 const SYSTEM =
   "You are an elite direct-response performance-marketing copywriter and a brutally honest creative strategist. " +
@@ -442,6 +442,15 @@ function parseForTask(task, text) {
 }
 
 export default async function handler(req, res) {
+  // A GET probe of provider/model availability. Lives here because this module owns provider
+  // config. It only calls the providers' free /models list endpoints — no generation, no spend —
+  // so it is NOT metered and runs on a cheaper rate limit than a real generation.
+  if (req.method === "GET" && String(req.query.action || "") === "providers") {
+    if (await blocked(req, res, { methods: "GET, OPTIONS", method: "GET", id: "providers", limit: 20, windowSec: 60 })) return;
+    try { return res.status(200).json(await probeProviders(req)); }
+    catch (e) { return res.status(500).json({ error: (e && e.message) || "probe failed" }); }
+  }
+
   if (await blocked(req, res, { id: "generate", limit: 30, windowSec: 60 })) return;
   if (await meter(req, res, { kind: "generate" })) return;
 

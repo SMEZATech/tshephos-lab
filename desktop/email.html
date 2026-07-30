@@ -523,8 +523,6 @@ Keep it warm and practical."></textarea>
 <script>
 "use strict";
 
-// App key — must match APP_KEY in your Vercel env. (Visible in source on the web; the real protection is on the native build.)
-const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
 
 const ICON = {
   copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
@@ -1935,7 +1933,7 @@ async function sendToKit(){
   setKitStatus('Creating a draft in Kit…', 'busy'); if(btn) btn.disabled = true;
   try{
     const r = await fetch('https://tshephos-lab.vercel.app/api/kit', {
-      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ subject, previewText, html: lastFragment })
     });
     let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach Kit.'); }
@@ -2050,7 +2048,7 @@ async function hostUploadedImage(file, dataUrl){
   setImgStatus('Uploading image to your media library…', 'busy');
   try{
     const r = await fetch('https://tshephos-lab.vercel.app/api/upload', {
-      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ dataBase64: String(dataUrl), filename: file.name, contentType: file.type || 'image/png' })
     });
     let data={}; try{ data = await r.json(); }catch(_){}
@@ -2156,7 +2154,7 @@ async function run(){
       fullBrief += '\n\nLINKS YOU MAY USE (anchor text → URL — use ONLY these, woven in as in-text links or a Related Reading box where they fit):\n'
         + links.map(l => '- "' + l.text + '" → ' + l.url).join('\n');
     }
-    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'email', brief: fullBrief, brandVoice: activeBrandVoice(), publication: activePublication() }) });
+    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ task:'email', brief: fullBrief, brandVoice: activeBrandVoice(), publication: activePublication() }) });
     let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the generator — check your connection and try again.'); }
     if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
     const bodyHtml = (data && data.emailBody) || '';
@@ -2196,7 +2194,7 @@ async function suggestSubjects(){
   if(btn) btn.disabled = true;
   if(status){ status.textContent='Thinking up angles…'; status.style.color='#94a3b8'; }
   try{
-    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'subjects', theme, content }) });
+    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ task:'subjects', theme, content }) });
     let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the assistant.'); }
     if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
     const subs = (data && data.subjects) || [];
@@ -2234,7 +2232,7 @@ async function suggestWeeklyAction(){
   if(btn) btn.disabled = true;
   if(status){ status.textContent='Reading the email…'; status.style.color='#94a3b8'; }
   try{
-    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json','x-app-key':APP_KEY}, body: JSON.stringify({ task:'weeklyaction', content }) });
+    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ task:'weeklyaction', content }) });
     let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the assistant.'); }
     if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
     const wa = data && data.weeklyAction;

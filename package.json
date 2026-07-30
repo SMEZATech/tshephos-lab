@@ -1,11 +1,13 @@
 {
   "name": "tshephos-lab",
   "version": "1.0.0",
-  "description": "Tshepho's Lab — an ad creative engine that writes and scores ad angles. © Tshepho Joel.",
+  "description": "Tshepho's Lab \u2014 an ad creative engine that writes and scores ad angles. \u00a9 Tshepho Joel.",
   "private": true,
   "type": "module",
   "scripts": {
-    "smoke": "node smoke.cjs"
+    "smoke": "node smoke.cjs",
+    "render": "node ci-render.cjs",
+    "test": "node smoke.cjs && node ci-render.cjs"
   },
   "engines": {
     "node": ">=18"

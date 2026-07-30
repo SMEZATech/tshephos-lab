@@ -205,7 +205,6 @@
 
 <script>
 const API_BASE = 'https://tshephos-lab.vercel.app';
-const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -329,7 +328,7 @@ async function runCampaign(){
   ['stCopy','stCrea','stEmail','stPosts'].forEach(id => { $('#' + id).hidden = true; });
   $('#creaGrid').innerHTML = '<div class="skel"></div><div class="skel"></div><div class="skel"></div>';
   try {
-    const r = await fetch(API_BASE + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-app-key': APP_KEY }, body: JSON.stringify({ task: 'campaign', brief, platform, brandVoice: (currentBrand().voice || '').slice(0, 600) }) });
+    const r = await fetch(API_BASE + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: 'campaign', brief, platform, brandVoice: (currentBrand().voice || '').slice(0, 600) }) });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || ('Server error ' + r.status));
     lastCampaign = data.campaign;
@@ -489,7 +488,7 @@ function renderCreatives(c){
 // Reroll ONE piece against the same brief, telling the model what to avoid repeating.
 async function regeneratePiece(kind, index){
   const brief = $('#brief').value.trim(); if (!brief || !lastCampaign) return null;
-  const r = await fetch(API_BASE + '/api/generate', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+  const r = await fetch(API_BASE + '/api/generate', { method:'POST', headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify({ task:'campaign', brief, platform, brandVoice: (currentBrand().voice || '').slice(0, 600),
       regenerate: kind, avoid: JSON.stringify(lastCampaign[kind === 'creative' ? 'creatives' : 'copy']).slice(0, 1200) }) });
   const data = await r.json();

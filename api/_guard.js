@@ -110,14 +110,40 @@ async function sbRest(path) {
   const r = await fetch(sbBase() + "/rest/v1/" + path, { headers: { apikey: svc, Authorization: "Bearer " + svc } });
   return r.ok ? r.json() : null;
 }
+// Every logging helper (logContent/logEvent/recordMetric/recordUsage) fails OPEN — a logging
+// failure must never break a generation. The cost of that is invisibility: if the brain tables were
+// never created, every insert has been returning null forever and nothing anywhere says so. These
+// counters are the cheapest possible fix — the write still fails open, but it now leaves a trace
+// that /api/brain?action=diag can report. Per warm instance and non-durable, which is fine: they
+// answer "is this broken RIGHT NOW", not "how much have we lost".
+const _writeStats = Object.create(null);
+function noteWrite(table, ok, detail) {
+  const s = _writeStats[table] || (_writeStats[table] = { ok: 0, fail: 0, lastError: null });
+  if (ok) s.ok++;
+  else { s.fail++; if (detail) s.lastError = String(detail).slice(0, 300); }
+}
+function writeStats() { return _writeStats; }
+
 async function sbWrite(table, body) {
   const svc = process.env.SUPABASE_SERVICE_KEY;
-  const r = await fetch(sbBase() + "/rest/v1/" + table, {
-    method: "POST",
-    headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json", Prefer: "return=representation" },
-    body: JSON.stringify(body),
-  });
-  return r.ok ? r.json() : null;
+  try {
+    const r = await fetch(sbBase() + "/rest/v1/" + table, {
+      method: "POST",
+      headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      // Keep the reason: "relation \"content_item\" does not exist" is the difference between
+      // "the schema was never applied" and "one row was malformed", and guessing wastes days.
+      noteWrite(table, false, await r.text().catch(() => "HTTP " + r.status));
+      return null;
+    }
+    noteWrite(table, true);
+    return r.json();
+  } catch (e) {
+    noteWrite(table, false, (e && e.message) || "network error");
+    return null;
+  }
 }
 async function ensureMember(orgId, userId, role) {
   const m = await sbRest("member?select=user_id&limit=1&org_id=eq." + encodeURIComponent(orgId) + "&user_id=eq." + encodeURIComponent(userId));
@@ -359,4 +385,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db };
+export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats };

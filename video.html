@@ -522,7 +522,6 @@ function applyRenderScale(scale){
 const videoEl = $('#srcVideo');
 const musicEl = $('#srcMusic');
 
-const APP_KEY='volt_8cdecf560665536ac875f1ce96ff8070817ab582';
 const C_WHITE='#ffffff';
 // Brand colours — refreshed from the shared Brand Kit (see refreshBrand). Defaults = SME.
 let C_NAVY='#0a2c3d', C_RED='#9c1c1f', C_REDLT='#ffb1b1';
@@ -1480,7 +1479,7 @@ async function transcribeAudio(blob){
   const b64 = await blobToBase64(blob);
   const r = await fetch('/api/transcribe', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+    headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify({ audio:b64, mime:'audio/webm', language:'en' })
   });
   let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the caption service.'); }
@@ -1927,7 +1926,7 @@ async function generatePostCopy(){
   try{
     const r = await fetch('/api/generate', {
       method:'POST',
-      headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ task:'videocopy', transcript: transcriptText(), platform: state.postPlatform })
     });
     let data={}; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the copy service.'); }
@@ -1992,7 +1991,7 @@ async function generateHighlights(){
   setHlStatus('Scanning the transcript for the best moments…', 'busy');
   try{
     const r = await fetch('/api/generate', {
-      method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+      method:'POST', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ task:'highlights', transcript: transcriptTimed(), totalDur: clipDur(), count:5, minLen:15, maxLen:45 })
     });
     let data={}; try{ data=await r.json(); }catch(_){ throw new Error('Could not reach the highlights service.'); }

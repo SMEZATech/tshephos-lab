@@ -1,0 +1,35 @@
+name: CI
+
+# The desktop app loads its pages from this deployment on next open, so a broken push reaches
+# every user without anyone installing anything. Both checks already existed and both already
+# passed locally — neither ran automatically, which is why the bugs they catch reached the list.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Static: every API file and every page parses, tags balance, volt-auth survives the sync.
+      - name: Static checks
+        run: node smoke.cjs
+
+      # Renders ~180 designs through the production worker and asserts on the draw trace.
+      - name: Install Playwright (chromium only)
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Render checks
+        run: node ci-render.cjs

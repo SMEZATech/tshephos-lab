@@ -5,7 +5,7 @@
 // small, plain-English insight block. Costs ~one Gemini Flash call per refresh (pennies).
 // Everything is per-org, service-role only. This is the compounding, un-copyable asset.
 
-import { blocked, sbRest, sbBase, logEvent } from "./_guard.js";
+import { blocked, sbRest, sbBase, logEvent, writeStats } from "./_guard.js";
 
 const STALE_DAYS = 7;
 const MIN_POSTS = 5;
@@ -80,6 +80,42 @@ export default async function handler(req, res) {
         if (ev) await logEvent(orgId, body.contentId || null, ev, (body.detail && typeof body.detail === "object") ? body.detail : {});
       } catch (e) {}
       return res.status(200).json({ ok: true });
+    }
+
+    // ---- Data-pipeline diagnostic ----------------------------------------------------------
+    // The whole defensible asset is the per-org performance history, and every writer fails OPEN,
+    // so "the schema was never applied" and "everything is fine" looked identical from the outside.
+    // This probes each table directly and reports whether it EXISTS and how many rows this org has,
+    // plus this instance's write successes/failures. Read-only, no AI spend.
+    if (req.method === "GET" && String(req.query.action || "") === "diag") {
+      const enc = encodeURIComponent(orgId);
+      const TABLES = ["content_item", "content_event", "post_metric", "org_insight", "usage_event"];
+      const svc = process.env.SUPABASE_SERVICE_KEY;
+      const probe = async (t) => {
+        try {
+          // HEAD + Prefer: count=exact gives the row count in Content-Range without pulling rows.
+          const r = await fetch(sbBase() + "/rest/v1/" + t + "?select=id&org_id=eq." + enc, {
+            method: "HEAD",
+            headers: { apikey: svc, Authorization: "Bearer " + svc, Prefer: "count=exact", Range: "0-0" },
+          });
+          if (!r.ok) return { table: t, exists: false, rows: null, error: "HTTP " + r.status };
+          const cr = r.headers.get("content-range") || "";      // e.g. "0-0/412"
+          const n = parseInt((cr.split("/")[1] || ""), 10);
+          return { table: t, exists: true, rows: isFinite(n) ? n : null };
+        } catch (e) { return { table: t, exists: false, rows: null, error: (e && e.message) || "error" }; }
+      };
+      const tables = await Promise.all(TABLES.map(probe));
+      const missing = tables.filter((t) => !t.exists).map((t) => t.table);
+      const empty = tables.filter((t) => t.exists && t.rows === 0).map((t) => t.table);
+      return res.status(200).json({
+        ok: missing.length === 0,
+        // The one-line answer to "is the moat actually filling up?"
+        verdict: missing.length ? "SCHEMA MISSING — run supabase/brain.sql"
+               : (tables.find((t) => t.table === "content_item" && t.rows === 0) ? "Schema present but NOTHING has been recorded yet"
+               : "Recording"),
+        tables, missing, empty,
+        writes: writeStats(),   // per warm instance: what this lambda has managed to write
+      });
     }
 
     // Recent client-side crashes for this org — so a break for ANY user is visible in /health.html

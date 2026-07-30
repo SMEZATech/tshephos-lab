@@ -1,0 +1,7 @@
+# CI installs playwright with --no-save purely to drive smoke.html headlessly; it is never a
+# runtime dependency of the app (the web app has no build step and ships no npm packages).
+node_modules/
+
+# Local scratch: throwaway render/review harnesses are prefixed with _ so they can never be
+# committed by accident. smoke.cjs lints every root .html, so a stray one shows up in its output.
+_*.html

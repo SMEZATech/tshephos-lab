@@ -58,7 +58,7 @@
   <div class="ctl">
     <button class="btn" id="runAi" onclick="runAiChecks()">▶ Run AI checks (uses quota)</button>
     <button class="btn ghost" onclick="location.reload()">↻ Re-run free checks</button>
-    <a class="btn ghost" href="smoke.html" style="text-decoration:none;display:inline-block;">🎨 Studio render smoke (59)</a>
+    <a class="btn ghost" href="smoke.html" style="text-decoration:none;display:inline-block;">🎨 Studio render smoke</a>
     <span class="note" id="aiNote">AI checks make ~4 real generations.</span>
   </div>
   <div id="out"></div>
@@ -66,7 +66,6 @@
 
 <script>
 const API = 'https://tshephos-lab.vercel.app/api';
-const APP_KEY = 'volt_8cdecf560665536ac875f1ce96ff8070817ab582';
 const results = [];
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function signedIn(){ return !!window.voltSession; }
@@ -105,7 +104,7 @@ async function api(path, init){
   return body || {};
 }
 function post(task, extra){
-  return api('/generate', { method:'POST', headers:{ 'Content-Type':'application/json', 'x-app-key':APP_KEY },
+  return api('/generate', { method:'POST', headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify(Object.assign({ task }, extra || {})) });
 }
 
@@ -181,6 +180,40 @@ function sessionReady(){
     if (r.status === 503) return { warn:true, detail:'not set up — add a free RESEND_API_KEY in Vercel to enable "Send test"' };
     if (r.status === 400) return { detail:'configured and reachable' };
     throw new Error('unexpected ' + r.status + (d.error ? ' — ' + d.error : ''));
+  }, { skipWhy:'needs sign-in' }));
+  // The moat is the per-org performance history, and every writer fails OPEN — so "the schema was
+  // never applied" used to look exactly like "everything is fine". This asks the database directly.
+  reads.push(await check('data pipeline · brain tables', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/brain?action=diag');
+    if (d.missing && d.missing.length) throw new Error('missing table(s): ' + d.missing.join(', ') + ' — run supabase/brain.sql');
+    const ci = (d.tables || []).find(t => t.table === 'content_item');
+    const pm = (d.tables || []).find(t => t.table === 'post_metric');
+    if (ci && ci.rows === 0) return { warn:true, detail:'schema present but NOTHING recorded yet — generations should be writing content_item' };
+    return { detail: 'content_item ' + (ci ? ci.rows : '?') + ' rows · post_metric ' + (pm ? pm.rows : '?') + ' rows' };
+  }, { skipWhy:'needs sign-in' }));
+  reads.push(await check('data pipeline · write failures', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/brain?action=diag');
+    const w = d.writes || {};
+    const failing = Object.keys(w).filter(t => w[t].fail > 0);
+    if (!Object.keys(w).length) return { detail:'no writes on this instance yet' };
+    if (failing.length) throw new Error(failing.map(t => t + ': ' + w[t].fail + ' failed — ' + (w[t].lastError || '')).join(' | '));
+    return { detail: Object.keys(w).map(t => t + ' ' + w[t].ok + ' ok').join(', ') };
+  }, { skipWhy:'needs sign-in' }));
+  // Pinned model ids go stale when a provider retires a model. Free list endpoints, no generation.
+  reads.push(await check('AI providers · models still available', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/generate?action=providers');
+    if (d.retired && d.retired.length) throw new Error('retired model(s): ' + d.retired.join(', ') + ' — set the matching *_MODEL env var');
+    const down = (d.providers || []).filter(p => p.configured && p.reachable === false);
+    const detail = d.healthy + '/' + d.configured + ' providers healthy · order: '
+      + (d.providers || []).filter(p => p.configured).map(p => p.provider).join(' → ');
+    if (!d.configured) throw new Error('no AI provider keys configured');
+    if (d.healthy === 0) throw new Error('every configured provider is unreachable');
+    if (down.length) return { warn:true, detail: detail + ' · unreachable: ' + down.map(p => p.provider + ' (' + p.error + ')').join(', ') };
+    if (d.healthy === 1) return { warn:true, detail: detail + ' · no failover — add a second free key' };
+    return { detail };
   }, { skipWhy:'needs sign-in' }));
   reads.push(await check('postiz · channels', async () => {
     if (!signedIn()) return 'SKIP';

@@ -136,4 +136,59 @@ async function chatComplete(opts, keys, order) {
   throw e;
 }
 
-export { chatComplete, resolveLlmKeys, llmOrder, DEFAULT_ORDER };
+// ---- Provider / model availability probe ---------------------------------------------------
+// Model ids are pinned defaults (gemini-2.5-flash, llama-3.3-70b-versatile, …) and providers retire
+// models on roughly annual cycles. When that happens the only signal today is a user complaint.
+// This lists each provider's CURRENTLY AVAILABLE models and checks the pinned id is still among
+// them. It uses the free list endpoints — no generation, no tokens, no spend — so it is safe to run
+// on every health check.
+const LIST_URL = {
+  gemini:     () => "https://generativelanguage.googleapis.com/v1beta/models",
+  gemini2:    () => "https://generativelanguage.googleapis.com/v1beta/models",
+  groq:       () => OAI.groq.base + "/models",
+  cerebras:   () => OAI.cerebras.base + "/models",
+  openrouter: () => OAI.openrouter.base + "/models",
+  mistral:    () => OAI.mistral.base + "/models",
+  openai:     () => OAI.openai.base + "/models",
+};
+function pinnedModel(p) {
+  if (p === "gemini" || p === "gemini2") return process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const c = OAI[p];
+  return c ? (process.env[c.env] || c.def) : null;
+}
+async function probeProviders(req) {
+  const keys = resolveLlmKeys(req);
+  const order = llmOrder();
+  const out = [];
+  await Promise.all(order.map(async (p) => {
+    const key = keys[p];
+    const model = pinnedModel(p);
+    if (!key) { out.push({ provider: p, configured: false, model }); return; }
+    const url = LIST_URL[p] && LIST_URL[p]();
+    if (!url) { out.push({ provider: p, configured: true, model, reachable: null, note: "no list endpoint" }); return; }
+    try {
+      const headers = (p === "gemini" || p === "gemini2") ? { "x-goog-api-key": key } : { Authorization: "Bearer " + key };
+      const r = await fetch(url, { headers });
+      if (!r.ok) { out.push({ provider: p, configured: true, model, reachable: false, error: "HTTP " + r.status }); return; }
+      const d = await r.json().catch(() => ({}));
+      // Gemini returns {models:[{name:"models/gemini-2.5-flash"}]}, OpenAI-compatible {data:[{id}]}
+      const ids = (d.models || d.data || []).map((m) => String(m.id || m.name || "").replace(/^models\//, ""));
+      const has = ids.some((id) => id === model || id.startsWith(model));
+      out.push({ provider: p, configured: true, model, reachable: true, modelAvailable: has, modelCount: ids.length });
+    } catch (e) {
+      out.push({ provider: p, configured: true, model, reachable: false, error: (e && e.message) || "network error" });
+    }
+  }));
+  // Keep the caller's failover order — "which one serves first" is the useful reading.
+  out.sort((a, b) => order.indexOf(a.provider) - order.indexOf(b.provider));
+  const live = out.filter((p) => p.configured && p.reachable && p.modelAvailable !== false);
+  return {
+    order,
+    providers: out,
+    configured: out.filter((p) => p.configured).length,
+    healthy: live.length,
+    retired: out.filter((p) => p.configured && p.modelAvailable === false).map((p) => p.provider + ":" + p.model),
+  };
+}
+
+export { chatComplete, resolveLlmKeys, llmOrder, DEFAULT_ORDER, probeProviders };

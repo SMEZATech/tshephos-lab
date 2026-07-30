@@ -566,11 +566,17 @@ class CanvasRenderer {
         this.ctx.textBaseline = 'top';
         this.ctx.imageSmoothingEnabled = true;
         this.ctx.imageSmoothingQuality = 'high';
+        // DRAW TRACE (opt-in, off by default = zero cost). When enabled, the primitives below
+        // record what they drew and where. That turns "the canvas has ink on it" — which passed
+        // every one of the invisible-button / buried-footer / dead-space bugs — into exact
+        // assertions the render tests can make. See smoke.html.
+        this.trace = null;
     }
+    _tr(kind, rec) { if (this.trace) this.trace.push(Object.assign({ kind }, rec)); }
 
     // --- Primitives ---
-    fillBg(color) { this.ctx.fillStyle = color; this.ctx.fillRect(0, 0, this.w, this.h); }
-    rect(x, y, w, h, color) { this.ctx.fillStyle = color; this.ctx.fillRect(x, y, w, h); }
+    fillBg(color) { this.ctx.fillStyle = color; this.ctx.fillRect(0, 0, this.w, this.h); this._tr('fill', { x: 0, y: 0, w: this.w, h: this.h, color, bg: true }); }
+    rect(x, y, w, h, color) { this.ctx.fillStyle = color; this.ctx.fillRect(x, y, w, h); this._tr('fill', { x, y, w, h, color }); }
 
     roundRectPath(x, y, w, h, radii) {
         const ctx = this.ctx;
@@ -596,6 +602,7 @@ class CanvasRenderer {
         this.ctx.fillStyle = color;
         this.ctx.fill();
         this.ctx.restore();
+        this._tr('fill', { x, y, w, h, color });
     }
 
     strokeLine(x1, y1, x2, y2, color, width, cap) {
@@ -632,11 +639,13 @@ class CanvasRenderer {
         }
         ctx.drawImage(img, sX, sY, sW, sH, dx, dy, dW, dH);
         ctx.restore();
+        this._tr('image', { x: dx, y: dy, w: dW, h: dH });
     }
 
     // "contain" — centered, aspect preserved
     drawContain(img, dx, dy, dW, dH, opts) {
         if (!img) return null;
+        this._tr('image', { x: dx, y: dy, w: dW, h: dH });
         opts = opts || {};
         const ctx = this.ctx;
         const iW = img.width, iH = img.height;
@@ -683,6 +692,11 @@ class CanvasRenderer {
         ctx.fillStyle = grad;
         ctx.fillRect(x, y, w, h);
         ctx.restore();
+        // Traced as a fill with NO single colour: a gradient backdrop is a real surface (so it must
+        // hide the fill beneath it from the contrast check) but its colour varies across the box,
+        // so contrast against it can't be decided from the log. Untraced, the check kept reading
+        // straight through to the page background and inventing white-on-white failures.
+        this._tr('fill', { x, y, w, h, color: null, gradient: true, stops: stops.map(s => s[1]) });
     }
 
     // Radial "blur glow" (Modern theme + carousel cover)
@@ -834,6 +848,13 @@ class CanvasRenderer {
             else if (align === 'right') lx = x + boxW - w;
             if (opts.stroke) ctx.strokeText(line, lx, y + i * lineH); // outline first, fill on top (meme style)
             ctx.fillText(line, lx, y + i * lineH);
+            // Per-LINE box (not the nominal box): a right-aligned or centred line occupies only its
+            // own width, and that is what has to be contrast- and overlap-checked.
+            if (this.trace && String(line).trim()) {
+                this._tr('text', { x: lx, y: y + i * lineH, w, h: font.size, size: font.size,
+                                   color: opts.color || '#000000', text: String(line).slice(0, 60),
+                                   stroke: !!opts.stroke });
+            }
         }
         ctx.restore();
     }
@@ -1081,13 +1102,19 @@ const Layouts = {
         const tag = r.drawTag(String(s.tag || '').toUpperCase(), tagFont, 22, 12, innerX, pad, { radii: 4, bg: BRAND.red, fg: BRAND.white });
         if (assets.logo) r.drawContain(assets.logo, innerX + innerW - 150, pad + 2, 150, 42, { filter: 'grayscale(1) brightness(0)', alpha: 0.82 });
         const imgY = pad + Math.max(tag.height, 48) + 28;
-        const imgH = isLand ? Math.round(H * 0.5) : Math.round(H * 0.40);
+        const footerH = s.showFooter ? 64 : 0;
+        // Reserve room for the HEADLINE before sizing the image. A fixed 50% image band is fine on
+        // a 1080-tall canvas but on landscape (628) it left a NEGATIVE title box, so fitFontSize
+        // collapsed the headline to its 22px floor and ran it into the footer. The image now yields
+        // whatever the headline needs, down to a 22%-of-canvas floor of its own.
+        const minTitle = Math.round(H * (isLand ? 0.30 : 0.24));
+        const roomForImg = H - imgY - 44 - minTitle - pad - footerH - 12;
+        const imgH = Math.max(Math.round(H * 0.22), Math.min(Math.round(H * (isLand ? 0.5 : 0.40)), roomForImg));
         r.fillRoundRect(innerX, imgY, innerW, imgH, 20, '#1e293b');
         if (assets.featured) r.drawCover(assets.featured, innerX, imgY, innerW, imgH, s.focalX, s.focalY, 20);
         r.rect(innerX, imgY + imgH + 22, Math.round(innerW * 0.16), 6, BRAND.red);
-        const footerH = s.showFooter ? 64 : 0;
         const titleTop = imgY + imgH + 44;
-        const titleBoxH = H - titleTop - pad - footerH - 12;
+        const titleBoxH = Math.max(40, H - titleTop - pad - footerH - 12);
         const ceiling = (s.format === 'portrait' ? 86 : (s.format === 'square' ? 74 : 60)) * s.userScale * 1.4;
         const fit = r.fitFontSize(String(s.title || '').toUpperCase(), { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.08, { max: ceiling, min: 22 });
         r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleTop, innerW, { align: 'left', color: BRAND.navy, lineHeight: 1.08 });
@@ -1523,7 +1550,7 @@ const Layouts = {
 };
 
 // ============ F. SLIDE DISPATCHER ============
-function renderSlide(state, slideIdx, assets, scale) {
+function renderSlide(state, slideIdx, assets, scale, trace) {
     let w, h;
     if (state.campaign === 'poll') { w = 1080; h = 1080; }
     else if (state.campaign === 'whatsapp') { w = 1080; h = 1350; }
@@ -1534,6 +1561,7 @@ function renderSlide(state, slideIdx, assets, scale) {
     }
 
     const r = new CanvasRenderer(w, h, scale);
+    if (trace) r.trace = [];
 
     if (state.campaign === 'standard') {
         if (state.theme === 'cinematic')      Layouts.cinematic(r, state, assets);
@@ -2234,9 +2262,9 @@ function drawFunding(r, dir, v, a) {
         const cardH = pV(200), cardY = btnY - pV(40) - cardH;
         r.fillRoundRect(pad, cardY, iW, cardH, 30, PC.paper);
         r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad + 40, cardY + pV(38), iW - 80, { color: PC.red });
-        r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cardY + pV(82), iW - 80, { color: PC.navy });
+        r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cardY + pV(82), iW - 80, { color: pInk(PC.paper) });
         r.drawLines([String(v.cards || '')], { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cardY + pV(146), iW - 80, { color: PC.slate });
-        pButton(r, pad, btnY, iW, v.cta, PC.navy, PC.white); return;
+        { const cta = pSolid(PC.paper, PC.navy, PC.red); pButton(r, pad, btnY, iW, v.cta, cta.fill, cta.on); } return;
     }
     if (dir === 'c') {
         // Big Number — research-driven: concrete number + trust + speed + urgent CTA (out-converts a generic estimator).
@@ -2265,7 +2293,17 @@ function drawFunding(r, dir, v, a) {
     r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.02 }); y += fit.totalH + pV(20);
     const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
     r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 }); y += sub.length * 40 * 1.4 + pV(30);
-    [v.b1, v.b2, v.b3].forEach(b => { if (b) { pBullet(r, pad, y, b, PC.red, PC.f8); y += pV(84); } });
+    // The bullet stack grows with the copy above it, so with a long sub it used to run underneath
+    // the CTA. Tighten the step to whatever actually fits between here and the button, and stop
+    // rather than draw a bullet that would be buried.
+    {
+        const items = [v.b1, v.b2, v.b3].filter(Boolean);
+        if (items.length) {
+            const room = (btnY - pV(52)) - pV(16) - y;
+            const step = Math.max(PG ? PG.bul + 8 : 66, Math.min(pV(84), Math.floor(room / items.length)));
+            items.forEach(b => { if (y + step <= btnY - pV(52)) { pBullet(r, pad, y, b, PC.red, PC.f8); y += step; } });
+        }
+    }
     pButton(r, pad, btnY - pV(52), iW, v.cta, PC.red, PC.white);
     r.strokeLine(pad, H - pad - 44, W - pad, H - pad - 44, 'rgba(255,255,255,0.1)', 2);
     r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - 30, iW, { color: 'rgba(255,255,255,0.7)' });
@@ -2284,7 +2322,7 @@ function drawSolutions(r, dir, v, a) {
         r.drawLines([String(v.vsLeft || 'A')], { family: 'Oswald', weight: '700', size: 68 }, pad, panelY + (panelH - 68) / 2, mid - pad - gap, { color: PC.white, align: 'center' });
         r.drawLines([String(v.vsRight || 'B')], { family: 'Oswald', weight: '700', size: 68 }, mid + gap, panelY + (panelH - 68) / 2, mid - pad - gap, { color: PC.white, align: 'center' });
         r.fillRoundRect(mid - 46, panelY + panelH / 2 - 46, 92, 92, 46, '#fff');
-        r.drawLines(['VS'], { family: 'Oswald', weight: '700', size: 40 }, mid - 46, panelY + panelH / 2 - 26, 92, { color: PC.navy, align: 'center' });
+        r.drawLines(['VS'], { family: 'Oswald', weight: '700', size: 40 }, mid - 46, panelY + panelH / 2 - 26, 92, { color: pInk('#ffffff'), align: 'center' });
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 36 }, iW);
         r.drawLines(sub, { family: 'Roboto', weight: '400', size: 36 }, pad, panelY + panelH + pV(34), iW, { color: PC.cbd, lineHeight: 1.4, align: 'center' });
         pButton(r, pad + 40, btnY, iW - 80, v.cta, PC.red, PC.white); return;
@@ -2297,7 +2335,7 @@ function drawSolutions(r, dir, v, a) {
         r.ctx.save(); r.ctx.strokeStyle = PC.line; r.ctx.lineWidth = 2; r.roundRectPath(pad, y, iW, cardH, 30); r.ctx.stroke(); r.ctx.restore();
         let cy = y + 40;
         // name + big rating badge
-        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cy, iW - 260, { color: PC.navy, lineHeight: 1.05 });
+        r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cy, iW - 260, { color: pInk('#ffffff'), lineHeight: 1.05 });
         r.fillRoundRect(W - pad - 40 - 150, cy - 4, 150, 96, 18, PC.navy);
         r.drawLines([String(v.rating || '4.8')], { family: 'Oswald', weight: '700', size: 52 }, W - pad - 40 - 150, cy + 8, 150, { color: '#fff', align: 'center' });
         r.drawLines(['★★★★★'], { family: 'Roboto', weight: '700', size: 22 }, W - pad - 40 - 150, cy + 64, 150, { color: '#FFC857', align: 'center' });
@@ -2331,9 +2369,9 @@ function drawNewsletter(r, dir, v, a) {
         let y = pLogo(r, a, PC.paper);
         pPill(r, pad, y, v.pill, PC.red, PC.white);
         r.drawLines([String(v.issue || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y + 16, iW, { color: PC.slate, align: 'right' }); y += pV(96);
-        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: PC.navy }); y += pV(86);
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: pInk(PC.paper) }); y += pV(86);
         [v.i1, v.i2, v.i3].forEach(it => { if (it) { const p = String(it).split('|'); pBorderItem(r, pad, y, iW, p[0] || '', p[1] || '', PC.red); y += pV(98); } });
-        pButton(r, pad, btnY, iW, v.cta, PC.navy, PC.white); return;
+        { const cta = pSolid(PC.paper, PC.navy, PC.red); pButton(r, pad, btnY, iW, v.cta, cta.fill, cta.on); } return;
     }
     if (dir === 'c') { // Social Proof (red, centered)
         r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
@@ -2350,8 +2388,9 @@ function drawNewsletter(r, dir, v, a) {
         r.drawLines([String(v.sub || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 46 }, 0, y, W, { color: PC.off, align: 'center' });
         r.fillRoundRect(pad, boxY, iW, boxH, 16, '#fff');
         r.drawLines([String(v.placeholder || '')], { family: 'Roboto', weight: '400', size: 36 }, pad + 30, boxY + (boxH - 36) / 2, iW - 240, { color: '#94a3b8' });
-        r.fillRoundRect(pad + iW - 196, boxY + 14, 182, boxH - 28, 12, PC.navy);
-        r.drawLines([String(v.btn || 'Join').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad + iW - 196, boxY + (boxH - 34) / 2, 182, { color: '#fff', align: 'center' });
+        { const jb = pSolid('#ffffff', PC.navy, PC.red);
+          r.fillRoundRect(pad + iW - 196, boxY + 14, 182, boxH - 28, 12, jb.fill);
+          r.drawLines([String(v.btn || 'Join').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad + iW - 196, boxY + (boxH - 34) / 2, 182, { color: jb.on, align: 'center' }); }
         r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, boxY + boxH + pV(20), W, { color: PC.off, align: 'center' }); return;
     }
     // A: #1 Hero (navy, centered)
@@ -2374,14 +2413,14 @@ function drawResources(r, dir, v, a) {
         r.fillBg(PC.paper); r.rect(0, 0, W, 26, PC.red);
         let y = pLogo(r, a, PC.paper);
         r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: PC.red }); y += pV(52);
-        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: PC.navy }); y += pV(92);
+        r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, pad, y, iW, { color: pInk(PC.paper) }); y += pV(92);
         [[v.i1, true], [v.i2, true], [v.i3, true], [v.locked, false]].forEach(it => {
             if (!it[0]) return;
             if (it[1]) { r.fillRoundRect(pad, y, 58, 58, 16, PC.red); r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: 34 }, pad, y + 12, 58, { color: '#fff', align: 'center' }); }
             else { r.ctx.save(); r.ctx.strokeStyle = '#cbd5e1'; r.ctx.lineWidth = 4; r.roundRectPath(pad, y, 58, 58, 16); r.ctx.stroke(); r.ctx.restore(); }
             r.drawLines([String(it[0])], { family: 'Roboto', weight: it[1] ? '500' : '400', size: 38 }, pad + 86, y + 10, iW - 100, { color: it[1] ? '#1e293b' : '#64748b' }); y += pV(84);
         });
-        pButton(r, pad, btnY, iW, v.cta, PC.navy, PC.white); return;
+        { const cta = pSolid(PC.paper, PC.navy, PC.red); pButton(r, pad, btnY, iW, v.cta, cta.fill, cta.on); } return;
     }
     if (dir === 'c') { // Bold FREE (navy)
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
@@ -2405,7 +2444,7 @@ function drawResources(r, dir, v, a) {
     const cw = Math.round(360 * ck), chh = Math.round(300 * ck), ci = 34; r.ctx.shadowColor = 'rgba(0,0,0,0.55)'; r.ctx.shadowBlur = 55; r.ctx.shadowOffsetY = 26;
     r.fillRoundRect(-cw / 2, -chh / 2, cw, chh, 16, '#fff'); r.ctx.shadowColor = 'transparent';
     r.rect(-cw / 2 + ci, -chh / 2 + ci, 76, 12, PC.red);
-    r.drawLines(r.wrap(String(v.coverTitle || '').toUpperCase(), { family: 'Oswald', weight: '700', size: 38 }, cw - ci * 2), { family: 'Oswald', weight: '700', size: 38 }, -cw / 2 + ci, -chh / 2 + ci + 30, cw - ci * 2, { color: PC.navy, lineHeight: 1.1 });
+    r.drawLines(r.wrap(String(v.coverTitle || '').toUpperCase(), { family: 'Oswald', weight: '700', size: 38 }, cw - ci * 2), { family: 'Oswald', weight: '700', size: 38 }, -cw / 2 + ci, -chh / 2 + ci + 30, cw - ci * 2, { color: pInk('#ffffff'), lineHeight: 1.1 });
     r.drawLines(r.wrap(String(v.coverSub || ''), { family: 'Roboto', weight: '400', size: 22 }, cw - ci * 2), { family: 'Roboto', weight: '400', size: 22 }, -cw / 2 + ci, chh / 2 - ci - 46, cw - ci * 2, { color: PC.slate, lineHeight: 1.3 });
     r.ctx.restore(); y += Math.round(350 * ck);
     r.drawLines([String(v.head || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 54 }, 0, y, W, { color: '#fff', align: 'center' });
@@ -2423,6 +2462,7 @@ self.onmessage = async (e) => {
             const featured = await blobToBitmap(msg.featuredBlob);
             const W = msg.w || 1080, H = msg.h || 1080, scale = msg.scale || 2;
             const r = new CanvasRenderer(W, H, scale);
+            if (msg.trace) r.trace = [];      // render tests ask for the draw log; production never does
             if (W > H * 1.2) {
                 drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC, featured });
             } else {
@@ -2434,7 +2474,7 @@ self.onmessage = async (e) => {
             }
             const blob = await r.toBlob('image/png', 1.0);
             if (logoW) logoW.close(); if (logoC) logoC.close(); if (featured) featured.close();
-            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_premium.png' });
+            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_premium.png', trace: r.trace || null });
             return;
         }
         if (msg.type === 'render-single') {
@@ -2448,13 +2488,13 @@ self.onmessage = async (e) => {
 
             self.postMessage({ type: 'progress', percent: 55, label: 'Rendering canvas' });
             const slideIdx = msg.slideIdx !== undefined ? msg.slideIdx : 0;
-            const r = renderSlide(msg.state, slideIdx, assets, msg.scale || 3);
+            const r = renderSlide(msg.state, slideIdx, assets, msg.scale || 3, msg.trace);
 
             self.postMessage({ type: 'progress', percent: 85, label: 'Encoding PNG' });
             const blob = await r.toBlob('image/png', 1.0);
 
             self.postMessage({ type: 'progress', percent: 100, label: 'Done' });
-            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_Graphic.png' });
+            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_Graphic.png', trace: r.trace || null });
 
             if (featured) featured.close();
             if (logo) logo.close();
