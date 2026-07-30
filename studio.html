@@ -229,10 +229,11 @@
                         <input type="text" id="prem-ai-prompt" placeholder="…or describe it and generate with AI" class="flex-1 bg-slate-900 text-white rounded-md p-2 text-xs border border-slate-600 focus:border-[#B6FF3D] outline-none">
                         <button id="prem-ai-btn" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Generate</button>
                     </div>
-                    <div class="flex items-center gap-3 mt-2">
-                        <button id="prem-image-clear" type="button" class="text-[10px] uppercase tracking-wide font-bold text-slate-400 hover:text-white">Remove photo</button>
-                        <p id="prem-image-status" class="text-[10px] text-slate-500 flex-1"></p>
+                    <div id="prem-image-has" class="hidden flex items-center gap-3 mt-2">
+                        <img id="prem-image-thumb" alt="" class="w-12 h-12 rounded-md object-cover border border-slate-600 bg-slate-900" />
+                        <button id="prem-image-clear" type="button" class="text-[11px] uppercase tracking-wide font-bold px-2 py-1.5 rounded-md bg-red-900/60 hover:bg-red-800 text-red-100">✕ Remove photo</button>
                     </div>
+                    <p id="prem-image-status" class="text-[10px] text-slate-500 mt-2"></p>
                 </div>
             </div>
 
@@ -370,6 +371,11 @@
                             <button id="ai-img-btn" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Generate</button>
                         </div>
                         <p id="ai-img-status" class="text-[10px] text-slate-500 mt-1"></p>
+                    </div>
+                    <!-- Uploading was one-way: there was no path back to the stock image. -->
+                    <div id="in-image-has" class="hidden flex items-center gap-3 mt-2">
+                        <img id="in-image-thumb" alt="" class="w-12 h-12 rounded-md object-cover border border-slate-600 bg-slate-900" />
+                        <button id="in-image-clear" type="button" class="text-[11px] uppercase tracking-wide font-bold px-2 py-1.5 rounded-md bg-red-900/60 hover:bg-red-800 text-red-100">✕ Remove image</button>
                     </div>
                 </div>
 
@@ -2853,6 +2859,29 @@ self.onmessage = async (e) => {
         return colorLogoBlob;
     }
 
+    // ---- Creative featured image: pick, preview, and REMOVE ----------------------------------
+    // Uploading used to be one-way — there was no path back to the stock image, so a wrong pick was
+    // permanent for the session. setCreativeImage(null) restores the default.
+    function setCreativeImage(blob) {
+        if (currentImageSrc && currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
+        currentImageBlob = blob || null;
+        currentImageSrc = blob ? URL.createObjectURL(blob) : DEFAULT_IMG_URL;
+        const el = document.getElementById('in-image');
+        if (el && !blob) el.value = '';
+        const elX = document.getElementById('in-img-x'), elY = document.getElementById('in-img-y');
+        if (blob) { if (elX) elX.value = 50; if (elY) elY.value = 50; }
+        if (!blob) ensureDefaultImageBlob();     // re-fetch the stock blob for the export path
+        syncCreativeImage();
+        syncDOM();
+    }
+    function syncCreativeImage() {
+        const custom = !!(currentImageSrc && currentImageSrc !== DEFAULT_IMG_URL);
+        const wrap = document.getElementById('in-image-has');
+        const thumb = document.getElementById('in-image-thumb');
+        if (wrap) wrap.classList.toggle('hidden', !custom);
+        if (thumb && custom) thumb.src = currentImageSrc;
+    }
+
     async function ensureDefaultImageBlob() {
         if (currentImageBlob) return currentImageBlob;
         try {
@@ -2931,13 +2960,7 @@ self.onmessage = async (e) => {
                 try {
                     const imgRes = await fetchWithProxy(ogImg.content);
                     const blob = await imgRes.blob();
-                    currentImageBlob = blob;
-                    if (currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
-                    currentImageSrc = URL.createObjectURL(blob);
-                    const elX = document.getElementById('in-img-x');
-                    const elY = document.getElementById('in-img-y');
-                    if (elX) elX.value = 50;
-                    if (elY) elY.value = 50;
+                    setCreativeImage(blob);   // one path in, so Remove image always works
                 } catch (e) {
                     showToast('Could not load article image. Using existing.', 'error');
                 }
@@ -3239,7 +3262,12 @@ self.onmessage = async (e) => {
     // Podcast (guest photo) and Merch (product shot) use the Featured Image when the user has
     // actually PICKED one. The default stock article image is deliberately withheld — otherwise
     // every merch post would ship with an unrelated photo instead of the typographic fallback.
-    function premFeatured(){ return (currentImageSrc && currentImageSrc !== DEFAULT_IMG_URL) ? currentImageBlob : null; }
+    // Premium photos are held PER CONTENT TYPE, in their own store — not in the Creative
+    // featured-image global. Sharing one blob meant a podcast guest photo turned up on the merch
+    // design (and on every other design), with no way to take it back off just one of them.
+    const premPhotos = {};          // contentType -> Blob | null
+    const premPhotoURLs = {};       // contentType -> object URL for the thumbnail
+    function premFeatured(){ return premPhotos[state.contentType] || null; }
     const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)' };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
@@ -3248,21 +3276,39 @@ self.onmessage = async (e) => {
         if (!wants) return;
         const lbl = document.getElementById('premium-image-label');
         if (lbl) lbl.textContent = PREM_PHOTO[state.contentType];
+        const blob = premFeatured();
+        // Thumbnail + Remove only appear when there IS a photo, so "is one attached to THIS design?"
+        // is answerable at a glance instead of by re-rendering the preview and squinting.
+        const thumbWrap = document.getElementById('prem-image-has');
+        const thumb = document.getElementById('prem-image-thumb');
+        if (thumbWrap) thumbWrap.classList.toggle('hidden', !blob);
+        if (thumb) {
+            if (blob) {
+                if (premPhotoURLs[state.contentType]) URL.revokeObjectURL(premPhotoURLs[state.contentType]);
+                premPhotoURLs[state.contentType] = URL.createObjectURL(blob);
+                thumb.src = premPhotoURLs[state.contentType];
+            } else thumb.removeAttribute('src');
+        }
         const st = document.getElementById('prem-image-status');
-        if (st) st.textContent = premFeatured() ? 'Photo in use.' : 'No photo — the design uses its typographic layout.';
+        if (st) st.textContent = blob
+            ? 'Used on this design only — other designs keep their own photo.'
+            : 'No photo — this design uses its typographic layout.';
     }
     function setPremPhoto(blob){
-        currentImageBlob = blob || null;
-        if (currentImageSrc && currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
-        currentImageSrc = blob ? URL.createObjectURL(blob) : DEFAULT_IMG_URL;
-        if (!blob) currentImageBlob = null;   // force the default-image fetch path to re-run if needed
+        premPhotos[state.contentType] = blob || null;
+        if (!blob && premPhotoURLs[state.contentType]) {
+            URL.revokeObjectURL(premPhotoURLs[state.contentType]);
+            delete premPhotoURLs[state.contentType];
+        }
+        const f = document.getElementById('prem-image');
+        if (f && !blob) f.value = '';        // clears the "chosen file" label too, so it reads as removed
         syncPremImage(); renderPremiumPreview();
     }
     function initPremImage(){
         const f = document.getElementById('prem-image');
         if (f) f.addEventListener('change', e => { const file = e.target.files[0]; if (file) setPremPhoto(file); });
         const clr = document.getElementById('prem-image-clear');
-        if (clr) clr.addEventListener('click', () => { if (f) f.value = ''; setPremPhoto(null); });
+        if (clr) clr.addEventListener('click', () => setPremPhoto(null));
         const btn = document.getElementById('prem-ai-btn');
         if (btn) btn.addEventListener('click', async () => {
             const prompt = (document.getElementById('prem-ai-prompt').value || '').trim();
@@ -4096,16 +4142,12 @@ self.onmessage = async (e) => {
             imgInput.addEventListener('change', e => {
                 const f = e.target.files[0];
                 if (!f) return;
-                currentImageBlob = f;
-                if (currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
-                currentImageSrc = URL.createObjectURL(f);
-                const elX = document.getElementById('in-img-x');
-                const elY = document.getElementById('in-img-y');
-                if (elX) elX.value = 50;
-                if (elY) elY.value = 50;
-                syncDOM();
+                setCreativeImage(f);
             });
         }
+        const imgClear = document.getElementById('in-image-clear');
+        if (imgClear) imgClear.addEventListener('click', () => setCreativeImage(null));
+        syncCreativeImage();
         // AI image generation — feeds the result through the SAME path as an upload (additive; templates untouched).
         const aiBtn = document.getElementById('ai-img-btn');
         if (aiBtn) {
@@ -4124,12 +4166,7 @@ self.onmessage = async (e) => {
                     if (r.status === 503) throw new Error(data.error || 'Image generation needs a Gemini key with image access.');
                     if (!r.ok || !data.image) throw new Error(data.error || 'Could not generate an image — try rewording.');
                     const blob = await (await fetch(data.image)).blob();
-                    currentImageBlob = blob;
-                    if (currentImageSrc.startsWith('blob:')) URL.revokeObjectURL(currentImageSrc);
-                    currentImageSrc = URL.createObjectURL(blob);
-                    const elX = document.getElementById('in-img-x'), elY = document.getElementById('in-img-y');
-                    if (elX) elX.value = 50; if (elY) elY.value = 50;
-                    syncDOM();
+                    setCreativeImage(blob);   // one path in, so Remove image always works
                     setSt('Image added ✓ — nudge the focal point with the sliders.');
                 } catch (e) { setSt((e && e.message) || 'Failed to generate.'); }
                 finally { aiBtn.disabled = false; }

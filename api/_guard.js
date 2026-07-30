@@ -199,8 +199,13 @@ async function getOrgKey(orgId, provider) {
 // you opt in. Everything below fails OPEN on error. =====
 
 // Plan catalog. aiLimit = generations/month (-1 = unlimited). priceZar = monthly price.
+// FREE IS UNLIMITED ON PURPOSE. There is no billing wired up (no Paystack key, BILLING_ENFORCE
+// off), so a 150/month cap could never be collected on — all it did was render an alarming
+// over-limit bar at 320/150 in Settings and imply a restriction that does not exist. Usage is
+// still metered on every call, because the number is worth seeing (cost control, and it is the
+// input to any future pricing). Put a real number back here only when billing is actually live.
 const PLANS = {
-  free:      { label: "Free",      aiLimit: 150,  priceZar: 0 },
+  free:      { label: "Free",      aiLimit: -1,   priceZar: 0 },
   starter:   { label: "Starter",   aiLimit: 1500, priceZar: 299 },
   pro:       { label: "Pro",       aiLimit: 6000, priceZar: 799 },
   unlimited: { label: "Unlimited", aiLimit: -1,   priceZar: 0 }, // internal / comped

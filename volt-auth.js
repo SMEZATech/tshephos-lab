@@ -567,19 +567,29 @@
     fetch(BILL_API + "?action=usage").then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (o) {
       if (!o.ok) { box.innerHTML = ""; return; }
       var j = o.j;
-      var lim = (j.limit < 0) ? "∞" : j.limit;
-      var pct = (j.limit > 0) ? Math.min(100, Math.round((j.used / j.limit) * 100)) : 0;
+      // An UNCAPPED plan gets a plain count, not a progress bar. Showing "320 / 150" with a red
+      // bar announced a limit that does not exist and cannot be collected on — it read as a
+      // warning when the number is only there so you can watch cost.
+      var capped = j.limit > 0;
+      var pct = capped ? Math.min(100, Math.round((j.used / j.limit) * 100)) : 0;
       var html = '<div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.09);">' +
         '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">' +
         '<span style="font-family:\'JetBrains Mono\',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#888F9D;">Plan &amp; usage</span>' +
-        '<span style="font-size:12px;color:#ECEEF3;font-weight:700;">' + esc(j.label) + '</span></div>' +
-        '<div style="font-size:12px;color:#888F9D;margin-bottom:6px;">' + j.used + ' / ' + lim + ' AI generations this month</div>';
-      if (j.limit > 0) html += '<div style="height:7px;border-radius:99px;background:#1A1E28;overflow:hidden;margin-bottom:8px;"><i style="display:block;height:100%;width:' + pct + '%;background:' + (pct >= 90 ? "#FF7C7C" : "#B6FF3D") + ';"></i></div>';
+        '<span style="font-size:12px;color:#ECEEF3;font-weight:700;">' + esc(j.label) + '</span></div>';
+      if (capped) {
+        html += '<div style="font-size:12px;color:#888F9D;margin-bottom:6px;">' + j.used + ' / ' + j.limit + ' AI generations this month</div>' +
+          '<div style="height:7px;border-radius:99px;background:#1A1E28;overflow:hidden;margin-bottom:8px;"><i style="display:block;height:100%;width:' + pct + '%;background:' + (pct >= 90 ? "#FF7C7C" : "#B6FF3D") + ';"></i></div>';
+      } else {
+        html += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;">' +
+          '<span style="font-family:\'Unbounded\',system-ui;font-size:26px;font-weight:800;color:#ECEEF3;line-height:1;">' + j.used + '</span>' +
+          '<span style="font-size:12px;color:#888F9D;">AI generations this month</span></div>' +
+          '<p class="va-keys-note" style="margin:6px 0 0;">No limit — this is here so you can see what you’re using, not to cap you.</p>';
+      }
       if (j.billingReady) {
-        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
         ["starter", "pro"].forEach(function (p) { if (p !== j.plan) html += '<button class="va-btn va-ghost va-up" data-plan="' + p + '" style="flex:1;">Upgrade to ' + p.charAt(0).toUpperCase() + p.slice(1) + '</button>'; });
         html += "</div>";
-      } else if (!j.enforced) {
+      } else if (capped && !j.enforced) {
         html += '<p class="va-keys-note" style="margin:2px 0 0;">Usage is tracked; limits aren’t enforced yet.</p>';
       }
       html += '<div id="va-bill-status" style="font-size:12px;color:#7FC8FF;margin-top:8px;"></div></div>';
