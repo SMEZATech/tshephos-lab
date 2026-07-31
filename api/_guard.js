@@ -151,24 +151,45 @@ async function ensureMember(orgId, userId, role) {
 }
 // Resolve the caller's org, keyed by EMAIL DOMAIN so a team shares ONE workspace (drafts, brand
 // kit, Brain). First same-domain user anchors the org; later same-domain users join it.
+// Free-mail providers are NOT organisations. Keying a workspace to the email domain is right for a
+// company domain — everyone on @smesouthafrica.co.za should share drafts, brand kit and the Brain —
+// but catastrophic for @gmail.com, where it would put every unrelated customer in ONE workspace
+// seeing each other's work. Most of the SA SME market runs on free mail, so this is a hard blocker
+// on ever charging for Volt. It's fixed now because it is far cheaper before there is data to
+// migrate than after: today every user is on the company domain, so this branch is a no-op for
+// them and changes nothing about who can sign in (that's ALLOWED_EMAIL_DOMAIN, untouched).
+const FREEMAIL = new Set([
+  "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "msn.com",
+  "yahoo.com", "yahoo.co.za", "ymail.com", "icloud.com", "me.com", "aol.com",
+  "protonmail.com", "proton.me", "zoho.com", "mail.com", "gmx.com", "webmail.co.za", "vodamail.co.za",
+]);
+// The org KEY: a company domain shares one workspace; free mail gets a private per-user workspace.
+// Prefixed so a free-mail key can never collide with a real domain name.
+function orgKeyFor(user) {
+  const email = String(user.email || "").toLowerCase();
+  const domain = (email.split("@")[1] || "").toLowerCase();
+  if (!domain || FREEMAIL.has(domain)) return "user:" + user.id;
+  return domain;
+}
+
 async function resolveOrg(user) {
   const email = String(user.email || "");
-  const domain = (email.split("@")[1] || "").toLowerCase();
-  // 1) An org already keyed to this domain? Join it.
-  if (domain) {
-    const dom = await sbRest("org?select=id&limit=1&name=eq." + encodeURIComponent(domain));
-    const orgId = dom && dom[0] && dom[0].id;
-    if (orgId) { await ensureMember(orgId, user.id); return orgId; }
-  }
-  // 2) User already has a (legacy per-user) org? Adopt it as the domain workspace — keeps their data.
+  const key = orgKeyFor(user);
+  // 1) An org already keyed this way? Join it. (For a company domain that's the shared team
+  //    workspace; for free mail it's only ever this one user's own.)
+  const found = await sbRest("org?select=id&limit=1&name=eq." + encodeURIComponent(key));
+  const foundId = found && found[0] && found[0].id;
+  if (foundId) { await ensureMember(foundId, user.id); return foundId; }
+
+  // 2) User already has an org from before this keying existed? Adopt it — never orphan their data.
   const mine = await sbRest("member?select=org_id&limit=1&user_id=eq." + encodeURIComponent(user.id));
   const existing = mine && mine[0] && mine[0].org_id;
   if (existing) {
-    if (domain) await sbPatch("org", "id=eq." + encodeURIComponent(existing), { name: domain });
+    await sbPatch("org", "id=eq." + encodeURIComponent(existing), { name: key });
     return existing;
   }
-  // 3) Brand-new: create the shared domain org + owner membership.
-  const orgRows = await sbWrite("org", { name: domain || email || "My Org" });
+  // 3) Brand-new.
+  const orgRows = await sbWrite("org", { name: key || email || "My Org" });
   const orgId = orgRows && orgRows[0] && orgRows[0].id;
   if (!orgId) return null;
   await sbWrite("member", { org_id: orgId, user_id: user.id, role: "owner" });
