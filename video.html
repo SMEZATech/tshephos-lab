@@ -547,6 +547,7 @@ function hexA(hex, a){
   }catch(e){ return hex; }
 }
 
+const voltAssetUrl = (u) => (typeof window.voltAsset === 'function' ? window.voltAsset(u) : u);
 const state = {
   loaded:false, format:'9x16', look:'sme',
   trimStart:0, trimEnd:0, duration:0,
@@ -2128,8 +2129,11 @@ function refreshBrand(){
   const b=activeBrand(); state.brand=b;
   C_RED=b.primary||'#9c1c1f'; C_NAVY=b.secondary||'#0a2c3d'; C_REDLT=shade(C_RED,0.62);
   if(b.logo && b.logo!==brandLogoSrc){
-    brandLogoSrc=b.logo; const im=new Image();
-    im.onload=()=>{ brandLogoImg=im; }; im.onerror=()=>{ brandLogoImg=null; }; im.src=b.logo;
+    // Loaded through OUR origin with crossOrigin set: this logo is drawn onto the export canvas,
+    // and a cross-origin image taints it — which is what made MP4/WebM export depend on the
+    // desktop shell running with webSecurity off.
+    brandLogoSrc=b.logo; const im=new Image(); im.crossOrigin='anonymous';
+    im.onload=()=>{ brandLogoImg=im; }; im.onerror=()=>{ brandLogoImg=null; }; im.src=voltAssetUrl(b.logo);
   } else if(!b.logo){ brandLogoImg=null; brandLogoSrc=''; }
   syncBrandUI();
 }

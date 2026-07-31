@@ -84,6 +84,7 @@
     + '</aside>'
     + '<div id="ff-stage" class="flex-1 flex items-center justify-center overflow-auto p-6"><canvas id="ff-canvas"></canvas></div>';
 
+  const voltAssetUrl = (u) => (typeof window.voltAsset === 'function' ? window.voltAsset(u) : u);
   let fullW = 1200, fullH = 628, exportMult = 1;
   const fc = new fabric.Canvas('ff-canvas', { backgroundColor:'#ffffff', preserveObjectStacking:true });
   function sizeCanvas(key){
@@ -109,7 +110,7 @@
     fc.add(t); fc.setActiveObject(t); fc.renderAll();
   }
   function addRect(){ const b = brand(); const r = new fabric.Rect({ left:fullW*0.1, top:fullH*0.1, width:fullW*0.4, height:fullH*0.18, fill:(b.secondary||'#0a2c3d'), rx:8, ry:8 }); fc.add(r); fc.setActiveObject(r); fc.renderAll(); }
-  function addImageFromURL(url){ if(!url) return; fabric.Image.fromURL(url, img=>{ if(!img) return; const scale = Math.min((fullW*0.6)/(img.width||1), (fullH*0.6)/(img.height||1), 1); img.set({ left:fullW*0.2, top:fullH*0.2, scaleX:scale, scaleY:scale }); fc.add(img); fc.setActiveObject(img); fc.renderAll(); }, { crossOrigin:'anonymous' }); }
+  function addImageFromURL(url){ if(!url) return; fabric.Image.fromURL(voltAssetUrl(url), img=>{ if(!img) return; const scale = Math.min((fullW*0.6)/(img.width||1), (fullH*0.6)/(img.height||1), 1); img.set({ left:fullW*0.2, top:fullH*0.2, scaleX:scale, scaleY:scale }); fc.add(img); fc.setActiveObject(img); fc.renderAll(); }, { crossOrigin:'anonymous' }); }
   function applyFill(c){ const o = active(); if(!o) return; o.set('fill', c); fc.renderAll(); const fi = $$('ff-fill'); if(fi) fi.value = (/^#/.test(c)?c:fi.value); }
   function ffStatus(msg){ var s=$$('ff-status'); if(s) s.textContent=msg||''; }
   function objToBlob(o){ return new Promise(function(res, rej){ try{ var el=o.getElement(); var w=el.naturalWidth||el.width||o.width, h=el.naturalHeight||el.height||o.height; var c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(el,0,0,w,h); c.toBlob(function(b){ b?res(b):rej(new Error('blank image')); }, 'image/png'); }catch(e){ rej(e); } }); }

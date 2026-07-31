@@ -18,7 +18,7 @@
 </head>
 <body>
 <h1>Studio Smoke Test</h1>
-<div class="sub">Renders every design through the REAL production worker engine (extracted live from studio.html). Non-blank + correct dimensions + theme uniqueness. Run after any Studio change.</div>
+<div class="sub">Renders every design through the REAL production engine (studio-engine.js — the same file studio.html loads). Checks dimensions, contrast, headline presence, occlusion and dead space, against TWO brands. Run after any Studio change; CI runs it on every push.</div>
 <div id="banner">Running…</div>
 <table id="tbl"><thead><tr><th>#</th><th>Design</th><th>Dims</th><th>Contrast</th><th>ms</th><th>Status</th><th>Thumb</th></tr></thead><tbody></tbody></table>
 <script>
@@ -39,11 +39,11 @@
   }
 
   try {
-    // 1) Pull the PRODUCTION worker source out of studio.html (same origin)
-    const html = await (await fetch('studio.html', { cache: 'no-store' })).text();
-    const m = html.match(/<script id="worker-src"[^>]*>([\s\S]*?)<\/script>/);
-    if (!m) throw new Error('worker-src not found in studio.html');
-    const worker = new Worker(URL.createObjectURL(new Blob([m[1]], { type: 'application/javascript' })));
+    // 1) Load the PRODUCTION engine directly. It used to be regexed out of studio.html, which
+    //    broke whenever the surrounding markup moved; it is now a real file that studio.html and
+    //    this page load the same way, so there is exactly one thing under test.
+    const worker = new Worker('studio-engine.js');
+    worker.addEventListener('error', e => { throw new Error('studio-engine.js failed to load: ' + (e.message || '')); });
 
     // 2) Placeholder assets (no network): a photo-ish featured image + a fake logo
     async function makeBlob(w, h, draw) {

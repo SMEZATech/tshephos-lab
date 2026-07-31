@@ -28,6 +28,29 @@
   var AI_PROVIDERS = ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai"];
 
   function isDesktop() { return !!window.voltNative; }
+
+  /* ---------- same-origin asset URLs ----------
+     Studio/Video/Freeform fetch external images (brand logos, featured images, scraped og:images)
+     and hand the BYTES to the canvas worker. Cross-origin fetch needs CORS headers, and the place
+     most of these actually live — WordPress uploads — sends none. It only ever worked because the
+     desktop shell ran with webSecurity OFF, which is a real hole: remote pages executing with
+     same-origin enforcement disabled, on a machine holding the user's API keys.
+     voltAsset() routes those loads through /api/scrape?img=1 so they arrive from OUR origin. Then
+     nothing depends on webSecurity being off and it can be turned back on.
+     Pass-through (never proxied): data:/blob: URLs, and anything already on this origin. */
+  window.voltAsset = function (url) {
+    var u = String(url || "");
+    if (!u || /^(data:|blob:)/i.test(u)) return u;
+    if (!/^https?:\/\//i.test(u)) return u;                       // relative — already ours
+    try { if (new URL(u, location.href).origin === location.origin) return u; } catch (e) {}
+    // volt-auth.js ships byte-identical to every target (build-sync does NOT rewrite it), so the
+    // base is resolved at runtime: origin-relative when we're already on a Volt origin — which
+    // keeps preview deployments and local dev working — and absolute otherwise.
+    var ours = /(^|\.)tshephos-lab[^.]*\.vercel\.app$/.test(location.hostname)
+            || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    var base = ours ? "/api/scrape" : "https://tshephos-lab.vercel.app/api/scrape";
+    return base + "?img=1&url=" + encodeURIComponent(u);
+  };
   function getKeys() { try { return JSON.parse(localStorage.getItem(KEYS_LS) || "{}"); } catch (e) { return {}; } }
   function saveKeys(k) { try { localStorage.setItem(KEYS_LS, JSON.stringify(k)); } catch (e) {} }
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }

@@ -204,6 +204,7 @@
 <div id="toast"></div>
 
 <script>
+const voltAssetUrl = (u) => (typeof window.voltAsset === 'function' ? window.voltAsset(u) : u);
 const API_BASE = 'https://tshephos-lab.vercel.app';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -251,8 +252,10 @@ async function loadAssets(){
       }
       await Promise.all(tasks);
     } catch (e) {}
-    try { _logoW = await (await fetch(currentBrand().logo || SME_BRAND.logo, { mode: 'cors' })).blob(); } catch (e) {}
-    try { _logoC = await (await fetch('https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png', { mode: 'cors' })).blob(); } catch (e) {}
+    // Through OUR origin — WordPress uploads send no CORS headers, so a direct cross-origin fetch
+    // only ever worked because the desktop shell had webSecurity off.
+    try { _logoW = await (await fetch(voltAssetUrl(currentBrand().logo || SME_BRAND.logo))).blob(); } catch (e) {}
+    try { _logoC = await (await fetch(voltAssetUrl('https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png'))).blob(); } catch (e) {}
   })();
   return _assetsReady;
 }
