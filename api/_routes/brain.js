@@ -37,19 +37,43 @@ async function upsertInsight(orgId, kind, data) {
 
 async function compute(orgId, key) {
   const enc = encodeURIComponent(orgId);
-  const posts = (await sbRest("post_metric?select=posted_text,engagement,likes,impressions&org_id=eq." + enc + "&order=engagement.desc&limit=40")) || [];
+  const posts = (await sbRest("post_metric?select=posted_text,engagement,likes,impressions,platform,published_at&org_id=eq." + enc + "&order=engagement.desc&limit=60")) || [];
   if (posts.length < MIN_POSTS) {
     await upsertInsight(orgId, "summary", { status: "learning", note: "Volt is still gathering data. Keep publishing and checking Analytics — insights unlock after ~" + MIN_POSTS + " tracked posts.", postCount: posts.length });
     return { status: "learning", postCount: posts.length };
   }
   const top = posts.slice(0, Math.min(12, Math.ceil(posts.length / 2)));
   const bottom = posts.slice(-Math.min(12, Math.floor(posts.length / 2)));
-  const fmt = (arr) => arr.map((p, i) => (i + 1) + ". [eng " + Math.round(p.engagement || 0) + "] " + String(p.posted_text || "").slice(0, 160)).join("\n");
+  const fmt = (arr) => arr.map((p, i) => (i + 1) + ". [" + (p.platform || "?") + " · eng " + Math.round(p.engagement || 0) + "] " + String(p.posted_text || "").slice(0, 160)).join("\n");
+
+  // Per-platform averages, computed here rather than asked of the model — an LLM should not be
+  // doing arithmetic we can do exactly, and "2.4x your LinkedIn average" is only credible if the
+  // number is real. Platforms with fewer than 3 posts are excluded as too thin to claim anything.
+  const byPlat = {};
+  posts.forEach((p) => {
+    const k = String(p.platform || "unknown").toLowerCase();
+    (byPlat[k] || (byPlat[k] = [])).push(Number(p.engagement) || 0);
+  });
+  const platforms = Object.keys(byPlat)
+    .filter((k) => k !== "unknown" && byPlat[k].length >= 3)
+    .map((k) => ({
+      platform: k,
+      posts: byPlat[k].length,
+      avgEngagement: Math.round((byPlat[k].reduce((a, b) => a + b, 0) / byPlat[k].length) * 10) / 10,
+      bestEngagement: Math.round(Math.max.apply(null, byPlat[k])),
+    }))
+    .sort((a, b) => b.avgEngagement - a.avgEngagement);
+  const platLine = platforms.length
+    ? "\nPER-PLATFORM AVERAGE ENGAGEMENT (computed, trust these numbers):\n"
+      + platforms.map((p) => "- " + p.platform + ": avg " + p.avgEngagement + " over " + p.posts + " posts, best " + p.bestEngagement).join("\n") + "\n"
+    : "";
+
   const prompt =
-    "You are a performance-marketing analyst. Below are a brand's BEST and WORST performing social posts by real engagement.\n\n" +
-    "TOP PERFORMERS:\n" + fmt(top) + "\n\nWORST PERFORMERS:\n" + fmt(bottom) + "\n\n" +
-    "Extract concrete, specific patterns THIS brand's audience responds to. Base every claim on the evidence above — no generic advice. " +
-    'Return JSON only: {"do_more":["short specific tactic", ...3-5], "do_less":["short specific tactic", ...2-4], "hooks":["angle/hook style that worked", ...2-3], "hashtags":["#tag that appears in winners", ...0-5], "evidence":"one sentence citing the data (e.g. based on N posts)"}';
+    "You are a performance-marketing analyst. Below are a brand's BEST and WORST performing social posts by real engagement, tagged with the platform they ran on.\n\n" +
+    "TOP PERFORMERS:\n" + fmt(top) + "\n\nWORST PERFORMERS:\n" + fmt(bottom) + "\n" + platLine + "\n" +
+    "Extract concrete, specific patterns THIS brand's audience responds to. Base every claim on the evidence above — no generic advice, and never invent a number. " +
+    "Where a pattern is clearly stronger on one platform, say which platform.\n" +
+    'Return JSON only: {"do_more":["short specific tactic", ...3-5], "do_less":["short specific tactic", ...2-4], "hooks":["angle/hook style that worked", ...2-3], "hashtags":["#tag that appears in winners", ...0-5], "best_platform":"the platform with the strongest response, or empty", "evidence":"one sentence citing the data (e.g. based on N posts)"}';
   const raw = await gemini(prompt, key);
   let parsed;
   try { parsed = JSON.parse(raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim()); } catch (e) { parsed = null; }
@@ -61,6 +85,10 @@ async function compute(orgId, key) {
     do_less: (parsed.do_less || []).slice(0, 5).map(String),
     hooks: (parsed.hooks || []).slice(0, 4).map(String),
     hashtags: (parsed.hashtags || []).slice(0, 6).map(String),
+    best_platform: String(parsed.best_platform || "").slice(0, 40),
+    // The computed numbers travel WITH the insight, so the UI can show "avg 42 over 9 posts"
+    // instead of an unsourced claim, and so a stale cached insight is still auditable.
+    platforms: platforms.slice(0, 6),
     evidence: String(parsed.evidence || "").slice(0, 200),
   };
   await upsertInsight(orgId, "summary", summary);

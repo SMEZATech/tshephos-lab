@@ -197,10 +197,18 @@ export default async function handler(req, res) {
       try {
         const orgId = req.volt && req.volt.orgId;
         if (orgId) {
-          const plat = String((req.query && req.query.id) || "postiz");
+          // platform must be the PLATFORM NAME ("linkedin"), not the Postiz channel id. It was
+          // storing the id, which is opaque — so the Brain could never say "this worked on
+          // LinkedIn", only "this worked on 8f3c-…". Each post carries its own integration, so no
+          // extra API call is needed; the channel id is the last-resort fallback.
+          const platOf = (p) => {
+            const i = (p && p.integration) || {};
+            const n = i.identifier || i.providerIdentifier || i.provider || i.type || "";
+            return String(n || (req.query && req.query.id) || "postiz").toLowerCase().replace(/-standalone$/, "");
+          };
           const pick = (m, re) => { const x = (m || []).find((k) => re.test(k.label)); return x && x.value != null ? x.value : 0; };
           await Promise.all(enriched.slice(0, 25).map((p) => recordMetric(orgId, {
-            platform: plat, external_id: p.id, posted_text: p.content, published_at: p.publishDate || null,
+            platform: platOf(p), external_id: p.id, posted_text: p.content, published_at: p.publishDate || null,
             likes: pick(p.metrics, /like|react/i), comments: pick(p.metrics, /comment|repl/i),
             shares: pick(p.metrics, /share|repost|retweet/i), impressions: pick(p.metrics, /impression|view|reach/i),
             engagement: p.engagement,

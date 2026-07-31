@@ -506,6 +506,14 @@ async function run(){
     showErr(err.message); state.loading = false; restoreRunBtn(); syncRun(); render(); return;
   }
 
+  // ---- Fill the performance history PASSIVELY -------------------------------------------
+  // post_metric is what the Brain learns from, and it was only ever written when someone
+  // remembered to click "Find my top posts". Months could pass with the analysis running and the
+  // history staying empty — the defensible asset depending on a button nobody had to press.
+  // A live run now captures it as a side effect. Deliberately silent and non-blocking: it must
+  // never slow down or break the report the user actually asked for.
+  if (dash.live && state.liveCtx && state.liveCtx.id) captureMetricsQuietly(state.liveCtx);
+
   try{
     const period = dash.live ? ('Last ' + dash.days + ' days (live)') : state.period;
     const data = await callApi({ task:'analytics', platform:state.platform, period:period, summary:dash.summary, notes:state.notes, goal:state.goal });
@@ -596,6 +604,18 @@ function renderAnalysis(a){
     </div></div>`;
   }
   return html;
+}
+
+// Server-side, /api/postiz?action=topposts upserts every post it returns into post_metric. Calling
+// it is therefore all the capture needs — we don't even use the response here. `limit=10` is the
+// endpoint's maximum, so this banks as much history per run as it can.
+let _captured = '';
+function captureMetricsQuietly(ctx){
+  const key = ctx.id + ':' + ctx.days;
+  if (_captured === key) return;          // once per channel+window per page visit
+  _captured = key;
+  fetch('https://tshephos-lab.vercel.app/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=10')
+    .catch(() => {});                     // best-effort by design; the report must not depend on it
 }
 
 async function runTopPosts(){

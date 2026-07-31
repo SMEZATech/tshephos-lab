@@ -489,10 +489,45 @@ function renderBrain(s){
   if(s.status==='learning'){ body.innerHTML='<p class="go-note" style="margin:0;">'+esc(s.note||'Volt is still learning — keep creating and checking Analytics.')+'</p>'; return; }
   if(s.status!=='ready'){ body.innerHTML='<p class="go-note" style="margin:0;">No insights yet.</p>'; return; }
   const list=(title,arr,col)=> (arr&&arr.length)? '<div style="margin-bottom:9px;"><span class="lbl" style="margin:0 0 4px; color:'+col+';">'+title+'</span><ul style="margin:0; padding-left:18px; font-size:13.5px; line-height:1.55; color:var(--text);">'+arr.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
-  let h=list('Do more ✓', s.do_more, 'var(--good)') + list('Avoid ✕', s.do_less, 'var(--low)') + list('Hooks that land', s.hooks, 'var(--info)');
+  // Per-platform numbers are COMPUTED server-side, not written by the model, so they can be stated
+  // as fact. This is the sentence no global tool can say to an SA founder: what actually works, for
+  // your audience, on which platform.
+  let h='';
+  if(s.platforms && s.platforms.length){
+    const best=s.platforms[0];
+    h+='<div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px;">'
+      + s.platforms.map((p,i)=>'<span class="tag" style="'+(i===0?'border-color:var(--good);color:var(--good);':'')+'">'
+        + esc(p.platform) + ' · avg ' + p.avgEngagement + ' (' + p.posts + ' posts)</span>').join('')
+      + '</div>';
+    if(s.platforms.length>1 && best.avgEngagement>0){
+      const next=s.platforms[1];
+      const mult=next.avgEngagement>0 ? (best.avgEngagement/next.avgEngagement) : 0;
+      if(mult>=1.3) h+='<p style="margin:0 0 11px;font-size:13.5px;color:var(--text);"><strong style="color:var(--good);">'
+        + esc(best.platform) + '</strong> is pulling ' + mult.toFixed(1) + '× the engagement of ' + esc(next.platform)
+        + ' for your audience — weight your effort there.</p>';
+    }
+  }
+  h += list('Do more ✓', s.do_more, 'var(--good)') + list('Avoid ✕', s.do_less, 'var(--low)') + list('Hooks that land', s.hooks, 'var(--info)');
   if(s.hashtags&&s.hashtags.length) h+='<div class="tags" style="margin-top:6px;">'+s.hashtags.map(t=>'<span class="tag">#'+esc(String(t).replace(/^#/,''))+'</span>').join('')+'</div>';
   if(s.evidence) h+='<p class="go-note" style="margin:9px 0 0;">'+esc(s.evidence)+'</p>';
+  // The loop only closes if the insight can ACT. This folds what worked into the brief the
+  // generator actually reads, instead of leaving the user to retype it from a panel.
+  const applyable=[].concat(s.do_more||[], s.hooks||[]).filter(Boolean).slice(0,5);
+  if(applyable.length){
+    h+='<div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--border);">'
+      + '<span class="lbl" style="margin:0 0 6px;">Use what works</span>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:7px;">'
+      + applyable.map((x,i)=>'<button type="button" class="brain-apply" data-i="'+i+'" style="font-family:var(--fm);font-size:11.5px;font-weight:700;padding:7px 11px;border-radius:9px;border:1px solid var(--border-2);background:#0D0F15;color:var(--dim);cursor:pointer;text-align:left;max-width:100%;">+ '+esc(x.length>52?x.slice(0,52)+'…':x)+'</button>').join('')
+      + '</div><p class="go-note" style="margin:7px 0 0;">Adds it to your brief as a steer for the next generation.</p></div>';
+  }
   body.innerHTML=h || '<p class="go-note" style="margin:0;">No clear patterns yet — keep publishing.</p>';
+  body.querySelectorAll('.brain-apply').forEach(b=>b.addEventListener('click',()=>{
+    const txt=applyable[+b.dataset.i]; const el=$('#offer'); if(!txt||!el) return;
+    const line='What has worked for us before: '+txt;
+    if(el.value.indexOf(txt)<0) el.value=(el.value.trim()? el.value.trim()+'\n\n':'')+line;
+    el.focus(); el.dispatchEvent(new Event('input',{bubbles:true}));
+    b.textContent='✓ added'; b.style.color='var(--good)'; b.style.borderColor='var(--good)';
+  }));
 }
 async function loadBrain(force){
   try{
