@@ -3,7 +3,7 @@
 // browser User-Agent (bypasses most bot blocks) and returns it with permissive CORS so the
 // canvas can use images untainted. Public utility — no app key, but rate-limited + SSRF-guarded.
 
-import { setCors, rateLimit } from "./_guard.js";
+import { setCors, rateLimit } from "../_guard.js";
 
 function isPrivateHost(host) {
   host = String(host || "").toLowerCase();

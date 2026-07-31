@@ -5,7 +5,7 @@
 // small, plain-English insight block. Costs ~one Gemini Flash call per refresh (pennies).
 // Everything is per-org, service-role only. This is the compounding, un-copyable asset.
 
-import { blocked, sbRest, sbBase, logEvent, writeStats } from "./_guard.js";
+import { blocked, sbRest, sbBase, logEvent, writeStats } from "../_guard.js";
 
 const STALE_DAYS = 7;
 const MIN_POSTS = 5;
@@ -94,7 +94,10 @@ export default async function handler(req, res) {
       const probe = async (t) => {
         try {
           // HEAD + Prefer: count=exact gives the row count in Content-Range without pulling rows.
-          const r = await fetch(sbBase() + "/rest/v1/" + t + "?select=id&org_id=eq." + enc, {
+          // No `select=` on purpose: org_insight is keyed on (org_id, kind) and has NO id column,
+          // so asking for one made PostgREST 400 and this probe reported a table that exists as
+          // MISSING — the check inventing the very failure it was built to detect.
+          const r = await fetch(sbBase() + "/rest/v1/" + t + "?org_id=eq." + enc, {
             method: "HEAD",
             headers: { apikey: svc, Authorization: "Bearer " + svc, Prefer: "count=exact", Range: "0-0" },
           });

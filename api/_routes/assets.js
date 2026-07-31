@@ -7,7 +7,7 @@
 //   icons:  Iconify (no key)
 // Normalized response: { provider, results: [{ thumb, full, alt, credit }] }
 
-import { blocked } from "./_guard.js";
+import { blocked } from "../_guard.js";
 
 const J = (r) => r.ok ? r.json() : Promise.reject(new Error("upstream " + r.status));
 

@@ -6,15 +6,31 @@
 const fs = require('fs'), path = require('path'), cp = require('child_process'), os = require('os');
 let fail = 0;
 
-// Vercel Hobby plan caps Serverless Functions at 12 (underscore-prefixed files don't count).
+// Vercel Hobby plan caps Serverless Functions at 12 (underscore-prefixed files/dirs don't count).
+// We sat at exactly 12/12 until the router landed; anything from 10 up is worth saying out loud,
+// because the deploy failure you get at 13 looks nothing like the change that caused it.
 const fnCount = fs.readdirSync('api').filter(n => n.endsWith('.js') && !n.startsWith('_')).length;
-console.log('Serverless functions: ' + fnCount + '/12' + (fnCount > 12 ? '  x OVER VERCEL HOBBY LIMIT — deploys will FAIL' : ''));
+console.log('Serverless functions: ' + fnCount + '/12'
+  + (fnCount > 12 ? '  x OVER VERCEL HOBBY LIMIT — deploys will FAIL' : (fnCount >= 10 ? '  ! close to the cap — fold new endpoints into api/_routes/' : '')));
 if (fnCount > 12) fail++;
 
 console.log('Backend (api/*.js):');
-for (const f of fs.readdirSync('api').filter(n => n.endsWith('.js'))) {
-  try { cp.execSync('node --check "api/' + f + '"', { stdio: 'pipe' }); console.log('  ok ' + f); }
+const apiFiles = fs.readdirSync('api').filter(n => n.endsWith('.js')).map(n => 'api/' + n)
+  .concat(fs.existsSync('api/_routes') ? fs.readdirSync('api/_routes').filter(n => n.endsWith('.js')).map(n => 'api/_routes/' + n) : []);
+for (const f of apiFiles) {
+  try { cp.execSync('node --check "' + f + '"', { stdio: 'pipe' }); console.log('  ok ' + f); }
   catch (e) { fail++; console.error('  x ' + f + '\n    ' + String(e.stderr || e.message).split('\n').slice(0, 2).join('\n    ')); }
+}
+
+// Every module in api/_routes/ must be registered in the router, or it is a dead endpoint that
+// 404s with no other symptom. Cheap check, catches an easy mistake.
+if (fs.existsSync('api/_routes')) {
+  const router = fs.existsSync('api/[...volt].js') ? fs.readFileSync('api/[...volt].js', 'utf8') : '';
+  const unregistered = fs.readdirSync('api/_routes').filter(n => n.endsWith('.js'))
+    .map(n => n.replace(/\.js$/, ''))
+    .filter(n => !new RegExp('\\b' + n + '\\b').test(router));
+  if (unregistered.length) { fail++; console.error('  x api/_routes not wired into the router: ' + unregistered.join(', ')); }
+  else console.log('  ok router registers every _routes module');
 }
 
 console.log('Pages (last inline script):');

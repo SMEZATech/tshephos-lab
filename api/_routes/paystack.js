@@ -7,7 +7,7 @@
 // forged payload can't grant a plan. No auth/session here (Paystack calls it server→server).
 
 import crypto from "crypto";
-import { PLANS, setOrgPlan } from "./_guard.js";
+import { PLANS, setOrgPlan } from "../_guard.js";
 
 function rawBody(req) {
   return new Promise((resolve) => {

@@ -186,20 +186,27 @@ function sessionReady(){
   reads.push(await check('data pipeline · brain tables', async () => {
     if (!signedIn()) return 'SKIP';
     const d = await api('/brain?action=diag');
-    if (d.missing && d.missing.length) throw new Error('missing table(s): ' + d.missing.join(', ') + ' — run supabase/brain.sql');
+    // Always report the counts, even when a table is missing — the numbers are the answer to
+    // "is the moat filling up?", and hiding them behind the first failure buried the real news.
+    const n = t => { const r = (d.tables || []).find(x => x.table === t); return r && r.exists ? r.rows : '—'; };
+    const counts = 'content_item ' + n('content_item') + ' · content_event ' + n('content_event')
+                 + ' · post_metric ' + n('post_metric') + ' · usage_event ' + n('usage_event');
+    if (d.missing && d.missing.length) throw new Error('missing table(s): ' + d.missing.join(', ') + ' — run supabase/brain.sql · ' + counts);
     const ci = (d.tables || []).find(t => t.table === 'content_item');
-    const pm = (d.tables || []).find(t => t.table === 'post_metric');
-    if (ci && ci.rows === 0) return { warn:true, detail:'schema present but NOTHING recorded yet — generations should be writing content_item' };
-    return { detail: 'content_item ' + (ci ? ci.rows : '?') + ' rows · post_metric ' + (pm ? pm.rows : '?') + ' rows' };
+    if (ci && ci.rows === 0) return { warn:true, detail:'schema present but NOTHING recorded yet — ' + counts };
+    return { detail: counts };
   }, { skipWhy:'needs sign-in' }));
   reads.push(await check('data pipeline · write failures', async () => {
     if (!signedIn()) return 'SKIP';
     const d = await api('/brain?action=diag');
     const w = d.writes || {};
     const failing = Object.keys(w).filter(t => w[t].fail > 0);
-    if (!Object.keys(w).length) return { detail:'no writes on this instance yet' };
     if (failing.length) throw new Error(failing.map(t => t + ': ' + w[t].fail + ' failed — ' + (w[t].lastError || '')).join(' | '));
-    return { detail: Object.keys(w).map(t => t + ' ' + w[t].ok + ' ok').join(', ') };
+    // Counters are per WARM LAMBDA, and this diag usually lands on a different instance than the
+    // generation that did the writing — so "none seen here" is the normal reading and means
+    // nothing on its own. The row counts above are the signal; this only ever catches a live fault.
+    if (!Object.keys(w).length) return { detail:'no failures seen on this instance (counters are per-instance — row counts above are the real signal)' };
+    return { detail: Object.keys(w).map(t => t + ' ' + w[t].ok + ' ok').join(', ') + ' · no failures' };
   }, { skipWhy:'needs sign-in' }));
   // Pinned model ids go stale when a provider retires a model. Free list endpoints, no generation.
   reads.push(await check('AI providers · models still available', async () => {

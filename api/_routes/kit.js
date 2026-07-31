@@ -8,7 +8,7 @@
 // Get a V4 API key in Kit → Settings → Developer (Advanced → API Keys).
 // Docs: https://developers.kit.com/api-reference/broadcasts/create-a-broadcast
 
-import { blocked } from "./_guard.js";
+import { blocked } from "../_guard.js";
 
 const KIT_BASE = "https://api.kit.com/v4";
 const KIT_URL = KIT_BASE + "/broadcasts";

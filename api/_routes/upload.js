@@ -6,7 +6,7 @@
 // Desktop: the app sends x-client:desktop + x-wp-url / x-wp-user / x-wp-key.
 // In WordPress: Users → Profile → Application Passwords → add one for "Volt".
 
-import { blocked, sbBase } from "./_guard.js";
+import { blocked, sbBase } from "../_guard.js";
 
 const BUCKET = "volt-media";
 

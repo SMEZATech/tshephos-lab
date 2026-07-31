@@ -9,7 +9,7 @@
 // Dormant until env is set: needs SUPABASE_* (auth) + PAYSTACK_SECRET_KEY (paid plans).
 // Reading usage works with just Supabase; subscribe/verify need Paystack.
 
-import { setCors, requireSession, PLANS, monthUsage, getOrgPlan, setOrgPlan, sbRest } from "./_guard.js";
+import { setCors, requireSession, PLANS, monthUsage, getOrgPlan, setOrgPlan, sbRest } from "../_guard.js";
 
 const PAYSTACK = "https://api.paystack.co";
 

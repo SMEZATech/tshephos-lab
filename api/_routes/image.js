@@ -10,7 +10,7 @@
 // Aspect ratio: Imagen takes it as a real parameter; the Gemini image models have no such knob,
 // so we steer it through the prompt instead.
 
-import { blocked, meter, logContent } from "./_guard.js";
+import { blocked, meter, logContent } from "../_guard.js";
 
 const ASPECTS = { "1:1": "a perfect square 1:1", "3:4": "a portrait 3:4", "4:3": "a landscape 4:3", "9:16": "a tall vertical 9:16 (full-frame mobile)", "16:9": "a wide 16:9" };
 
