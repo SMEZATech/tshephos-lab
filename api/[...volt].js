@@ -28,11 +28,26 @@ import brain from "./_routes/brain.js";
 
 const ROUTES = { kit, image, upload, scrape, assets, billing, paystack, brain };
 
+// Resolve the endpoint name (e.g. "kit" for /api/kit). Vercel is SUPPOSED to expose the catch-all
+// segments under the filename's param (req.query.volt), but for plain (non-Next) Node functions it
+// does NOT reliably populate it — in production it arrived empty, so every routed endpoint 404'd
+// with "Unknown endpoint" (kit/scrape/image/upload/billing/brain/...). So the URL path is the
+// source of truth: take the segment right after "/api/". The param is kept as a fast path for the
+// environments that do bind it. Guard the shape either way: a bad path must 404, never 500.
+function endpointName(req) {
+  const seg = req && req.query && req.query.volt;
+  let name = Array.isArray(seg) ? seg[0] : seg;
+  if (!name) {
+    const path = String((req && req.url) || "").split("?")[0];
+    const parts = path.split("/").filter(Boolean); // "/api/kit" -> ["api","kit"]
+    const i = parts.indexOf("api");
+    name = i >= 0 ? parts[i + 1] : parts[0];        // also handles a "/kit" form (no /api prefix)
+  }
+  return String(name || "").toLowerCase();
+}
+
 export default async function handler(req, res) {
-  // Vercel gives the catch-all its segments under the filename's param. Guard the shape rather
-  // than trusting it: a bad path must 404, never throw a 500 that looks like an outage.
-  const seg = req.query && req.query.volt;
-  const name = String((Array.isArray(seg) ? seg[0] : seg) || "").toLowerCase();
+  const name = endpointName(req);
   const fn = Object.prototype.hasOwnProperty.call(ROUTES, name) ? ROUTES[name] : null;
 
   if (!fn) {
