@@ -805,6 +805,49 @@ export default async function handler(req, res) {
       return res.status(200).json({ article });
     }
 
+    // ---- Latest Insight cards: fill all four article directions from the article itself ----
+    // The scraper already pulls the page; on its own that only ever gave us a title and an image,
+    // which is exactly the hero-photo-plus-headline creative we're moving away from. These four
+    // directions need CONTENT — a quotable line, a real number, three takeaways — so one call
+    // extracts all of it and every direction is populated at once. No invention: if the article
+    // has no number, `big` comes back empty and the UI leaves that direction's default alone.
+    if (task === "insightcards") {
+      const { article, title, url } = body;
+      const text = String(article || "").trim();
+      if (!text) return res.status(400).json({ error: "No article text to read." });
+      const prompt =
+        "You are a publication's social editor. Below is one article. Pull out the material for four social cards.\n\n" +
+        (title ? "HEADLINE: " + String(title).slice(0, 200) + "\n\n" : "") +
+        "ARTICLE:\n" + text.slice(0, 12000) + "\n\n" +
+        "RULES — these matter more than fluency:\n" +
+        "- Quote VERBATIM. `quote` must be a sentence that appears in the article, trimmed only at its edges. Never paraphrase into quote marks.\n" +
+        "- `author` is the person the quote belongs to. If the article does not attribute it to a named person, return \"\" for author and role — do NOT guess, and do not credit the publication.\n" +
+        "- `big` must be a figure that literally appears in the article (a percentage, a rand amount, a count). If there is no such figure, return \"\" — an invented statistic is worse than a missing card.\n" +
+        "- `takeaways` are things the reader should DO or now knows, phrased as instructions. Not a summary of the article's structure.\n" +
+        "- South African context and spelling. Keep rand amounts as written (R5m, R2,3 million).\n" +
+        "- Lengths are hard limits, not targets: quote <=180 chars, bigLabel <=90, sub <=140, each takeaway <=70, head <=70.\n" +
+        'Return JSON only: {"quote":"","author":"","authorRole":"","big":"","bigLabel":"","head":"","sub":"","takeaways":["","",""],"byline":""}';
+      const raw = await callProvider(prompt, { system: "You extract social-card copy from an article. Never invent facts, figures or attributions. Return JSON only.", temperature: 0.35, maxTokens: 900 });
+      const d = safeParse(raw);
+      if (!d) return res.status(502).json({ error: "Could not read that article — try again." });
+      const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+      const tk = Array.isArray(d.takeaways) ? d.takeaways.map((t) => clip(t, 70)).filter(Boolean).slice(0, 3) : [];
+      const insight = {
+        quote: clip(d.quote, 180),
+        author: clip(d.author, 60),
+        authorRole: clip(d.authorRole, 70),
+        big: clip(d.big, 12),
+        bigLabel: clip(d.bigLabel, 90),
+        head: clip(d.head, 70) || clip(title, 70),
+        sub: clip(d.sub, 140),
+        takeaways: tk,
+        byline: clip(d.byline, 60),
+        url: clip(url, 80),
+      };
+      await logContent(req.volt && req.volt.orgId, { tool: "insightcards", input: { len: text.length, title: clip(title, 120) }, output: { hasQuote: !!insight.quote, hasNumber: !!insight.big, takeaways: tk.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ insight });
+    }
+
     // ---- Transcribe: email newsletter from a transcript ----
     if (task === "transcriptemail") {
       const { transcript } = body;

@@ -1620,7 +1620,8 @@ function drawFeature(r, dir, v, a) {
     if (dir === 'c') { // THE STACK — numbered takeaways. Reads as substance, not as a link.
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         const acc = pSolid(PC.navy, PC.red, PC.paper);
-        let y = pLogo(r, a, PC.navy);
+        // +pV(26): the eyebrow was crowding the logo. A, B and D each add their own gap; C had none.
+        let y = pLogo(r, a, PC.navy) + pV(26);
         r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(56);
         const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(220), 1.03, { max: pT(88), min: 42 });
         r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.03 });

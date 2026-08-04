@@ -204,7 +204,7 @@
                     <button onclick="setContentType('providers')" id="ct-providers" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🤝 Get Providers</button>
                     <button onclick="setContentType('findpros')" id="ct-findpros" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🔎 Find Providers</button>
                     <button onclick="setContentType('podcast')" id="ct-podcast" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🎙️ Podcast</button>
-                    <button onclick="setContentType('feature')" id="ct-feature" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">📰 Feature</button>
+                    <button onclick="setContentType('feature')" id="ct-feature" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">📰 Latest Insight</button>
                     <button onclick="setContentType('merch')" id="ct-merch" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🛍️ Merch</button>
                 </div>
                 <p class="text-[10px] text-slate-500 leading-snug mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
@@ -218,6 +218,15 @@
                 <div class="grid gap-2 mb-3" id="premium-dirs"></div>
                 <p class="text-[11px] font-bold text-slate-300 mb-1" id="pdir-name"></p>
                 <div id="premium-fields" class="flex flex-col gap-2"></div>
+                <!-- Latest Insight only: paste the article and let it fill all four directions. -->
+                <div id="premium-autofill" class="hidden mt-3 pt-3 border-t border-slate-700">
+                    <label class="text-xs text-slate-400 block mb-1">Auto-fill from the article</label>
+                    <div class="flex gap-2">
+                        <input type="url" id="prem-url" placeholder="Paste the article link…" class="flex-1 min-w-0 bg-slate-900 text-white rounded-md p-2 text-xs border border-slate-600 focus:border-[#B6FF3D] outline-none">
+                        <button id="prem-autofill" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Fill</button>
+                    </div>
+                    <p id="prem-autofill-status" class="text-[10px] text-slate-500 mt-1">Pulls a verbatim quote, a real figure and three takeaways — and fills every direction at once, so you can pick whichever the article actually supports.</p>
+                </div>
                 <!-- Photo slot for the families that use one (Podcast = guest, Merch = product).
                      Feeds the SAME currentImageBlob path as the Creative featured image, so there
                      is only one image pipeline to reason about. -->
@@ -906,6 +915,81 @@
         throw new Error('Cannot access website. The site may have security blocks.');
     }
 
+    // Prefer real article containers, fall back to the longest run of paragraphs on the page.
+    // Strips nav/aside/figure/script so we don't feed the model a cookie banner and a related-posts
+    // list and then wonder why the "quote" is nonsense.
+    let scrapedText = '';
+    function extractArticleText(doc) {
+        try {
+            const junk = 'script,style,noscript,nav,aside,footer,header,form,figure,figcaption,.related-reading,.share,.comments';
+            const root = doc.querySelector('article, [itemprop="articleBody"], .entry-content, .post-content, main') || doc.body;
+            const clone = root.cloneNode(true);
+            clone.querySelectorAll(junk).forEach(n => n.remove());
+            const paras = [...clone.querySelectorAll('p, h2, h3, li')]
+                .map(n => (n.textContent || '').replace(/\s+/g, ' ').trim())
+                .filter(t => t.length > 40);            // drop captions, bylines, one-word list items
+            const text = paras.join('\n\n');
+            return text.length > 300 ? text.slice(0, 16000) : '';
+        } catch (e) { return ''; }
+    }
+
+    // Auto-filled content lives here rather than in premVals, because premVals is rebuilt from
+    // defaults every time you change direction — without this, switching A→B would throw the
+    // extraction away and you'd have to fetch again.
+    let premAutofill = null;
+    function applyAutofillToDir() {
+        if (state.contentType !== 'feature' || !premAutofill) return;
+        const d = premAutofill, dir = state.premiumDir;
+        const set = (k, v) => { if (v) premVals[k] = v; };
+        if (dir === 'a') { set('quote', d.quote); set('author', d.author); set('authorRole', d.authorRole); }
+        else if (dir === 'b') { set('big', d.big); set('bigLabel', d.bigLabel); set('sub', d.sub); }
+        else if (dir === 'c') { set('head', d.head); set('i1', d.takeaways[0]); set('i2', d.takeaways[1]); set('i3', d.takeaways[2]); }
+        else if (dir === 'd') { set('head', d.head); set('sub', d.sub); set('byline', d.byline); }
+        set('url', d.url);
+    }
+
+    async function autofillInsight() {
+        const urlEl = document.getElementById('prem-url');
+        const btn = document.getElementById('prem-autofill');
+        const st = document.getElementById('prem-autofill-status');
+        const say = m => { if (st) st.textContent = m; };
+        const url = (urlEl && urlEl.value.trim()) || '';
+        if (!url) { say('Paste the article link first.'); return; }
+        btn.disabled = true; say('Reading the article…');
+        try {
+            const r = await fetchWithProxy(url);
+            const html = await r.text();
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const t = doc.querySelector('meta[property="og:title"]');
+            const title = ((t && t.content) || doc.title || '').replace(' - SME South Africa', '').trim();
+            const text = extractArticleText(doc);
+            if (!text) throw new Error('Could not find the article body on that page.');
+            say('Pulling the quote, the number and the takeaways…');
+            const gr = await fetch('https://tshephos-lab.vercel.app/api/generate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task: 'insightcards', article: text, title, url: (new URL(url)).hostname.replace(/^www\./, '') })
+            });
+            let data = {}; try { data = await gr.json(); } catch (e) {}
+            if (gr.status === 401) throw new Error('Please sign in.');
+            if (!gr.ok || !data.insight) throw new Error((data && data.error) || 'Could not read that article.');
+            premAutofill = data.insight;
+            applyAutofillToDir(); renderPremFields(); renderPremiumPreview();
+            // Say plainly what came back empty. A silent gap looks like a bug; "no figure in this
+            // article" is information, and it tells you B isn't the direction to use.
+            const gaps = [];
+            if (!premAutofill.quote) gaps.push('no quotable line');
+            if (!premAutofill.big) gaps.push('no figure to lead with');
+            if (!premAutofill.takeaways.length) gaps.push('no clear takeaways');
+            say(gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '.' : 'Filled all four directions ✓');
+            // Article image feeds Editorial Split.
+            const ogImg = doc.querySelector('meta[property="og:image"]');
+            if (ogImg && ogImg.content) {
+                try { setPremPhoto(await (await fetchWithProxy(ogImg.content)).blob()); } catch (e) {}
+            }
+        } catch (e) { say((e && e.message) || 'Auto-fill failed.'); }
+        finally { btn.disabled = false; }
+    }
+
     async function fetchArticleData() {
         const urlInput = document.getElementById('in-url');
         const btn = document.getElementById('btn-fetch');
@@ -927,6 +1011,10 @@
 
             const descEl = doc.querySelector('meta[property="og:description"]');
             scrapedDesc = (descEl && descEl.content) || '';
+
+            // Full article text for the Latest Insight auto-fill. og:description is a 150-character
+            // teaser — you can't pull a verbatim quote, a real figure or three takeaways out of it.
+            scrapedText = extractArticleText(doc) || scrapedDesc;
 
             // Auto-populate carousel slides via smart slicer
             const sliced = sliceArticleIntoSlides(scrapedDesc, cleanTitle);
@@ -1193,7 +1281,7 @@
       // editorial publishers actually push to social is type-first: pull-quotes, single numbers,
       // numbered takeaways. So photography is DEMOTED, not deleted — direction D uses a real crop
       // as a deliberate element rather than a backdrop.
-      feature: { label:'Feature story', dirs:{
+      feature: { label:'Latest Insight', dirs:{
         a:{ name:'The Pull-Quote — travels furthest', fields:{ eyebrow:'From the story', quote:'You do not need more funding. You need a business a funder can actually say yes to.', author:'Jenna Sprenger', authorRole:'Founder & CEO, Fundrr', cta:'Read the full story →', url:'smesouthafrica.co.za' } },
         b:{ name:'The Number — one stat, no decoration', fields:{ eyebrow:'By the numbers', big:'73%', bigLabel:'of SA small businesses never apply for funding they qualify for', sub:'The three assumptions behind that number — and what changes when you drop them.', cta:'Read the breakdown →', url:'smesouthafrica.co.za' } },
         c:{ name:'The Stack — 3 takeaways', fields:{ eyebrow:'What you need to know', head:'Getting funding-ready in 2026', i1:'Separate your business and personal banking first', i2:'Management accounts beat a business plan every time', i3:'Apply to three lenders, not one — terms vary wildly', cta:'Read all seven →', url:'smesouthafrica.co.za' } },
@@ -1270,6 +1358,8 @@
     const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)' };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
+        const af = document.getElementById('premium-autofill');
+        if (af) af.classList.toggle('hidden', state.contentType !== 'feature');
         const wants = !!PREM_PHOTO[state.contentType];
         box.classList.toggle('hidden', !wants);
         if (!wants) return;
@@ -1306,6 +1396,8 @@
     function initPremImage(){
         const f = document.getElementById('prem-image');
         if (f) f.addEventListener('change', e => { const file = e.target.files[0]; if (file) setPremPhoto(file); });
+        const afb = document.getElementById('prem-autofill');
+        if (afb) afb.addEventListener('click', autofillInsight);
         const clr = document.getElementById('prem-image-clear');
         if (clr) clr.addEventListener('click', () => setPremPhoto(null));
         const btn = document.getElementById('prem-ai-btn');
@@ -1381,7 +1473,7 @@
       const keys = premDirKeys();
       state.premiumDir = keys.indexOf(dir) >= 0 ? dir : (keys[0] || 'a');   // never strand on a dir the family lacks
       renderPremDirs();
-      loadPremDefaults(); renderPremFields(); syncPremImage(); renderPremiumPreview();
+      loadPremDefaults(); applyAutofillToDir(); renderPremFields(); syncPremImage(); renderPremiumPreview();
     }
     function setContentType(type){
       state.contentType = type;
