@@ -915,21 +915,62 @@
         throw new Error('Cannot access website. The site may have security blocks.');
     }
 
-    // Prefer real article containers, fall back to the longest run of paragraphs on the page.
-    // Strips nav/aside/figure/script so we don't feed the model a cookie banner and a related-posts
-    // list and then wonder why the "quote" is nonsense.
+    // Pull the readable article text out of an arbitrary page.
+    //
+    // The first version trusted one selector: doc.querySelector('article, …, main'). That is a trap.
+    // A comma list returns whichever element matches FIRST IN DOCUMENT ORDER, not the first selector
+    // in the list — so on our own Elementor site, where <main> is a column wrapper holding an
+    // AJAX-search widget with zero paragraphs, <main> won and the 30 real paragraphs in the body were
+    // never looked at. Auto-fill just said "could not find the article body".
+    //
+    // So don't trust ANY single container. Score every candidate by how much qualifying prose it
+    // actually yields and take the winner, with the whole body as the last candidate. That is
+    // resilient to whatever a CMS or page builder happens to nest things in, which is the only
+    // assumption a scraper is allowed to make.
+    const ARTICLE_JUNK = [
+        'script', 'style', 'noscript', 'nav', 'aside', 'footer', 'header', 'form', 'figure', 'figcaption',
+        '.related-reading', '.share', '.comments',
+        // Author bio / related-post cards sit in the body on most WP themes and would otherwise be
+        // read as article prose — that is how a bio line ends up quoted as the writer's insight.
+        '[class*="author-box"]', '[class*="author-bio"]', '[class*="related"]', '[class*="breadcrumb"]',
+        '[class*="cookie"]', '[class*="newsletter"]', '[class*="subscribe"]', '[class*="menu"]', '[class*="nav-"]'
+    ].join(',');
     let scrapedText = '';
     function extractArticleText(doc) {
         try {
-            const junk = 'script,style,noscript,nav,aside,footer,header,form,figure,figcaption,.related-reading,.share,.comments';
-            const root = doc.querySelector('article, [itemprop="articleBody"], .entry-content, .post-content, main') || doc.body;
-            const clone = root.cloneNode(true);
-            clone.querySelectorAll(junk).forEach(n => n.remove());
-            const paras = [...clone.querySelectorAll('p, h2, h3, li')]
-                .map(n => (n.textContent || '').replace(/\s+/g, ' ').trim())
-                .filter(t => t.length > 40);            // drop captions, bylines, one-word list items
-            const text = paras.join('\n\n');
-            return text.length > 300 ? text.slice(0, 16000) : '';
+            // Most specific first. Tried ONE SELECTOR AT A TIME, because a comma list resolves by
+            // document order, not by list order — that is the bug that made this return nothing.
+            const CANDIDATES = [
+                '[itemprop="articleBody"]', 'article', '.entry-content',
+                '.elementor-widget-theme-post-content', '.single-post-content',
+                '.post-content', '[class*="post-body"]', 'main'
+            ];
+            const read = (root) => {
+                if (!root) return '';
+                const clone = root.cloneNode(true);
+                clone.querySelectorAll(ARTICLE_JUNK).forEach(n => n.remove());
+                const paras = [...clone.querySelectorAll('p, h2, h3, li')]
+                    .map(n => (n.textContent || '').replace(/\s+/g, ' ').trim())
+                    .filter(t => t.length > 40)        // drops captions, bylines, one-word list items
+                    .filter(t => !/^(share|tags?|related|read more|subscribe)\b/i.test(t))
+                    .filter(t => !/press enter to search|esc to close/i.test(t));   // search widgets
+                // De-duplicate: nested containers yield the same string twice.
+                return [...new Set(paras)].join('\n\n');
+            };
+            // "Most text" is the WRONG objective on its own: <body> always has more than the article,
+            // because it also has the author bio, the search widget and the related-post cards — and
+            // a bio quoted as the writer's insight is exactly the failure to avoid. So take the FIRST
+            // container that yields a real article's worth of prose, and only fall back to scoring
+            // everything (body included) when no proper container does.
+            const ENOUGH = 700;
+            for (const sel of CANDIDATES) {
+                let bestForSel = '';
+                doc.querySelectorAll(sel).forEach(el => { const t = read(el); if (t.length > bestForSel.length) bestForSel = t; });
+                if (bestForSel.length >= ENOUGH) return bestForSel.slice(0, 16000);
+            }
+            let best = read(doc.body);
+            CANDIDATES.forEach(sel => doc.querySelectorAll(sel).forEach(el => { const t = read(el); if (t.length > best.length) best = t; }));
+            return best.length > 300 ? best.slice(0, 16000) : '';
         } catch (e) { return ''; }
     }
 
