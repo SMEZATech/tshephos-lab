@@ -295,7 +295,29 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">6</span>Branding</label>
+        <label class="lbl"><span class="num">6</span>Format</label>
+        <div class="seg" id="tmplSeg">
+          <button data-tp="webinar" class="on">Webinar clip</button>
+          <button data-tp="podcast">Podcast short</button>
+          <button data-tp="qa">Q&amp;A answer</button>
+          <button data-tp="free">Freeform</button>
+        </div>
+        <p class="note" id="tmplNote" style="margin-top:7px;">Title card, speaker lower-third, captions. For a session clip someone chose to watch.</p>
+        <div id="qaBlock" style="display:none; margin-top:12px;">
+          <label class="lbl" style="margin-bottom:4px;">The question <span class="opt">shown before the answer plays</span></label>
+          <input type="text" id="qaText" placeholder="e.g. How much runway do I actually need before raising?" />
+          <label class="lbl" style="margin:10px 0 4px;">Hold it for</label>
+          <div class="seg" id="qaDurSeg">
+            <button data-qd="2">2s</button>
+            <button data-qd="3" class="on">3s</button>
+            <button data-qd="4">4s</button>
+          </div>
+          <p class="note" style="margin-top:6px;">The question almost never appears in the footage, so an answer clip lands with no context without this.</p>
+        </div>
+      </div>
+
+      <div class="blk">
+        <label class="lbl"><span class="num">7</span>Branding</label>
         <label class="lbl" style="margin-bottom:7px;">Brand kit <span class="opt">colours, logo &amp; name from Studio</span></label>
         <select id="brandSel" class="brand-sel" title="Switch brand — synced with Studio"></select>
         <div class="togrow on" id="tog-intro" data-t="intro"><span class="nm">Intro card</span><span class="sw"></span></div>
@@ -318,6 +340,9 @@
           </div>
           <p class="note" style="margin-top:6px;">Big headline to stop the scroll. Show it just at the open, or keep it up for the entire clip. Tip: generate post copy below for hook ideas.</p>
         </div>
+        <div class="togrow" id="tog-brandflash" data-t="brandFlash" style="margin-top:14px;"><span class="nm">Brand flash <span class="opt" style="font-weight:400;">0.75s logo OVER the opening — costs no content time</span></span><span class="sw"></span></div>
+        <div class="togrow" id="tog-mark" data-t="mark"><span class="nm">Corner watermark <span class="opt" style="font-weight:400;">stays recognisable if it's re-shared</span></span><span class="sw"></span></div>
+        <div class="togrow" id="tog-wave" data-t="wave"><span class="nm">Audiogram bars <span class="opt" style="font-weight:400;">motion for a static talking head</span></span><span class="sw"></span></div>
         <div class="togrow" id="tog-progress" data-t="progress" style="margin-top:14px;"><span class="nm">Progress bar</span><span class="sw"></span></div>
         <div class="togrow" id="tog-name" data-t="name" style="margin-top:14px;"><span class="nm">Name tag <span class="opt" style="font-weight:400;">lower-third, first ~5s</span></span><span class="sw"></span></div>
         <div class="togfields" id="f-name">
@@ -335,7 +360,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">7</span>Overlays <span class="opt">text, stickers &amp; images</span></label>
+        <label class="lbl"><span class="num">8</span>Overlays <span class="opt">text, stickers &amp; images</span></label>
         <div style="display:flex; gap:6px;">
           <button class="mini" id="addLayerBtn" style="flex:1;">➕ Text</button>
           <button class="mini" id="addStickerBtn" style="flex:1;">😀 Sticker</button>
@@ -346,7 +371,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">8</span>Auto-captions <span class="opt">the good part</span></label>
+        <label class="lbl"><span class="num">9</span>Auto-captions <span class="opt">the good part</span></label>
         <button class="mini" id="capBtn" style="width:100%; padding:13px; font-size:13px;" disabled>✨ Generate captions</button>
         <div id="capStatus" class="capstatus"></div>
         <div id="capToggleRow" style="display:none; margin-top:12px;">
@@ -557,6 +582,15 @@ const state = {
   hookOn:false, hookDur:2.5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
   brand:null, exportFmt:'mp4', upscale:1, layers:[], transition:'cross',
+  // Format templates. `template` is a PRESET over the fields above plus a few draw branches — the
+  // tool used to be silently webinar-shaped (title card, name tag, "FOLLOW FOR MORE"), which is a
+  // long way from what a podcast clip or a Q&A answer needs.
+  template:'webinar',
+  brandFlashOn:false,   // 0.6s logo over the FIRST FRAME instead of a card before it
+  markOn:false,         // persistent corner watermark
+  waveOn:false,         // audiogram bars (podcast)
+  qaOn:false,           // question card, then the answer plays
+  outroDur:3.0,
 };
 let W=1080, H=1920;
 let logoImg=null, logoReady=false;
@@ -568,7 +602,7 @@ let audioCtx=null, dest=null, transcribeDest=null, vidSrcNode=null, vidGain=null
 
 const INTRO_DUR=2.5, OUTRO_DUR=3.0;
 function introDur(){ return state.introOn ? INTRO_DUR : 0; }
-function outroDur(){ return state.outroOn ? OUTRO_DUR : 0; }
+function outroDur(){ return state.outroOn ? (state.outroDur || OUTRO_DUR) : 0; }
 // Clip 1 (the primary upload, videoEl) — trim + tightened pauses apply here.
 function clipDur(){ return Math.max(0, state.trimEnd - state.trimStart - (state.skipTotal || 0)); }
 
@@ -737,6 +771,18 @@ $('#focusSeg').addEventListener('click', e => {
   state.focus = b.dataset.focus;
   document.querySelectorAll('#focusSeg button').forEach(x=>x.classList.toggle('on', x===b));
 });
+// Format template picker — applies a preset, then gets out of the way.
+{ const seg=$('#tmplSeg'); if(seg) seg.addEventListener('click', e => {
+    const b=e.target.closest('button'); if(!b) return;
+    applyTemplate(b.dataset.tp);
+  }); }
+{ const seg=$('#qaDurSeg'); if(seg) seg.addEventListener('click', e => {
+    const b=e.target.closest('button'); if(!b) return;
+    state.qaDur = parseFloat(b.dataset.qd);
+    document.querySelectorAll('#qaDurSeg button').forEach(x=>x.classList.toggle('on', x===b));
+    restart();
+  }); }
+
 $('#hookDurSeg').addEventListener('click', e => {
   const b=e.target.closest('button'); if(!b) return;
   state.hookDur = b.dataset.hd === 'full' ? 'full' : parseFloat(b.dataset.hd);
@@ -889,6 +935,17 @@ function applyLook(){
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
   ctx.globalCompositeOperation='source-over';
   vignette(0.62);
+}
+// Measuring sibling of wrapText(): returns the lines instead of drawing them, so a caller can
+// centre the whole block. wrapText() draws as it goes and can't be used for that.
+function wrapLines(text, maxW){
+  const words = String(text||'').split(/\s+/).filter(Boolean); const out=[]; let line='';
+  for(const w of words){
+    const test = line ? line+' '+w : w;
+    if(ctx.measureText(test).width > maxW && line){ out.push(line); line=w; } else line=test;
+  }
+  if(line) out.push(line);
+  return out;
 }
 function wrapText(text, x, y, maxW, lh){
   const words = String(text||'').split(/\s+/); let line='', yy=y;
@@ -1238,10 +1295,16 @@ function frame(now){
           ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore();
         }
       }
+      if(state.qaOn) drawQuestion(into);
       if(state.hookOn) drawHook(into);
+      if(state.waveOn) drawWave(into);
       if(state.nameOn) drawNameTag(into);
       if(state.captionsOn && state.lines.length){ drawCaptions(into); updateLiveRow(into); }
       drawLayers(into);
+      // Branding LAST so nothing covers it. The flash rides over the opening frames rather than
+      // stealing time in front of them; the mark persists for the whole clip.
+      if(state.markOn) drawWatermark();
+      if(state.brandFlashOn) drawBrandFlash(into);
     } else {
       if(!videoEl.paused) videoEl.pause();
       if(mainPlaying) mainPlaying = false;
@@ -1582,6 +1645,207 @@ function drawProgress(){
   ctx.fillStyle='#B6FF3D'; ctx.fillRect(0, H - h, W*p, h);
 }
 // speaker name lower-third (brief, fades; flips away from the caption zone)
+// ============================================================================================
+// FORMAT TEMPLATES
+// One preset per job. The tool was silently webinar-shaped — a 2.5s title card, a name tag and
+// "FOLLOW FOR MORE" — which is wrong for a podcast clip and meaningless for a Q&A answer, so those
+// two formats simply weren't being made.
+//
+// A template only SETS the existing controls (plus the overlays above). It never locks anything:
+// pick a template to get a sane starting point, then change whatever you like. `free` forces
+// nothing at all, which is the "do whatever you want" mode.
+//
+// THE INTRO DECISION, stated once because it drives three of these four presets:
+// a title card before the content is the most reliable way to lose a short-form viewer. The first
+// ~2 seconds decide whether they stay, and a logo animation spends all of them saying nothing the
+// viewer asked for. So the default branding is now a 0.75s flash OVER the opening frames plus a
+// persistent corner mark — same recognition, zero content time. The old intro card is still there
+// and still works; it's just not the default any more, and Webinar keeps it because a session clip
+// is usually watched deliberately rather than scrolled past.
+const VIDEO_TEMPLATES = {
+  webinar: {
+    label: 'Webinar clip',
+    note: 'Title card, speaker lower-third, captions. For a session clip someone chose to watch.',
+    apply: { introOn:true, outroOn:true, outroDur:3.0, nameOn:true, captionsOn:true, hookOn:false,
+             progressOn:true, brandFlashOn:false, markOn:true, waveOn:false, qaOn:false,
+             capPos:'bottom', capSize:'M', capBg:'bar' }
+  },
+  podcast: {
+    label: 'Podcast short',
+    note: 'Cold open, audiogram bars, guest lower-third. Built for the scroll, not the click.',
+    apply: { introOn:false, outroOn:true, outroDur:2.0, nameOn:true, captionsOn:true, hookOn:true,
+             hookDur:2.5, progressOn:true, brandFlashOn:true, markOn:true, waveOn:true, qaOn:false,
+             capPos:'bottom', capSize:'L', capBg:'none', capsOn:true }
+  },
+  qa: {
+    label: 'Q&A answer',
+    note: 'Shows the question first, then the answer plays. The question is never in the footage.',
+    apply: { introOn:false, outroOn:true, outroDur:2.0, nameOn:true, captionsOn:true, hookOn:false,
+             progressOn:true, brandFlashOn:false, markOn:true, waveOn:false, qaOn:true,
+             capPos:'bottom', capSize:'M', capBg:'box' }
+  },
+  free: { label: 'Freeform', note: 'Nothing forced — every control is yours.', apply: null }
+};
+
+function applyTemplate(key, opts){
+  const t = VIDEO_TEMPLATES[key]; if(!t) return;
+  state.template = key;
+  document.querySelectorAll('#tmplSeg button').forEach(b=>b.classList.toggle('on', b.dataset.tp===key));
+  const noteEl = $('#tmplNote'); if(noteEl) noteEl.textContent = t.note;
+  // Q&A fields only make sense for Q&A.
+  const qaBlk = $('#qaBlock'); if(qaBlk) qaBlk.style.display = (key==='qa') ? 'block' : 'none';
+  const brandBlk = $('#brandModeBlock'); if(brandBlk) brandBlk.style.display = (key==='free') ? 'block' : 'block';
+  if(!t.apply) { syncTemplateUI(); if(!(opts&&opts.quiet)) restart(); return; }   // free: leave everything
+  Object.keys(t.apply).forEach(k => { state[k] = t.apply[k]; });
+  syncTemplateUI();
+  if(!(opts && opts.quiet)) { setStatus('Switched to ' + t.label + ' — tweak anything you like from here.'); restart(); }
+}
+
+// Push template state back into the controls so the panel never disagrees with what renders.
+function syncTemplateUI(){
+  document.querySelectorAll('.togrow').forEach(row=>{
+    const k = row.dataset.t; if(!k) return;
+    const on = !!state[k+'On'];
+    row.classList.toggle('on', on);
+    const f = $('#f-'+k); if(f) f.classList.toggle('show', on);
+  });
+  syncSeg('#capPosSeg', state.capPos); syncSeg('#capSizeSeg', state.capSize);
+  syncSeg('#capBgSeg', state.capBg);   syncSeg('#hookDurSeg', state.hookDur);
+  const bf = $('#tog-brandflash'); if(bf){ bf.classList.toggle('on', !!state.brandFlashOn); }
+  const mk = $('#tog-mark');       if(mk){ mk.classList.toggle('on', !!state.markOn); }
+  const wv = $('#tog-wave');       if(wv){ wv.classList.toggle('on', !!state.waveOn); }
+}
+
+// ============================================================================================
+// TEMPLATE OVERLAYS — the pieces that make a podcast clip or a Q&A answer read as itself.
+// All of them draw OVER the running clip. That is the whole point: on short-form, anything that
+// happens before the content costs you the audience (see drawBrandFlash).
+// ============================================================================================
+
+// --- Brand flash: the modern replacement for a title card -------------------------------------
+// A 2.5s intro card is the single most reliable way to lose a short-form viewer — the first ~2
+// seconds decide whether they stay, and a logo animation spends all of it saying nothing. This
+// brands the video WITHOUT costing content time: the mark rides over the opening frames of the
+// actual clip and fades out. Content starts at 0.0s either way.
+const FLASH_DUR = 0.75;
+function drawBrandFlash(ct){
+  if(ct > FLASH_DUR) return;
+  const p = ct / FLASH_DUR;
+  const a = p < 0.55 ? Math.min(1, p / 0.18) : Math.max(0, 1 - (p - 0.55) / 0.45);  // snap in, ease out
+  if(a <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = a;
+  // A scrim only under the mark, not over the whole frame — the viewer still sees the content.
+  const bh = H*0.20, by = H*0.40;
+  const g = ctx.createLinearGradient(0, by, 0, by+bh);
+  g.addColorStop(0, hexA('#000000', 0)); g.addColorStop(0.5, hexA('#000000', 0.45)); g.addColorStop(1, hexA('#000000', 0));
+  ctx.fillStyle = g; ctx.fillRect(0, by, W, bh);
+  const cy = H*0.50;
+  const slide = (1 - eoc(Math.min(1, p/0.3))) * W*0.03;   // tiny travel, not a parade
+  if(brandLogoImg || logoImg){
+    const im = logoImg || brandLogoImg;
+    const lw = Math.min(W*0.42, im.width * (H*0.085 / Math.max(1, im.height)));
+    const lh = lw * (im.height / Math.max(1, im.width));
+    ctx.drawImage(im, (W-lw)/2 - slide, cy - lh/2, lw, lh);
+  } else {
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#ffffff';
+    ctx.font = '900 ' + Math.round(H*0.052) + 'px Oswald, Arial Narrow, sans-serif';
+    ctx.fillText(String((state.brand && state.brand.name) || 'VOLT').toUpperCase(), W/2 - slide, cy);
+  }
+  // one accent rule under it
+  ctx.fillStyle = C_RED;
+  ctx.fillRect(W*0.5 - W*0.09*eoc(Math.min(1,p/0.35)), cy + H*0.055, W*0.18*eoc(Math.min(1,p/0.35)), Math.max(2, H*0.004));
+  ctx.restore();
+}
+
+// --- Persistent watermark ---------------------------------------------------------------------
+// What the intro card was actually FOR — being recognisable — done in a way that costs no time and
+// survives the clip being re-shared without the end card.
+function drawWatermark(){
+  ctx.save();
+  ctx.globalAlpha = 0.72;
+  const pad = Math.round(W*0.045);
+  const capTop = (state.captionsOn && state.capPos === 'top');
+  const y = capTop ? H - pad - H*0.05 : pad;                 // stay out of the captions' way
+  const im = logoImg || brandLogoImg;
+  if(im){
+    const lw = Math.min(W*0.26, im.width * (H*0.032 / Math.max(1, im.height)));
+    const lh = lw * (im.height / Math.max(1, im.width));
+    ctx.shadowColor = hexA('#000000', 0.5); ctx.shadowBlur = W*0.02;
+    ctx.drawImage(im, W - pad - lw, y, lw, lh);
+  } else {
+    ctx.textAlign='right'; ctx.textBaseline='top';
+    ctx.shadowColor = hexA('#000000', 0.6); ctx.shadowBlur = W*0.02;
+    ctx.fillStyle = hexA('#ffffff', 0.9);
+    ctx.font = '700 ' + Math.round(H*0.024) + 'px Oswald, Arial Narrow, sans-serif';
+    ctx.fillText(String((state.brand && state.brand.name) || '').toUpperCase(), W - pad, y);
+  }
+  ctx.restore();
+}
+
+// --- Audiogram bars (podcast) -----------------------------------------------------------------
+// A talking-head podcast clip is visually static, and static loses attention. Bars give the eye
+// motion tied to the audio. Driven by the CAPTION timings we already have — a bar row that moves
+// while nobody is speaking reads as fake, and this way it goes quiet in the pauses for free.
+function drawWave(ct){
+  const bars = 34;
+  const speaking = (function(){
+    for(const L of state.lines){ if(ct >= L.start - 0.05 && ct <= L.end + 0.05) return true; }
+    return state.lines.length ? false : true;   // no transcript yet → keep it alive rather than dead
+  })();
+  const bandH = H*0.075;
+  const capBottom = (state.captionsOn && state.capPos !== 'top' && state.lines.length);
+  const baseY = capBottom ? H*0.135 : H*0.055;       // sit above the captions, not under them
+  const y0 = H - baseY - bandH/2;
+  const pad = W*0.07, usable = W - pad*2;
+  const bw = usable / (bars*1.75), gap = (usable - bars*bw) / (bars-1);
+  ctx.save();
+  for(let i=0;i<bars;i++){
+    const phase = ct*7 + i*0.55;
+    const env = 0.35 + 0.65*Math.abs(Math.sin(Math.PI*(i/(bars-1))));      // taller in the middle
+    const amp = speaking ? (0.30 + 0.70*Math.abs(Math.sin(phase)*0.6 + Math.sin(phase*0.37)*0.4)) : 0.10;
+    const bh = Math.max(2, bandH*env*amp);
+    ctx.fillStyle = (i % 4 === 0) ? C_RED : hexA('#ffffff', 0.82);
+    roundRect(pad + i*(bw+gap), y0 - bh/2, bw, bh, bw/2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// --- Question card (Q&A) ----------------------------------------------------------------------
+// A webinar answer clip makes no sense without the question, and the question is almost never in
+// the footage. This puts it up front over the opening seconds, so the answer lands with context.
+function drawQuestion(ct){
+  const txt = ($('#qaText') && $('#qaText').value.trim()) || '';
+  if(!txt) return;
+  const dur = Math.max(1.5, Math.min(6, parseFloat(state.qaDur) || 3.0));
+  if(ct > dur) return;
+  const p = ct / dur;
+  const a = p > 0.85 ? Math.max(0, 1 - (p-0.85)/0.15) : Math.min(1, p/0.12);
+  ctx.save();
+  ctx.globalAlpha = a;
+  // dim the footage so the question is unmistakably the thing to read
+  ctx.fillStyle = hexA('#000000', 0.55); ctx.fillRect(0,0,W,H);
+  const pad = W*0.09, boxW = W - pad*2;
+  const size = Math.round(H*0.042);
+  ctx.font = '700 ' + size + 'px Oswald, Arial Narrow, sans-serif';
+  const lines = wrapLines(txt.toUpperCase(), boxW);
+  const lh = size*1.18, blockH = lines.length*lh;
+  const slide = (1 - eoc(Math.min(1, p/0.22))) * H*0.03;
+  let y = H*0.5 - blockH/2 + slide;
+  // "Q" badge — one glance says what this is
+  const bs = Math.round(H*0.062);
+  ctx.fillStyle = C_RED; roundRect(pad, y - bs - H*0.035, bs, bs, bs*0.28); ctx.fill();
+  ctx.fillStyle='#ffffff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = '900 ' + Math.round(bs*0.62) + 'px Oswald, Arial Narrow, sans-serif';
+  ctx.fillText('Q', pad + bs/2, y - bs/2 - H*0.035);
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.font = '700 ' + size + 'px Oswald, Arial Narrow, sans-serif';
+  ctx.fillStyle='#ffffff';
+  lines.forEach((L,i)=>{ ctx.fillText(L, pad, y + i*lh); });
+  ctx.restore();
+}
+
 function drawNameTag(ct){
   if(ct < 0 || ct > 5.0) return;
   const nm = ($('#nameName').value || '').trim(); if(!nm) return;
@@ -2182,16 +2446,23 @@ function setLookStatus(msg, kind){ const s=$('#lookStatus'); if(!s) return; s.te
 function serializeLook(){
   const v = id => { const el=$('#'+id); return el?el.value:''; };
   return {
+    template:state.template, outroDur:state.outroDur, qaDur:state.qaDur,
     format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
     capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
     layers: (state.layers||[]).map(function(L){ var c=Object.assign({},L); delete c._img; return c; }),
-    toggles:{ intro:state.introOn, outro:state.outroOn, hook:state.hookOn, progress:state.progressOn, name:state.nameOn },
-    text:{ introTitle:v('introTitle'), outroHead:v('outroHead'), outroSub:v('outroSub'), hookText:v('hookText'), nameName:v('nameName'), nameTitle:v('nameTitle') }
+    toggles:{ intro:state.introOn, outro:state.outroOn, hook:state.hookOn, progress:state.progressOn, name:state.nameOn,
+              brandFlash:state.brandFlashOn, mark:state.markOn, wave:state.waveOn, qa:state.qaOn },
+    text:{ introTitle:v('introTitle'), outroHead:v('outroHead'), outroSub:v('outroSub'), hookText:v('hookText'), nameName:v('nameName'), nameTitle:v('nameTitle'), qaText:v('qaText') }
   };
 }
 function syncSeg(sel, val){ document.querySelectorAll(sel+' button').forEach(b=>{ const dv=Object.values(b.dataset)[0]; b.classList.toggle('on', String(dv)===String(val)); }); }
 function restoreLook(d){
   if(!d) return;
+  // Template first and QUIETLY: it presets the toggles, and the saved values below must win over
+  // the preset (that's the whole point of saving a look you then customised).
+  if(d.template && VIDEO_TEMPLATES[d.template]) applyTemplate(d.template, { quiet:true });
+  if(d.outroDur!=null) state.outroDur = d.outroDur;
+  if(d.qaDur!=null){ state.qaDur = d.qaDur; syncSeg('#qaDurSeg', d.qaDur); }
   if(d.format) setFormat(d.format);
   if(d.look) setLook(d.look);
   if(d.fill){ state.fill=d.fill; syncSeg('#fillSeg', d.fill); const fr=$('#focusRow'); if(fr) fr.style.display=(d.fill==='crop')?'block':'none'; }
@@ -2356,6 +2627,8 @@ function applyCampaignHandoff(){
 // init
 refreshBrand();
 setFormat('9x16');
+// Webinar stays the default so nothing changes for anyone mid-flow; quiet = don't toast on load.
+applyTemplate(state.template || 'webinar', { quiet:true });
 window._voltHandoff = applyCampaignHandoff() || applyCopyHandoff() || false;
 </script>
 

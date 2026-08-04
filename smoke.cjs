@@ -31,6 +31,25 @@ if (fs.existsSync('api/_routes')) {
     .filter(n => !new RegExp('\\b' + n + '\\b').test(router));
   if (unregistered.length) { fail++; console.error('  x api/_routes not wired into the router: ' + unregistered.join(', ')); }
   else console.log('  ok router registers every _routes module');
+
+  // ROUTER RESOLUTION — this shipped broken. The router originally trusted req.query.volt, which
+  // Vercel does NOT populate for plain (non-Next) Node functions, so in production every routed
+  // endpoint 404'd. The test at the time passed the param in by hand, so it validated the exact
+  // assumption that was wrong. This drives it the way Vercel actually does: URL only, NO query.
+  const routerNames = (router.match(/const ROUTES = \{([^}]*)\}/) || [, ''])[1]
+    .split(',').map(s => s.trim().split(':')[0].trim()).filter(Boolean);
+  const nameFn = (router.match(/function endpointName\(req\)[\s\S]*?\n\}/) || [])[0];
+  if (!nameFn) { fail++; console.error('  x router: endpointName() not found'); }
+  else {
+    const endpointName = new Function('return ' + nameFn.replace(/^function /, 'function ') + '; ')
+      ? new Function(nameFn + '; return endpointName;')() : null;
+    const cases = routerNames.map(n => ['/api/' + n, n])
+      .concat([['/api/kit?action=x', 'kit'], ['/api/nope', 'nope'], ['/api/', ''], ['', '']]);
+    const bad = cases.filter(([url, want]) => endpointName({ url, query: {} }) !== want)
+      .map(([url, want]) => url + ' -> "' + endpointName({ url, query: {} }) + '" (want "' + want + '")');
+    if (bad.length) { fail++; console.error('  x router resolves the wrong endpoint from the URL:\n      ' + bad.join('\n      ')); }
+    else console.log('  ok router resolves all ' + routerNames.length + ' endpoints from the URL alone (no query param)');
+  }
 }
 
 console.log('Pages (last inline script):');
