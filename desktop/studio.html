@@ -204,6 +204,7 @@
                     <button onclick="setContentType('providers')" id="ct-providers" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🤝 Get Providers</button>
                     <button onclick="setContentType('findpros')" id="ct-findpros" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🔎 Find Providers</button>
                     <button onclick="setContentType('podcast')" id="ct-podcast" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🎙️ Podcast</button>
+                    <button onclick="setContentType('feature')" id="ct-feature" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">📰 Feature</button>
                     <button onclick="setContentType('merch')" id="ct-merch" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🛍️ Merch</button>
                 </div>
                 <p class="text-[10px] text-slate-500 leading-snug mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
@@ -212,11 +213,9 @@
             <!-- Premium content-type controls (hidden for Creative) -->
             <div id="premium-controls" class="hidden">
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">Design direction</label>
-                <div class="grid grid-cols-3 gap-2 mb-3" id="premium-dirs">
-                    <button onclick="setPremiumDir('a')" id="pdir-a" class="pdir-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-2.5 rounded-lg border border-red-500 text-[11px] uppercase tracking-wide">A</button>
-                    <button onclick="setPremiumDir('b')" id="pdir-b" class="pdir-btn bg-slate-800 text-slate-400 font-bold py-2.5 rounded-lg border border-slate-600 text-[11px] uppercase tracking-wide">B</button>
-                    <button onclick="setPremiumDir('c')" id="pdir-c" class="pdir-btn bg-slate-800 text-slate-400 font-bold py-2.5 rounded-lg border border-slate-600 text-[11px] uppercase tracking-wide">C</button>
-                </div>
+                <!-- Filled from the PREMIUM registry so a family can have any number of
+                     directions. Hardcoding A/B/C meant a fourth idea couldn't be reached at all. -->
+                <div class="grid gap-2 mb-3" id="premium-dirs"></div>
                 <p class="text-[11px] font-bold text-slate-300 mb-1" id="pdir-name"></p>
                 <div id="premium-fields" class="flex flex-col gap-2"></div>
                 <!-- Photo slot for the families that use one (Podcast = guest, Merch = product).
@@ -1187,6 +1186,19 @@
         b:{ name:'Verified Badge', fields:{ eyebrow:'Manually verified', head:'Every provider is checked before they reach you.', sub:'CIPC registration and B-BBEE credentials verified by hand — so you hire with confidence, not hope.', cta:'Browse the directory →' } },
         c:{ name:'Category Spotlight', fields:{ eyebrow:'Looking for', category:'Web Developers', count:'40+ vetted experts', sub:'Compare quotes from verified South African specialists — free, and no obligation to hire.', cta:'Compare quotes →', url:'serv.co.za' } }
       }},
+      // ---- FEATURE STORY — the replacement for hero-photo-plus-headline ----------------------
+      // The photo isn't the problem; the TREATMENT is. Hero image + dark gradient + headline on top
+      // is what every CMS auto-generates for an OG image and what every template ships with, which
+      // is exactly why it reads as "this is a link" rather than "this is worth reading". What
+      // editorial publishers actually push to social is type-first: pull-quotes, single numbers,
+      // numbered takeaways. So photography is DEMOTED, not deleted — direction D uses a real crop
+      // as a deliberate element rather than a backdrop.
+      feature: { label:'Feature story', dirs:{
+        a:{ name:'The Pull-Quote — travels furthest', fields:{ eyebrow:'From the story', quote:'You do not need more funding. You need a business a funder can actually say yes to.', author:'Jenna Sprenger', authorRole:'Founder & CEO, Fundrr', cta:'Read the full story →', url:'smesouthafrica.co.za' } },
+        b:{ name:'The Number — one stat, no decoration', fields:{ eyebrow:'By the numbers', big:'73%', bigLabel:'of SA small businesses never apply for funding they qualify for', sub:'The three assumptions behind that number — and what changes when you drop them.', cta:'Read the breakdown →', url:'smesouthafrica.co.za' } },
+        c:{ name:'The Stack — 3 takeaways', fields:{ eyebrow:'What you need to know', head:'Getting funding-ready in 2026', i1:'Separate your business and personal banking first', i2:'Management accounts beat a business plan every time', i3:'Apply to three lenders, not one — terms vary wildly', cta:'Read all seven →', url:'smesouthafrica.co.za' } },
+        d:{ name:'Editorial Split — type led, photo earned', fields:{ eyebrow:'Feature', head:'The funding mistake that costs founders millions', sub:'Most SA founders raise for the wrong reason at the wrong time. Here is what the lenders actually see.', byline:'By Karabo Kgophane', cta:'Read the story →', url:'smesouthafrica.co.za' } }
+      }},
       // ---- Podcast (smesouthafrica.co.za/podcast). Episode card / guest pull-quote / audiogram.
       // Load a Featured Image to get the guest photo; without one each direction stays typographic.
       podcast: { label:'Podcast', dirs:{
@@ -1213,6 +1225,7 @@
     };
     const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count',
       show:'Show name', tagline:'Show tagline', ep:'Episode number', role:'Guest role', guest:'Guest name', quote:'Quote', platforms:'Available on',
+      authorRole:'Author role', byline:'Byline', i1:'Takeaway 1', i2:'Takeaway 2', i3:'Takeaway 3',
       kicker:'Kicker', price:'Price (blank = drive clicks)', p1:'Product 1 (add | price to show it)', p2:'Product 2 (add | price to show it)', p3:'Product 3 (add | price to show it)' };
 
     let premVals = {}; // live editable values for the current type+dir
@@ -1254,7 +1267,7 @@
     const premPhotos = {};          // contentType -> Blob | null
     const premPhotoURLs = {};       // contentType -> object URL for the thumbnail
     function premFeatured(){ return premPhotos[state.contentType] || null; }
-    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)' };
+    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)' };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
         const wants = !!PREM_PHOTO[state.contentType];
@@ -1350,15 +1363,29 @@
       if (typeof showToast === 'function') showToast('Exported: ' + result.filename, 'success');
       if (typeof recordExport === 'function') recordExport();
     }
+    function premDirKeys(){ const t = PREMIUM[state.contentType]; return t ? Object.keys(t.dirs) : []; }
+    function renderPremDirs(){
+      const wrap = document.getElementById('premium-dirs'); if(!wrap) return;
+      const keys = premDirKeys();
+      // Up to 3 per row; 4+ wraps to two rows rather than squeezing.
+      wrap.className = 'grid gap-2 mb-3 ' + (keys.length > 3 ? 'grid-cols-2' : 'grid-cols-3');
+      wrap.innerHTML = keys.map(k => {
+        const on = k === state.premiumDir;
+        return '<button type="button" data-pd="' + k + '" class="pdir-btn font-bold py-2.5 px-1 rounded-lg text-[11px] uppercase tracking-wide '
+          + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600')
+          + '">' + k.toUpperCase() + '</button>';
+      }).join('');
+      wrap.querySelectorAll('.pdir-btn').forEach(b => b.addEventListener('click', () => setPremiumDir(b.dataset.pd)));
+    }
     function setPremiumDir(dir){
-      state.premiumDir = dir;
-      ['a','b','c'].forEach(x => { const btn = document.getElementById('pdir-'+x); if(btn){ const on = x===dir;
-        btn.className = 'pdir-btn font-bold py-2.5 rounded-lg text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
+      const keys = premDirKeys();
+      state.premiumDir = keys.indexOf(dir) >= 0 ? dir : (keys[0] || 'a');   // never strand on a dir the family lacks
+      renderPremDirs();
       loadPremDefaults(); renderPremFields(); syncPremImage(); renderPremiumPreview();
     }
     function setContentType(type){
       state.contentType = type;
-      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros','podcast','merch'];
+      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros','podcast','merch','feature'];
       types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
         btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
       const isCreative = type === 'creative';

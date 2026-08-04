@@ -263,7 +263,7 @@
     // 5) Premium matrix: every type x every dir x 3 sizes. Every family has exactly A/B/C — the old
     // D/E entries for providers/findpros did not exist in the PREMIUM registry and silently fell
     // through to the A branch, so they were reporting coverage that wasn't there.
-    const PREM_TYPES = ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros', 'podcast', 'merch'];
+    const PREM_TYPES = ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros', 'podcast', 'merch', 'feature'];
     // Minimum copy so the non-blank check is meaningful for text-driven directions (the draw fns
     // default the furniture, but not the headline/quote/product name).
     const PREM_VALS = {
@@ -276,13 +276,15 @@
       i1: 'First supporting point', i2: 'Second supporting point', i3: 'Third supporting point',
       b1: 'Benefit one', b2: 'Benefit two', b3: 'Benefit three',
       pro1: 'A pro', pro2: 'Another pro', con1: 'A con', vsLeft: 'A', vsRight: 'B',
+      bigLabel: 'of SA small businesses never apply for funding they qualify for',
+      author: 'Jenna Sprenger', authorRole: 'Founder & CEO, Fundrr', byline: 'By Karabo Kgophane',
       coverTitle: 'Cover title', coverSub: 'Cover subtext', cardk: 'Label', cardh: 'Card head', cards: 'Card sub'
     };
     // EVERY premium design runs against BOTH brands. The dark-secondary brand is the happy path;
     // the light-secondary one is where every contrast bug we've shipped actually lived.
     for (const [bLabel, b] of [['sme', brand], ['light', brandLight]]) {
       for (const pt of PREM_TYPES) {
-        for (const dir of ['a', 'b', 'c']) {
+        for (const dir of (pt === 'feature' ? ['a','b','c','d'] : ['a','b','c'])) {
           for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
             await run('premium/' + bLabel + '/' + pt + '/' + dir + '/' + sz,
               { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },

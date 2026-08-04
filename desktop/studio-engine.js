@@ -1230,6 +1230,7 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'findpros')  return drawFindPros(r, dir, v, assets);
     if (type === 'podcast')   return drawPodcast(r, dir, v, assets);
     if (type === 'merch')     return drawMerch(r, dir, v, assets);
+    if (type === 'feature')   return drawFeature(r, dir, v, assets);
     r.fillBg(PC.navy); // safety fallback
 }
 
@@ -1576,6 +1577,138 @@ function drawPodcast(r, dir, v, a) {
     pButton(r, pad, btnY, iW, v.cta || 'Listen now →', acc.fill, acc.on);
 }
 
+// ===================== FEATURE STORY =====================
+// Replaces hero-photo + gradient + headline, which is the auto-generated OG-image look and reads as
+// "this is a link" rather than "this is worth reading". What editorial publishers actually push to
+// social is type-first: pull-quotes, single numbers, short numbered stacks. Photography is DEMOTED
+// to a deliberate element (direction D) rather than a backdrop that type sits on top of.
+// The site sits on the LOGO line, top-right. Bottom-left crowded it against the attribution and
+// the CTA in every feature direction; up here it can never collide with anything that grows.
+function pUrlTop(r, url, bgRef) {
+    const t = String(url || ''); if (!t) return;
+    const pad = pPad();
+    r.drawLines([t], { family: 'Oswald', weight: '700', size: 28 }, pad, pad + 12, r.w - pad * 2, { color: pSubInk(bgRef), align: 'right' });
+}
+
+function drawFeature(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+
+    if (dir === 'b') { // THE NUMBER — one stat, no decoration. The number IS the artwork.
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.red, PC.navy);
+        r.rect(0, 0, W, 22, acc.fill);
+        const top = pLogo(r, a, PC.paper) + pV(10);
+        const label = r.wrap(String(v.bigLabel || '').toUpperCase(), { family: 'Oswald', weight: '700', size: pT(40) }, iW);
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 36 }, iW);
+        // The number is sized to the space actually left over, so it is always the loudest thing on
+        // the canvas without ever pushing the claim off the bottom.
+        const reserve = pV(52) + label.length * pT(40) * 1.12 + pV(30) + sub.length * 36 * 1.42;
+        const numBox = Math.max(pV(200), btnY - pV(60) - top - reserve);
+        const nf = r.fitFontSize(String(v.big || ''), { family: 'Oswald', weight: '900' }, iW, numBox, 0.9, { max: pT(400), min: 90 });
+        let y = top + Math.max(0, (btnY - pV(52) - top - (nf.totalH + reserve)) / 2);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(52);
+        r.drawLines(nf.lines, { family: 'Oswald', weight: '900', size: nf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 0.9 });
+        y += nf.totalH + pV(6);
+        r.drawLines(label, { family: 'Oswald', weight: '700', size: pT(40) }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.12 });
+        y += label.length * pT(40) * 1.12 + pV(30);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 36 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
+        pUrlTop(r, v.url, PC.paper);
+        pButton(r, pad, btnY, iW, v.cta || 'Read the breakdown', acc.fill, acc.on);
+        return;
+    }
+
+    if (dir === 'c') { // THE STACK — numbered takeaways. Reads as substance, not as a link.
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        const acc = pSolid(PC.navy, PC.red, PC.paper);
+        let y = pLogo(r, a, PC.navy);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(56);
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(220), 1.03, { max: pT(88), min: 42 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.03 });
+        y += hf.totalH + pV(40);
+        const items = [v.i1, v.i2, v.i3].filter(Boolean);
+        // Rows share whatever space is left, so three long takeaways compress instead of running
+        // into the CTA.
+        const room = (btnY - pV(46)) - y;
+        const rowH = items.length ? Math.min(pV(190), Math.floor(room / items.length)) : 0;
+        const numF = { family: 'Oswald', weight: '900', size: pT(66) };
+        items.forEach((t, i) => {
+            const ry = y + i * rowH;
+            r.drawLines([String(i + 1)], numF, pad, ry, pV(90), { color: acc.text });
+            const tx = pad + pV(96), tw = iW - pV(96);
+            const lines = r.wrap(String(t), { family: 'Roboto', weight: '500', size: 38 }, tw).slice(0, 3);
+            r.drawLines(lines, { family: 'Roboto', weight: '500', size: 38 }, tx, ry + pV(6), tw, { color: pInk(PC.navy), lineHeight: 1.34 });
+            if (i < items.length - 1) r.strokeLine(pad, ry + rowH - pV(20), W - pad, ry + rowH - pV(20), pOn(PC.navy, 'rgba(255,255,255,0.14)', 'rgba(0,0,0,0.12)'), 2);
+        });
+        pUrlTop(r, v.url, PC.navy);
+        pButton(r, pad, btnY, iW, v.cta || 'Read the full story', acc.fill, acc.on);
+        return;
+    }
+
+    if (dir === 'd') { // EDITORIAL SPLIT — type leads; the photo earns a panel instead of being a backdrop.
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.red, PC.navy);
+        const wide = W > H * 1.2;
+        // Portrait/square: the photo is a band at the BOTTOM. Landscape: a column on the RIGHT.
+        // Either way the type owns ~60% and never sits on top of the image.
+        const picW = wide ? Math.round(W * 0.40) : W;
+        const picH = wide ? H : Math.round(H * 0.34);
+        const picX = wide ? W - picW : 0, picY = wide ? 0 : H - picH;
+        if (a.featured) r.drawCover(a.featured, picX, picY, picW, picH, 0.5, 0.45, 0, 1);
+        else r.linearGradient(picX, picY, picW, picH, [[0, PC.navy], [1, PC.navy2]], 'br');
+        const colW = (wide ? W - picW - pad * 2 - pV(24) : iW);
+        const bottomLimit = wide ? (H - pad) : picY - pV(34);
+        let y = pLogo(r, a, PC.paper) + pV(6);
+        r.rect(pad, y, 96, 10, acc.fill); y += pV(30);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, colW, { color: acc.text }); y += pV(50);
+        const bylineH = v.byline ? pV(44) : 0;
+        const subLines = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 36 }, colW);
+        const ctaH = pV(56);
+        const headBox = Math.max(pV(160), bottomLimit - y - subLines.length * 36 * 1.42 - bylineH - ctaH - pV(40));
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, colW, headBox, 1.02, { max: pT(104), min: 40 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, colW, { color: pInk(PC.paper), lineHeight: 1.02 });
+        y += hf.totalH + pV(24);
+        r.drawLines(subLines, { family: 'Roboto', weight: '400', size: 36 }, pad, y, colW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
+        y += subLines.length * 36 * 1.42 + pV(18);
+        if (v.byline) { r.drawLines([String(v.byline)], { family: 'Roboto', weight: '700', size: 28 }, pad, y, colW, { color: pSubInk(PC.paper) }); y += pV(44); }
+        // A text CTA, not a button: a button on an editorial card reads like an ad.
+        r.drawLines([String(v.cta || 'Read the story').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(34) }, pad, Math.min(y, bottomLimit - pV(40)), colW, { color: acc.text });
+        pUrlTop(r, v.url, PC.paper);
+        return;
+    }
+
+    // A: THE PULL-QUOTE — the format that actually travels. One sentence, oversized, attributed.
+    r.fillBg(PC.paper);
+    const acc = pSolid(PC.paper, PC.red, PC.navy);
+    r.rect(0, 0, 26, H, acc.fill);
+    const top = pLogo(r, a, PC.paper) + pV(6);
+    const attrH = pV(120);
+    const quoteMarkS = pT(150);
+    const qBox = Math.max(pV(220), btnY - pV(46) - attrH - (top + quoteMarkS * 0.62));
+    // Set in sentence case, NOT caps: a full sentence in all-caps stops being readable, and a quote
+    // is meant to read as speech.
+    const qf = r.fitFontSize(String(v.quote || ''), { family: 'Oswald', weight: '700' }, iW, qBox, 1.16, { max: pT(84), min: 34 });
+    let y = top;
+    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: acc.text });
+    y += pV(52);
+    r.drawLines(['“'], { family: 'Oswald', weight: '900', size: quoteMarkS }, pad - pV(12), y, iW, { color: acc.fill, lineHeight: 1 });
+    y += quoteMarkS * 0.62;
+    r.drawLines(qf.lines, { family: 'Oswald', weight: '700', size: qf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.16 });
+    // Attribution: a circular crop when there is a photo, otherwise a rule + name. Never an empty avatar.
+    const ay = btnY - pV(46) - attrH + pV(26), ds = pV(96);
+    if (a.featured) {
+        r.ctx.save(); r.roundRectPath(pad, ay, ds, ds, ds / 2); r.ctx.clip();
+        r.drawCover(a.featured, pad, ay, ds, ds, 0.5, 0.4, 0, 1); r.ctx.restore();
+        r.drawLines([String(v.author || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 36 }, pad + ds + 28, ay + pV(14), iW - ds - 28, { color: pInk(PC.paper) });
+        r.drawLines([String(v.authorRole || '')], { family: 'Roboto', weight: '400', size: 30 }, pad + ds + 28, ay + pV(58), iW - ds - 28, { color: pSubInk(PC.paper) });
+    } else {
+        r.rect(pad, ay + pV(10), pV(70), 8, acc.fill);
+        r.drawLines([String(v.author || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 36 }, pad + pV(92), ay, iW - pV(92), { color: pInk(PC.paper) });
+        r.drawLines([String(v.authorRole || '')], { family: 'Roboto', weight: '400', size: 30 }, pad + pV(92), ay + pV(44), iW - pV(92), { color: pSubInk(PC.paper) });
+    }
+    pUrlTop(r, v.url, PC.paper);
+    pButton(r, pad, btnY, iW, v.cta || 'Read the full story', acc.fill, acc.on);
+}
+
 // ===================== MERCH / STORE =====================
 // Built from smesouthafrica.co.za/shop — product, price, and the two things that close a sale
 // online in SA: shipping reach and payment trust.
@@ -1684,7 +1817,7 @@ function drawMerch(r, dir, v, a) {
 function drawLandscape(r, type, dir, v, a) {
     const W = r.w, H = r.h, pad = 70, key = type + '.' + dir;
     r.ctx.textBaseline = 'top';
-    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c'].indexOf(key) !== -1;
+    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
     // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
     // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
