@@ -109,6 +109,10 @@
   .tcode{font-family:var(--fm); font-size:13px; color:var(--accent); font-weight:700; background:rgba(182,255,61,.08); border:1px solid rgba(182,255,61,.2); border-radius:8px; padding:5px 11px;}
   .stage-controls{display:flex; gap:8px; align-items:stretch; width:100%; margin-top:12px; flex-wrap:wrap;}
   .stage-controls .mini{flex:0 0 auto;}
+  /* .mini is flex:1 by design in the control rows, but in the Saved-looks modal that made Close and
+     the ✕ delete stretch across their rows. Constrain them here rather than weakening .mini. */
+  #looksModal .mini{flex:0 0 auto;}
+  #looksModal #looksList [data-load]{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .cap-custom{position:relative; overflow:hidden; padding:0;}
   .cap-custom input[type=color]{position:absolute; inset:-4px; width:calc(100% + 8px); height:calc(100% + 8px); opacity:0; cursor:pointer; border:none; padding:0; background:transparent;}
   .status{font-family:var(--fm); font-size:12px; color:var(--info); margin-top:12px; min-height:16px; text-align:center;}
@@ -313,6 +317,13 @@
             <button data-qd="4">4s</button>
           </div>
           <p class="note" style="margin-top:6px;">The question almost never appears in the footage, so an answer clip lands with no context without this.</p>
+          <label class="lbl" style="margin:10px 0 4px;">Frame <span class="opt">keeps the centre clear for the face</span></label>
+          <div class="seg" id="qaFrameSeg">
+            <button data-qf="both" class="on">Top &amp; bottom</button>
+            <button data-qf="top">Question only</button>
+            <button data-qf="bottom">Caption bar only</button>
+          </div>
+          <p class="note" style="margin-top:6px;">The question stays up top for the whole answer, so anyone who scrolls in halfway still knows what's being answered. The middle third is never covered.</p>
         </div>
       </div>
 
@@ -459,7 +470,7 @@
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
         <button class="pc-copy" id="fillerBtn" title="Strip um, uh, er, hmm… from the caption text">🧹 Fillers</button>
-        <button class="pc-copy" id="pauseBtn" title="Skip long silences in the clip — preview and export jump straight past dead air">⏩ Tighten pauses</button>
+        <button class="pc-copy" id="tightenBtn" title="Skip long silences in the clip — preview and export jump straight past dead air">⏩ Tighten pauses</button>
         <button class="pc-copy" id="srtBtn">⬇ .SRT</button>
         <span class="cap-ed-count" id="capCount"></span>
       </div>
@@ -590,6 +601,7 @@ const state = {
   markOn:false,         // persistent corner watermark
   waveOn:false,         // audiogram bars (podcast)
   qaOn:false,           // question card, then the answer plays
+  qaFrame:'both',        // Q&A furniture: both | top | bottom — the centre is never covered
   outroDur:3.0,
 };
 let W=1080, H=1920;
@@ -776,6 +788,12 @@ $('#focusSeg').addEventListener('click', e => {
     const b=e.target.closest('button'); if(!b) return;
     applyTemplate(b.dataset.tp);
   }); }
+{ const seg=$('#qaFrameSeg'); if(seg) seg.addEventListener('click', e => {
+    const b=e.target.closest('button'); if(!b) return;
+    state.qaFrame = b.dataset.qf;
+    document.querySelectorAll('#qaFrameSeg button').forEach(x=>x.classList.toggle('on', x===b));
+  });
+}
 { const seg=$('#qaDurSeg'); if(seg) seg.addEventListener('click', e => {
     const b=e.target.closest('button'); if(!b) return;
     state.qaDur = parseFloat(b.dataset.qd);
@@ -811,7 +829,22 @@ $('#musicVol').addEventListener('input', e => {
 
 // ---- preview controls ----
 $('#playBtn').onclick = () => { state.playing=true; if(!state.recording && musicEl.src) musicEl.play().catch(()=>{}); };
-$('#pauseBtn').onclick = () => { state.playing=false; videoEl.pause(); if(!state.recording) musicEl.pause(); };
+// Pause/resume toggle. This used to be pause-only AND its handler was being overwritten by the
+// "Tighten pauses" button, which shared its id — so the control did the wrong thing entirely.
+function pausePlayback(){
+  state.playing = false;
+  try{ videoEl.pause(); }catch(e){}
+  if(!state.recording) { try{ musicEl.pause(); }catch(e){} }
+  syncTransport();
+}
+function syncTransport(){
+  const pb = $('#pauseBtn'); if(!pb) return;
+  const on = !!state.playing;
+  pb.innerHTML = on
+    ? '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4h3v12H5zM12 4h3v12h-3z"/></svg> Pause'
+    : '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 6-12 6z"/></svg> Resume';
+}
+{ const pb=$('#pauseBtn'); if(pb) pb.onclick = () => { if(state.playing) pausePlayback(); else { const p=$('#playBtn'); if(p && p.onclick) p.onclick(); } }; }
 $('#resetBtn').onclick = () => restart();
 function restart(){ t=0; mainPlaying=false; try{ videoEl.pause(); videoEl.currentTime = state.trimStart; }catch(e){} }
 
@@ -849,7 +882,7 @@ document.addEventListener('keydown', e => {
   if(tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
   if(e.code === 'Space'){
     e.preventDefault();
-    if(state.playing){ $('#pauseBtn').onclick(); } else { $('#playBtn').onclick(); }
+    if(state.playing){ pausePlayback(); } else { $('#playBtn').onclick(); }
   } else if(e.code === 'ArrowLeft'){
     e.preventDefault(); seekTo((t - 2) / Math.max(0.001, totalDur()));
   } else if(e.code === 'ArrowRight'){
@@ -1295,7 +1328,7 @@ function frame(now){
           ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore();
         }
       }
-      if(state.qaOn) drawQuestion(into);
+      if(state.qaOn){ drawQAFrame(into); drawQuestion(into); }
       if(state.hookOn) drawHook(into);
       if(state.waveOn) drawWave(into);
       if(state.nameOn) drawNameTag(into);
@@ -1435,7 +1468,7 @@ function setCapStatus(msg, kind){
 }
 function clearCaptions(){
   state.words=[]; state.lines=[]; state.captionsOn=false;
-  clearSkips(); const pb=$('#pauseBtn'); if(pb) pb.textContent='⏩ Tighten pauses';
+  clearSkips(); const pb=$('#tightenBtn'); if(pb) pb.textContent='⏩ Tighten pauses';
   $('#capToggleRow').style.display='none';
   $('#capColorRow').style.display='none';
   $('#capPosRow').style.display='none';
@@ -1815,6 +1848,92 @@ function drawWave(ct){
 // --- Question card (Q&A) ----------------------------------------------------------------------
 // A webinar answer clip makes no sense without the question, and the question is almost never in
 // the footage. This puts it up front over the opening seconds, so the answer lands with context.
+// Q&A FRAME — the persistent top/bottom furniture for a talking-head answer.
+//
+// A Q&A clip is framed on one person's face, dead centre, so ANY overlay in the middle third covers
+// the thing the viewer came for. The question card (drawQuestion) only covers the first ~3s; after
+// that the frame was bare, which means anyone who scrolled in late had no idea what was being
+// answered. So the furniture lives in two bands and the centre is left strictly alone:
+//
+//   top    0 → 15%   the question, abbreviated, with a Q chip. Persistent, so late arrivals get it.
+//   middle 15 → 74%  UNTOUCHED. The face.
+//   bottom 74 → 100% caption surface + room for the brand mark.
+//
+// Both bands are gradients rather than hard blocks: a solid bar reads as a broadcast lower-third
+// bolted on top of the video, a gradient reads as part of it, and it degrades gracefully whatever
+// the footage behind it is doing. Captions already sit at H*0.80 with capPos:'bottom', which lands
+// inside the lower band by design — that is why the band is 26% and not 15%.
+const QA_TOP = 0.15, QA_BOTTOM = 0.26;
+function drawQAFrame(ct){
+  const txt = ($('#qaText') && $('#qaText').value.trim()) || '';
+  // Don't double up with the full-screen question card while it's still on screen.
+  const cardDur = Math.max(1.5, Math.min(6, parseFloat(state.qaDur) || 3.0));
+  const fadeIn = Math.max(0, Math.min(1, (ct - cardDur) / 0.4));
+  if(fadeIn <= 0) return;
+
+  const style = state.qaFrame || 'both';       // both | top | bottom
+  ctx.save();
+  ctx.globalAlpha *= fadeIn;
+
+  // ---- bottom band: a reading surface for the captions -------------------------------------
+  if(style === 'both' || style === 'bottom'){
+    const bh = H * QA_BOTTOM, by = H - bh;
+    const g = ctx.createLinearGradient(0, by, 0, H);
+    g.addColorStop(0, hexA(C_NAVY, 0));
+    g.addColorStop(0.45, hexA(C_NAVY, 0.62));
+    g.addColorStop(1, hexA(C_NAVY, 0.92));
+    ctx.fillStyle = g; ctx.fillRect(0, by, W, bh);
+    // A SHORT brand accent where the band starts, not a full-width rule: a line all the way across a
+    // centred face reads as a broadcast lower-third bolted onto the video. This reads as furniture.
+    ctx.fillStyle = hexA(C_RED, 0.95);
+    ctx.fillRect(W * 0.055, by, W * 0.18, Math.max(3, H * 0.0030));
+  }
+
+  // ---- top band: the question, kept short ---------------------------------------------------
+  if((style === 'both' || style === 'top') && txt){
+    const th = H * QA_TOP;
+    const g2 = ctx.createLinearGradient(0, 0, 0, th);
+    g2.addColorStop(0, hexA(C_NAVY, 0.94));
+    g2.addColorStop(0.55, hexA(C_NAVY, 0.66));
+    g2.addColorStop(1, hexA(C_NAVY, 0));
+    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, th);
+
+    const pad = W * 0.055;
+    const chip = Math.round(H * 0.030);
+    const cy = H * 0.045;
+    // Q chip
+    ctx.fillStyle = C_RED; roundRect(pad, cy, chip, chip, chip * 0.28); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 ' + Math.round(chip * 0.64) + 'px Oswald, Arial Narrow, sans-serif';
+    ctx.fillText('Q', pad + chip / 2, cy + chip / 2 + chip * 0.02);
+
+    // The question at a glance — two lines maximum, ellipsised. The full question already had its
+    // own card; up here it is a reminder, not the read, and three lines would start crowding the face.
+    const size = Math.round(H * 0.0225);
+    ctx.font = '700 ' + size + 'px Oswald, Arial Narrow, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    const tx = pad + chip + W * 0.022;
+    // Reserve the brand mark's lane. drawWatermark() sits top-right at up to W*0.26, so without
+    // this the question ran straight underneath it. Not solved by relocating the mark: its only
+    // other home is bottom-right, where two-line captions already reach.
+    const markLane = state.markOn ? W * 0.30 : 0;
+    const avail = W - tx - pad - markLane;
+    let lines = wrapLines(txt.toUpperCase(), avail);
+    if(lines.length > 2){
+      lines = lines.slice(0, 2);
+      let last = lines[1];
+      while(last.length > 4 && ctx.measureText(last + '…').width > avail) last = last.slice(0, -1);
+      lines[1] = last.replace(/[\s,;:]+$/, '') + '…';
+    }
+    const lh = size * 1.22;
+    let ty = cy + (chip - (lines.length * lh)) / 2;
+    if(ty < H * 0.026) ty = H * 0.026;
+    ctx.fillStyle = '#ffffff';
+    lines.forEach((L, i) => ctx.fillText(L, tx, ty + i * lh));
+  }
+  ctx.restore();
+}
+
 function drawQuestion(ct){
   const txt = ($('#qaText') && $('#qaText').value.trim()) || '';
   if(!txt) return;
@@ -2002,7 +2121,7 @@ function tightenPauses(){
   if(state.skips && state.skips.length){ // acting as UNDO
     if(state.preTighten){ state.lines = state.preTighten.lines; state.words = state.preTighten.words; }
     clearSkips(); updateTrimRead(); renderCapEditor();
-    $('#pauseBtn').textContent = '⏩ Tighten pauses';
+    { const tb=$('#tightenBtn'); if(tb) tb.textContent = '⏩ Tighten pauses'; }
     setCapStatus('Pauses restored — full-length clip.', 'ok');
     restart(); return;
   }
@@ -2027,11 +2146,11 @@ function tightenPauses(){
   state.lines.forEach(L => { L.start = mapT(L.start); L.end = mapT(L.end); (L.words||[]).forEach(w => { w.start = mapT(w.start); w.end = mapT(w.end); }); });
   state.skips = skips; state.skipTotal = cum;
   updateTrimRead(); renderCapEditor();
-  $('#pauseBtn').textContent = '↩ Undo tighten';
+  { const tb=$('#tightenBtn'); if(tb) tb.textContent = '↩ Undo tighten'; }
   setCapStatus('⏩ Removed ' + cum.toFixed(1) + 's of dead air across ' + skips.length + ' pause' + (skips.length > 1 ? 's' : '') + ' — preview and export both skip them.', 'ok');
   restart();
 }
-{ const pb=$('#pauseBtn'); if(pb) pb.onclick = tightenPauses; }
+{ const tb=$('#tightenBtn'); if(tb) tb.onclick = tightenPauses; }
 
 // ================= MULTI-CLIP: add / trim / reorder / remove =================
 let _clipUid = 0;
@@ -2446,7 +2565,7 @@ function setLookStatus(msg, kind){ const s=$('#lookStatus'); if(!s) return; s.te
 function serializeLook(){
   const v = id => { const el=$('#'+id); return el?el.value:''; };
   return {
-    template:state.template, outroDur:state.outroDur, qaDur:state.qaDur,
+    template:state.template, outroDur:state.outroDur, qaDur:state.qaDur, qaFrame:state.qaFrame,
     format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
     capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
     layers: (state.layers||[]).map(function(L){ var c=Object.assign({},L); delete c._img; return c; }),
@@ -2463,6 +2582,7 @@ function restoreLook(d){
   if(d.template && VIDEO_TEMPLATES[d.template]) applyTemplate(d.template, { quiet:true });
   if(d.outroDur!=null) state.outroDur = d.outroDur;
   if(d.qaDur!=null){ state.qaDur = d.qaDur; syncSeg('#qaDurSeg', d.qaDur); }
+  if(d.qaFrame){ state.qaFrame = d.qaFrame; syncSeg('#qaFrameSeg', d.qaFrame); }
   if(d.format) setFormat(d.format);
   if(d.look) setLook(d.look);
   if(d.fill){ state.fill=d.fill; syncSeg('#fillSeg', d.fill); const fr=$('#focusRow'); if(fr) fr.style.display=(d.fill==='crop')?'block':'none'; }
@@ -2512,7 +2632,7 @@ async function loadLook(id){
     if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
     currentLookId = id;
     restoreLook(data.project && data.project.data);
-    $('#looksModal').style.display='none';
+    closeLooks();
     setLookStatus('✅ Look loaded.','ok');
   }catch(e){ setLookStatus(e.message,'err'); }
 }
@@ -2521,11 +2641,22 @@ async function deleteLook(id){
   if(currentLookId===id) currentLookId=null;
   openLooks();
 }
+function closeLooks(){ const m=$('#looksModal'); if(m) m.style.display='none'; }
 { const sb=$('#saveLookBtn'); if(sb) sb.addEventListener('click', saveLook);
   const lb=$('#looksBtn'); if(lb) lb.addEventListener('click', openLooks);
-  const lc=$('#looksClose'); if(lc) lc.addEventListener('click', ()=>{ $('#looksModal').style.display='none'; });
-  const lm=$('#looksModal'); if(lm) lm.addEventListener('click', e=>{ if(e.target===lm) lm.style.display='none'; });
-  const ll=$('#looksList'); if(ll) ll.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadLook(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteLook(D.dataset.del); });
+  // Document-level delegation: works no matter where the modal markup lives in the file.
+  document.addEventListener('click', e => {
+    if(e.target.closest('#looksClose')) { closeLooks(); return; }
+    if(e.target.id === 'looksModal') { closeLooks(); return; }   // backdrop
+    const L = e.target.closest('#looksList [data-load]');
+    if(L) { loadLook(L.dataset.load); return; }
+    const D = e.target.closest('#looksList [data-del]');
+    if(D) { deleteLook(D.dataset.del); }
+  });
+  // Escape closes it, which every modal should do and this one didn't.
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){ const m=$('#looksModal'); if(m && m.style.display !== 'none') closeLooks(); }
+  });
 }
 
 // === Copy Lab → Video handoff: pre-load the angle's headline as the hook overlay ===
