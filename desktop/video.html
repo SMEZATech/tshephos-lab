@@ -457,11 +457,12 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
           <span id="exportLbl">Export short (.webm)</span>
         </button>
+        <button class="mini" id="fxCancel" style="display:none;">✕ Cancel</button>
       </div>
       <p class="note" id="ctrlHint" style="display:none; text-align:center; margin-top:6px;">Spacebar play / pause · ← → arrows jump 2s · drag the bar to scrub.</p>
       <div class="status" id="status"></div>
       </div><!-- /.player -->
-      <p class="note" style="max-width:560px; text-align:center;">Tip: keep shorts to ~20–45s. Export plays in real time, so a 40s short takes about 40s to record. Output is <b style="color:var(--dim);">.webm</b> for now — mp4 is on the roadmap.</p>
+      <p class="note" id="exportTip" style="max-width:560px; text-align:center;">Tip: keep shorts to ~20–45s. Export plays in real time, so a 40s short takes about 40s to record — leave this window in focus.</p>
       <section id="capEditor" style="display:none;">
     <div class="cap-ed-head">
       <div>
@@ -1240,9 +1241,56 @@ function onLayerField(e){ const f=e.target.closest('.lyr-f'); if(!f) return; con
   }
 }
 
+// ---- shared timeline paint ----
+// ONE painter for the preview and the export. The live loop calls this with a <video> element it
+// has just seeked; fast export calls it with an ImageBitmap ffmpeg decoded. Everything visual —
+// fill, look, transitions, Q&A frame, hook, captions, overlays, branding — happens here and only
+// here, because the moment there are two of these they start to disagree and the file you send is
+// not the file you approved.
+function paintTimeline(into, seg, media, mw, mh){
+  const cD = timelineDur();
+  if(state.fill==='blur') drawBlurFill(media, mw, mh);
+  else drawCover(media, mw, mh, FOCUS[state.focus]);
+  applyLook();
+  // ---- transition at the boundary INTO this clip ----
+  if(extraClips.length && seg.segStart > 0 && state.transition !== 'cut'){
+    const sinceCut = into - seg.segStart;
+    if(sinceCut < TRANS_DUR){
+      const p = Math.max(0, Math.min(1, sinceCut / TRANS_DUR));
+      if(state.transition === 'cross' && transSnap && transSnapFor === seg.idx){
+        ctx.save(); ctx.globalAlpha = 1 - p; ctx.drawImage(transSnap, 0, 0, W, H); ctx.restore();
+      } else if(state.transition === 'fade'){
+        // dip through black: out over the first half, in over the second
+        const a = p < 0.5 ? (1 - p*2) : 0;
+        if(a > 0){ ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore(); }
+      }
+    }
+  }
+  if(extraClips.length && state.transition === 'fade' && seg.segDur > 0){
+    const toEnd = (seg.segStart + seg.segDur) - into;
+    if(toEnd < TRANS_DUR/2 && (seg.segStart + seg.segDur) < cD - 0.01){
+      const a = Math.max(0, Math.min(1, 1 - (toEnd / (TRANS_DUR/2))));
+      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore();
+    }
+  }
+  if(state.qaOn){ drawQAFrame(into); drawQuestion(into); }
+  if(state.hookOn) drawHook(into);
+  if(state.waveOn) drawWave(into);
+  if(state.nameOn) drawNameTag(into);
+  if(state.captionsOn && state.lines.length){ drawCaptions(into); if(!state.fastExporting) updateLiveRow(into); }
+  drawLayers(into);
+  // Branding LAST so nothing covers it. The flash rides over the opening frames rather than
+  // stealing time in front of them; the mark persists for the whole clip.
+  if(state.markOn) drawWatermark();
+  if(state.brandFlashOn) drawBrandFlash(into);
+}
+
 // ---- main loop ----
 function frame(now){
   const dt = (now - lastTime)/1000; lastTime = now;
+  // Fast export owns the canvas while it runs. Without this the preview loop keeps painting the
+  // live playhead over frames that are on their way to the encoder.
+  if(state.fastExporting){ requestAnimationFrame(frame); return; }
   if(state.loaded){
     // capture mode — playing the clip once to read its audio for transcription
     if(state.capturing){
@@ -1304,40 +1352,7 @@ function frame(now){
       // safety: keep within this clip's trim
       const segEndSrc = seg.idx === -1 ? state.trimEnd : seg.clip.trimEnd;
       if(el.currentTime > segEndSrc){ try{ el.currentTime = segEndSrc; }catch(e){} }
-      if(state.fill==='blur') drawBlurFill(el, el.videoWidth, el.videoHeight);
-      else drawCover(el, el.videoWidth, el.videoHeight, FOCUS[state.focus]);
-      applyLook();
-      // ---- transition at the boundary INTO this clip ----
-      if(extraClips.length && seg.segStart > 0 && state.transition !== 'cut'){
-        const sinceCut = into - seg.segStart;
-        if(sinceCut < TRANS_DUR){
-          const p = Math.max(0, Math.min(1, sinceCut / TRANS_DUR));
-          if(state.transition === 'cross' && transSnap && transSnapFor === seg.idx){
-            ctx.save(); ctx.globalAlpha = 1 - p; ctx.drawImage(transSnap, 0, 0, W, H); ctx.restore();
-          } else if(state.transition === 'fade'){
-            // dip through black: out over the first half, in over the second
-            const a = p < 0.5 ? (1 - p*2) : 0;
-            if(a > 0){ ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore(); }
-          }
-        }
-      }
-      if(extraClips.length && state.transition === 'fade' && seg.segDur > 0){
-        const toEnd = (seg.segStart + seg.segDur) - into;
-        if(toEnd < TRANS_DUR/2 && (seg.segStart + seg.segDur) < cD - 0.01){
-          const a = Math.max(0, Math.min(1, 1 - (toEnd / (TRANS_DUR/2))));
-          ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); ctx.restore();
-        }
-      }
-      if(state.qaOn){ drawQAFrame(into); drawQuestion(into); }
-      if(state.hookOn) drawHook(into);
-      if(state.waveOn) drawWave(into);
-      if(state.nameOn) drawNameTag(into);
-      if(state.captionsOn && state.lines.length){ drawCaptions(into); updateLiveRow(into); }
-      drawLayers(into);
-      // Branding LAST so nothing covers it. The flash rides over the opening frames rather than
-      // stealing time in front of them; the mark persists for the whole clip.
-      if(state.markOn) drawWatermark();
-      if(state.brandFlashOn) drawBrandFlash(into);
+      paintTimeline(into, seg, el, el.videoWidth, el.videoHeight);
     } else {
       if(!videoEl.paused) videoEl.pause();
       if(mainPlaying) mainPlaying = false;
@@ -1359,7 +1374,14 @@ requestAnimationFrame(frame);
 // startExport(fileName?) returns a promise that resolves when the file is saved —
 // the batch "Chop all" flow awaits it per clip. The button path just fires it.
 let _exportResolve = null, _exportName = null;
-$('#exportBtn').onclick = () => startExport();
+// Fast export is the default wherever it exists. It produces the same frames without the clock,
+// so there is no reason to make anyone opt in — the recorder stays as the web path and as the
+// automatic fallback if anything in the fast path throws.
+$('#exportBtn').onclick = () => exportShort();
+function exportShort(fileName){
+  if(canFastExport() && state.exportFmt !== 'webm') return fastExport(fileName);
+  return startExport(fileName);
+}
 async function startExport(fileName){
   if(state.recording || !state.loaded) return;
   _exportName = fileName || null;
@@ -1413,9 +1435,238 @@ function stopExport(){
   if(musicEl.src) musicEl.pause();
 }
 
+// ===================== ⚡ FAST EXPORT =====================
+// Desktop only. Composites the timeline as fast as the CPU draws it instead of recording
+// cv.captureStream(30) in wall-clock time. See the FX block in main.js for the pipeline.
+//
+// The one rule this must never break: the exported frame and the previewed frame come from the
+// SAME code. paintTimeline() above is that code — the live loop calls it with a <video> element,
+// this calls it with an ImageBitmap decoded from a frame ffmpeg extracted. Nothing here re-implements
+// a look, a caption, or an overlay, because a second implementation is a second thing to drift.
+// Cancel is bound once, at module level — the export loop only reads the flag.
+{ const cb = document.getElementById('fxCancel');
+  if(cb) cb.addEventListener('click', ()=>{ _fxAbort = true; cb.disabled = true; setStatus('Cancelling…', true); }); }
+(function fxTip(){
+  const el = document.getElementById('exportTip'); if(!el) return;
+  if(canFastExport()) el.innerHTML = 'Tip: keep shorts to ~20–45s. Export renders as fast as your machine draws — usually a few seconds, and you can use other windows while it runs. Output is <b style="color:var(--dim);">.mp4</b>.';
+})();
+function canFastExport(){ return !!(window.voltNative && window.voltNative.fx && typeof window.voltNative.fx.begin === 'function'); }
+let _fxSession = null, _fxAbort = false;
+
+// Mix the whole soundtrack offline: every clip's trimmed audio laid end to end at its timeline
+// position, plus the music bed at its set volume, plus the silence that intro and outro occupy.
+// OfflineAudioContext renders this faster than real time and — the part that matters —
+// DETERMINISTICALLY. The real-time path re-mixes live every export, which is why "the music was
+// quieter that time" was a real complaint and never reproducible.
+async function fxRenderAudio(fps, totalFrames, bytesByUrl){
+  const total = totalFrames / fps;
+  const SR = 48000;
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if(!OAC) return null;
+  const oc = new OAC(2, Math.ceil(total * SR), SR);
+  const dec = async (url) => {
+    const have = bytesByUrl && bytesByUrl[url];
+    const buf = have ? have.slice(0) : await (await fetch(url)).arrayBuffer();
+    try{ return await oc.decodeAudioData(buf); }catch(e){ return null; }   // silent video is not an error
+  };
+  const place = (ab, at, offset, dur, vol) => {
+    if(!ab || dur <= 0.01) return;
+    const src = oc.createBufferSource(); src.buffer = ab;
+    const g = oc.createGain(); g.gain.value = vol;
+    src.connect(g); g.connect(oc.destination);
+    src.start(Math.max(0, at), Math.max(0, Math.min(ab.duration, offset)), Math.max(0, dur));
+  };
+  const iD = introDur();
+  // Primary clip. Tightened pauses cut source time OUT of the timeline, so the audio has to be
+  // laid down in the same pieces the video is — one run per gap between skips, or the speech
+  // drifts against the mouth by exactly the amount that was removed.
+  const main = await dec(videoEl.src);
+  const runs = [];
+  { let cur = state.trimStart;
+    for(const k of (state.skips || [])){
+      const s = state.trimStart + k.s, e = state.trimStart + k.e;
+      if(s > cur) runs.push([cur, s]);
+      cur = Math.max(cur, e);
+    }
+    if(state.trimEnd > cur) runs.push([cur, state.trimEnd]);
+  }
+  let at = iD;
+  for(const [s, e] of runs){ place(main, at, s, e - s, 1); at += (e - s); }
+  for(const c of extraClips){
+    const ab = await dec(c.src);
+    const d = Math.max(0, c.trimEnd - c.trimStart);
+    place(ab, at, c.trimStart, d, 1); at += d;
+  }
+  if(musicEl && musicEl.src){
+    const mb = await dec(musicEl.src);
+    // The bed runs under the whole thing, intro and outro included, looping if the track is short.
+    if(mb){ for(let o = 0; o < total; o += mb.duration) place(mb, o, 0, Math.min(mb.duration, total - o), state.musicVol); }
+  }
+  const rendered = await oc.startRendering();
+  return wavFromBuffer(rendered);
+}
+
+// Minimal 16-bit PCM WAV writer. ffmpeg reads this and re-encodes to AAC, so there is no reason
+// to reach for a library or a lossy intermediate.
+function wavFromBuffer(ab){
+  const ch = Math.min(2, ab.numberOfChannels), len = ab.length, sr = ab.sampleRate;
+  const out = new ArrayBuffer(44 + len * ch * 2), v = new DataView(out);
+  const str = (o, s) => { for(let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + len * ch * 2, true); str(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true);
+  v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, len * ch * 2, true);
+  const chans = []; for(let c = 0; c < ch; c++) chans.push(ab.getChannelData(c));
+  let o = 44;
+  for(let i = 0; i < len; i++){
+    for(let c = 0; c < ch; c++){
+      let s = chans[c][i]; s = s < -1 ? -1 : s > 1 ? 1 : s;
+      v.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7FFF, true); o += 2;
+    }
+  }
+  return out;
+}
+
+function fxStatus(msg, pct){
+  $('#exportLbl').innerHTML = '<span class="spinner"></span> ' + msg;
+  if(pct != null) setStatus('⚡ Fast export — ' + msg + ' (' + Math.round(pct) + '%)', true);
+  else setStatus('⚡ Fast export — ' + msg, true);
+}
+
+async function fastExport(fileName){
+  if(state.recording || state.fastExporting || !state.loaded) return { ok:false };
+  const FPS = 30;
+  const totalFrames = Math.max(1, Math.round(totalDur() * FPS));
+  // Delivery size — the format's native pixels, independent of the Ultra 2x render scale.
+  // ffmpeg is told this size once at begin(); every pushed frame must match it exactly or the
+  // rawvideo stream desynchronises and the output is a diagonal smear.
+  const OW = FMT[state.format].w, OH = FMT[state.format].h;
+  const fxCv = document.createElement('canvas'); fxCv.width = OW; fxCv.height = OH;
+  const fxCtx = fxCv.getContext('2d', { willReadFrequently: true });
+  fxCtx.imageSmoothingEnabled = true; try{ fxCtx.imageSmoothingQuality = 'high'; }catch(e){}
+  state.fastExporting = true; _fxAbort = false;
+  const btn = $('#exportBtn'); if(btn) btn.disabled = true;
+  const cancelBtn = $('#fxCancel'); if(cancelBtn){ cancelBtn.style.display = 'inline-flex'; cancelBtn.disabled = false; }
+  let id = null;
+  try{
+    applyRenderScale(state.upscale);
+    fxStatus('reading the clip…');
+    const sources = [], bytesByUrl = {};
+    // Skips are handled by INDEX when compositing (clipSrcTime already maps around them), so the
+    // primary clip is extracted across its whole trim, gaps included, and the gaps simply never
+    // get requested.
+    const grab = async (url, a, b) => {
+      const bytes = await (await fetch(url)).arrayBuffer();
+      bytesByUrl[url] = bytes;
+      return { bytes, trimStart: a, trimEnd: b };
+    };
+    sources.push(await grab(videoEl.src, state.trimStart, state.trimEnd));
+    for(const c of extraClips) sources.push(await grab(c.src, c.trimStart, c.trimEnd));
+    if(musicEl && musicEl.src) bytesByUrl[musicEl.src] = await (await fetch(musicEl.src)).arrayBuffer();
+
+    fxStatus('mixing audio…');
+    let wav = null;
+    try{ wav = await fxRenderAudio(FPS, totalFrames, bytesByUrl); }
+    catch(e){ console.warn('offline audio mix failed, exporting silent:', e); }
+
+    fxStatus('decoding frames…');
+    const begun = await window.voltNative.fx.begin({ sources, fps: FPS, w: OW, h: OH, wav });
+    if(!begun || !begun.ok) throw new Error((begun && begun.error) || 'Could not start the export.');
+    id = begun.id; _fxSession = id;
+
+    // Frame cache: a tightened-pause jump or a transition can ask for the same source frame twice
+    // in a row, and re-decoding a JPEG for that is pure waste.
+    let lastKey = null, lastIdx = -1, lastBmp = null;
+    const srcFrame = async (key, idx) => {
+      if(key === lastKey && idx === lastIdx) return lastBmp;
+      const buf = await window.voltNative.fx.get(id, key, idx);
+      if(!buf) return lastBmp;                       // hold the previous frame rather than flash black
+      const bmp = await createImageBitmap(new Blob([buf], { type:'image/jpeg' }));
+      if(lastBmp && lastBmp !== bmp) try{ lastBmp.close(); }catch(e){}
+      lastKey = key; lastIdx = idx; lastBmp = bmp;
+      return bmp;
+    };
+
+    const iD = introDur(), cD = timelineDur();
+    let pushed = 0, lastSeg = null, tick = performance.now();
+    for(let i = 0; i < totalFrames; i++){
+      if(_fxAbort) throw new Error('__CANCELLED__');
+      const tt = i / FPS;
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+      if(state.introOn && tt < iD){
+        drawIntro(tt / Math.max(0.001, iD));
+      } else if(tt < iD + cD){
+        const into = tt - iD, seg = clipAt(into);
+        // Snapshot the outgoing frame at a boundary so the crossfade has something to dissolve
+        // FROM — the same mechanism the live loop uses, driven by frame index instead of playback.
+        if(lastSeg !== null && lastSeg !== seg.idx && state.transition === 'cross'){
+          try{
+            if(!transSnap) transSnap = document.createElement('canvas');
+            transSnap.width = W; transSnap.height = H;
+            transSnap.getContext('2d').drawImage(cv, 0, 0, W, H);
+            transSnapFor = seg.idx;
+          }catch(e){ transSnap = null; }
+        }
+        lastSeg = seg.idx;
+        const key = 'c' + (seg.idx === -1 ? 0 : seg.idx + 1);
+        const base = seg.idx === -1 ? state.trimStart : seg.clip.trimStart;
+        const bmp = await srcFrame(key, Math.round((clipSrcTime(seg, seg.local) - base) * FPS));
+        if(bmp) paintTimeline(into, seg, bmp, bmp.width, bmp.height);
+      } else if(state.outroOn){
+        drawOutro((tt - iD - cD) / Math.max(0.001, outroDur()));
+      } else {
+        ctx.fillStyle = C_NAVY; ctx.fillRect(0, 0, W, H);
+      }
+      drawProgressAt(tt);
+
+      // Down to delivery size, then straight to pixels. Ultra 2x still renders at 2x and lands
+      // here as supersampling — the extra detail survives the downscale, but the pipe only ever
+      // carries one frame's worth of the FINAL resolution.
+      fxCtx.drawImage(cv, 0, 0, OW, OH);
+      const px = fxCtx.getImageData(0, 0, OW, OH);
+      const r = await window.voltNative.fx.push(id, px.data.buffer);
+      if(!r || !r.ok) throw new Error((r && r.error) || 'The encoder stopped accepting frames.');
+      pushed++;
+      // Yield often enough that the window stays responsive and the Cancel button can be clicked.
+      if(performance.now() - tick > 120){
+        tick = performance.now();
+        fxStatus('rendering frame ' + pushed + ' of ' + totalFrames, pushed / totalFrames * 100);
+        await new Promise(r2 => setTimeout(r2, 0));
+      }
+    }
+    if(lastBmp) try{ lastBmp.close(); }catch(e){}
+
+    fxStatus('encoding…');
+    const res = await window.voltNative.fx.end(id, (fileName ? fileName + '.mp4' : 'sme-short-' + state.format + '.mp4'), pushed);
+    _fxSession = null;
+    if(res && res.ok){ setStatus('✅ Saved MP4 — ' + res.path + '  (' + pushed + ' frames, ' + res.width + '×' + res.height + ')'); return { ok:true }; }
+    if(res && res.canceled){ setStatus('Export canceled.'); return { ok:false }; }
+    throw new Error((res && res.error) || 'Encoding failed.');
+  }catch(err){
+    if(id && _fxSession){ try{ await window.voltNative.fx.cancel(id); }catch(e){} _fxSession = null; }
+    if(String(err && err.message) === '__CANCELLED__'){ setStatus('Export canceled.'); return { ok:false }; }
+    console.error('fast export failed:', err);
+    setStatus('Fast export failed: ' + ((err && err.message) || err) + ' — falling back to the recorder.', true);
+    state.fastExporting = false;
+    applyRenderScale(1);
+    if(btn) btn.disabled = false;
+    if(cancelBtn) cancelBtn.style.display = 'none';
+    return await startExport(fileName);   // never leave the user without a way to get their video
+  }finally{
+    if(state.fastExporting){
+      state.fastExporting = false;
+      applyRenderScale(1);
+      if(btn) btn.disabled = false;
+      $('#exportLbl').textContent = exportLabel();
+      if(cancelBtn) cancelBtn.style.display = 'none';
+      resetAfterExport();
+    }
+  }
+}
+
 // True when the desktop app is running with its native MP4 bridge available.
 function canMp4(){ return !!(window.voltNative && typeof window.voltNative.toMp4 === 'function'); }
-function exportLabel(){ return (canMp4() && state.exportFmt !== 'webm') ? 'Export short (.mp4)' : 'Export short (.webm)'; }
+function exportLabel(){ return ((canMp4() || canFastExport()) && state.exportFmt !== 'webm') ? 'Export short (.mp4)' : 'Export short (.webm)'; }
 function resetAfterExport(){ t = 0; mainPlaying = false; state.playing = true; try{ videoEl.currentTime = state.trimStart; }catch(e){} }
 function downloadWebm(blob){
   const a = document.createElement('a');
@@ -1670,9 +1921,12 @@ function drawCaptions(ct){
   ctx.restore();   // entrance transform/alpha
 }
 // thin progress bar across the bottom for the whole short
-function drawProgress(){
+function drawProgress(){ drawProgressAt(t); }
+// Explicit-time variant. The live loop passes the clock; fast export passes frameIndex/fps,
+// because there is no clock — reading the module-level `t` there froze the bar at 0.
+function drawProgressAt(tt){
   if(!state.progressOn) return;
-  const p = Math.max(0, Math.min(1, t / Math.max(0.001, totalDur())));
+  const p = Math.max(0, Math.min(1, tt / Math.max(0.001, totalDur())));
   const h = Math.max(5, Math.round(H*0.008));
   ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(0, H - h, W, h);
   ctx.fillStyle='#B6FF3D'; ctx.fillRect(0, H - h, W*p, h);
