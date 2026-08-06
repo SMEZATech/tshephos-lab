@@ -164,6 +164,26 @@
       return bad.length ? 'logo crowds the copy — ' + bad.slice(0, 2).join('; ') : '';
     }
 
+    // 6) NOTHING MAY SIT UNDER INSTAGRAM'S CHROME. A 9:16 canvas is shared with the platform:
+    //    the profile row owns the top ~190px of 1920 and the reply bar owns the bottom ~260px,
+    //    opaquely. The first funding story pinned its CTA at y=1820 — a button nobody could see,
+    //    let alone tap. This is an ERROR, not a warning: unlike overflow it does not depend on how
+    //    long the copy is, and there is no reading of it that is acceptable.
+    //    Full-bleed backgrounds and images are exempt — bleeding art THROUGH the chrome is correct;
+    //    only deliberate elements (text, buttons, pills) have to stay clear.
+    function checkStorySafeZone(trace, W, H) {
+      if (H / W < 1.7) return '';
+      const top = Math.round(H * 0.099), bot = Math.round(H * 0.135);
+      const bad = [];
+      for (const r of trace) {
+        if (r.bg) continue;
+        if (r.kind !== 'text') continue;                 // fills may bleed; type may not
+        if (r.y < top) bad.push('"' + (r.text || '').slice(0, 30) + '" sits ' + Math.round(top - r.y) + 'px into the top chrome');
+        else if (r.y + r.h > H - bot) bad.push('"' + (r.text || '').slice(0, 30) + '" sits ' + Math.round((r.y + r.h) - (H - bot)) + 'px into the reply bar');
+      }
+      return bad.length ? 'under Instagram chrome — ' + bad.slice(0, 2).join('; ') : '';
+    }
+
     function checkHasHeadline(trace) {
       const texts = trace.filter(r => r.kind === 'text');
       const biggest = texts.reduce((m, r) => Math.max(m, r.size), 0);
@@ -182,7 +202,7 @@
     function assertDesign(trace, W, H) {
       if (!trace || !trace.length) return { error: '', warn: '' };
       return {
-        error: checkHasHeadline(trace) || checkContrast(trace) || checkLogoClearance(trace, W),
+        error: checkHasHeadline(trace) || checkContrast(trace) || checkLogoClearance(trace, W) || checkStorySafeZone(trace, W, H),
         warn: checkOcclusion(trace) || checkDeadSpace(trace, W, H)
       };
     }

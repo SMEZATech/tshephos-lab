@@ -62,9 +62,11 @@
   .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
   .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
-  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
+  textarea,input,select{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
   textarea::placeholder,input::placeholder{color:#565c68;}
-  textarea:focus,input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  textarea:focus,input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  select{appearance:none; -webkit-appearance:none; cursor:pointer; background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%); background-position:calc(100% - 19px) 21px, calc(100% - 13px) 21px; background-size:6px 6px, 6px 6px; background-repeat:no-repeat; padding-right:38px;}
+  select option{background:#0D0F15; color:var(--text);}
   .row{display:flex; gap:14px; margin-top:14px; flex-wrap:wrap;}
   .field{flex:1; min-width:180px;}
   .field-sm{flex:1; min-width:140px;}
@@ -189,6 +191,20 @@ Keep it warm and practical."></textarea>
         <label class="lbl">Preview text <span class="opt">— the inbox snippet</span></label>
         <input id="previewText" placeholder="One-line teaser shown next to the subject" />
         <div class="charhint" id="previewHint"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;">
+      <div class="field">
+        <label class="lbl">Audience size <span class="opt">— how many people this goes to</span></label>
+        <input id="audienceSize" type="number" min="0" step="100" placeholder="e.g. 12 000" />
+        <div class="charhint" id="audienceHint">Pre-flight scores this against your own last 12 months of sends.</div>
+      </div>
+      <div class="field">
+        <label class="lbl">Send time <span class="opt">— when it lands</span></label>
+        <select id="sendHour">
+          <option value="">Not decided yet</option>
+        </select>
+        <div class="charhint" id="sendHourHint"></div>
       </div>
     </div>
     <div style="margin-top:10px;">
@@ -1343,6 +1359,81 @@ async function sendTestEmail(){
 // threshold, broken/placeholder links, missing alts, spam triggers, subject/preview hygiene,
 // and UTM coverage so Stats can attribute the traffic. Pure client-side, no AI spend.
 const GMAIL_CLIP_KB = 102;
+
+// ---------------------------------------------------------------------------
+// 📊 SEND GUARD — the audience check, built from OUR OWN sending history.
+//
+// Source: Kit broadcast export, 2026-01-01 → 2026-08-06, 102 sends, 1 676 939
+// recipients. Only 2026 is used as the benchmark on purpose: between Sep and Dec
+// 2025 the 18–26k band recorded medians of 1.4–2.0% open across 59 sends and then
+// snapped back to 29% at the same list size in mid-2026. A four-month collapse that
+// repairs itself without anyone changing the strategy is a tracking or placement
+// incident, not evidence about audience size, and benchmarking against it would
+// have Volt warning about the wrong thing forever.
+//
+// What 2026 actually shows, per send (medians):
+//
+//     recipients      opens    clicks    open rate
+//     up to 8 000       848        54       21.3%
+//     8–15 000        2 259        95       24.0%
+//     15–25 000       5 713       465       29.9%
+//     25 000+         3 447       127        9.0%
+//
+// Read the OPENS column, not the rate. Going from ~20k to ~40k recipients does not
+// buy reach — it loses 2 266 opens and 338 clicks while doubling the volume. Past
+// the engaged core you are mailing people who never open, and mailbox providers
+// price future placement on exactly that ratio. 25k is where this list stops paying.
+const SEND_BENCH = [
+  { max: 8000,     label: 'up to 8k',   n: 31, open: 21.3, opens:  848, clicks:  54 },
+  { max: 15000,    label: '8–15k',      n: 31, open: 24.0, opens: 2259, clicks:  95 },
+  { max: 25000,    label: '15–25k',     n: 16, open: 29.9, opens: 5713, clicks: 465 },
+  { max: Infinity, label: 'over 25k',   n: 24, open:  9.0, opens: 3447, clicks: 127 }
+];
+const SEND_CEILING = 25000;
+function sendBand(n){ return SEND_BENCH.find(b => n <= b.max) || SEND_BENCH[SEND_BENCH.length-1]; }
+
+// Median open by send hour, same 2026 window. Hours with fewer than 5 sends are kept
+// out of the advice entirely — 11h looks like a 39% superstar on four sends and is
+// noise. 05h carries the list (48 sends) and holds up; 14h is the one real warning.
+const SEND_HOURS = { 5:{o:22.8,n:48}, 6:{o:18.3,n:11}, 7:{o:11.6,n:7}, 10:{o:23.2,n:12}, 14:{o:8.7,n:5}, 15:{o:23.6,n:5} };
+const SEND_HOUR_BEST = 5;
+
+// Resends are a quarter of 2026's entire volume (421k of 1.68M recipients) and return
+// a median 1 179 extra opens for 13 000 extra sends — 9.9% against 23.9% for originals.
+// They are not free: they are the cheapest way to teach a mailbox provider that this
+// sender gets ignored. Worth doing to NON-OPENERS only, never to the full list.
+const RESEND_RE = /^\s*(resend(ing)?\s*[:\-–]|re\s*:)/i;
+
+function fmtInt(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+function audienceSize(){ const v = parseInt((($('#audienceSize')?$('#audienceSize').value:'')+'').replace(/[^\d]/g,''), 10); return isFinite(v) && v > 0 ? v : 0; }
+
+// Populate the send-hour picker with our own median next to each hour, so the choice
+// is informed at the point of choosing rather than only flagged afterwards.
+(function initSendHour(){
+  const sel = document.getElementById('sendHour'); if(!sel) return;
+  for(let h = 4; h <= 20; h++){
+    const b = SEND_HOURS[h];
+    const opt = document.createElement('option');
+    opt.value = String(h);
+    opt.textContent = String(h).padStart(2,'0') + 'h00' + (b && b.n >= 5 ? '  · your median ' + b.o.toFixed(1) + '% open (' + b.n + ' sends)' : '');
+    sel.appendChild(opt);
+  }
+})();
+
+// Live read-out under the audience box — the number that matters before Pre-flight runs.
+function audienceHint(){
+  const el = document.getElementById('audienceHint'); if(!el) return;
+  const n = audienceSize();
+  if(!n){ el.textContent = 'Pre-flight scores this against your own last 12 months of sends.'; el.style.color = ''; return; }
+  const b = sendBand(n);
+  const over = n > SEND_CEILING;
+  el.innerHTML = 'Your ' + esc(b.label) + ' sends open at a median <b>' + b.open.toFixed(1) + '%</b> — about <b>' + fmtInt(n * b.open / 100) + ' opens</b>'
+    + (over ? '. Capping at ' + fmtInt(SEND_CEILING) + ' has historically produced <b>more</b> opens than this.' : '.');
+  el.style.color = over ? 'var(--low)' : 'var(--dim)';
+}
+['audienceSize','sendHour'].forEach(id => { const el = document.getElementById(id); if(el) el.addEventListener('input', audienceHint); });
+audienceHint();
+
 const SPAMMY = /\b(free money|100% free|act now|winner|congratulations you|risk[- ]free|guarantee[d]?|click here|limited time only|urgent response|make money fast)\b/i;
 function preflightRun(){
   const issues = [];
@@ -1352,6 +1443,39 @@ function preflightRun(){
   const html = lastFragment ? previewDoc(lastFragment) : '';
 
   if(!html){ add('fail','Body','Nothing built yet — generate or import the email first.'); return issues; }
+
+  // ---- AUDIENCE: the one check with a rand value attached ----
+  // 49 of the last 286 sends opened under 3%. That is 1 035 332 recipient-sends spent on
+  // people who did not look, and every one of them lowers where the next email lands.
+  const aud = audienceSize();
+  if(!aud) add('warn','Audience','No audience size set — Volt can\'t tell you what this send is likely to do. Fill it in above.');
+  else {
+    const band = sendBand(aud);
+    const expected = Math.round(aud * band.open / 100);
+    if(aud > SEND_CEILING){
+      const cap = SEND_BENCH[2];   // 15–25k, the band that actually performs
+      add('fail','Audience', fmtInt(aud) + ' recipients. Your 24 sends above 25k opened at a median ' + band.open.toFixed(1)
+        + '% — about ' + fmtInt(expected) + ' opens. Your 15–25k sends produce a median ' + fmtInt(cap.opens) + ' opens and '
+        + cap.clicks + ' clicks on HALF the volume. Going wider here has historically cost you reach, not bought it — segment down to openers first.');
+    } else {
+      add('ok','Audience', fmtInt(aud) + ' recipients — your ' + band.label + ' band opens at a median ' + band.open.toFixed(1)
+        + '%, so expect around ' + fmtInt(expected) + ' opens. Under the ' + fmtInt(SEND_CEILING) + ' ceiling.');
+    }
+  }
+
+  // ---- RESEND: a quarter of the year's volume, at 9.9% ----
+  if(RESEND_RE.test(subject)){
+    add('warn','Resend','This is a resend. Resends open at a median 9.9% against 23.9% for originals, and returned about 1 179 extra opens for 13 000 extra sends. Only worth it to people who did NOT open the original — never to the whole list, and never with the same subject line.');
+  }
+
+  // ---- SEND TIME ----
+  const hourVal = $('#sendHour') ? $('#sendHour').value : '';
+  if(hourVal !== ''){
+    const h = parseInt(hourVal, 10), b = SEND_HOURS[h];
+    if(b && b.n >= 5 && b.o < 15) add('warn','Timing', String(h).padStart(2,'0') + 'h00 has a median ' + b.o.toFixed(1) + '% open across ' + b.n + ' of your sends — your 05h00 slot runs at ' + SEND_HOURS[SEND_HOUR_BEST].o.toFixed(1) + '% across ' + SEND_HOURS[SEND_HOUR_BEST].n + '. Move it earlier.');
+    else if(b && b.n >= 5) add('ok','Timing', String(h).padStart(2,'0') + 'h00 runs at a median ' + b.o.toFixed(1) + '% open across ' + b.n + ' of your sends.');
+    else add('ok','Timing', String(h).padStart(2,'0') + 'h00 — too few past sends at this hour to judge. Your proven slot is 05h00.');
+  }
 
   // ---- size: Gmail clips past ~102KB and hides everything below the fold ----
   const kb = new Blob([html]).size / 1024;
@@ -2047,7 +2171,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','greeting','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','mc-title','mc-price','mc-was','mc-image','mc-desc','mc-link','mc-btn','mc-also','mc-eyebrow','mc-trust','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['brief','subject','previewText','audienceSize','sendHour','greeting','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','mc-title','mc-price','mc-was','mc-image','mc-desc','mc-link','mc-btn','mc-also','mc-eyebrow','mc-trust','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
@@ -2061,6 +2185,7 @@ function restoreDraft(d){
   d=d||{};
   DRAFT_FIELDS.forEach(id=>{ const el=$('#'+id); if(el && d.fields && d.fields[id]!=null) el.value=d.fields[id]; });
   state.brief = $('#brief')?$('#brief').value:'';
+  try{ audienceHint(); }catch(_){}
   if(d.promos) Object.keys(d.promos).forEach(k=>{ if(!state.promos[k]) return; state.promos[k].on=!!d.promos[k]; const box=document.getElementById('promo-'+k); if(box) box.classList.toggle('on', !!d.promos[k]); });
   document.querySelectorAll('.linkrow').forEach(r=>r.remove());
   if(d.links && d.links.length) d.links.forEach(l=>addLinkRow(l.text,l.url)); else addLinkRow();

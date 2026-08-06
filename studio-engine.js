@@ -105,7 +105,29 @@ class CanvasRenderer {
         // assertions the render tests can make. See smoke.html.
         this.trace = null;
     }
-    _tr(kind, rec) { if (this.trace) this.trace.push(Object.assign({ kind }, rec)); }
+    // Records go in LOGICAL canvas coordinates, which means the current ctx transform has to be
+    // applied first. Without this, anything drawn inside a translate/rotate — the resources/A guide
+    // mockup draws its cover text around the origin, so y is NEGATIVE — logged coordinates that
+    // exist nowhere on the canvas, and every assertion silently mis-read that design. The base
+    // high-DPI scale is divided back out so records stay in 1080-space, not 3240-space.
+    _tr(kind, rec) {
+        if (!this.trace) return;
+        let m = null;
+        try { m = this.ctx.getTransform(); } catch (e) { }
+        if (m && rec && typeof rec.x === 'number') {
+            const s = this.scale || 1;
+            const px = (x, y) => ({ x: (m.a * x + m.c * y + m.e) / s, y: (m.b * x + m.d * y + m.f) / s });
+            const w = rec.w || 0, h = rec.h || 0;
+            const c = [px(rec.x, rec.y), px(rec.x + w, rec.y), px(rec.x, rec.y + h), px(rec.x + w, rec.y + h)];
+            const xs = c.map(p => p.x), ys = c.map(p => p.y);
+            rec = Object.assign({}, rec, {
+                x: Math.min.apply(null, xs), y: Math.min.apply(null, ys),
+                w: Math.max.apply(null, xs) - Math.min.apply(null, xs),
+                h: Math.max.apply(null, ys) - Math.min.apply(null, ys)
+            });
+        }
+        this.trace.push(Object.assign({ kind }, rec));
+    }
 
     // --- Primitives ---
     fillBg(color) { this.ctx.fillStyle = color; this.ctx.fillRect(0, 0, this.w, this.h); this._tr('fill', { x: 0, y: 0, w: this.w, h: this.h, color, bg: true }); }
@@ -490,7 +512,7 @@ const Layouts = {
             { radii: 4, bg: BRAND.white, fg: BRAND.red });
 
         const footerH = s.showFooter ? 80 : 0;
-        const footerY = contentY + contentH - pad - footerH;
+        const footerY = contentY + contentH - pad - pSafeB() - footerH;
         const titleTop = innerY + headerH + 24;
         const titleBoxH = footerY - titleTop - 24;
 
@@ -547,7 +569,7 @@ const Layouts = {
               shadow: { color: 'rgba(0,0,0,0.6)', blur: 20, x: 0, y: 4 } });
 
         if (s.showFooter) {
-            const footerY = H - pad - footerH + 24;
+            const footerY = H - pad - pSafeB() - footerH + 24;
             r.strokeLine(pad, footerY, W - pad, footerY, 'rgba(255,255,255,0.25)', 1);
             r.drawIconPath(ICON.book, pad, footerY + 24, 26, BRAND.white, 2.2);
             r.drawLines([BRAND.cta.toUpperCase()], { family: 'Oswald', weight: '700', size: 22 }, pad + 40, footerY + 22, 240, { color: BRAND.white });
@@ -654,7 +676,7 @@ const Layouts = {
         const fit = r.fitFontSize(String(s.title || '').toUpperCase(), { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.08, { max: ceiling, min: 22 });
         r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleTop, innerW, { align: 'left', color: BRAND.navy, lineHeight: 1.08 });
         if (s.showFooter) {
-            const fy = H - pad - footerH + 26;
+            const fy = H - pad - pSafeB() - footerH + 26;
             r.strokeLine(innerX, fy, innerX + innerW, fy, 'rgba(10,44,61,0.15)', 1);
             const urlFont = { family: 'Roboto', weight: '700', size: Math.round(W * 0.0175) };
             const urlW = r.textWidth(BRAND.url, urlFont);
@@ -680,19 +702,19 @@ const Layouts = {
         const hasImg = !!assets.featured;
         const footerH = s.showFooter ? 58 : 0;
         const stripH = hasImg ? Math.round(H * 0.22) : 0;
-        const stripY = H - pad - footerH - stripH;
+        const stripY = H - pad - pSafeB() - footerH - stripH;
         if (hasImg) {
             r.fillRoundRect(innerX, stripY, innerW, stripH, 16, '#1e293b');
             r.drawCover(assets.featured, innerX, stripY, innerW, stripH, s.focalX, s.focalY, 16);
         }
         const titleTop = pad + 116;
-        const titleBoxH = (hasImg ? stripY - 28 : (H - pad - footerH)) - titleTop;
+        const titleBoxH = (hasImg ? stripY - 28 : (H - pad - pSafeB() - footerH)) - titleTop;
         const ceiling = (s.format === 'portrait' ? 128 : (s.format === 'square' ? 104 : 84)) * s.userScale * 1.4;
         const fit = r.fitFontSize(String(s.title || '').toUpperCase(), { family: 'Oswald', weight: '700' }, innerW, titleBoxH, 1.02, { max: ceiling, min: 28 });
         const titleY = titleTop + Math.max(0, (titleBoxH - fit.totalH) / 2);
         r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleY, innerW, { align: 'left', color: BRAND.white, lineHeight: 1.02 });
         if (s.showFooter) {
-            const fy = H - pad - footerH + 22;
+            const fy = H - pad - pSafeB() - footerH + 22;
             r.drawIconPath(ICON.globe, innerX, fy + 24, 22, BRAND.white, 2.5);
             r.drawLines([BRAND.url], { family: 'Roboto', weight: '700', size: Math.round(W * 0.0175) }, innerX + 34, fy + 26, 600, { color: BRAND.white });
         }
@@ -716,7 +738,7 @@ const Layouts = {
             { radii: 4, bg: BRAND.red, fg: BRAND.white, borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1 });
 
         const footerH = s.showFooter ? 90 : 0;
-        const footerY = H - pad - footerH;
+        const footerY = H - pad - pSafeB() - footerH;
         const titleTop = pad + headerH + 50;
         const titleBoxH = footerY - titleTop - 50;
 
@@ -760,7 +782,7 @@ const Layouts = {
         r.ctx.restore();
 
         const footerH = s.showFooter ? 60 : 0;
-        const footerY = H - pad - footerH;
+        const footerY = H - pad - pSafeB() - footerH;
         const titleTop = pad + counterFont.size * 1.2 + 40;
         const titleBoxH = footerY - titleTop - 40;
 
@@ -926,7 +948,7 @@ const Layouts = {
         if (s.showFooter && assets.logo) {
             r.ctx.save();
             r.ctx.globalAlpha = 0.9;
-            r.drawContain(assets.logo, (W - 320) / 2, H - pad - 110, 320, 70);
+            r.drawContain(assets.logo, (W - 320) / 2, H - pad - pSafeB() - 110, 320, 70);
             r.ctx.restore();
         }
     },
@@ -953,7 +975,7 @@ const Layouts = {
         }
 
         const footerH = s.showFooter ? 80 : 0;
-        const footerY = H - pad - footerH;
+        const footerY = H - pad - pSafeB() - footerH;
         const blockTop = pad + headerH + 30;
         const blockBottom = footerY - 30;
         const blockH = blockBottom - blockTop;
@@ -1019,7 +1041,7 @@ const Layouts = {
             { align: 'left', color: BRAND.red, lineHeight: 1 });
 
         const footerH = s.showFooter ? 70 : 0;
-        const footerY = H - pad - footerH;
+        const footerY = H - pad - pSafeB() - footerH;
 
         const authorText = String(s.author || '').trim();
         const authorFont = { family: 'Roboto', weight: '700', size: Math.max(16, Math.round(W * 0.024)) };
@@ -1072,7 +1094,7 @@ const Layouts = {
             // The renderer runs with textBaseline='top', so y is the TOP of the first line.
             // The old '+ size * 0.82' compensated for a baseline that isn't in play and pushed
             // the bottom band clean off the canvas — hence the cut-off last line.
-            const y0 = atBottom ? (H - pad - fit.totalH) : pad;
+            const y0 = atBottom ? (H - pad - pSafeB() - fit.totalH) : (pad + pSafeT());
             r.drawLines(fit.lines, { ...fontBase, size: fit.size }, pad, y0, boxW, {
                 align: 'center', color: '#ffffff',
                 stroke: '#000000', strokeWidth: Math.max(6, Math.round(fit.size * 0.14)),
@@ -1180,11 +1202,26 @@ function pShade(hex, ratio) {
 // extra height. At square (k = 1) every value is identical to before, so square is a no-op.
 let PG = null;
 function pGeom(W, H) {
-    // 1.32 was the ceiling when portrait (1.25) was the tallest canvas. Story is 1.78:1, and
-    // clamping it to 1.32 left ~500px of dead canvas at the bottom of every 9:16 design.
-    const k = Math.max(0.9, Math.min(1.85, H / W));
+    // STORY SAFE ZONES. A 9:16 canvas is not a blank canvas — Instagram and Facebook paint their
+    // own UI over the top and bottom of it. The profile row and progress bars own roughly the top
+    // 190px of 1920, and the reply bar plus "Send message" field own the bottom 260px, opaquely.
+    // Everything Volt draws is deliberate, so nothing it draws should land under that chrome: the
+    // first funding story rendered its CTA button at y=1820, entirely behind the reply bar.
+    // These insets are reserved at the top and bottom of every 9:16 design and at no other size.
+    const story = (H / W) >= 1.7;
+    const safeTop = story ? Math.round(H * 0.099) : 0;   // ~190px of 1920
+    const safeBot = story ? Math.round(H * 0.135) : 0;   // ~260px of 1920
+    // The rhythm is measured against the space a design may actually USE, not the raw canvas.
+    // 1.32 was the ceiling when portrait (1.25) was the tallest canvas; deriving k from H alone
+    // then gave every story a top-down flow budgeted for 1920px of room while its CTA was pinned
+    // 260px higher, and the two met in the middle — the bullets ended up under the button. Story
+    // lays out on a 1080x1470 stage, so k lands at 1.36, close to portrait.
+    const k = Math.max(0.9, Math.min(1.85, (H - safeTop - safeBot) / W));
     PG = {
         k: k,
+        safeTop: safeTop,
+        safeBot: safeBot,
+        story: story,
         pad:  Math.round(82  * Math.min(1.20, k)),   // frame padding
         btn:  Math.round(112 * Math.min(1.14, k)),   // pButton height
         pill: Math.round(64  * Math.min(1.10, k)),   // pPill height
@@ -1197,6 +1234,13 @@ function pGeom(W, H) {
 function pV(n) { return PG ? PG.v(n) : Math.round(n); }
 function pT(n) { return PG ? PG.t(n) : Math.round(n); }
 function pPad()  { return PG ? PG.pad  : 82; }
+// Reserved chrome. Both are 0 at every size except 9:16, so adding them to an anchor is a no-op
+// for landscape/square/portrait and the only correct answer for a story.
+function pSafeT() { return PG ? PG.safeTop : 0; }
+function pSafeB() { return PG ? PG.safeBot : 0; }
+// The y a design's first element may occupy. pLogo already uses it; anything else pinned to the
+// top of the frame (the podcast masthead) has to use it too or it renders under the profile row.
+function pTop()   { return pPad() + pSafeT(); }
 function pBtnH() { return PG ? PG.btn  : 112; }
 
 function pPill(r, x, y, text, bg, fg) {
@@ -1277,7 +1321,7 @@ function pAccentText(bgRef, accent) {
 
 // Supply side — recruit service providers onto the marketplace.
 function drawProviders(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
 
     if (dir === 'b') { // Leads counter — the "what you get" proof
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
@@ -1335,7 +1379,7 @@ function drawProviders(r, dir, v, a) {
 
 // Demand side — get businesses requesting quotes from vetted providers.
 function drawFindPros(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
 
     if (dir === 'b') { // Verified badge — trust is the differentiator
         r.fillBg(PC.paper);
@@ -1488,7 +1532,7 @@ function pPlatforms(r, x, y, s, list, labelColor) {
 // Guest photo is optional: when a Featured Image is loaded it's used, otherwise each direction
 // falls back to a typographic composition so the design never looks broken.
 function drawPodcast(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
 
     if (dir === 'b') { // Guest pull-quote — the format that actually travels on social
         r.fillBg(PC.paper);
@@ -1558,8 +1602,9 @@ function drawPodcast(r, dir, v, a) {
     { const showT = String(v.show || 'SME Podcast').toUpperCase();
       const sf = { family: 'Oswald', weight: '700', size: 32 };
       const sw = r.textWidth(showT, sf), bh = pV(58);
-      r.fillRoundRect(W - pad - sw - 44, pad - 12, sw + 44, bh, bh / 2, acc.fill);
-      r.drawLines([showT], sf, W - pad - sw - 44, pad - 12 + (bh - 32) / 2, sw + 44, { color: acc.on, align: 'center' }); }
+      const my = pTop() - 12;
+      r.fillRoundRect(W - pad - sw - 44, my, sw + 44, bh, bh / 2, acc.fill);
+      r.drawLines([showT], sf, W - pad - sw - 44, my + (bh - 32) / 2, sw + 44, { color: acc.on, align: 'center' }); }
     if (v.tagline) { r.drawLines([String(v.tagline).toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: pSubInk(PC.navy) }); y += pV(52); }
     if (v.ep) { r.drawLines([String(v.ep).toUpperCase()], { family: 'Roboto', weight: '700', size: 30 }, pad, y, iW, { color: acc.text }); y += pV(50); }
     r.rect(pad, y, 120, 10, acc.fill); y += pV(34);
@@ -1596,7 +1641,7 @@ function pUrlTop(r, url, bgRef) {
 }
 
 function drawFeature(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
 
     if (dir === 'b') { // THE NUMBER — one stat, no decoration. The number IS the artwork.
         r.fillBg(PC.paper);
@@ -1662,7 +1707,7 @@ function drawFeature(r, dir, v, a) {
         if (a.featured) r.drawCover(a.featured, picX, picY, picW, picH, 0.5, 0.45, 0, 1);
         else r.linearGradient(picX, picY, picW, picH, [[0, PC.navy], [1, PC.navy2]], 'br');
         const colW = (wide ? W - picW - pad * 2 - pV(24) : iW);
-        const bottomLimit = wide ? (H - pad) : picY - pV(34);
+        const bottomLimit = wide ? (H - pad - pSafeB()) : picY - pV(34);
         let y = pLogo(r, a, PC.paper) + pV(6);
         r.rect(pad, y, 96, 10, acc.fill); y += pV(30);
         r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, colW, { color: acc.text }); y += pV(50);
@@ -1719,7 +1764,7 @@ function drawFeature(r, dir, v, a) {
 // Built from smesouthafrica.co.za/shop — product, price, and the two things that close a sale
 // online in SA: shipping reach and payment trust.
 function drawMerch(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
 
     if (dir === 'b') { // Price hero — bold typographic, no photo needed
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
@@ -1858,7 +1903,7 @@ function drawLandscape(r, type, dir, v, a) {
         r.linearGradient(W - picW, 0, fadeW, H, [[0, pRgba(bgRef, 1)], [1, pRgba(bgRef, 0)]], 'right');
     }
     const colW = (hasPic ? W - picW - pad * 2 - 30 : Math.round(W * 0.9) - pad);
-    const btnY = H - pad - 92;
+    const btnY = H - pad - pSafeB() - 92;
     let y = pad + 84;
     if (kicker) { r.drawLines([kicker], { family: 'Oswald', weight: '700', size: 30 }, pad, y, colW, { color: accent }); y += 46; }
     r.rect(pad, y, 110, 10, barC); y += 30;
@@ -1895,12 +1940,12 @@ function pLogoPick(assets, on) {
 // report forever. Enforced by the render tests (checkLogoClearance in smoke.html).
 const LOGO_GAP = 46;
 function pLogo(r, assets, on) {
-    const pad = pPad(), lg = pLogoPick(assets, on);
-    if (lg) r.drawContain(lg, pad, pad - 8, 176, 50, { });
+    const pad = pTop(), lg = pLogoPick(assets, on);
+    if (lg) r.drawContain(lg, pPad(), pad - 8, 176, 50, { });
     return pad + 50 + pV(LOGO_GAP);
 }
 function pLogoC(r, assets, on) {
-    const W = r.w, pad = pPad(), lg = pLogoPick(assets, on);
+    const W = r.w, pad = pTop(), lg = pLogoPick(assets, on);
     if (lg) r.drawContain(lg, (W - 200) / 2, pad - 8, 200, 54, { });
     return pad + 54 + pV(LOGO_GAP - 6);   // centred marks read slightly tighter, so a touch less
 }
@@ -1916,7 +1961,7 @@ function pBorderItem(r, x, y, w, bold, text, bar) {
     const wr = r.wrap(String(text || ''), { family: 'Roboto', weight: '400', size: 34 }, w - 30);
     r.drawLines(wr, { family: 'Roboto', weight: '400', size: 34 }, x + 30, y + 44, w - 30, { color: '#1e293b', lineHeight: 1.3 });
 }
-function pFoot(r, leftText, rightText, light, rightColor) { pFootAt(r, r.h - pPad() - 30, leftText, rightText, light, rightColor); }
+function pFoot(r, leftText, rightText, light, rightColor) { pFootAt(r, r.h - pPad() - pSafeB() - 30, leftText, rightText, light, rightColor); }
 // Explicit-y variant. Designs whose CTA is pinned to the bottom (btnY) must put their footer ABOVE
 // the button — pFoot's default y lands inside it, which is how "serv.co.za" ended up printed
 // across the Compare Quotes button.
@@ -1926,7 +1971,7 @@ function pFootAt(r, y, leftText, rightText, light, rightColor) {
     if (rightText) r.drawLines([String(rightText)], { family: 'Oswald', weight: '700', size: 28 }, pad, y, iW, { color: rightColor || PC.red, align: 'right' });
 }
 function drawFunding(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
     if (dir === 'b') {
         r.linearGradient(0, 0, W, H, [[0, PC.red], [1, '#7d1518']], 'br');
         r.radialGlow(0, H, 500, 'rgba(10,44,61,0.45)', 'rgba(10,44,61,0)');
@@ -1982,11 +2027,11 @@ function drawFunding(r, dir, v, a) {
         }
     }
     pButton(r, pad, btnY - pV(52), iW, v.cta, PC.red, PC.white);
-    r.strokeLine(pad, H - pad - 44, W - pad, H - pad - 44, 'rgba(255,255,255,0.1)', 2);
-    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - 30, iW, { color: 'rgba(255,255,255,0.7)' });
+    r.strokeLine(pad, H - pad - pSafeB() - 44, W - pad, H - pad - pSafeB() - 44, 'rgba(255,255,255,0.1)', 2);
+    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - pSafeB() - 30, iW, { color: 'rgba(255,255,255,0.7)' });
 }
 function drawSolutions(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
     if (dir === 'b') { // The Verdict — head-to-head comparison (unique split composition)
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         let y = pLogo(r, a, PC.navy);
@@ -2040,7 +2085,7 @@ function drawSolutions(r, dir, v, a) {
     r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 26 }, pad, btnY - pV(52), iW, { color: 'rgba(255,255,255,0.6)' }); return;
 }
 function drawNewsletter(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
     if (dir === 'b') { // This Week Inside (light)
         r.fillBg(PC.paper);
         let y = pLogo(r, a, PC.paper);
@@ -2056,7 +2101,7 @@ function drawNewsletter(r, dir, v, a) {
         // The capture field + fine print are BOTTOM-ANCHORED, and the proof stack above is CENTRED
         // in what's left. Flowing straight down from the logo left ~500px of dead red in portrait.
         const boxH = pV(96), metaH = pV(54);
-        const boxY = H - pad - metaH - boxH;
+        const boxY = H - pad - pSafeB() - metaH - boxH;
         const bf = r.fitFontSize(String(v.big || ''), { family: 'Oswald', weight: '700' }, iW, pV(190), 1.0, { max: pT(150), min: 70 });
         const stackH = pV(92) + bf.totalH + pV(22) + 46;
         let y = top + Math.max(0, (boxY - pV(40) - top - stackH) / 2);
@@ -2080,12 +2125,12 @@ function drawNewsletter(r, dir, v, a) {
     const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
     r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, 0, y, W, { color: PC.cbd, align: 'center', lineHeight: 1.4 });
     // CTA + meta bottom-anchored (same reason as dir c) so the hero never floats in dead space.
-    const metaY = H - pad - pV(34);
+    const metaY = H - pad - pSafeB() - pV(34);
     pButton(r, pad + 40, metaY - pV(22) - pBtnH(), iW - 80, v.cta, PC.red, PC.white);
     r.drawLines([String(v.meta || '')], { family: 'Roboto', weight: '400', size: 30 }, 0, metaY, W, { color: '#94a3b8', align: 'center' }); return;
 }
 function drawResources(r, dir, v, a) {
-    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pBtnH();
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
     if (dir === 'b') { // Checklist (light)
         r.fillBg(PC.paper); r.rect(0, 0, W, 26, PC.red);
         let y = pLogo(r, a, PC.paper);

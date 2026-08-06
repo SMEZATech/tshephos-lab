@@ -65,6 +65,15 @@
   .pull-item{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0D0F15;cursor:pointer;font-size:13px;line-height:1.5;color:var(--dim);margin-bottom:7px;transition:border-color .14s,color .14s;}
   .pull-item:hover{border-color:var(--accent);color:var(--text);}
   .pull-src{font-family:var(--fm);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);display:block;margin-bottom:3px;}
+  /* Weekly shape */
+  .shape-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-top:14px;}
+  .shape-cell{background:#0D0F15;border:1px solid var(--border);border-radius:13px;padding:13px 14px;}
+  .shape-cell .k{font-family:var(--fm);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);}
+  .shape-cell .v{font-family:var(--fd);font-weight:800;font-size:23px;line-height:1.2;margin:5px 0 2px;}
+  .shape-cell .t{font-family:var(--fm);font-size:10.5px;color:var(--faint);}
+  .shape-bar{height:4px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:9px;overflow:hidden;}
+  .shape-bar i{display:block;height:100%;border-radius:3px;transition:width .4s;}
+  .shape-why{font-size:11.5px;color:var(--faint);line-height:1.45;margin-top:8px;}
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
   .tab:hover{color:var(--text); border-color:var(--accent);}
@@ -87,6 +96,16 @@
 
   <h1>📅 Schedule</h1>
   <p class="sub">Compose once, then choose where it goes. Volt sends your post to the channels you pick and schedules it through your connected Postiz — the same connection Stats reads from.</p>
+
+  <!-- Weekly shape — see the WEEKLY SHAPE block in the script for where every target comes from. -->
+  <div class="card" id="shapeCard" style="margin-bottom:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <label class="lbl" style="margin:0;">📐 This week's shape</label>
+      <span class="lbl" id="shapeWeek" style="margin:0;color:var(--faint);"></span>
+    </div>
+    <div class="shape-grid" id="shapeGrid"></div>
+    <p class="note" id="shapeNote"></p>
+  </div>
 
   <div class="grid">
     <!-- Compose -->
@@ -131,6 +150,7 @@
         <div class="seg" id="scType">
           <button data-t="post" class="on">🖼️ Feed post</button>
           <button data-t="story">✨ Story</button>
+          <button data-t="reel">🎬 Reel</button>
         </div>
       </div>
       <div class="blk">
@@ -275,9 +295,104 @@ $('#scGo').addEventListener('click', async ()=>{
     if(r.status===401) throw new Error('Please sign in.');
     if(!r.ok) throw new Error((d&&d.error)||'Postiz couldn’t schedule that.');
     setStatus('✓ '+(when==='now'?'Posted':(when==='draft'?'Saved as draft':'Scheduled'))+' to '+d.channels+' channel'+(d.channels>1?'s':'')+'.','ok');
+    // A story or reel sent from here counts toward the week exactly like one made in Studio.
+    if(when!=='draft' && (postType==='story' || postType==='reel')){
+      logDay(postType==='story'?STORY_LOG_KEY:REEL_LOG_KEY, when==='now'?new Date():new Date($('#scDate').value||Date.now()));
+    }
+    loadQueue();
   }catch(e){ setStatus((e&&e.message)||'Failed — try again.','err'); }
   finally{ btn.disabled=false; }
 });
+
+// =====================================================================
+// WEEKLY SHAPE
+//
+// A scheduler that answers "what is the best time to post" would be selling
+// a rounding error here. Across 614 Instagram posts in the last twelve months
+// the median hour reaches 108–156 — real, but small. These are the numbers
+// that are not small:
+//
+//   • 614 posts, median reach 114, median engagement 2.
+//   • The top 61 posts (10%) carry 82% of all reach. Hit rate is the whole game.
+//   • 302 of those 614 went out in the 15h–16h block, the account's weakest
+//     window at 108 median reach. 17h runs 150 and took 40 posts. 12h runs 140.
+//   • Stories: 45 interactions in three months, against 3 549 on feed posts —
+//     an entire surface left empty, not an audience that rejected it.
+//   • Reels interactions are up 586% year on year while feed reach fell 68.6%.
+//
+// So the shape Volt enforces is: fewer feed posts, every one of them worth the
+// slot; stories daily because they cost one click now; reels because that is
+// where the interaction growth actually is; and nothing in the 15h–16h block.
+// Posting 11.8 times a week to reach 114 people is not a distribution strategy.
+// =====================================================================
+const SHAPE = {
+  stories: { target: 35, label: 'Stories',     unit: '/week',  why: '5 a day. Story interactions ran at 45 in three months against 3 549 on feed — the surface was empty, not rejected.' },
+  reels:   { target: 3,  label: 'Reels',       unit: '/week',  why: 'Reel interactions are up 586% year on year while feed reach fell 68.6%.' },
+  feed:    { target: 7,  label: 'Feed posts',  unit: '/week',  why: 'Down from 11.8. The top 10% of posts carry 82% of all reach — the other 90% are volume, not distribution.', ceiling: true },
+  peak:    { target: 0,  label: 'In 15h–16h',  unit: 'posts',  why: '302 of 614 posts landed in the account\'s weakest window (108 median reach). 17h runs 150, 12h runs 140.', ceiling: true }
+};
+const STORY_LOG_KEY = 'volt_story_log_v1';
+const REEL_LOG_KEY  = 'volt_reel_log_v1';
+function weekStart(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x; }
+function dayKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function weekCount(key){
+  let log={}; try{ log=JSON.parse(localStorage.getItem(key)||'{}')||{}; }catch(e){}
+  const s=weekStart(new Date()); let n=0;
+  for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); n += log[dayKey(d)]||0; }
+  return n;
+}
+function logDay(key, d){
+  try{
+    const log=JSON.parse(localStorage.getItem(key)||'{}')||{}, k=dayKey(d);
+    log[k]=(log[k]||0)+1;
+    const keep=Object.keys(log).sort().slice(-60), trimmed={};
+    keep.forEach(x=>trimmed[x]=log[x]);
+    localStorage.setItem(key, JSON.stringify(trimmed));
+  }catch(_){ }
+}
+// Postiz doesn't report post format back on the queue, so stories and reels are counted
+// from Volt's own ledger at the moment they're sent, and the queue is read as feed. That
+// slightly over-counts feed, which is the safe direction: it can only tighten the cap.
+function shapeFromQueue(q){
+  const s=weekStart(new Date()), e=new Date(s); e.setDate(s.getDate()+7);
+  let feed=0, peak=0;   // stories and reels are ledgered separately, so the queue is feed
+  (q||[]).forEach(p=>{
+    const d=p.publishDate?new Date(p.publishDate):null; if(!d||d<s||d>=e) return;
+    feed++;
+    const h=d.getHours(); if(h===15||h===16) peak++;
+  });
+  return { feed, peak };
+}
+function renderShape(q){
+  const grid=$('#shapeGrid'); if(!grid) return;
+  const s=weekStart(new Date()), e=new Date(s); e.setDate(s.getDate()+6);
+  const fmt=d=>d.toLocaleDateString(undefined,{day:'numeric',month:'short'});
+  $('#shapeWeek').textContent = fmt(s)+' – '+fmt(e);
+  const got={ stories:weekCount(STORY_LOG_KEY), reels:weekCount(REEL_LOG_KEY), ...shapeFromQueue(q) };
+  const cells=[];
+  Object.keys(SHAPE).forEach(k=>{
+    const c=SHAPE[k], n=got[k]||0, t=c.target;
+    // The bar always shows how full the allowance is. For a ceiling that means it fills
+    // up as you spend it and overflows red — not a green full bar for doing nothing.
+    const pct = t ? Math.min(100, Math.round(n/t*100)) : (n?100:0);
+    // A ceiling is met by staying UNDER it; a target is met by reaching it.
+    const good = c.ceiling ? n<=t : n>=t;
+    const col = good ? 'var(--good)' : (c.ceiling || n===0 ? 'var(--low)' : 'var(--mid)');
+    cells.push('<div class="shape-cell"><div class="k">'+esc(c.label)+'</div>'
+      + '<div class="v" style="color:'+col+'">'+n+'<span style="font-family:var(--fm);font-size:12px;font-weight:400;color:var(--faint)"> / '+t+' '+esc(c.unit)+'</span></div>'
+      + '<div class="t">'+(c.ceiling?(good?'within the cap':(n-t)+' over the cap'):(good?'target met':(t-n)+' to go'))+'</div>'
+      + '<div class="shape-bar"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
+      + '<div class="shape-why">'+esc(c.why)+'</div></div>');
+  });
+  grid.innerHTML=cells.join('');
+  const short = SHAPE.stories.target - got.stories;
+  const over  = got.peak - SHAPE.peak.target;
+  const bits=[];
+  if(short>0) bits.push('<b>'+short+' more stor'+(short===1?'y':'ies')+'</b> this week — make one in Studio and hit "Also make the Story (9:16)".');
+  if(over>0)  bits.push('<b>'+over+' post'+(over>1?'s':'')+'</b> '+(over>1?'are':'is')+' sitting in 15h–16h — move '+(over>1?'them':'it')+' to 17h or 12h and the same graphic reaches ~35% more people.');
+  if(got.feed>SHAPE.feed.target) bits.push('<b>'+got.feed+' feed posts</b> queued against a cap of '+SHAPE.feed.target+'. Cut the weakest — volume is not what moved reach.');
+  $('#shapeNote').innerHTML = bits.length ? bits.join('<br>') : 'Shape looks right for the week. Keep the story habit going — it is the only surface with room left in it.';
+}
 
 // ---- Queue / calendar of scheduled + upcoming posts ----
 async function loadQueue(){
@@ -286,9 +401,10 @@ async function loadQueue(){
   try{
     const r=await fetch(API+'/postiz?action=queue');
     let d={}; try{ d=await r.json(); }catch(_){}
-    if(r.status===401){ box.innerHTML='<span class="empty">Please sign in.</span>'; return; }
-    if(!r.ok || (d&&d.error==='NOT_CONFIGURED')){ box.innerHTML='<span class="empty">Connect Postiz to see your schedule.</span>'; return; }
+    if(r.status===401){ box.innerHTML='<span class="empty">Please sign in.</span>'; renderShape([]); return; }
+    if(!r.ok || (d&&d.error==='NOT_CONFIGURED')){ box.innerHTML='<span class="empty">Connect Postiz to see your schedule.</span>'; renderShape([]); return; }
     const q=(d&&d.queue)||[];
+    renderShape(q);
     if(!q.length){ box.innerHTML='<span class="empty">Nothing scheduled yet — compose something above and schedule it.</span>'; return; }
     box.innerHTML = q.map(p=>{
       const dt = p.publishDate ? new Date(p.publishDate) : null;
@@ -296,7 +412,7 @@ async function loadQueue(){
       const st = p.state==='QUEUE'?'Scheduled':(p.state==='DRAFT'?'Draft':(p.state||''));
       return '<div class="q-row"><div class="q-when">'+when+'</div><div class="q-body">'+esc(p.content||'(no text)')+'<div class="q-meta">'+esc(p.channel||'')+(p.platform?(' · '+esc(p.platform)):'')+'</div></div><span class="q-state">'+esc(st)+'</span></div>';
     }).join('');
-  }catch(e){ box.innerHTML='<span class="empty">Couldn’t load the queue. '+esc(e.message||'')+'</span>'; }
+  }catch(e){ box.innerHTML='<span class="empty">Couldn’t load the queue. '+esc(e.message||'')+'</span>'; renderShape([]); }
 }
 $('#scRefreshQueue').addEventListener('click', loadQueue);
 
@@ -319,6 +435,7 @@ window.addEventListener('volt:ready', ()=>{ loadChannels(); loadQueue(); });
 if(window.voltSession){ loadChannels(); loadQueue(); }
 renderLib();
 updatePreview();
+renderShape([]);   // paint from the story ledger immediately; the queue fills in the rest
 
 // Campaign page → "Send all to Schedule": first post fills the composer, the rest land in
 // the caption library (Pull a caption) with their platform/day/time as the source label.

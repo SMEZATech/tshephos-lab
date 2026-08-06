@@ -421,11 +421,19 @@
                 <span>Export All 6 Slides (ZIP)</span>
             </button>
 
+            <!-- Story twin. Instagram stories drew 45 interactions in three months against 3 549
+                 for feed posts — not because stories underperform, but because we barely made any.
+                 Every feed graphic gets its 9:16 in one click, and the day's count sits on the button. -->
+            <button onclick="exportStoryTwin()" id="btn-story-twin" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-2 border border-slate-600">
+                <span>✨</span><span id="story-twin-text">Also make the Story (9:16)</span>
+                <span id="story-twin-count" class="font-mono text-[10px] normal-case text-slate-400"></span>
+            </button>
+
             <!-- Secondary actions, compact side-by-side so they don't hog the sidebar -->
             <div class="grid grid-cols-2 gap-2">
-                <button onclick="triggerAllFormatsExport()" id="btn-download-all" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Export at all three sizes">
+                <button onclick="triggerAllFormatsExport()" id="btn-download-all" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Export at all four sizes, story included">
                     <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m-4 12h2a2 2 0 002-2v-2"></path></svg>
-                    <span>All 3 sizes</span>
+                    <span>All 4 sizes</span>
                 </button>
                 <button onclick="sendToScheduler()" id="btn-send-schedule" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Host this graphic and add it to the Scheduler's image library">
                     <span>📅</span><span>Schedule</span>
@@ -1497,6 +1505,7 @@
       downloadBlob(result.blob, result.filename);
       if (typeof showToast === 'function') showToast('Exported: ' + result.filename, 'success');
       if (typeof recordExport === 'function') recordExport();
+      nudgeStory();
     }
     function premDirKeys(){ const t = PREMIUM[state.contentType]; return t ? Object.keys(t.dirs) : []; }
     function renderPremDirs(){
@@ -1775,6 +1784,7 @@
             downloadBlob(result.blob, result.filename);
             showToast('Exported: ' + result.filename, 'success');
             recordExport();
+            nudgeStory();
         } catch (err) {
             console.error('Export failed:', err);
             showToast('Export failed: ' + err.message);
@@ -1838,6 +1848,92 @@
 
     // Magic resize — render the current Standard graphic at all three formats and download each.
     // Renders from copies of the state snapshot (format overridden), so the live canvas is untouched.
+    // =============================================================
+    // 11b. STORY TWIN — the 9:16 companion for every feed graphic
+    //
+    // Three months of Instagram: 3 549 interactions on feed posts, 1 585 on reels,
+    // 45 on stories. That is not an audience verdict, it is a supply problem — we
+    // published almost no stories, and until this week Volt could not even render
+    // the size. The target is 5 a day. This button is the whole distance between
+    // a feed graphic and a story, and the counter keeps the target honest.
+    // =============================================================
+    const STORY_LOG_KEY = 'volt_story_log_v1';
+    const STORY_DAILY_TARGET = 5;
+    function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+    function loadStoryLog() { try { return JSON.parse(localStorage.getItem(STORY_LOG_KEY) || '{}') || {}; } catch (e) { return {}; } }
+    function storiesToday() { return loadStoryLog()[todayKey()] || 0; }
+    function bumpStoryLog() {
+        const log = loadStoryLog(), k = todayKey();
+        log[k] = (log[k] || 0) + 1;
+        // Keep 60 days. The Schedule page reads this to score the week, and an
+        // unbounded object in localStorage is a slow leak nobody would ever notice.
+        const keep = Object.keys(log).sort().slice(-60);
+        const trimmed = {}; keep.forEach(d => trimmed[d] = log[d]);
+        try { localStorage.setItem(STORY_LOG_KEY, JSON.stringify(trimmed)); } catch (e) {}
+        paintStoryCount();
+    }
+    function paintStoryCount() {
+        const el = document.getElementById('story-twin-count'); if (!el) return;
+        const n = storiesToday();
+        el.textContent = n + '/' + STORY_DAILY_TARGET + ' today';
+        el.style.color = n >= STORY_DAILY_TARGET ? '#57E39A' : (n === 0 ? '#FF7C7C' : '#FFC857');
+    }
+
+    // Export the CURRENT design at 1080x1920 without disturbing what is on screen.
+    // Both engines take the size from the payload, so nothing needs to be mutated
+    // and switched back — a pattern that has bitten this file before.
+    async function exportStoryTwin() {
+        if (state.isExporting) return;
+        setExportingUI(true);
+        try {
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            if (state.contentType !== 'creative') {
+                await ensureLogoBlob(); await ensureColorLogoBlob();
+                const result = await premPost({
+                    type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers,
+                    logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(),
+                    premType: state.contentType, dir: state.premiumDir, vals: premVals,
+                    w: 1080, h: 1920, scale: 2,
+                    filename: 'SME_' + state.contentType + '_' + state.premiumDir + '_Story.png'
+                });
+                downloadBlob(result.blob, result.filename);
+            } else {
+                await ensureLogoBlob(); await ensureDefaultImageBlob();
+                const st = Object.assign({}, buildStatePayload(), { format: 'story' });
+                const result = await postAndWait(getWorker(), {
+                    type: 'render-single', state: st, brand: brandPayload(), slideIdx: state.currentSlide || 0,
+                    featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers, scale: 3,
+                    filename: 'SME_Story_' + stamp + '.png'
+                }, false);
+                downloadBlob(result.blob, result.filename);
+            }
+            bumpStoryLog();
+            const n = storiesToday();
+            showToast(n >= STORY_DAILY_TARGET
+                ? 'Story ' + n + ' of ' + STORY_DAILY_TARGET + ' — daily target hit. 🎯'
+                : 'Story saved — ' + n + ' of ' + STORY_DAILY_TARGET + ' today. ' + (STORY_DAILY_TARGET - n) + ' to go.', 'success');
+        } catch (err) {
+            console.error('Story twin failed:', err);
+            showToast('Story export failed: ' + err.message);
+        } finally {
+            setExportingUI(false);
+        }
+    }
+
+    // After a feed-sized export, ask for the story while the design is still open.
+    // Nudging later, on a page they have already left, is how this gets ignored.
+    function nudgeStory() {
+        if (state.format === 'story') return;
+        const short = STORY_DAILY_TARGET - storiesToday();
+        if (short <= 0) return;
+        setTimeout(() => {
+            const btn = document.getElementById('btn-story-twin'); if (!btn) return;
+            btn.classList.add('ring-2', 'ring-[#B6FF3D]');
+            setTimeout(() => btn.classList.remove('ring-2', 'ring-[#B6FF3D]'), 4000);
+            showToast('That is the feed post. ' + short + ' more stor' + (short === 1 ? 'y' : 'ies') + ' to hit today\'s 5 — the 9:16 is one click below.');
+        }, 1400);
+    }
+
     async function triggerAllFormatsExport() {
         if (state.isExporting) return;
         if (state.campaign !== 'standard') { showToast('Switch to a Standard graphic to resize to all formats.'); return; }
@@ -1848,7 +1944,7 @@
             const worker = getWorker();
             const base = buildStatePayload();
             const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            const formats = [['landscape', 'Landscape'], ['square', 'Square'], ['portrait', 'Portrait']];
+            const formats = [['landscape', 'Landscape'], ['square', 'Square'], ['portrait', 'Portrait'], ['story', 'Story']];
             for (let k = 0; k < formats.length; k++) {
                 const st = Object.assign({}, base, { format: formats[k][0] });
                 const payload = {
@@ -1860,7 +1956,8 @@
                 const result = await postAndWait(worker, payload, true);
                 downloadBlob(result.blob, result.filename);
             }
-            showToast('Exported all 3 formats — check your downloads.', 'success');
+            showToast('Exported all 4 formats, story included — check your downloads.', 'success');
+            bumpStoryLog();
             recordExport();
         } catch (err) {
             console.error('Resize-all failed:', err);
@@ -2329,6 +2426,7 @@
         applyBrand();
         renderFeed();
         updateAdvisor();
+        paintStoryCount();
         // If Campaign handed off a premium creative, load it; else Copy Lab; else default Standard.
         // Never open on a design the owner has retired — fall through to the first live one.
         // (Retirement can land after this tab was already open, so re-check when settings arrive.)
@@ -2360,6 +2458,7 @@
     window.triggerExport = triggerExport;
     window.triggerCarouselZipExport = triggerCarouselZipExport;
     window.triggerAllFormatsExport = triggerAllFormatsExport;
+    window.exportStoryTwin = exportStoryTwin;
     window.autoSliceFromTitle = autoSliceFromTitle;
     window.syncDOM = syncDOM;
     window.state = state;
