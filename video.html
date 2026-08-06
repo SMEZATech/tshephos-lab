@@ -243,6 +243,10 @@
         </div>
         <button class="btn" id="scBtn" style="width:100%; margin-top:9px;">🎯 Scan the whole video</button>
         <div id="scStatus" class="capstatus" style="margin-top:7px;"></div>
+        <!-- The moments render below the player because the cards need the width. The button that
+             produced them is up here, so without a way back to them the result reads as "nothing
+             happened" — which is exactly how it landed the first time someone ran it. -->
+        <button class="mini" id="scJump" style="display:none; width:100%; margin-top:7px;">👇 Review the moments</button>
       </div>
 
       <div class="blk" id="trimBlk" style="opacity:.4; pointer-events:none;">
@@ -739,6 +743,7 @@ function loadVideoSrc(src){
     { const sb=$('#scBlk'); if(sb){ sb.style.opacity='1'; sb.style.pointerEvents='auto'; } }
     { const hp=$('#highlights'); if(hp) hp.style.display='block'; }
     scWords = []; hlData = [];
+    { const j=$('#scJump'); if(j) j.style.display='none'; }
     { const hl2=$('#hlList'); if(hl2) hl2.style.display='none'; }
     setHlStatus('');
     $('#stageEmpty').style.display='none';
@@ -2881,6 +2886,7 @@ async function runSmartClip(){
   if(scBusy || state.busy || !state.loaded) return;
   if(!window.VoltSTT || !window.SmartClip){ setScStatus('SmartClip could not load on this page — reload and try again.', 'err'); return; }
   scBusy = true;
+  { const j=$('#scJump'); if(j) j.style.display='none'; }
   const btn = $('#scBtn'), hb = $('#hlBtn');
   if(btn) btn.disabled = true; if(hb) hb.disabled = true;
   try{
@@ -2947,7 +2953,10 @@ async function runSmartClip(){
     });
     renderHighlights(hs);
     const spread = fmtTime(hs[0].start) + ' to ' + fmtTime(hs[hs.length-1].end);
-    setScStatus(hs.length + ' moments across ' + spread + ' — boundaries are measured from the transcript, so none of them cut mid-sentence.', 'ok');
+    // Be explicit that nothing was exported. SmartClip FINDS moments; turning one into a file is
+    // a separate, deliberate step — and a status that only reports a count reads as "done".
+    setScStatus(hs.length + ' moments found (' + spread + '). Nothing exported yet — review them below, then either tap one to trim to it or chop them all into shorts.', 'ok');
+    { const j=$('#scJump'); if(j){ j.style.display='block'; j.textContent='👇 Review the ' + hs.length + ' moments'; } }
   }catch(err){
     console.error('SmartClip failed:', err);
     setScStatus((err && err.message) || 'SmartClip failed.', 'err');
@@ -3124,7 +3133,9 @@ function applyHighlight(i){
   restart();
 }
 $('#hlBtn').onclick = generateHighlights;
-{ const scb = $('#scBtn'); if(scb) scb.onclick = runSmartClip; }
+{ const scb = $('#scBtn'); if(scb) scb.onclick = runSmartClip;
+  const scj = $('#scJump');
+  if(scj) scj.onclick = ()=>{ const h=$('#highlights'); if(h) h.scrollIntoView({ behavior:'smooth', block:'start' }); }; }
 $('#hlList').addEventListener('click', e => { const c=e.target.closest('.hl-card'); if(c) applyHighlight(parseInt(c.dataset.i,10)); });
 
 // ---- shared Brand Kit wiring ----
