@@ -1092,6 +1092,7 @@ function renderSlide(state, slideIdx, assets, scale, trace) {
     else {
         if (state.format === 'landscape') { w = 1200; h = 628; }
         else if (state.format === 'square') { w = 1080; h = 1080; }
+        else if (state.format === 'story') { w = 1080; h = 1920; }   // IG/FB story, 9:16
         else { w = 1080; h = 1350; }
     }
 
@@ -1179,7 +1180,9 @@ function pShade(hex, ratio) {
 // extra height. At square (k = 1) every value is identical to before, so square is a no-op.
 let PG = null;
 function pGeom(W, H) {
-    const k = Math.max(0.9, Math.min(1.32, H / W));
+    // 1.32 was the ceiling when portrait (1.25) was the tallest canvas. Story is 1.78:1, and
+    // clamping it to 1.32 left ~500px of dead canvas at the bottom of every 9:16 design.
+    const k = Math.max(0.9, Math.min(1.85, H / W));
     PG = {
         k: k,
         pad:  Math.round(82  * Math.min(1.20, k)),   // frame padding

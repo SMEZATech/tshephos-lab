@@ -703,130 +703,26 @@ export default async function handler(req, res) {
         ? "\n\nREGENERATE MODE — return ONLY ONE " + (regen === "copy" ? "copy angle (copy array of length 1; creatives/posts may be empty arrays and email empty strings)" : "creative (creatives array of length 1; copy/posts may be empty arrays and email empty strings)") +
           ". It must be MEANINGFULLY DIFFERENT from these existing ones — different angle, different wording" + (regen === "creative" ? ", and prefer a different type/dir combination" : "") + ":\n" + avoid
         : "";
+      // The brief here is NOT "summarise this article". A card built from the headline and the hero
+      // image is exactly what we are moving away from: it tells a scroller what they can already see
+      // in the link preview, so there is no reason to stop. What earns a stop is something FROM
+      // INSIDE the piece that they could not have guessed from the title.
       const prompt =
-        "CAMPAIGN BRIEF: " + brief + (platform ? "\nPRIMARY PLATFORM: " + platform : "") + promptExtras + pubNote + regenNote +
-        "\n\nProduce JSON exactly in this shape:\n" +
-        '{ "name": "short campaign name", ' +
-        '"copy": [3 items: {"framework":"angle name","headline":"","body":"<=220 chars","cta":"","hashtags":["",""]}], ' +
-        '"creatives": [3 items: {"type":"funding|solutions|newsletter|resources","dir":"a|b|c","vals":{...}}], ' +
-        '"email": {"subject":"","brief":"2-4 sentence brief a newsletter writer would expand into a section"}, ' +
-        '"posts": [4 items: {"platform":"linkedin|instagram|facebook|x","day":"Mon..Sun","time":"HH:MM","text":"ready-to-post caption <=280 chars"}] }\n\n' +
-        "POSTS RULES — the 4 posts must span at least THREE DIFFERENT platforms (never all the same one). Lead with " + (platform || "linkedin") +
-        ", then use the others to fit their native style: LinkedIn = professional insight, Instagram = visual/short with emoji, Facebook = community/conversational, X = punchy one-liner. " +
-        "Spread them across different days, and write each caption in that platform's voice — do not reuse one caption verbatim across platforms.\n\n" +
-        "CREATIVE RULES — pick the 3 design templates that best fit the brief (vary them), and fill vals with EXACTLY the keys for the chosen type/dir (SHORT punchy values that fit a social graphic):\n" + specTxt +
-        "\nField hints: head<=60 chars, sub<=140, cta<=30 ending with an arrow, big is 1-3 words/number, i1-i3 use 'bold part|rest' format, rating like '4.8'.";
-      const text = await callProvider(prompt, { system: sysCampaign, temperature: 0.8, maxTokens: 3000, json: true });
-      const c = safeParse(text);
-      if (!c) return res.status(502).json({ error: "Model returned an unusable campaign — try again." });
-      const creatives = (Array.isArray(c.creatives) ? c.creatives : []).slice(0, 3).map((cr) => {
-        const type = String(cr && cr.type || "").toLowerCase();
-        const dir = String(cr && cr.dir || "").toLowerCase();
-        const keys = CREATIVE_SPEC[type] && CREATIVE_SPEC[type][dir];
-        if (!keys) return null;
-        const vals = {};
-        keys.forEach((k) => { const v = cr.vals && cr.vals[k]; if (v != null && String(v).trim()) vals[k] = String(v).slice(0, 200); });
-        return Object.keys(vals).length ? { type, dir, vals } : null;
-      }).filter(Boolean);
-      const campaign = {
-        name: String(c.name || "Campaign").slice(0, 80),
-        copy: (Array.isArray(c.copy) ? c.copy : []).slice(0, 3).map((v) => ({
-          framework: String(v && v.framework || "Angle").slice(0, 40),
-          headline: String(v && v.headline || "").slice(0, 160),
-          body: String(v && v.body || "").slice(0, 400),
-          cta: String(v && v.cta || "").slice(0, 40),
-          hashtags: cleanTags(v && v.hashtags),
-        })).filter((v) => v.headline || v.body),
-        creatives,
-        email: { subject: String(c.email && c.email.subject || "").slice(0, 120), brief: String(c.email && c.email.brief || "").slice(0, 800) },
-        posts: (Array.isArray(c.posts) ? c.posts : []).slice(0, 4).map((p) => ({
-          platform: String(p && p.platform || "linkedin").slice(0, 20),
-          day: String(p && p.day || "").slice(0, 10),
-          time: String(p && p.time || "").slice(0, 5),
-          text: String(p && p.text || "").slice(0, 600),
-        })).filter((p) => p.text),
-      };
-      if (!campaign.copy.length && !campaign.creatives.length) {
-        return res.status(502).json({ error: "Model returned an empty campaign — try again." });
-      }
-      await logContent(req.volt && req.volt.orgId, { tool: "campaign", input: { brief: brief.slice(0, 300), platform }, output: { name: campaign.name, copies: campaign.copy.length, creatives: campaign.creatives.length, posts: campaign.posts.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
-      return res.status(200).json({ campaign });
-    }
-
-    // ---- VideoTok: YouTube metadata (titles/description/tags/chapters) from a transcript ----
-    if (task === "ytmeta") {
-      const { transcript } = body;
-      if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
-      const text = await callProvider(
-        buildYtMetaPrompt({ transcript: String(transcript).slice(0, 12000) }),
-        { system: SYSTEM_YTMETA, temperature: 0.6, maxTokens: 1800 }
-      );
-      const m = safeParse(text);
-      if (!m) return res.status(502).json({ error: "Model returned unusable metadata — try again." });
-      const ytmeta = {
-        titles: strList(m.titles, 3, 100),
-        description: String(m.description || "").slice(0, 5000),
-        tags: Array.isArray(m.tags) ? m.tags.slice(0, 15).map((t) => String(t).replace(/^#/, "").trim().slice(0, 40)).filter(Boolean) : [],
-        chapters: Array.isArray(m.chapters) ? m.chapters.slice(0, 20).map((c) => ({ time: String((c && c.time) || "").slice(0, 8), title: String((c && c.title) || "").slice(0, 100) })).filter((c) => c.title) : [],
-      };
-      if (!ytmeta.titles.length && !ytmeta.description) return res.status(502).json({ error: "Empty metadata — try again." });
-      await logContent(req.volt && req.volt.orgId, { tool: "ytmeta", input: { len: String(transcript).length }, output: ytmeta, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
-      return res.status(200).json({ ytmeta });
-    }
-
-    // ---- Transcribe: full written article (>=800 words) from a transcript ----
-    if (task === "article") {
-      const { transcript } = body;
-      if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
-      const cleanBody = (h) => String(h || "").replace(/```[a-z]*|```/gi, "").replace(/<(?!\/?(?:p|h2|h3|ul|ol|li|blockquote|strong|em|br)\b)[^>]*>/gi, "").trim();
-      const wordCount = (h) => (String(h || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().match(/\S+/g) || []).length;
-      const basePrompt = buildArticlePrompt({ transcript: String(transcript).slice(0, 14000) });
-      // Up to 2 attempts: if the model under-runs the 800-word floor, retry once with an explicit nudge.
-      let article = null;
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const shortNote = attempt === 0 ? "" :
-          `\n\nYOUR PREVIOUS ATTEMPT WAS ONLY ${article.words} WORDS — TOO SHORT. Rewrite it LONGER, at least 800 words (aim 1000+), by more fully developing the ideas already in the transcript. Do not add invented facts.`;
-        const text = await callProvider(basePrompt + shortNote + promptExtras, { system: SYSTEM_ARTICLE, temperature: 0.6, maxTokens: 4096 });
-        const a = safeParse(text);
-        if (!a) { if (attempt) break; else continue; }
-        const cand = {
-          title: String(a.title || "").slice(0, 120),
-          dek: String(a.dek || "").slice(0, 200),
-          body: cleanBody(a.body).slice(0, 20000),
-          tags: Array.isArray(a.tags) ? a.tags.slice(0, 8).map((t) => String(t).replace(/^#/, "").trim().slice(0, 40)).filter(Boolean) : [],
-        };
-        cand.words = wordCount(cand.body);
-        // Keep the longer of the two attempts so a retry never makes things worse.
-        if (!article || cand.words > article.words) article = cand;
-        if (cand.words >= 800) break;
-      }
-      if (!article || !article.body || article.words < 200) return res.status(502).json({ error: "Article came back too short — try again." });
-      await logContent(req.volt && req.volt.orgId, { tool: "article", input: { len: String(transcript).length }, output: { title: article.title, words: article.words }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
-      return res.status(200).json({ article });
-    }
-
-    // ---- Latest Insight cards: fill all four article directions from the article itself ----
-    // The scraper already pulls the page; on its own that only ever gave us a title and an image,
-    // which is exactly the hero-photo-plus-headline creative we're moving away from. These four
-    // directions need CONTENT — a quotable line, a real number, three takeaways — so one call
-    // extracts all of it and every direction is populated at once. No invention: if the article
-    // has no number, `big` comes back empty and the UI leaves that direction's default alone.
-    if (task === "insightcards") {
-      const { article, title, url } = body;
-      const text = String(article || "").trim();
-      if (!text) return res.status(400).json({ error: "No article text to read." });
-      const prompt =
-        "You are a publication's social editor. Below is one article. Pull out the material for four social cards.\n\n" +
-        (title ? "HEADLINE: " + String(title).slice(0, 200) + "\n\n" : "") +
+        "You are a publication's social editor. Your job is to find the material a reader could NOT have guessed from the headline.\n\n" +
+        (title ? "HEADLINE (context only — do NOT reuse or paraphrase it): " + String(title).slice(0, 200) + "\n\n" : "") +
         "ARTICLE:\n" + text.slice(0, 12000) + "\n\n" +
-        "RULES — these matter more than fluency:\n" +
-        "- Quote VERBATIM. `quote` must be a sentence that appears in the article, trimmed only at its edges. Never paraphrase into quote marks.\n" +
-        "- `author` is the person the quote belongs to. If the article does not attribute it to a named person, return \"\" for author and role — do NOT guess, and do not credit the publication.\n" +
-        "- `big` must be a figure that literally appears in the article (a percentage, a rand amount, a count). If there is no such figure, return \"\" — an invented statistic is worse than a missing card.\n" +
-        "- `takeaways` are things the reader should DO or now knows, phrased as instructions. Not a summary of the article's structure.\n" +
+        "THE TEST FOR EVERY FIELD: would someone who has already seen the headline learn something NEW from it? If not, it has failed.\n" +
+        "- Specific over general. A named lender, an actual threshold, a deadline, a rule most people get wrong, a number with a unit. Never 'businesses should plan carefully'.\n" +
+        "- Prefer the counter-intuitive: what contradicts a reader's assumption, or the detail buried mid-article that the writer under-sold.\n" +
+        "- head must be a claim or tension the article ARGUES, written fresh. It is NOT the headline reworded. If all you can produce is a rewording, return \"\".\n\n" +
+        "HARD RULES — these matter more than fluency:\n" +
+        "- Quote VERBATIM: a sentence that appears in the article, trimmed only at its edges. Never paraphrase into quote marks. Choose the most surprising or quotable line, NOT the opening line.\n" +
+        "- author is the person the quote belongs to. If the article does not attribute it to a named person, return \"\" for author and role — do NOT guess, and never credit the publication.\n" +
+        "- big must be a figure that literally appears in the article. Choose the one a reader would find most surprising, not the first one. If there is none, return \"\" — an invented statistic is worse than a missing card.\n" +
+        "- takeaways are things the reader should DO or now knows, phrased as instructions, and each must carry a specific: a number, a name, a document, a deadline. Not a summary of the article's structure.\n" +
         "- South African context and spelling. Keep rand amounts as written (R5m, R2,3 million).\n" +
-        "- Lengths are hard limits, not targets: quote <=180 chars, bigLabel <=90, sub <=140, each takeaway <=70, head <=70.\n" +
-        'Return JSON only: {"quote":"","author":"","authorRole":"","big":"","bigLabel":"","head":"","sub":"","takeaways":["","",""],"byline":""}';
+        "- Hard limits, not targets: quote <=180 chars, bigLabel <=90, sub <=140, each takeaway <=70, head <=70.\n" +
+'Return JSON only: {"quote":"","author":"","authorRole":"","big":"","bigLabel":"","head":"","sub":"","takeaways":["","",""],"byline":""}';
       const raw = await callProvider(prompt, { system: "You extract social-card copy from an article. Never invent facts, figures or attributions. Return JSON only.", temperature: 0.35, maxTokens: 900 });
       const d = safeParse(raw);
       if (!d) return res.status(502).json({ error: "Could not read that article — try again." });
@@ -838,7 +734,9 @@ export default async function handler(req, res) {
         authorRole: clip(d.authorRole, 70),
         big: clip(d.big, 12),
         bigLabel: clip(d.bigLabel, 90),
-        head: clip(d.head, 70) || clip(title, 70),
+        // NO title fallback. If the model can only rephrase the headline it returns "", and an
+        // empty head is the correct signal: this article has no fresh claim worth a card.
+        head: clip(d.head, 70),
         sub: clip(d.sub, 140),
         takeaways: tk,
         byline: clip(d.byline, 60),

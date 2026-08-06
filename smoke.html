@@ -306,7 +306,7 @@
     for (const [bLabel, b] of [['sme', brand], ['light', brandLight]]) {
       for (const pt of PREM_TYPES) {
         for (const dir of (pt === 'feature' ? ['a','b','c','d'] : ['a','b','c'])) {
-          for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
+          for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
             await run('premium/' + bLabel + '/' + pt + '/' + dir + '/' + sz,
               { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
               wh[0] * S, wh[1] * S);
@@ -316,7 +316,7 @@
     }
     // 5b) Podcast/Merch also have a photo path (guest shot / product shot) — cover it.
     for (const [pt, dir] of [['podcast', 'a'], ['podcast', 'b'], ['merch', 'a']]) {
-      for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]]]) {
+      for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
         await run('premium+photo/' + pt + '/' + dir + '/' + sz,
           { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, featuredBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
           wh[0] * S, wh[1] * S);

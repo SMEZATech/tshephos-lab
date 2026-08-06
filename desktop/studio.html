@@ -280,10 +280,11 @@
             <!-- Step 3: Theme Dimensions -->
             <div id="size-controls">
                 <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">3. Select Dimensions</label>
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-2 gap-2">
                     <button onclick="setFormat('landscape')" id="btn-landscape" class="format-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Land (LinkedIn)</button>
                     <button onclick="setFormat('square')" id="btn-square" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Sq (IG Grid)</button>
                     <button onclick="setFormat('portrait')" id="btn-portrait" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Port (IG Feed)</button>
+                    <button onclick="setFormat('story')" id="btn-story" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Story (IG 9:16)</button>
                 </div>
             </div>
 
@@ -1021,12 +1022,12 @@
             if (!premAutofill.quote) gaps.push('no quotable line');
             if (!premAutofill.big) gaps.push('no figure to lead with');
             if (!premAutofill.takeaways.length) gaps.push('no clear takeaways');
+            if (!premAutofill.head) gaps.push('nothing beyond the headline');
             say(gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '.' : 'Filled all four directions ✓');
-            // Article image feeds Editorial Split.
-            const ogImg = doc.querySelector('meta[property="og:image"]');
-            if (ogImg && ogImg.content) {
-                try { setPremPhoto(await (await fetchWithProxy(ogImg.content)).blob()); } catch (e) {}
-            }
+            // The article's hero image is deliberately NOT pulled. It is the same picture the link
+            // preview already shows; restyling it is the copy-paste look we're moving away from.
+            // Pick a photo yourself, or leave it out — three of the four directions are type-only
+            // by design and read better without one.
         } catch (e) { say((e && e.message) || 'Auto-fill failed.'); }
         finally { btn.disabled = false; }
     }
@@ -1277,6 +1278,7 @@
         if (formatName === 'landscape') { canvas.style.width = '1200px'; canvas.style.height = '628px'; }
         else if (formatName === 'square') { canvas.style.width = '1080px'; canvas.style.height = '1080px'; }
         else if (formatName === 'portrait') { canvas.style.width = '1080px'; canvas.style.height = '1350px'; }
+        else if (formatName === 'story') { canvas.style.width = '1080px'; canvas.style.height = '1920px'; }
         const dim = document.getElementById('preview-dim');
         if (dim) dim.innerText = canvas.style.width + ' x ' + canvas.style.height;
         renderLayout();
@@ -1385,7 +1387,7 @@
     // postAndWait resolves on the next worker 'done', so premium calls MUST be serialized or a
     // concurrent preview+export would swap results — premPost() chains them.
     // Premium honours the same Dimensions control as Creative (Land/Square/Port).
-    const PREM_DIMS = { landscape: [1200, 628], square: [1080, 1080], portrait: [1080, 1350] };
+    const PREM_DIMS = { landscape: [1200, 628], square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920] };
     function premDims(){ const d = PREM_DIMS[state.format] || PREM_DIMS.square; return { w: d[0], h: d[1] }; }
     // Podcast (guest photo) and Merch (product shot) use the Featured Image when the user has
     // actually PICKED one. The default stock article image is deliberately withheld — otherwise
