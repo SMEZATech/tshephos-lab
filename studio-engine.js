@@ -598,8 +598,10 @@ const Layouts = {
             { radii: 4, bg: BRAND.red, fg: BRAND.white });
 
         const footerH = s.showFooter ? 70 : 0;
-        const titleTop = innerY + headerH + 24;
-        const titleBoxH = innerH - headerH - 24 - footerH - 24;
+        // 44, not 24: the headline was landing ~29px under the mark, which reads as touching it.
+        const headGap = 44;
+        const titleTop = innerY + headerH + headGap;
+        const titleBoxH = innerH - headerH - headGap - footerH - 24;
         const ceilingBase = isLand ? 65 : (s.format === 'portrait' ? 95 : 80);
         const ceiling = ceilingBase * s.userScale * 1.4;
         const fit = r.fitFontSize(String(s.title || '').toUpperCase(),
@@ -1884,15 +1886,20 @@ function pLogoPick(assets, on) {
     const light = (typeof on === 'string') ? pIsLight(on) : !!on;
     return light ? assets.logoC : assets.logoW;
 }
+// LOGO CLEARANCE. The mark sits at pad-8 with a 50px box, so it ends at pad+42. Returning
+// pad+50+pV(20) left barely 28px of air and the first heading read as if it were touching the logo.
+// The gap lives here, once, so every family gets it — the alternative is fixing one design per
+// report forever. Enforced by the render tests (checkLogoClearance in smoke.html).
+const LOGO_GAP = 46;
 function pLogo(r, assets, on) {
     const pad = pPad(), lg = pLogoPick(assets, on);
     if (lg) r.drawContain(lg, pad, pad - 8, 176, 50, { });
-    return pad + 50 + pV(20);
+    return pad + 50 + pV(LOGO_GAP);
 }
 function pLogoC(r, assets, on) {
     const W = r.w, pad = pPad(), lg = pLogoPick(assets, on);
     if (lg) r.drawContain(lg, (W - 200) / 2, pad - 8, 200, 54, { });
-    return pad + 54 + pV(16);
+    return pad + 54 + pV(LOGO_GAP - 6);   // centred marks read slightly tighter, so a touch less
 }
 // shared premium helpers
 function pChip(r, x, y, text, bg, fg) {

@@ -52,6 +52,24 @@ if (fs.existsSync('api/_routes')) {
   }
 }
 
+// Duplicate ids. A dead-simple check that would have caught a real bug: video.html had TWO
+// id="pauseBtn" (transport Pause and "Tighten pauses"), so $('#pauseBtn') always returned the first
+// and the second handler silently overwrote the first — Volt shipped with no working Pause button.
+console.log('Duplicate element ids:');
+for (const f of fs.readdirSync('.').filter(n => /\.html$/.test(n))) {
+  // Static markup ONLY. Script blocks hold template literals that legitimately repeat an id across
+  // mutually-exclusive templates (email.html has three shells each opening <div id="body">), and
+  // only one is ever in the DOM. Same reason build-sync's tag-balance check strips scripts.
+  const html = fs.readFileSync(f, 'utf8').replace(/<script[\s\S]*?<\/script>/gi, '');
+  const seen = Object.create(null), dupes = [];
+  for (const m of html.matchAll(/\sid="([A-Za-z][\w:.-]*)"/g)) {
+    const id = m[1];
+    if (seen[id]) { if (dupes.indexOf(id) < 0) dupes.push(id); } else seen[id] = 1;
+  }
+  if (dupes.length) { fail++; console.error('  x ' + f + ': ' + dupes.join(', ')); }
+  else console.log('  ok ' + f);
+}
+
 console.log('Pages (last inline script):');
 for (const f of fs.readdirSync('.').filter(n => /\.html$/.test(n))) {
   const html = fs.readFileSync(f, 'utf8');

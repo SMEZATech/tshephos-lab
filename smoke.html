@@ -143,6 +143,27 @@
 
     // 4) A DESIGN MUST HAVE A HEADLINE. findpros.c rendered a wide banner with no headline at all
     //    because that direction stores it under `category`, which drawLandscape never read.
+    // 5) THE LOGO MUST NEVER CROWD THE COPY. Reported on funding/C: the first heading sat right
+    //    under the mark. Fixing one design per report is a losing game, so the clearance is a rule
+    //    the whole engine is held to. 30px on a 1080 canvas is the minimum that reads as deliberate.
+    function checkLogoClearance(trace, W) {
+      const MIN = Math.max(24, Math.round(W * 0.028));
+      const logos = trace.filter(r => r.kind === 'image' && r.y < W * 0.18 && r.h <= W * 0.09);
+      if (!logos.length) return '';
+      const bad = [];
+      for (const lg of logos) {
+        const lgBottom = lg.y + lg.h, lgL = lg.x, lgR = lg.x + lg.w;
+        for (const t of trace) {
+          if (t.kind !== 'text') continue;
+          if (t.y < lgBottom) continue;                       // above or beside the mark, not below
+          if (t.y - lgBottom >= MIN) continue;                // enough air
+          const overlapsX = (t.x < lgR + W * 0.04) && (t.x + t.w > lgL - W * 0.04);
+          if (overlapsX) bad.push('"' + t.text + '" is ' + Math.round(t.y - lgBottom) + 'px under the logo (needs ' + MIN + ')');
+        }
+      }
+      return bad.length ? 'logo crowds the copy — ' + bad.slice(0, 2).join('; ') : '';
+    }
+
     function checkHasHeadline(trace) {
       const texts = trace.filter(r => r.kind === 'text');
       const biggest = texts.reduce((m, r) => Math.max(m, r.size), 0);
@@ -161,7 +182,7 @@
     function assertDesign(trace, W, H) {
       if (!trace || !trace.length) return { error: '', warn: '' };
       return {
-        error: checkHasHeadline(trace) || checkContrast(trace),
+        error: checkHasHeadline(trace) || checkContrast(trace) || checkLogoClearance(trace, W),
         warn: checkOcclusion(trace) || checkDeadSpace(trace, W, H)
       };
     }
