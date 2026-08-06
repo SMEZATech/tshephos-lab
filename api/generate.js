@@ -767,6 +767,57 @@ export default async function handler(req, res) {
       return res.status(200).json({ email });
     }
 
+    // ---- SmartClip titling: name moments whose BOUNDARIES were already measured ----
+    // Deliberately separate from `highlights`. That task asks the model where the good bits are,
+    // and a model will happily answer with times that are plausible and wrong — off by thirty
+    // seconds, or landing mid-sentence. SmartClip measures the boundaries from word timings
+    // (app/smartclip.js) and sends the resulting passages here purely to be named.
+    //
+    // So this endpoint CANNOT return a timestamp. There is no field for one. The worst thing a
+    // bad response can do is give a clip a dull title, which is recoverable; it cannot produce a
+    // broken cut.
+    if (task === "cliptitles") {
+      const clips = Array.isArray(body.clips) ? body.clips.slice(0, 12) : [];
+      if (!clips.length) return res.status(400).json({ error: "No clips to name." });
+      const safe = clips
+        .map((c, k) => ({ i: Number.isFinite(Number(c && c.i)) ? Number(c.i) : k, text: String((c && c.text) || "").slice(0, 1200) }))
+        .filter((c) => c.text.trim().length > 20);
+      if (!safe.length) return res.status(400).json({ error: "Those passages are too short to name." });
+
+      const prompt =
+        "You are naming clips that have ALREADY been cut. Do not suggest different boundaries — they are fixed.\n\n" +
+        "For each passage below, return a title, a hook and a reason.\n\n" +
+        safe.map((c) => "### CLIP " + c.i + "\n" + c.text).join("\n\n") + "\n\n" +
+        "RULES:\n" +
+        "- title: what this clip is ABOUT, 4-8 words, no clickbait, no colon-subtitle format. A person scanning six of these must be able to tell them apart at a glance.\n" +
+        "- hook: the on-screen line for the first 2.5 seconds. Under 60 characters. It must come from what the speaker ACTUALLY says — if the clip has a number or a name in it, use that. Never a generic teaser like 'You won't believe this'.\n" +
+        "- reason: one plain sentence on why someone would stop scrolling for it. If the honest answer is that it is merely competent, say so — a flat reason is more useful than a flattering one.\n" +
+        "- South African context and spelling. Keep rand amounts as written.\n" +
+        "- Return one entry per clip, using the SAME i value it was given.\n\n" +
+        'Return ONLY: {"titles":[{"i":0,"title":"","hook":"","reason":""}]}';
+
+      const text = await callProvider(prompt, {
+        system: "You write clip titles for a South African small-business media brand. Plain, specific, never breathless. Return ONLY valid JSON.",
+        temperature: 0.6,
+        maxTokens: 1200,
+      });
+      const parsed = safeParse(text);
+      const arr = Array.isArray(parsed && parsed.titles) ? parsed.titles : [];
+      const valid = new Set(safe.map((c) => c.i));
+      const titles = arr
+        .map((t) => ({
+          i: Number(t && t.i),
+          title: String((t && t.title) || "").slice(0, 60),
+          hook: String((t && t.hook) || "").slice(0, 90),
+          reason: String((t && t.reason) || "").slice(0, 160),
+        }))
+        // An i the client never sent would attach a name to the wrong clip — drop it rather than
+        // guess. The client already falls back to the scorer's own reasons for anything unnamed.
+        .filter((t) => valid.has(t.i) && t.title);
+      await logContent(req.volt && req.volt.orgId, { tool: "cliptitles", input: { clips: safe.length }, output: { named: titles.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ titles });
+    }
+
     // ---- Auto-highlight: rank the most clip-worthy moments from a timestamped transcript ----
     if (task === "highlights") {
       const { transcript, count, minLen, maxLen, totalDur } = body;

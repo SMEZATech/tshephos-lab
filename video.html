@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
   <script src="volt-auth.js"></script>
+  <!-- Shared with the Transcribe page (long-form STT) and testable in Node (scoring). -->
+  <script src="volt-stt.js"></script>
+  <script src="smartclip.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Volt — Video</title>
@@ -482,11 +485,25 @@
       <section id="highlights" style="display:none;">
     <div class="cap-ed-head">
       <div>
-        <span class="lbl" style="margin:0;">✂️ Best moments</span>
-        <span class="cap-ed-hint">AI scans your transcript for the most clip-worthy moments — tap one to trim straight to it</span>
+        <span class="lbl" style="margin:0;">🎯 SmartClip</span>
+        <span class="cap-ed-hint">Scans the <b style="color:var(--text)">whole recording</b> — a full podcast or webinar — and returns only the moments that stand on their own. Boundaries come from the transcript, so nothing cuts mid&#8209;sentence.</span>
       </div>
-      <button class="btn" id="hlBtn" style="width:auto; padding:13px 24px;">✨ Find highlights</button>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <select id="scLang" title="Whisper can only pin Afrikaans and English; everything else auto-detects, which is also the best path for code-switching" style="width:auto; padding:9px 11px; font-size:13px;">
+          <option value="">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="af">Afrikaans</option>
+        </select>
+        <select id="scCount" title="How many moments to return. It may return fewer — that is the point." style="width:auto; padding:9px 11px; font-size:13px;">
+          <option value="4">4 clips</option>
+          <option value="6" selected>6 clips</option>
+          <option value="8">8 clips</option>
+          <option value="10">10 clips</option>
+        </select>
+        <button class="btn" id="scBtn" style="width:auto; padding:13px 22px;">🎯 Scan the whole video</button>
+      </div>
     </div>
+    <p class="note" style="margin:8px 0 0;">Already captioned a short clip? <button type="button" class="mini" id="hlBtn" style="vertical-align:baseline;">✨ Scan just the captions instead</button></p>
     <div id="hlStatus" class="capstatus"></div>
     <div id="hlList" style="display:none; margin-top:14px; flex-direction:column; gap:9px;"></div>
   </section>
@@ -701,6 +718,13 @@ function loadVideoSrc(src){
     if(typeof renderClipList==='function') renderClipList();
     $('#exportBtn').disabled = false;
     $('#capBtn').disabled = false;
+    // SmartClip scans the FILE, not the captions, so the panel opens as soon as a clip loads.
+    // Gating it behind "generate captions first" is what made it useless on a 25-minute episode:
+    // captioning that first meant playing the whole thing through in real time.
+    { const hp=$('#highlights'); if(hp) hp.style.display='block'; }
+    scWords = []; hlData = [];
+    { const hl2=$('#hlList'); if(hl2) hl2.style.display='none'; }
+    setHlStatus('');
     $('#stageEmpty').style.display='none';
     cv.style.display='block';
     $('#timeline').style.display='flex';
@@ -1727,7 +1751,10 @@ function clearCaptions(){
   $('#capEditor').style.display='none';
   $('#postCopy').style.display='none';
   $('#pcResults').style.display='none';
-  if($('#highlights')) $('#highlights').style.display='none';
+  // SmartClip belongs to the LOADED CLIP, not to the captions — it reads the file directly, so
+  // clearing captions must not take it away. (It used to: the panel only ever appeared after a
+  // real-time caption pass, which is exactly the wait SmartClip exists to remove.)
+  if($('#highlights')) $('#highlights').style.display = state.loaded ? 'block' : 'none';
   if($('#hlList')){ $('#hlList').style.display='none'; $('#hlList').innerHTML=''; }
   hlData = [];
   lastLiveRow = -1;
@@ -2614,6 +2641,122 @@ $('#pcResults').addEventListener('click', e => {
   if(hk){ const i=parseInt(hk.dataset.hook,10); useAsHook((postCopyData && postCopyData.hooks || [])[i] || ''); }
 });
 
+// ===================== 🎯 SMARTCLIP =====================
+// Scans the WHOLE recording — a 25-minute podcast, a 90-minute webinar — and returns the moments
+// worth cutting, with boundaries you can publish without re-cutting.
+//
+// Three things make this different from the "find highlights" button it replaces, and from the
+// cutters built into the platforms:
+//
+// 1. IT READS THE WHOLE FILE, NOT THE TRIM. The old path needed captions first, and captions came
+//    from playing the clip through Web Audio in real time — 25 minutes of waiting for a 25-minute
+//    episode. volt-stt.js decodes and resamples the audio offline instead, so a full episode is
+//    transcribed in the time it takes to upload it.
+//
+// 2. THE MODEL NEVER PRODUCES A TIMESTAMP. Every boundary comes from word timings via
+//    smartclip.js, which scores every possible run of sentences and rejects the ones that open on
+//    a dangling pronoun, end mid-sentence, contain dead air, or carry no specific. The AI pass is
+//    optional and does one job: name the moment. Ask a model for "the best 45 seconds" and it will
+//    hand back times that are plausible and wrong.
+//
+// 3. IT WILL RETURN NOTHING. A recording with no real moments in it gets an empty list and a
+//    sentence saying so, rather than its least-bad minute dressed up as a highlight. Across 614
+//    Instagram posts the top 10% carried 82% of all reach — a thin list you trust is the product.
+let scWords = [];        // whole-file word timings, SOURCE time
+let scBusy = false;
+
+function setScStatus(msg, kind){ setHlStatus(msg, kind); }
+
+async function runSmartClip(){
+  if(scBusy || state.busy || !state.loaded) return;
+  if(!window.VoltSTT || !window.SmartClip){ setScStatus('SmartClip could not load on this page — reload and try again.', 'err'); return; }
+  scBusy = true;
+  const btn = $('#scBtn'), hb = $('#hlBtn');
+  if(btn) btn.disabled = true; if(hb) hb.disabled = true;
+  try{
+    // Transcribe once, if we haven't already. The words are reused for every clip you cut, which
+    // is why picking a moment can hand you captions instead of asking you to generate them again.
+    if(!scWords.length){
+      const blob = await (await fetch(videoEl.src)).blob();
+      const res = await window.VoltSTT.transcribe(blob, {
+        api: 'https://tshephos-lab.vercel.app/api',
+        lang: (document.getElementById('scLang') || {}).value || '',
+        onProgress: (m, pct) => setScStatus(m + (pct ? ' (' + pct + '%)' : ''), 'busy')
+      });
+      scWords = res.words;
+      if(res.realtime) setScStatus('Read in real time (this format needed it) — scanning…', 'busy');
+    }
+    setScStatus('Scoring every moment in ' + fmtTime(state.duration) + '…', 'busy');
+
+    // Scanning the whole recording means the whole recording is the working range. Without this
+    // the clip times below would be relative to a trim the user set before scanning, and every
+    // caption rebase downstream would be off by trimStart.
+    state.trimStart = 0; state.trimEnd = state.duration;
+    const ts=$('#trimStart'), te=$('#trimEnd');
+    if(ts) ts.value = '0.0'; if(te) te.value = state.duration.toFixed(1);
+    updateTrimRead();
+    // The full transcript becomes the caption master. Because the trim is now the whole file,
+    // source time and timeline time are the same thing, so every rebase downstream is a subtraction.
+    state.words = scWords;
+    state.lines = groupLines(scWords);
+
+    const want = parseInt(($('#scCount')||{}).value || '6', 10) || 6;
+    const found = window.SmartClip.find(scWords, { count: want, minLen: 18, maxLen: 60 });
+    if(!found.length){
+      $('#hlList').style.display = 'none';
+      setScStatus('Nothing in this recording clears the bar — every candidate either opens on a reference the viewer missed, ends mid-sentence, or has no specific in it. That is a verdict, not a failure.', 'err');
+      return;
+    }
+
+    // Name them. Optional by design: if the model is down or slow, you still get the clips, and
+    // the clips are the part that has to be right.
+    setScStatus('Found ' + found.length + ' moments — naming them…', 'busy');
+    let named = [];
+    try{
+      const r = await fetch('/api/generate', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ task:'cliptitles', clips: found.map((c,i)=>({ i, text: c.text.slice(0, 1200) })) })
+      });
+      const d = await r.json().catch(()=>({}));
+      if(r.ok && Array.isArray(d.titles)) named = d.titles;
+    }catch(_){ /* names are a nicety; timings are the product */ }
+
+    const hs = found.map((c, i) => {
+      const n = named.find(x => x && x.i === i) || {};
+      // Its own reasons, best first, are the fallback title — and they are honest about WHY the
+      // moment was picked, which a generated title is not.
+      const top = c.why.filter(w => w.points > 0).sort((a,b)=>b.points-a.points);
+      return {
+        start: c.start, end: c.end,
+        title: n.title || (top[0] ? top[0].label.replace(/^./, s=>s.toUpperCase()) : 'Moment ' + (i+1)),
+        hook: n.hook || '',
+        reason: n.reason || top.slice(0,3).map(w=>w.label).join(' · '),
+        score: Math.max(1, Math.min(99, Math.round(c.score))),
+        why: c.why
+      };
+    });
+    renderHighlights(hs);
+    const spread = fmtTime(hs[0].start) + ' to ' + fmtTime(hs[hs.length-1].end);
+    setScStatus(hs.length + ' moments across ' + spread + ' — boundaries are measured from the transcript, so none of them cut mid-sentence.', 'ok');
+  }catch(err){
+    console.error('SmartClip failed:', err);
+    setScStatus((err && err.message) || 'SmartClip failed.', 'err');
+  }finally{
+    scBusy = false;
+    if(btn) btn.disabled = false; if(hb) hb.disabled = false;
+  }
+}
+
+// Captions for a chosen moment, taken from the scan rather than re-transcribed. The old path
+// cleared them and told you to generate again — a second Whisper bill and a second wait for words
+// we already have.
+function scCaptionsFor(a, b){
+  if(!scWords.length) return null;
+  const w = scWords.filter(x => x.end > a && x.start < b)
+    .map(x => ({ word: x.word, start: Math.max(0, x.start - a), end: Math.min(b - a, x.end - a) }));
+  return w.length ? w : null;
+}
+
 // ---- auto-highlights: find the best moments from the transcript ----
 let hlData = [];
 function setHlStatus(msg, kind){ const s=$('#hlStatus'); if(!s) return; s.textContent=msg||''; s.className='capstatus'+(kind?' '+kind:''); }
@@ -2746,11 +2889,29 @@ function applyHighlight(i){
   updateTrimRead();
   // tee up the AI hook for this exact moment
   if(h.hook){ $('#hookText').value = h.hook; state.hookOn = true; const tg=$('#tog-hook'); if(tg) tg.classList.add('on'); const f=$('#f-hook'); if(f) f.classList.add('show'); }
-  clearCaptions();   // the old captions belonged to the wider clip
-  setStatus('✂️ Trimmed to “'+(h.title||'highlight')+'”. Regenerate captions for this clip, then export.');
+  // If SmartClip scanned the file we already hold every word — rebasing them is free and exact.
+  // Only fall back to clearing when the moment came from somewhere else.
+  const kept = (typeof scCaptionsFor === 'function') ? scCaptionsFor(ns, ne) : null;
+  if(kept){
+    state.words = kept;
+    state.lines = groupLines(kept);
+    state.captionsOn = true;
+    const tg2=$('#tog-captions'); if(tg2) tg2.classList.add('on');
+    $('#capToggleRow').style.display='block';
+    $('#capColorRow').style.display='flex';
+    $('#capPosRow').style.display='block';
+    $('#capStyleRow').style.display='block';
+    renderCapEditor();
+    setCapStatus('Captions carried over from the SmartClip scan — '+kept.length+' words, no second transcription.', 'ok');
+    setStatus('✂️ Trimmed to “'+(h.title||'highlight')+'” — captions came with it. Ready to export.');
+  } else {
+    clearCaptions();   // the old captions belonged to the wider clip
+    setStatus('✂️ Trimmed to “'+(h.title||'highlight')+'”. Regenerate captions for this clip, then export.');
+  }
   restart();
 }
 $('#hlBtn').onclick = generateHighlights;
+{ const scb = $('#scBtn'); if(scb) scb.onclick = runSmartClip; }
 $('#hlList').addEventListener('click', e => { const c=e.target.closest('.hl-card'); if(c) applyHighlight(parseInt(c.dataset.i,10)); });
 
 // ---- shared Brand Kit wiring ----
