@@ -222,8 +222,31 @@
         <p class="note" id="vidInfo" style="margin-top:8px; display:none;"></p>
       </div>
 
+      <!-- SmartClip sits with the TRIM, because that is the decision it makes for you. It used to
+           live in a section 1.5 screens below the player, under a hidden caption editor, which is
+           a fine place for a sub-feature and a terrible one for the reason you opened the page. -->
+      <div class="blk" id="scBlk" style="opacity:.4; pointer-events:none;">
+        <label class="lbl"><span class="num">2</span>SmartClip <span style="text-transform:none;letter-spacing:0;color:var(--faint);font-weight:400;">— let it find the moments</span></label>
+        <p class="note" style="margin:0 0 9px;">Scans the <b style="color:var(--text)">whole recording</b> — a full podcast or webinar — and returns only the moments that stand on their own. Every boundary is measured from the transcript, so nothing cuts mid&#8209;sentence.</p>
+        <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap;">
+          <select id="scLang" title="Whisper can only pin Afrikaans and English; everything else auto-detects, which is also the better path for code-switching" style="flex:1 1 110px; padding:9px 10px; font-size:13px;">
+            <option value="">Auto-detect</option>
+            <option value="en">English</option>
+            <option value="af">Afrikaans</option>
+          </select>
+          <select id="scCount" title="How many moments to return. It may return fewer — that is the point." style="flex:1 1 92px; padding:9px 10px; font-size:13px;">
+            <option value="4">4 clips</option>
+            <option value="6" selected>6 clips</option>
+            <option value="8">8 clips</option>
+            <option value="10">10 clips</option>
+          </select>
+        </div>
+        <button class="btn" id="scBtn" style="width:100%; margin-top:9px;">🎯 Scan the whole video</button>
+        <div id="scStatus" class="capstatus" style="margin-top:7px;"></div>
+      </div>
+
       <div class="blk" id="trimBlk" style="opacity:.4; pointer-events:none;">
-        <label class="lbl"><span class="num">2</span>Trim</label>
+        <label class="lbl"><span class="num">3</span>Trim</label>
         <div class="trim-read" id="trimRead">Load a clip to set the trim.</div>
         <div class="filmwrap" id="filmwrap">
           <div class="filmstrip" id="filmstrip"></div>
@@ -244,7 +267,7 @@
       </div>
 
       <div class="blk" id="clipsBlk" style="opacity:.4; pointer-events:none;">
-        <label class="lbl"><span class="num">2b</span>More clips <span style="font-weight:400;color:var(--faint);">(optional)</span></label>
+        <label class="lbl"><span class="num">3b</span>More clips <span style="font-weight:400;color:var(--faint);">(optional)</span></label>
         <div id="clipList" style="display:flex;flex-direction:column;gap:7px;margin-bottom:9px;"></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button class="mini" id="addClipBtn">➕ Add clip</button>
@@ -262,7 +285,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">3</span>Format &amp; framing</label>
+        <label class="lbl"><span class="num">4</span>Format &amp; framing</label>
         <div class="seg" id="fmtSeg">
           <button data-f="9x16" class="on">📱 9:16</button>
           <button data-f="1x1">⬛ 1:1</button>
@@ -285,7 +308,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">4</span>Look</label>
+        <label class="lbl"><span class="num">5</span>Look</label>
         <div class="seg" id="lookSeg">
           <button data-l="sme" class="on">SME</button>
           <button data-l="clean">Clean</button>
@@ -294,7 +317,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">5</span>Background music <span class="opt">optional</span></label>
+        <label class="lbl"><span class="num">6</span>Background music <span class="opt">optional</span></label>
         <input type="file" id="musicFile" accept="audio/*" />
         <label style="display:flex; justify-content:space-between; font-family:var(--fm); font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.08em; margin:12px 0 4px;">Music volume <span id="volLbl">25%</span></label>
         <input type="range" id="musicVol" min="0" max="100" value="25" />
@@ -302,7 +325,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">6</span>Format</label>
+        <label class="lbl"><span class="num">7</span>Format</label>
         <div class="seg" id="tmplSeg">
           <button data-tp="webinar" class="on">Webinar clip</button>
           <button data-tp="podcast">Podcast short</button>
@@ -331,9 +354,13 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">7</span>Branding</label>
+        <label class="lbl"><span class="num">8</span>Branding</label>
         <label class="lbl" style="margin-bottom:7px;">Brand kit <span class="opt">colours, logo &amp; name from Studio</span></label>
         <select id="brandSel" class="brand-sel" title="Switch brand — synced with Studio"></select>
+        <!-- Brand-off is a real mode, not an empty brand kit. Client work, partner content and
+             personal accounts all need a clean card, and stamping SME red on them is worse than
+             stamping nothing. -->
+        <div class="togrow" id="tog-brandoff" data-t="brandOff" style="margin-top:10px;"><span class="nm">No brand kit <span class="opt" style="font-weight:400;">neutral cards, no logo — for client or partner clips</span></span><span class="sw"></span></div>
         <div class="togrow on" id="tog-intro" data-t="intro"><span class="nm">Intro card</span><span class="sw"></span></div>
         <div class="togfields show" id="f-intro">
           <input type="text" id="introTitle" placeholder="Intro title — e.g. How To Scale With Minimal Capital" />
@@ -374,7 +401,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">8</span>Overlays <span class="opt">text, stickers &amp; images</span></label>
+        <label class="lbl"><span class="num">9</span>Overlays <span class="opt">text, stickers &amp; images</span></label>
         <div style="display:flex; gap:6px;">
           <button class="mini" id="addLayerBtn" style="flex:1;">➕ Text</button>
           <button class="mini" id="addStickerBtn" style="flex:1;">😀 Sticker</button>
@@ -385,7 +412,7 @@
       </div>
 
       <div class="blk">
-        <label class="lbl"><span class="num">9</span>Auto-captions <span class="opt">the good part</span></label>
+        <label class="lbl"><span class="num">10</span>Auto-captions <span class="opt">the good part</span></label>
         <button class="mini" id="capBtn" style="width:100%; padding:13px; font-size:13px;" disabled>✨ Generate captions</button>
         <div id="capStatus" class="capstatus"></div>
         <div id="capToggleRow" style="display:none; margin-top:12px;">
@@ -485,25 +512,11 @@
       <section id="highlights" style="display:none;">
     <div class="cap-ed-head">
       <div>
-        <span class="lbl" style="margin:0;">🎯 SmartClip</span>
-        <span class="cap-ed-hint">Scans the <b style="color:var(--text)">whole recording</b> — a full podcast or webinar — and returns only the moments that stand on their own. Boundaries come from the transcript, so nothing cuts mid&#8209;sentence.</span>
+        <span class="lbl" style="margin:0;">🎯 Moments found</span>
+        <span class="cap-ed-hint">Tap one to trim straight to it — captions come with it, no second transcription.</span>
       </div>
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <select id="scLang" title="Whisper can only pin Afrikaans and English; everything else auto-detects, which is also the best path for code-switching" style="width:auto; padding:9px 11px; font-size:13px;">
-          <option value="">Auto-detect</option>
-          <option value="en">English</option>
-          <option value="af">Afrikaans</option>
-        </select>
-        <select id="scCount" title="How many moments to return. It may return fewer — that is the point." style="width:auto; padding:9px 11px; font-size:13px;">
-          <option value="4">4 clips</option>
-          <option value="6" selected>6 clips</option>
-          <option value="8">8 clips</option>
-          <option value="10">10 clips</option>
-        </select>
-        <button class="btn" id="scBtn" style="width:auto; padding:13px 22px;">🎯 Scan the whole video</button>
-      </div>
+      <button type="button" class="mini" id="hlBtn" title="Score only the captions you already generated, instead of scanning the file">✨ Scan captions only</button>
     </div>
-    <p class="note" style="margin:8px 0 0;">Already captioned a short clip? <button type="button" class="mini" id="hlBtn" style="vertical-align:baseline;">✨ Scan just the captions instead</button></p>
     <div id="hlStatus" class="capstatus"></div>
     <div id="hlList" style="display:none; margin-top:14px; flex-direction:column; gap:9px;"></div>
   </section>
@@ -579,6 +592,8 @@ const musicEl = $('#srcMusic');
 const C_WHITE='#ffffff';
 // Brand colours — refreshed from the shared Brand Kit (see refreshBrand). Defaults = SME.
 let C_NAVY='#0a2c3d', C_RED='#9c1c1f', C_REDLT='#ffb1b1';
+// Brand-off blanks the cards, the flash, the watermark and the tag. Colour grading and captions
+// are untouched — those are craft, not branding.
 
 // ---- Shared Brand Kit (same localStorage store Studio writes to) ----
 const BRANDS_KEY='volt_brands_v1', ACTIVE_BRAND_KEY='volt_active_brand';
@@ -721,6 +736,7 @@ function loadVideoSrc(src){
     // SmartClip scans the FILE, not the captions, so the panel opens as soon as a clip loads.
     // Gating it behind "generate captions first" is what made it useless on a 25-minute episode:
     // captioning that first meant playing the whole thing through in real time.
+    { const sb=$('#scBlk'); if(sb){ sb.style.opacity='1'; sb.style.pointerEvents='auto'; } }
     { const hp=$('#highlights'); if(hp) hp.style.display='block'; }
     scWords = []; hlData = [];
     { const hl2=$('#hlList'); if(hl2) hl2.style.display='none'; }
@@ -1029,113 +1045,300 @@ function eoc(x){ x=segT(x,0,1); return 1-Math.pow(1-x,3); }            // easeOu
 function eob(x){ x=segT(x,0,1); const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2); } // easeOutBack (overshoot)
 
 // Branded, animated opening card.
-function drawIntro(p){
-  ctx.save();
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  // background: brand navy + soft glow
-  ctx.fillStyle=C_NAVY; ctx.fillRect(0,0,W,H);
-  const glow=ctx.createRadialGradient(W*0.5,H*0.30,0,W*0.5,H*0.30,H*0.62);
-  glow.addColorStop(0,hexA(shade(C_NAVY,0.22),0.85)); glow.addColorStop(1,hexA(C_NAVY,0));
-  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
-  // diagonal brand band sliding in from the right
-  const be=eoc(segT(p,0,0.45));
-  ctx.save(); ctx.globalAlpha=0.13*be;
-  ctx.translate(W*(1.18-0.4*be),0); ctx.rotate(-0.20);
-  ctx.fillStyle=C_RED; ctx.fillRect(0,-H*0.3,W*0.40,H*1.7);
-  ctx.fillStyle=C_REDLT; ctx.fillRect(W*0.45,-H*0.3,W*0.045,H*1.7);
-  ctx.restore();
-  // hairline rules top & bottom
-  const re=eoc(segT(p,0.05,0.5));
-  ctx.fillStyle=hexA('#ffffff',0.12*re);
-  ctx.fillRect(W*0.12, H*0.085, W*0.76*re, 2);
-  ctx.fillRect(W*0.88-W*0.76*re, H*0.915, W*0.76*re, 2);
-  // kicker pill (brand tag)
-  const ke=eoc(segT(p,0.12,0.5)), ky=H*0.155-(1-ke)*H*0.015;
-  const kicker=String((state.brand && (state.brand.tag||state.brand.name)) || 'SME SOUTH AFRICA').toUpperCase();
-  ctx.font='700 '+Math.round(W*0.026)+'px "JetBrains Mono", monospace';
-  const kw=ctx.measureText(kicker).width, kh=W*0.062;
-  ctx.globalAlpha=ke;
-  ctx.fillStyle=C_RED; roundRect(W/2-kw/2-W*0.035, ky-kh/2, kw+W*0.07, kh, kh/2); ctx.fill();
-  ctx.fillStyle='#ffffff'; ctx.fillText(kicker, W/2, ky+1);
-  ctx.globalAlpha=1;
-  // logo (fade in)
-  const le=eoc(segT(p,0.1,0.5));
-  ctx.globalAlpha=le; drawLogo(W/2, H*0.26, W*0.40); ctx.globalAlpha=1;
-  // title (slide up + fade)
-  const te=eoc(segT(p,0.26,0.72));
-  const title=String($('#introTitle').value.trim() || 'Your Short').toUpperCase();
-  const tfs=Math.round(W*0.088), tlh=tfs*1.08;
-  ctx.save(); ctx.globalAlpha=te; ctx.translate(0,(1-te)*H*0.03);
-  ctx.fillStyle=C_WHITE; ctx.font='900 '+tfs+'px Oswald, sans-serif';
-  const titleEndY=wrapText(title, W/2, H*0.54, W*0.84, tlh);
-  ctx.restore();
-  // accent underline wipe
-  const ue=eoc(segT(p,0.5,0.82));
-  const barY=titleEndY+tfs*0.58, barW=W*0.26*ue, barH=Math.max(6,tfs*0.11);
-  ctx.fillStyle=C_RED; roundRect(W/2-barW/2,barY,barW,barH,barH/2); ctx.fill();
-  // wordmark / url
-  const we=eoc(segT(p,0.58,0.88));
-  const wm=String((state.brand && state.brand.url) || (state.brand && state.brand.name) || 'smesouthafrica.co.za').toUpperCase();
-  ctx.globalAlpha=we; ctx.fillStyle=hexA('#ffffff',0.72);
-  ctx.font='700 '+Math.round(W*0.030)+'px Roboto, sans-serif';
-  ctx.fillText(wm, W/2, barY+tfs*0.95);
-  ctx.restore();
+// ============================================================================================
+// FORMAT-SPECIFIC INTRO / OUTRO CARDS
+//
+// There used to be exactly one intro and one outro, both webinar-shaped: a title card, then
+// "FOLLOW FOR MORE". On a podcast short that outro asks for the wrong thing (the ask is "hear the
+// rest", and it has to say WHERE), and on a Q&A answer the title card wastes the one thing that
+// makes a Q&A clip work — the question itself is the hook, so it belongs on screen, not in a
+// preamble about the brand.
+//
+// So the card is chosen by TEMPLATE, and each one asks for one thing:
+//   webinar  — the session. A card is fine here: a webinar clip is chosen, not scrolled past.
+//   podcast  — the episode. Outro names the platforms, because "follow for more" tells nobody where.
+//   qa       — the question. It IS the intro. Outro asks for the next question.
+//   free     — a plain card. Your text, your logo, no assumptions.
+//
+// All four honour BRAND OFF (see brandPalette): no logo, no brand tag, neutral ink on black.
+// ============================================================================================
+
+// Brand-off is a real mode, not a blank brand kit. Some clips are for a partner, a client or a
+// personal account, and stamping SME red on them is worse than stamping nothing.
+function brandOff(){ return !!(state.brandOffOn || state.brandOff); }   // the generic toggle row writes brandOffOn
+function brandPalette(){
+  if(brandOff()) return { bg:'#0b0b0d', accent:'#f2f2f4', ink:'#ffffff', dim:'rgba(255,255,255,0.62)', useLogo:false };
+  return { bg:C_NAVY, accent:C_RED, ink:C_WHITE, dim:'rgba(255,255,255,0.72)', useLogo:true };
 }
-// Branded, animated closing card with a punchy CTA.
-function drawOutro(p){
-  ctx.save();
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  // background gradient + warm brand glow low-centre
-  const grad=ctx.createLinearGradient(0,0,W,H);
-  grad.addColorStop(0, shade(C_NAVY,0.05)); grad.addColorStop(1, shade(C_NAVY,-0.5));
-  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
-  const glow=ctx.createRadialGradient(W*0.5,H*0.6,0,W*0.5,H*0.6,H*0.55);
-  glow.addColorStop(0,hexA(C_RED,0.18)); glow.addColorStop(1,hexA(C_RED,0));
-  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
-  // accent band from the left
-  const be=eoc(segT(p,0,0.45));
-  ctx.save(); ctx.globalAlpha=0.12*be; ctx.translate(-W*(0.18-0.12*be),0); ctx.rotate(0.20);
-  ctx.fillStyle=C_RED; ctx.fillRect(-W*0.2,-H*0.3,W*0.4,H*1.7); ctx.restore();
-  // logo
-  const le=eoc(segT(p,0.05,0.45));
-  ctx.globalAlpha=le; drawLogo(W/2, H*0.18, W*0.36); ctx.globalAlpha=1;
-  // headline
-  const he=eoc(segT(p,0.18,0.6));
-  const head=String($('#outroHead').value.trim() || 'FOLLOW FOR MORE').toUpperCase();
-  ctx.save(); ctx.globalAlpha=he; ctx.translate(0,(1-he)*H*0.025);
-  ctx.fillStyle=C_WHITE; ctx.font='900 '+Math.round(W*0.072)+'px Oswald, sans-serif';
-  const hEnd=wrapText(head, W/2, H*0.42, W*0.84, W*0.078);
-  ctx.restore();
-  // CTA pill — pop in (overshoot) then a gentle pulse
-  const sub=String($('#outroSub').value.trim() || (state.brand && state.brand.url) || '@yourhandle');
-  const popped=segT(p,0.4,0.75), pop=eob(popped);
-  const settle=segT(p,0.75,1), pulse=1+Math.sin(p*9)*0.02*settle;
-  const sc=popped<1?pop:pulse, cAlpha=eoc(segT(p,0.4,0.58));
-  const cy=hEnd + H*0.135;
-  ctx.save();
-  ctx.translate(W/2, cy); ctx.scale(sc,sc); ctx.globalAlpha=cAlpha;
-  ctx.font='800 '+Math.round(W*0.044)+'px Oswald, sans-serif';
-  const label=sub.toUpperCase(), tw=ctx.measureText(label).width;
-  const pw=Math.min(W*0.82, tw+W*0.20), ph=W*0.155;
-  ctx.shadowColor=hexA(C_RED,0.5); ctx.shadowBlur=W*0.05; ctx.shadowOffsetY=W*0.012;
-  ctx.fillStyle=C_RED; roundRect(-pw/2,-ph/2,pw,ph,ph/2); ctx.fill();
-  ctx.shadowColor='transparent'; ctx.shadowBlur=0; ctx.shadowOffsetY=0;
-  ctx.fillStyle='#ffffff'; ctx.fillText(label, 0, 2);
-  ctx.restore();
-  // animated swipe-up chevrons to drive engagement
-  const che=segT(p,0.6,1);
-  if(che>0){
-    const t2=(p*1.6)%1;
-    ctx.save(); ctx.strokeStyle='#ffffff'; ctx.lineWidth=Math.max(5,W*0.008); ctx.lineCap='round'; ctx.lineJoin='round';
-    for(let i=0;i<2;i++){
-      const yy=H*0.9 - i*W*0.05 - t2*W*0.03;
-      ctx.globalAlpha=0.5*che*(1-t2)*(1-i*0.4);
-      ctx.beginPath(); ctx.moveTo(W/2-W*0.04, yy+W*0.025); ctx.lineTo(W/2, yy); ctx.lineTo(W/2+W*0.04, yy+W*0.025); ctx.stroke();
+function brandTag(){
+  if(brandOff()) return '';
+  return String((state.brand && (state.brand.tag||state.brand.name)) || 'SME SOUTH AFRICA').toUpperCase();
+}
+
+// --- Card layout ------------------------------------------------------------------------------
+// Two problems the first version of these cards had, both visible the moment a real episode title
+// went through them:
+//
+// 1. THE HEADLINE OVERFLOWED. wrapText only breaks on spaces, so "INVESTMENT-READY" at a fixed
+//    W*0.088 ran off both edges of the canvas. Type has to size itself to the box it is given.
+// 2. EVERY CARD SAT HIGH. Elements were pinned to fixed fractions (H*0.42, H*0.54…), which was
+//    tuned on short strings; with real copy the block ended around 60% and the bottom third of a
+//    1080x1920 card was empty. Content is now MEASURED and the whole stack is centred in the safe
+//    band, so a one-line headline and a four-line one both look deliberate.
+//
+// The band is 16%-86%: stories and shorts get platform UI over the top and bottom, and a card that
+// ends at 96% has its CTA under a reply bar. Same rule the Studio engine learned the hard way.
+const CARD_TOP = 0.16, CARD_BOT = 0.86;
+
+// Shrink until the text fits BOTH the width and the height it is allowed. Returns the lines and
+// the size that worked, so the caller can measure the block before drawing any of it.
+function fitLines(text, weight, family, maxW, maxH, maxPx, minPx){
+  let size = Math.round(maxPx);
+  for(let guard=0; guard<24; guard++){
+    ctx.font = weight+' '+size+'px '+family;
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = []; let line = '';
+    let tooWide = false;
+    for(const w of words){
+      const test = line ? line+' '+w : w;
+      if(ctx.measureText(test).width > maxW && line){ lines.push(line); line = w; }
+      else line = test;
+      if(ctx.measureText(w).width > maxW) tooWide = true;   // a single unbreakable word overflows
     }
-    ctx.restore();
+    if(line) lines.push(line);
+    const h = lines.length * size * 1.1;
+    if(!tooWide && h <= maxH) return { lines, size, h };
+    if(size <= minPx) return { lines, size, h };
+    size = Math.max(minPx, Math.round(size * 0.92));
   }
+  return { lines:[String(text)], size, h:size*1.1 };
+}
+
+// Lay a measured stack out, centred in the safe band. Rows are {h, draw(y)} where y is the row's
+// TOP edge; gaps are plain numbers.
+function cardStack(rows){
+  const items = rows.filter(Boolean);
+  let total = 0;
+  for(const r of items) total += (typeof r === 'number' ? r : r.h);
+  const bandTop = H*CARD_TOP, bandH = H*(CARD_BOT-CARD_TOP);
+  let y = bandTop + Math.max(0, (bandH - total)/2);
+  for(const r of items){
+    if(typeof r === 'number'){ y += r; continue; }
+    r.draw(y); y += r.h;
+  }
+}
+function rowText(lines, size, weight, family, colour, alpha){
+  return { h: lines.length*size*1.1, draw(y){
+    ctx.save(); ctx.globalAlpha = alpha==null?1:alpha; ctx.fillStyle = colour;
+    ctx.font = weight+' '+size+'px '+family; ctx.textAlign='center'; ctx.textBaseline='top';
+    lines.forEach((l,i)=> ctx.fillText(l, W/2, y + i*size*1.1));
+    ctx.restore();
+  } };
+}
+
+// Shared card furniture, so the four variants differ where they should and nowhere else.
+function cardBg(p, P){
+  const g=ctx.createLinearGradient(0,0,W,H);
+  g.addColorStop(0, shade(P.bg,0.06)); g.addColorStop(1, shade(P.bg,-0.42));
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  const glow=ctx.createRadialGradient(W*0.5,H*0.34,0,W*0.5,H*0.34,H*0.62);
+  glow.addColorStop(0,hexA(P.accent,brandOff()?0.05:0.16)); glow.addColorStop(1,hexA(P.accent,0));
+  ctx.fillStyle=glow; ctx.fillRect(0,0,W,H);
+  const be=eoc(segT(p,0,0.45));
+  ctx.save(); ctx.globalAlpha=(brandOff()?0.05:0.12)*be;
+  ctx.translate(W*(1.18-0.4*be),0); ctx.rotate(-0.20);
+  ctx.fillStyle=P.accent; ctx.fillRect(0,-H*0.3,W*0.40,H*1.7);
   ctx.restore();
 }
+// Pill and logo as measurable rows, so they take part in the centred stack instead of being
+// pinned to a fraction that only worked for one length of copy.
+function rowPill(p, P, label, from){
+  if(!label) return null;
+  const ph = W*0.155;
+  return { h: ph, draw(y){
+    const popped=segT(p,from,from+0.35), pop=eob(popped);
+    const settle=segT(p,from+0.35,1), pulse=1+Math.sin(p*9)*0.02*settle;
+    const sc=popped<1?pop:pulse, a=eoc(segT(p,from,from+0.18));
+    ctx.save(); ctx.translate(W/2, y+ph/2); ctx.scale(sc,sc); ctx.globalAlpha=a;
+    ctx.font='800 '+Math.round(W*0.044)+'px Oswald, sans-serif';
+    const t=String(label).toUpperCase(), tw=ctx.measureText(t).width;
+    const pw=Math.min(W*0.86, tw+W*0.20);
+    ctx.fillStyle=P.accent; roundRect(-pw/2,-ph/2,pw,ph,ph/2); ctx.fill();
+    ctx.fillStyle=brandOff()?'#0b0b0d':'#ffffff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(t,0,1); ctx.restore();
+  } };
+}
+// Reserve space for the logo only if there IS one. Reserving it unconditionally left a hole in
+// the middle of every card for anyone who has not uploaded a mark yet — the stack is measured, so
+// an empty row is a visible gap rather than nothing.
+function haveLogo(){
+  const img = (logoReady && logoImg) ? logoImg : brandLogoImg;
+  return !!(img && img.naturalWidth);
+}
+function rowLogo(p, P, w){
+  if(!P.useLogo || !haveLogo()) return null;
+  const img = (logoReady && logoImg) ? logoImg : brandLogoImg;
+  const lw = Math.min(w, W*0.42);
+  const h = lw * (img.naturalHeight/img.naturalWidth || 0.4);
+  return { h: h, draw(y){
+    const le=eoc(segT(p,0.08,0.48));
+    ctx.save(); ctx.globalAlpha=le; drawLogo(W/2, y, w); ctx.restore();
+  } };
+}
+function rowKicker(p, P, text){
+  if(!text) return null;
+  const kh = W*0.062;
+  return { h: kh, draw(y){
+    const ke=eoc(segT(p,0.10,0.48));
+    ctx.save(); ctx.globalAlpha=ke;
+    ctx.font='700 '+Math.round(W*0.026)+'px "JetBrains Mono", monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    const kw=ctx.measureText(text).width;
+    ctx.fillStyle=P.accent; roundRect(W/2-kw/2-W*0.035, y, kw+W*0.07, kh, kh/2); ctx.fill();
+    ctx.fillStyle=brandOff()?'#0b0b0d':'#ffffff'; ctx.fillText(text, W/2, y+kh/2+1);
+    ctx.restore();
+  } };
+}
+
+// --- INTRO -----------------------------------------------------------------------------------
+function drawIntroCard(p){
+  const P=brandPalette();
+  ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+  cardBg(p,P);
+  const tpl = state.template || 'webinar';
+  const v = id => String(($('#'+id)&&$('#'+id).value.trim())||'');
+  const G = W*0.045;                                  // the one gap unit, so rhythm is consistent
+  const fade = (a,b) => eoc(segT(p,a,b));
+
+  if(tpl === 'qa'){
+    // The QUESTION is the intro. A brand card in front of a Q&A answer buries the one line that
+    // makes someone stay — and the question is usually not in the footage at all.
+    const q = (v('qaText') || v('introTitle') || 'Your question here').toUpperCase();
+    const f = fitLines(q, '700', 'Oswald, sans-serif', W*0.82, H*0.40, W*0.086, W*0.040);
+    const who = v('nameName');
+    cardStack([
+      rowKicker(p,P,'QUESTION'), G*1.4,
+      rowText(f.lines, f.size, '700', 'Oswald, sans-serif', P.ink, fade(0.18,0.68)),
+      who ? G*1.2 : null,
+      who ? rowText(['Answered by '+who], Math.round(W*0.036), '600', 'Roboto, sans-serif', P.dim, fade(0.55,0.85)) : null
+    ]);
+    ctx.restore(); return;
+  }
+
+  if(tpl === 'podcast'){
+    // A podcast short is scrolled past, so the card is a beat, not a preamble: which episode, then
+    // out. Anything longer and the cold open — the actual hook — arrives too late.
+    const ep = (v('introTitle') || 'This week on the show').toUpperCase();
+    const f = fitLines(ep, '900', 'Oswald, sans-serif', W*0.84, H*0.30, W*0.074, W*0.038);
+    const guest = v('nameName');
+    cardStack([
+      rowKicker(p,P, brandTag()||'PODCAST'), G,
+      rowLogo(p,P,W*0.34), G*1.3,
+      rowText(f.lines, f.size, '900', 'Oswald, sans-serif', P.ink, fade(0.24,0.7)),
+      guest ? G : null,
+      guest ? rowText(['WITH '+guest.toUpperCase()], Math.round(W*0.040), '700', 'Oswald, sans-serif',
+                      (!brandOff() ? C_REDLT : P.dim), fade(0.5,0.82)) : null
+    ]);
+    ctx.restore(); return;
+  }
+
+  if(tpl === 'free'){
+    // No assumptions: your title, your logo if you have one, nothing else invented.
+    const t = v('introTitle');
+    const f = t ? fitLines(t.toUpperCase(), '800', 'Oswald, sans-serif', W*0.84, H*0.34, W*0.080, W*0.038) : null;
+    cardStack([
+      rowLogo(p,P,W*0.40), f ? G*1.3 : null,
+      f ? rowText(f.lines, f.size, '800', 'Oswald, sans-serif', P.ink, fade(0.2,0.7)) : null
+    ]);
+    ctx.restore(); return;
+  }
+
+  // WEBINAR (default) — a session clip is chosen deliberately, so a title card earns its 2.5s:
+  // what the session was, who ran it, and the brand that held it.
+  const title = (v('introTitle') || 'Your Short').toUpperCase();
+  const f = fitLines(title, '900', 'Oswald, sans-serif', W*0.84, H*0.34, W*0.088, W*0.040);
+  const sp = v('nameName'), role = v('nameTitle');
+  cardStack([
+    rowKicker(p,P, brandTag()), G,
+    rowLogo(p,P,W*0.40), G*1.3,
+    rowText(f.lines, f.size, '900', 'Oswald, sans-serif', P.ink, fade(0.26,0.72)),
+    sp ? G*1.2 : null,
+    sp ? rowText([sp.toUpperCase()], Math.round(W*0.042), '700', 'Oswald, sans-serif', P.ink, fade(0.52,0.86)) : null,
+    (sp && role) ? G*0.35 : null,
+    (sp && role) ? rowText([role], Math.round(W*0.032), '400', 'Roboto, sans-serif', P.dim, fade(0.56,0.9)) : null
+  ]);
+  ctx.restore();
+}
+
+// --- OUTRO -----------------------------------------------------------------------------------
+function drawOutroCard(p){
+  const P=brandPalette();
+  ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+  cardBg(p,P);
+  const tpl = state.template || 'webinar';
+  const v = id => String(($('#'+id)&&$('#'+id).value.trim())||'');
+  const G = W*0.045;
+  const fade = (a,b) => eoc(segT(p,a,b));
+  const headIn = v('outroHead'), subIn = v('outroSub');
+  const handle = subIn || (state.brand && state.brand.url) || '@yourhandle';
+
+  if(tpl === 'podcast'){
+    // "FOLLOW FOR MORE" tells nobody where. The ask on a podcast clip is to hear the whole thing,
+    // and that means naming the platforms — which is also the only outro anyone acts on.
+    const head = (headIn || 'Hear the full episode').toUpperCase();
+    const f = fitLines(head, '900', 'Oswald, sans-serif', W*0.84, H*0.26, W*0.072, W*0.038);
+    cardStack([
+      rowLogo(p,P,W*0.34), G*1.4,
+      rowText(f.lines, f.size, '900', 'Oswald, sans-serif', P.ink, fade(0.14,0.56)), G,
+      rowText(['SPOTIFY  ·  YOUTUBE  ·  APPLE PODCASTS'], Math.round(W*0.030), '700',
+              '"JetBrains Mono", monospace', P.dim, fade(0.34,0.7)), G*1.5,
+      rowPill(p,P, handle, 0.5)
+    ]);
+    ctx.restore(); return;
+  }
+
+  if(tpl === 'qa'){
+    // The clip answered ONE question, so the outro asks for the next one. That is the loop that
+    // fills a Q&A series without anyone having to invent topics.
+    const head = (headIn || 'Got a question?').toUpperCase();
+    const f = fitLines(head, '900', 'Oswald, sans-serif', W*0.84, H*0.24, W*0.078, W*0.040);
+    cardStack([
+      rowText(f.lines, f.size, '900', 'Oswald, sans-serif', P.ink, fade(0.12,0.55)), G,
+      rowText(['Drop it in the comments — we answer the best ones.'], Math.round(W*0.036), '400',
+              'Roboto, sans-serif', P.dim, fade(0.3,0.65)), G*1.5,
+      rowPill(p,P, subIn || 'Ask us', 0.48), G*1.6,
+      rowLogo(p,P,W*0.26)
+    ]);
+    ctx.restore(); return;
+  }
+
+  if(tpl === 'free'){
+    const head = headIn ? headIn.toUpperCase() : '';
+    const f = head ? fitLines(head, '900', 'Oswald, sans-serif', W*0.84, H*0.28, W*0.072, W*0.038) : null;
+    cardStack([
+      rowLogo(p,P,W*0.34), f ? G*1.4 : null,
+      f ? rowText(f.lines, f.size, '900', 'Oswald, sans-serif', P.ink, fade(0.14,0.58)) : null,
+      subIn ? G*1.5 : null,
+      subIn ? rowPill(p,P, subIn, 0.45) : null
+    ]);
+    ctx.restore(); return;
+  }
+
+  // WEBINAR (default) — the ask is the next session, not a follow.
+  const head = (headIn || 'Join the next session').toUpperCase();
+  const f = fitLines(head, '900', 'Oswald, sans-serif', W*0.84, H*0.26, W*0.072, W*0.038);
+  cardStack([
+    rowLogo(p,P,W*0.36), G*1.4,
+    rowText(f.lines, f.size, '900', 'Oswald, sans-serif', P.ink, fade(0.18,0.6)), G*1.5,
+    rowPill(p,P, handle, 0.4)
+  ]);
+  ctx.restore();
+}
+
+// The old single-shaped cards now route through the per-template ones. Kept as thin wrappers so
+// every existing call site (the live loop, fast export, the batch chopper) is untouched.
+function drawIntro(p){ drawIntroCard(p); }
+function drawOutro(p){ drawOutroCard(p); }
 function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 // Scroll-stopping hook over the opening of the clip.
 function drawHook(ct){
@@ -2043,6 +2246,7 @@ function syncTemplateUI(){
 // actual clip and fades out. Content starts at 0.0s either way.
 const FLASH_DUR = 0.75;
 function drawBrandFlash(ct){
+  if(brandOff()) return;   // no brand kit means no mark over the footage either
   if(ct > FLASH_DUR) return;
   const p = ct / FLASH_DUR;
   const a = p < 0.55 ? Math.min(1, p / 0.18) : Math.max(0, 1 - (p - 0.55) / 0.45);  // snap in, ease out
@@ -2077,6 +2281,7 @@ function drawBrandFlash(ct){
 // What the intro card was actually FOR — being recognisable — done in a way that costs no time and
 // survives the clip being re-shared without the end card.
 function drawWatermark(){
+  if(brandOff()) return;   // ditto — the corner mark is branding
   ctx.save();
   ctx.globalAlpha = 0.72;
   const pad = Math.round(W*0.045);
@@ -2665,7 +2870,12 @@ $('#pcResults').addEventListener('click', e => {
 let scWords = [];        // whole-file word timings, SOURCE time
 let scBusy = false;
 
-function setScStatus(msg, kind){ setHlStatus(msg, kind); }
+// Status goes in the PANEL, next to the button that started it — a status line 1.5 screens
+// below the control you clicked is a status line nobody reads.
+function setScStatus(msg, kind){
+  const s=$('#scStatus'); if(s){ s.textContent=msg||''; s.className='capstatus'+(kind?' '+kind:''); }
+  setHlStatus(msg, kind);
+}
 
 async function runSmartClip(){
   if(scBusy || state.busy || !state.loaded) return;
@@ -2809,6 +3019,9 @@ function renderHighlights(hs){
   + '</div>';
   list.style.display='flex';
   const ca = $('#hlChopAll'); if(ca) ca.onclick = chopAllHighlights;
+  // The results need the full width so they stay in the stage column — but the button that
+  // produced them is in the panel, so bring the user to them rather than hoping they scroll.
+  try{ $('#highlights').scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){}
 }
 
 // ---- Chop all: batch-export every highlight as its own short. Captions are re-based from the
@@ -2980,7 +3193,7 @@ function setLookStatus(msg, kind){ const s=$('#lookStatus'); if(!s) return; s.te
 function serializeLook(){
   const v = id => { const el=$('#'+id); return el?el.value:''; };
   return {
-    template:state.template, outroDur:state.outroDur, qaDur:state.qaDur, qaFrame:state.qaFrame,
+    template:state.template, outroDur:state.outroDur, qaDur:state.qaDur, qaFrame:state.qaFrame, brandOff:!!state.brandOffOn,
     format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
     capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
     layers: (state.layers||[]).map(function(L){ var c=Object.assign({},L); delete c._img; return c; }),
@@ -2995,6 +3208,7 @@ function restoreLook(d){
   // Template first and QUIETLY: it presets the toggles, and the saved values below must win over
   // the preset (that's the whole point of saving a look you then customised).
   if(d.template && VIDEO_TEMPLATES[d.template]) applyTemplate(d.template, { quiet:true });
+  if(d.brandOff!=null){ state.brandOffOn = !!d.brandOff; const bo=$('#tog-brandoff'); if(bo) bo.classList.toggle('on', !!d.brandOff); }
   if(d.outroDur!=null) state.outroDur = d.outroDur;
   if(d.qaDur!=null){ state.qaDur = d.qaDur; syncSeg('#qaDurSeg', d.qaDur); }
   if(d.qaFrame){ state.qaFrame = d.qaFrame; syncSeg('#qaFrameSeg', d.qaFrame); }
@@ -3035,8 +3249,23 @@ async function openLooks(){
     if(r.status===401) throw new Error('Please sign in to see your saved looks.');
     if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
     const ps = data.projects||[];
-    if(!ps.length){ list.innerHTML='<p class="capstatus" style="margin:0;">No saved looks yet — set one up and hit 💾 Save look.</p>'; return; }
-    list.innerHTML = ps.map(p=>'<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;"><button class="mini" data-load="'+p.id+'" style="flex:1; justify-content:flex-start;">'+(p.title||'Untitled').replace(/[<>&]/g,'')+'</button><button class="mini" data-del="'+p.id+'" title="Delete">✕</button></div>').join('');
+    // Looks are shared across the whole workspace, so an empty list has two very different
+    // meanings — nobody has saved one, or you are not in the same workspace as the person who
+    // did. Say which. ?who=1 is read-only and answers it in one call.
+    let who = null;
+    try{ who = await (await fetch(LOOKS_URL+'?who=1')).json(); }catch(_){ }
+    const whoLine = who && who.workspace
+      ? '<p class="capstatus" style="margin:0 0 10px; color:var(--faint);">Workspace <b>'+String(who.workspace).replace(/[<>&]/g,'')+'</b> · '
+        + (who.members!=null ? who.members+' member'+(who.members===1?'':'s') : 'members unknown')
+        + (who.duplicates ? ' · <span style="color:var(--low)">⚠ '+who.duplicates+' duplicate workspace'+(who.duplicates>1?'s':'')+' on this domain holding '+who.strandedProjects+' saved item'+(who.strandedProjects===1?'':'s')+' — that is why work saved by a teammate can be missing.</span>' : '')
+        + '</p>'
+      : '';
+    if(!ps.length){
+      list.innerHTML = whoLine + '<p class="capstatus" style="margin:0;">No saved looks in this workspace yet — set one up and hit 💾 Save look.'
+        + (who && who.members===1 ? ' You are the only member, so nothing is shared with you yet.' : '')+'</p>';
+      return;
+    }
+    list.innerHTML = whoLine + ps.map(p=>'<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;"><button class="mini" data-load="'+p.id+'" style="flex:1; justify-content:flex-start;">'+(p.title||'Untitled').replace(/[<>&]/g,'')+'</button><button class="mini" data-del="'+p.id+'" title="Delete">✕</button></div>').join('');
   }catch(e){ list.innerHTML='<p class="capstatus err" style="margin:0;">'+e.message+'</p>'; }
 }
 async function loadLook(id){

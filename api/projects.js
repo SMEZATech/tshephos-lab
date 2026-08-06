@@ -8,7 +8,7 @@
 //   POST {op:"save", id?, type, title, data}  → insert (no id) or update (with id)
 //   POST {op:"delete", id}      → delete
 
-import { setCors, rateLimit, requireSession, db } from "./_guard.js";
+import { setCors, rateLimit, requireSession, db, workspaceInfo } from "./_guard.js";
 
 const enc = (v) => encodeURIComponent(String(v));
 
@@ -34,6 +34,14 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
+      // ?who=1 — which workspace am I in, who else is in it, and is anything split across a
+      // duplicate? Saved looks, drafts and brand kits are ALL org-scoped, so "my colleague's look
+      // doesn't show up" has exactly one root cause worth checking first, and there was no way to
+      // check it. Read-only, and it never reports another org's contents — only how many rows are
+      // stranded there, which is what you need to decide whether to merge.
+      if (req.query && req.query.who) {
+        return res.status(200).json({ you: s.user.email, ...(await workspaceInfo(s.user, s.orgId)) });
+      }
       const id = req.query && req.query.id;
       if (id) {
         const rows = (await store.select("project", "select=*&id=eq." + enc(id))) || [];

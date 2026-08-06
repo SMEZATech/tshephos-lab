@@ -172,16 +172,33 @@ function orgKeyFor(user) {
   return domain;
 }
 
+// Which org a caller belongs to. This decides whether two colleagues on the same domain see each
+// other's saved looks, drafts and brand kit — so a wrong answer here looks like "the feature is
+// broken", never like an auth bug.
+//
+// THE ORDER MATTERS, and it did not used to:
+//   - The lookup was `limit=1` with no ordering. Postgres does not promise a stable row for that,
+//     so with two orgs sharing a key, two users could resolve to DIFFERENT workspaces on the same
+//     domain — and each would see an empty list where the other's work should be.
+//   - Step 2 ADOPTED a pre-keying org and renamed it to the domain key without first checking
+//     whether an org with that key already existed. That is how a duplicate gets created in the
+//     first place: user A anchors "smesouthafrica.co.za", user B's older personal org is renamed
+//     to "smesouthafrica.co.za" too, and now the domain has two workspaces.
+//
+// Fixed by making the choice deterministic (OLDEST org with the key always wins) and by checking
+// the domain org BEFORE adopting a personal one. Nothing is deleted or merged here — that would
+// move data without asking. `workspaceInfo()` reports duplicates so they can be merged on purpose.
 async function resolveOrg(user) {
   const email = String(user.email || "");
   const key = orgKeyFor(user);
-  // 1) An org already keyed this way? Join it. (For a company domain that's the shared team
-  //    workspace; for free mail it's only ever this one user's own.)
-  const found = await sbRest("org?select=id&limit=1&name=eq." + encodeURIComponent(key));
+  // 1) An org already keyed this way? Join the OLDEST one, always. Deterministic beats whichever
+  //    row the database felt like returning.
+  const found = await sbRest("org?select=id&order=created_at.asc&limit=1&name=eq." + encodeURIComponent(key));
   const foundId = found && found[0] && found[0].id;
   if (foundId) { await ensureMember(foundId, user.id); return foundId; }
 
   // 2) User already has an org from before this keying existed? Adopt it — never orphan their data.
+  //    Safe to rename now: step 1 established that no org holds this key yet.
   const mine = await sbRest("member?select=org_id&limit=1&user_id=eq." + encodeURIComponent(user.id));
   const existing = mine && mine[0] && mine[0].org_id;
   if (existing) {
@@ -194,6 +211,30 @@ async function resolveOrg(user) {
   if (!orgId) return null;
   await sbWrite("member", { org_id: orgId, user_id: user.id, role: "owner" });
   return orgId;
+}
+
+// Who am I sharing with, and is anything split? Everything saved in Volt is org-scoped, so when a
+// colleague's work does not appear the question is always "are we in the same workspace" — and
+// until now there was no way to answer it except by guessing.
+// Reports the resolved workspace, how many people are in it, and — the part that matters — whether
+// more than one org claims this domain, with how much work is stranded in the others.
+async function workspaceInfo(user, orgId) {
+  const key = orgKeyFor(user);
+  const out = { workspace: key, orgId: orgId, members: null, duplicates: 0, strandedProjects: 0 };
+  try {
+    const mem = await sbRest("member?select=user_id&org_id=eq." + encodeURIComponent(orgId));
+    out.members = Array.isArray(mem) ? mem.length : null;
+    const orgs = await sbRest("org?select=id,created_at&order=created_at.asc&name=eq." + encodeURIComponent(key));
+    if (Array.isArray(orgs) && orgs.length > 1) {
+      out.duplicates = orgs.length - 1;
+      for (const o of orgs) {
+        if (!o || o.id === orgId) continue;
+        const rows = await sbRest("project?select=id&org_id=eq." + encodeURIComponent(o.id));
+        out.strandedProjects += Array.isArray(rows) ? rows.length : 0;
+      }
+    }
+  } catch (e) { out.error = (e && e.message) || "lookup failed"; }
+  return out;
 }
 
 // Verify the caller's Supabase session JWT → { user, orgId } or { error }.
@@ -406,4 +447,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats };
+export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo };
