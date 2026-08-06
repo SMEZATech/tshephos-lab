@@ -180,6 +180,17 @@
   .hl-reason{font-size:13px; color:var(--dim); line-height:1.45; margin:0;}
   .hl-hook{font-size:12.5px; color:var(--info); margin-top:5px;}
   .hl-go{flex-shrink:0; align-self:center; font-family:var(--fm); font-weight:700; font-size:11px; color:var(--accent); border:1px solid rgba(182,255,61,.4); border-radius:8px; padding:7px 11px; white-space:nowrap;}
+  /* The cards live in the 380px control panel now, not the stage column — the stage's player is
+     position:sticky, so anything below it slides UNDERNEATH the pinned player and only ~96px of
+     viewport is left to read six cards through. That is why the results looked like they were
+     never rendered. In the panel they sit directly under the button that produced them, in a
+     column that scrolls normally. At this width the "Trim to this →" chip wraps to its own row. */
+  .panel .hl-card{flex-wrap:wrap; padding:11px 12px; gap:10px;}
+  .panel .hl-score{width:34px; height:34px; font-size:13.5px; border-radius:9px;}
+  .panel .hl-main{flex:1 1 200px;}
+  .panel .hl-title{font-size:14px;}
+  .panel .hl-reason{font-size:12px;}
+  .panel .hl-go{flex:1 1 100%; text-align:center; align-self:stretch; padding:8px 10px;}
 
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
@@ -246,7 +257,15 @@
         <!-- The moments render below the player because the cards need the width. The button that
              produced them is up here, so without a way back to them the result reads as "nothing
              happened" — which is exactly how it landed the first time someone ran it. -->
-        <button class="mini" id="scJump" style="display:none; width:100%; margin-top:7px;">👇 Review the moments</button>
+        <div id="highlights" style="display:none; margin-top:14px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <span class="lbl" style="margin:0;">🎯 Moments found</span>
+            <button type="button" class="mini" id="hlBtn" title="Score only the captions you already generated, instead of scanning the file" style="flex:0 0 auto; font-size:10.5px; padding:6px 9px;">✨ Captions only</button>
+          </div>
+          <p class="note" style="margin:0 0 8px;">Tap one to trim straight to it — captions come with it, no second transcription.</p>
+          <div id="hlStatus" class="capstatus"></div>
+          <div id="hlList" style="display:none; margin-top:10px; flex-direction:column; gap:9px;"></div>
+        </div>
       </div>
 
       <div class="blk" id="trimBlk" style="opacity:.4; pointer-events:none;">
@@ -513,18 +532,6 @@
     <div id="capList"></div>
   </section>
 
-      <section id="highlights" style="display:none;">
-    <div class="cap-ed-head">
-      <div>
-        <span class="lbl" style="margin:0;">🎯 Moments found</span>
-        <span class="cap-ed-hint">Tap one to trim straight to it — captions come with it, no second transcription.</span>
-      </div>
-      <button type="button" class="mini" id="hlBtn" title="Score only the captions you already generated, instead of scanning the file">✨ Scan captions only</button>
-    </div>
-    <div id="hlStatus" class="capstatus"></div>
-    <div id="hlList" style="display:none; margin-top:14px; flex-direction:column; gap:9px;"></div>
-  </section>
-
       <section id="postCopy" style="display:none;">
     <div class="cap-ed-head">
       <div>
@@ -743,7 +750,6 @@ function loadVideoSrc(src){
     { const sb=$('#scBlk'); if(sb){ sb.style.opacity='1'; sb.style.pointerEvents='auto'; } }
     { const hp=$('#highlights'); if(hp) hp.style.display='block'; }
     scWords = []; hlData = [];
-    { const j=$('#scJump'); if(j) j.style.display='none'; }
     { const hl2=$('#hlList'); if(hl2) hl2.style.display='none'; }
     setHlStatus('');
     $('#stageEmpty').style.display='none';
@@ -2886,7 +2892,6 @@ async function runSmartClip(){
   if(scBusy || state.busy || !state.loaded) return;
   if(!window.VoltSTT || !window.SmartClip){ setScStatus('SmartClip could not load on this page — reload and try again.', 'err'); return; }
   scBusy = true;
-  { const j=$('#scJump'); if(j) j.style.display='none'; }
   const btn = $('#scBtn'), hb = $('#hlBtn');
   if(btn) btn.disabled = true; if(hb) hb.disabled = true;
   try{
@@ -2955,8 +2960,8 @@ async function runSmartClip(){
     const spread = fmtTime(hs[0].start) + ' to ' + fmtTime(hs[hs.length-1].end);
     // Be explicit that nothing was exported. SmartClip FINDS moments; turning one into a file is
     // a separate, deliberate step — and a status that only reports a count reads as "done".
-    setScStatus(hs.length + ' moments found (' + spread + '). Nothing exported yet — review them below, then either tap one to trim to it or chop them all into shorts.', 'ok');
-    { const j=$('#scJump'); if(j){ j.style.display='block'; j.textContent='👇 Review the ' + hs.length + ' moments'; } }
+    setScStatus(hs.length + ' moments found (' + spread + '). Nothing exported yet — tap one below to trim to it, or chop them all into shorts.', 'ok');
+
   }catch(err){
     console.error('SmartClip failed:', err);
     setScStatus((err && err.message) || 'SmartClip failed.', 'err');
@@ -3028,9 +3033,6 @@ function renderHighlights(hs){
   + '</div>';
   list.style.display='flex';
   const ca = $('#hlChopAll'); if(ca) ca.onclick = chopAllHighlights;
-  // The results need the full width so they stay in the stage column — but the button that
-  // produced them is in the panel, so bring the user to them rather than hoping they scroll.
-  try{ $('#highlights').scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){}
 }
 
 // ---- Chop all: batch-export every highlight as its own short. Captions are re-based from the
@@ -3133,9 +3135,7 @@ function applyHighlight(i){
   restart();
 }
 $('#hlBtn').onclick = generateHighlights;
-{ const scb = $('#scBtn'); if(scb) scb.onclick = runSmartClip;
-  const scj = $('#scJump');
-  if(scj) scj.onclick = ()=>{ const h=$('#highlights'); if(h) h.scrollIntoView({ behavior:'smooth', block:'start' }); }; }
+{ const scb = $('#scBtn'); if(scb) scb.onclick = runSmartClip; }
 $('#hlList').addEventListener('click', e => { const c=e.target.closest('.hl-card'); if(c) applyHighlight(parseInt(c.dataset.i,10)); });
 
 // ---- shared Brand Kit wiring ----
