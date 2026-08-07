@@ -304,6 +304,7 @@
     { t: "Studio", e: "🎨", href: "studio.html" },
     { t: "Freeform", e: "🖌️", href: "freeform.html" },
     { t: "Video", e: "🎬", href: "video.html" },
+    { t: "SmartClip", e: "🎯", href: "smartclip.html" },
     { t: "Transcribe", e: "📝", href: "videotok.html" },
     { t: "Email", e: "✉️", href: "email.html" },
     { t: "Schedule", e: "📅", href: "schedule.html" },
@@ -789,7 +790,8 @@
       "index.html": [["gen", "Generate ad angles", "✨"], ["saveDraftBtn", "Save this brief", "💾"]],
       "analytics.html": [["run", "Analyze performance", "📊"]],
       "email.html": [["run", "Build the email", "✉️"], ["kitBtn", "Send to Kit", "📤"], ["saveDraftBtn", "Save draft", "💾"]],
-      "video.html": [["capBtn", "Generate captions", "💬"], ["exportBtn", "Export the short", "⬇️"], ["hlBtn", "Find best moments", "✂️"]],
+      "video.html": [["capBtn", "Generate captions", "💬"], ["exportBtn", "Export the short", "⬇️"]],
+      "smartclip.html": [["scan", "Find the moments", "🎯"], ["frameAll", "Auto-frame every clip", "🎞"], ["sendSel", "Send selected to the editor", "→"]],
       "studio.html": [["btn-download", "Download HD PNG", "🖼️"], ["btn-download-all", "Resize to all 3 formats", "✨"], ["btn-download-zip", "Export all 6 slides (ZIP)", "🗂️"]]
     };
     var list = defs[page] || [], out = [];
