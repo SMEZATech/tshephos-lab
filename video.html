@@ -962,6 +962,12 @@ function focusAt(into){
   if(state.focusTrack && window.AutoFrame) return window.AutoFrame.xAt(state.focusTrack, into);
   return FOCUS[state.focus];
 }
+// The full 2D box from a SmartClip hand-off: horizontal position, vertical position AND zoom.
+// drawCover only ever cropped horizontally, which is why a wide two-shot came out headless.
+function boxAt(into){
+  if(state.focusTrack && window.AutoFrame) return window.AutoFrame.boxAt(state.focusTrack, into);
+  return null;
+}
 function drawCover(media, mw, mh, focusX){
   if(!mw || !mh) return;
   focusX = (focusX==null) ? 0.5 : focusX;
@@ -1474,7 +1480,14 @@ function onLayerField(e){ const f=e.target.closest('.lyr-f'); if(!f) return; con
 function paintTimeline(into, seg, media, mw, mh){
   const cD = timelineDur();
   if(state.fill==='blur') drawBlurFill(media, mw, mh);
-  else drawCover(media, mw, mh, focusAt(into));
+  else {
+    const box = boxAt(into);
+    if(box && window.AutoFrame){
+      // Tracked: crop to the box SmartClip measured, zoom included.
+      const r = window.AutoFrame.cropRect(box, mw, mh, W, H);
+      ctx.drawImage(media, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H);
+    } else drawCover(media, mw, mh, focusAt(into));
+  }
   applyLook();
   // ---- transition at the boundary INTO this clip ----
   if(extraClips.length && seg.segStart > 0 && state.transition !== 'cut'){

@@ -70,6 +70,17 @@
   .acts .go{background:rgba(182,255,61,.12);border-color:var(--accent);color:var(--accent);}
   .empty{color:var(--faint);font-size:14px;padding:36px 10px;text-align:center;}
   .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+  /* Preview — you cannot judge a crop from a still frame. */
+  #pv{display:none;position:fixed;inset:0;z-index:9998;background:rgba(6,7,10,.9);backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:24px;}
+  #pvBox{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:16px;max-width:min(94vw,460px);width:100%;}
+  #pvHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
+  #pvTitle{font-weight:800;font-size:15.5px;line-height:1.3;margin:0;}
+  #pvMeta{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin:4px 0 0;text-transform:uppercase;letter-spacing:.05em;}
+  #pvCanvas{width:100%;max-height:62vh;object-fit:contain;background:#07080b;border-radius:12px;display:block;}
+  #pvBar{height:5px;border-radius:3px;background:rgba(255,255,255,.1);margin:11px 0 9px;overflow:hidden;cursor:pointer;}
+  #pvBar i{display:block;height:100%;background:var(--accent);width:0;}
+  #pvCtl{display:flex;gap:8px;align-items:center;}
+  #pvCtl .mini{flex:0 0 auto;} #pvTime{font-family:var(--fm);font-size:11px;color:var(--faint);margin-left:auto;}
   .row>div{flex:1 1 170px;}
 </style>
 </head>
@@ -148,7 +159,26 @@
     <div class="status" id="bulkStatus"></div>
   </div>
 
-  <video id="v" playsinline muted style="display:none;"></video>
+
+<div id="pv">
+  <div id="pvBox">
+    <div id="pvHead">
+      <div><p id="pvTitle"></p><p id="pvMeta"></p></div>
+      <button class="mini" id="pvClose">✕ Close</button>
+    </div>
+    <canvas id="pvCanvas" width="540" height="960"></canvas>
+    <div id="pvBar"><i></i></div>
+    <div id="pvCtl">
+      <button class="mini" id="pvPlay">▶ Play</button>
+      <button class="mini" id="pvFrame">🎞 Auto-frame</button>
+      <button class="mini" id="pvDl">⬇ Download</button>
+      <button class="btn" id="pvSend" style="padding:8px 14px;font-size:12px;">→ Editor</button>
+      <span id="pvTime"></span>
+    </div>
+  </div>
+</div>
+
+<video id="v" playsinline muted style="display:none;"></video>
 </main>
 
 <script>
@@ -216,6 +246,9 @@ $('#scan').addEventListener('click', async () => {
     });
     render();
     say(clips.length+' moments, '+fmtT(clips[0].start)+' to '+fmtT(clips[clips.length-1].end)+'. Boundaries come from the transcript, so none of them cut mid-sentence.', 'ok');
+    // Frame them straight away. Unframed, every card is the same centre crop of the same room, and
+    // a grid you cannot tell apart is not a result.
+    await frameAll('Framing');
   }catch(err){
     console.error(err); prog(null);
     say((err && err.message) || 'Scan failed.', 'err');
@@ -240,40 +273,89 @@ function seek(t){
   });
 }
 
+// Sample by PLAYING the clip fast, not by seeking it.
+//
+// A seek costs 10-50ms and a 27-second clip at 2Hz is 55 of them — eleven seconds to frame one
+// moment, and four moments is a minute of waiting before the grid is even worth looking at.
+// Playing at 8x covers the same clip in about three seconds and hands us decoded frames as they
+// arrive, which is what requestVideoFrameCallback exists for. Seeking stays as the fallback for
+// browsers without rVFC and for the rare file that refuses to play fast.
+const SAMPLE_RATE = 8;
 async function frameClip(c, onStep){
-  const step = 1/SAMPLE_HZ, n = Math.max(2, Math.ceil((c.end-c.start)/step));
-  const cropFrac = window.AutoFrame.cropFraction(vid.videoWidth, vid.videoHeight, 1080, 1920);
-  let prev = null; const samples = [];
-  for(let k=0;k<=n;k++){
-    const t = Math.min(c.end, c.start + k*step);
-    await seek(t);
+  const step = 1/SAMPLE_HZ;
+  const samples = [];
+  let prev = null;
+  const take = (t) => {
     sctx.drawImage(vid, 0, 0, SAMPLE_W, SAMPLE_H);
     const px = sctx.getImageData(0,0,SAMPLE_W,SAMPLE_H).data;
-    const r = window.AutoFrame.frameColumns(px, SAMPLE_W, SAMPLE_H, prev);
-    prev = r.luma;
-    const s = window.AutoFrame.subjectX(r.cols, cropFrac);
-    samples.push({ t: t - c.start, x: s.x, confidence: s.confidence });
-    if(onStep) onStep(k/n);
+    const sig = window.AutoFrame.frameSignals(px, SAMPLE_W, SAMPLE_H, prev);
+    prev = sig.luma;
+    // A BOX, not a column. Tracking x alone means a full-height strip, which on a wide room shot
+    // is knees, a coffee table and a plant with the face outside the frame.
+    const b = window.AutoFrame.subjectBox(sig, vid.videoWidth, vid.videoHeight, 1080, 1920);
+    samples.push({ t: Math.max(0, t - c.start), x: b.x, y: b.y, zoom: b.zoom,
+                   confidence: b.confidence, change: sig.change || 0 });
+  };
+
+  const fast = typeof vid.requestVideoFrameCallback === 'function';
+  if(fast){
+    const wasMuted = vid.muted, wasRate = vid.playbackRate;
+    vid.muted = true;
+    await seek(c.start);
+    vid.playbackRate = SAMPLE_RATE;
+    await new Promise(res => {
+      let next = c.start, done = false;
+      const stop = () => { if(done) return; done = true; try{ vid.pause(); }catch(e){} res(); };
+      const onFrame = (now, meta) => {
+        const t = (meta && meta.mediaTime != null) ? meta.mediaTime : vid.currentTime;
+        if(t >= next - 1e-3){ take(t); next += step; if(onStep) onStep(Math.min(1,(t-c.start)/(c.end-c.start))); }
+        if(t >= c.end - 1e-3 || vid.ended){ stop(); return; }
+        vid.requestVideoFrameCallback(onFrame);
+      };
+      vid.requestVideoFrameCallback(onFrame);
+      vid.play().catch(stop);
+      // A file that will not play fast must not hang the grid. Real time plus a margin is the
+      // longest this can legitimately take.
+      setTimeout(stop, ((c.end-c.start)/SAMPLE_RATE)*1000 + 4000);
+    });
+    vid.playbackRate = wasRate; vid.muted = wasMuted;
   }
+
+  // Too few samples means playback never really ran — fall back to the slow, certain path.
+  const want = Math.max(2, Math.floor((c.end-c.start)/step) - 2);
+  if(samples.length < want){
+    samples.length = 0; prev = null;
+    const n = Math.max(2, Math.ceil((c.end-c.start)/step));
+    for(let k=0;k<=n;k++){
+      const t = Math.min(c.end, c.start + k*step);
+      await seek(t); take(t);
+      if(onStep) onStep(k/n);
+    }
+  }
+
   c.track = window.AutoFrame.smoothPath(samples);
-  c.trackConf = samples.reduce((a,s)=>a+s.confidence,0) / samples.length;
+  c.trackConf = samples.length ? samples.reduce((a,s)=>a+s.confidence,0) / samples.length : 0;
+  c.trackSamples = samples.length;
   return c.track;
 }
 
+// ONE place computes the crop. The thumbnail, the preview player and both download paths all go
+// through this, so what you review is exactly what gets encoded.
+function cropFor(c, offset, srcW, srcH, outW, outH){
+  const box = c && c.track ? window.AutoFrame.boxAt(c.track, offset||0) : { x:0.5, y:0.5, zoom:1 };
+  return window.AutoFrame.cropRect(box, srcW, srcH, outW, outH);
+}
+function drawCrop(dst, dctx, src, srcW, srcH, c, offset){
+  dctx.fillStyle = '#07080b'; dctx.fillRect(0,0,dst.width,dst.height);
+  if(!srcW || !srcH) return;
+  const r = cropFor(c, offset, srcW, srcH, dst.width, dst.height);
+  dctx.drawImage(src, r.sx, r.sy, r.sw, r.sh, 0, 0, dst.width, dst.height);
+}
 // Draw the portrait crop of one moment at a given offset, using the track if it has one.
 async function paint(c, offset){
   const cv = document.getElementById('cv'+c.i); if(!cv) return;
-  const ctx2 = cv.getContext('2d');
-  const t = c.start + (offset||0);
-  await seek(t);
-  const sw = vid.videoWidth, sh = vid.videoHeight; if(!sw) return;
-  const frac = window.AutoFrame.cropFraction(sw, sh, cv.width, cv.height);
-  const cw = sw * frac;
-  const fx = c.track ? window.AutoFrame.xAt(c.track, offset||0) : 0.5;
-  let sx = fx * sw - cw/2;
-  sx = Math.max(0, Math.min(sw - cw, sx));
-  ctx2.fillStyle = '#07080b'; ctx2.fillRect(0,0,cv.width,cv.height);
-  ctx2.drawImage(vid, sx, 0, cw, sh, 0, 0, cv.width, cv.height);
+  await seek(c.start + (offset||0));
+  drawCrop(cv, cv.getContext('2d'), vid, vid.videoWidth, vid.videoHeight, c, offset||0);
 }
 
 // ---------------------------------------------------------------- render
@@ -296,8 +378,8 @@ function render(){
         + (c.hook?'<p class="ch">“'+esc(c.hook)+'”</p>':'')
         + '<p class="cw">'+esc(c.reason)+'</p>'
         + '<div class="acts">'
-          + '<button class="mini" data-act="frame" data-i="'+c.i+'">🎞 Frame</button>'
-          + '<button class="mini" data-act="play" data-i="'+c.i+'">▶ Scrub</button>'
+          + '<button class="mini" data-act="preview" data-i="'+c.i+'">▶ Preview</button>'
+          + '<button class="mini" data-act="download" data-i="'+c.i+'">⬇ Download</button>'
           + '<button class="mini go" data-act="send" data-i="'+c.i+'">→ Editor</button>'
         + '</div>'
       + '</div></div>';
@@ -319,45 +401,322 @@ $('#results').addEventListener('click', async e => {
     return;
   }
   const c = clips.find(x=>x.i === +btn.dataset.i); if(!c || busy) return;
-  if(btn.dataset.act === 'frame'){
-    busy = true; btn.disabled = true; btn.textContent = '…';
-    try{
-      await frameClip(c, p => { btn.textContent = Math.round(p*100)+'%'; });
-      const f = document.getElementById('fr'+c.i);
-      if(f){ f.textContent = 'auto-framed · ' + Math.round(c.trackConf*100) + '% sure'; f.classList.add('on'); }
-      await paint(c, Math.min(2, c.dur/2));
-    }catch(err){ console.error(err); }
-    finally{ busy=false; btn.disabled=false; btn.textContent='🎞 Frame'; }
-    return;
-  }
-  if(btn.dataset.act === 'play'){
-    // Scrub the clip through the preview canvas so you can SEE the framing hold before committing.
-    busy = true; btn.disabled = true;
-    const t0 = performance.now();
-    const tick = async () => {
-      const el = (performance.now()-t0)/1000;
-      if(el >= c.dur){ busy=false; btn.disabled=false; await paint(c, Math.min(2,c.dur/2)); return; }
-      await paint(c, el);
-      requestAnimationFrame(tick);
-    };
-    tick();
-    return;
-  }
+  if(btn.dataset.act === 'preview'){ openPreview(c); return; }
+  if(btn.dataset.act === 'download'){ downloadClip(c, btn); return; }
   if(btn.dataset.act === 'send'){ sendToEditor([c]); }
 });
 
+async function frameAll(verb){
+  const b=$('#frameAll'); if(b) b.disabled=true;
+  for(let k=0;k<clips.length;k++){
+    if(b) b.textContent = '🎞 '+(verb||'Framing')+' '+(k+1)+'/'+clips.length+'…';
+    say('<span class="spinner"></span>Following the speaker in clip '+(k+1)+' of '+clips.length+'…', 'busy');
+    try{ await frameClip(clips[k]); paintFramedBadge(clips[k]); await paint(clips[k], Math.min(2, clips[k].dur/2)); }
+    catch(err){ console.error('framing failed on clip '+k, err); }
+  }
+  if(b){ b.textContent='🎞 Re-frame every clip'; b.disabled=false; }
+  const sure = clips.filter(c=>c.track && c.trackConf >= 0.3).length;
+  say(clips.length+' moments, framed. The crop follows the speaker in '+sure+' of '+clips.length+
+      ' — the rest hold centre, which is what low confidence should do.', 'ok');
+}
 $('#frameAll').addEventListener('click', async () => {
   if(busy || !clips.length) return;
-  busy = true; const b=$('#frameAll'); b.disabled=true;
-  for(let k=0;k<clips.length;k++){
-    b.textContent = '🎞 Framing '+(k+1)+'/'+clips.length+'…';
-    await frameClip(clips[k]);
-    const f = document.getElementById('fr'+clips[k].i);
-    if(f){ f.textContent='auto-framed · '+Math.round(clips[k].trackConf*100)+'% sure'; f.classList.add('on'); }
-    await paint(clips[k], Math.min(2, clips[k].dur/2));
-  }
-  b.textContent='🎞 Auto-frame every clip'; b.disabled=false; busy=false;
+  busy = true;
+  try{ await frameAll('Re-framing'); } finally { busy = false; }
 });
+
+// ============================================================================================
+// PREVIEW + DOWNLOAD
+//
+// Two things this page could not do: watch a moment end to end, and get a file out of it without
+// a detour through the editor. Both matter more than they sound — you cannot judge a crop from a
+// still frame, and half the time the clip IS the deliverable.
+// ============================================================================================
+
+// ---- WAV, 16-bit stereo. ffmpeg re-encodes it to AAC, so there is no reason for a lossy
+// intermediate or a library. -------------------------------------------------------------------
+function wav16(ab){
+  const ch = Math.min(2, ab.numberOfChannels), len = ab.length, sr = ab.sampleRate;
+  const out = new ArrayBuffer(44 + len*ch*2), v = new DataView(out);
+  const str=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  str(0,'RIFF'); v.setUint32(4,36+len*ch*2,true); str(8,'WAVEfmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,ch,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*ch*2,true); v.setUint16(32,ch*2,true);
+  v.setUint16(34,16,true); str(36,'data'); v.setUint32(40,len*ch*2,true);
+  const chans=[]; for(let c=0;c<ch;c++) chans.push(ab.getChannelData(c));
+  let o=44;
+  for(let i=0;i<len;i++) for(let c=0;c<ch;c++){
+    let s=chans[c][i]; s = s<-1?-1:s>1?1:s;
+    v.setInt16(o, s<0?s*0x8000:s*0x7FFF, true); o+=2;
+  }
+  return out;
+}
+
+// Decode the source audio ONCE and keep it. decodeAudioData on a 200MB file is seconds of work and
+// every clip slices the same buffer.
+let _audioBuf = null, _audioFor = null;
+async function sourceAudio(){
+  if(_audioBuf && _audioFor === file) return _audioBuf;
+  const ac = new (window.AudioContext||window.webkitAudioContext)();
+  try{
+    _audioBuf = await ac.decodeAudioData(await file.arrayBuffer());
+    _audioFor = file;
+  } finally { try{ ac.close(); }catch(e){} }
+  return _audioBuf;
+}
+// One clip's audio, rendered offline — deterministic, and faster than real time.
+async function clipWav(c){
+  const src = await sourceAudio();
+  if(!src) return null;
+  const SR = 48000, dur = Math.max(0.05, c.end - c.start);
+  const oc = new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(2, Math.ceil(dur*SR), SR);
+  const n = oc.createBufferSource(); n.buffer = src; n.connect(oc.destination);
+  n.start(0, Math.max(0, c.start), dur);
+  return wav16(await oc.startRendering());
+}
+
+// ---- Preview -----------------------------------------------------------------------------------
+// PLAY the element and draw on rAF. The old "Scrub" seeked once per frame — tens of milliseconds
+// each, silent, and nothing like what the clip will feel like. This is the clip, with its audio,
+// through the crop that will be exported.
+let pvClip = null, pvRaf = 0, pvPlaying = false;
+
+function openPreview(c){
+  pvClip = c;
+  const m = $('#pv'); m.style.display = 'flex';
+  $('#pvTitle').textContent = c.title || 'Moment';
+  $('#pvMeta').textContent = fmtT(c.start)+'–'+fmtT(c.end)+' · '+Math.round(c.dur)+'s · '+(c.track ? 'auto-framed' : 'centre crop');
+  const cv = $('#pvCanvas'); cv.width = 540; cv.height = 960;
+  vid.muted = false; vid.volume = 1;
+  seek(c.start).then(()=>{ pvDraw(); pvPlay(); });
+}
+function closePreview(){
+  pvPause();
+  vid.muted = true;
+  $('#pv').style.display = 'none';
+  pvClip = null;
+}
+function pvDraw(){
+  const c = pvClip; if(!c) return;
+  const cv = $('#pvCanvas');
+  const off = Math.max(0, Math.min(c.dur, vid.currentTime - c.start));
+  drawCrop(cv, cv.getContext('2d'), vid, vid.videoWidth, vid.videoHeight, c, off);
+  $('#pvBar').firstElementChild.style.width = (off/c.dur*100)+'%';
+  $('#pvTime').textContent = off.toFixed(1)+'s / '+c.dur.toFixed(1)+'s';
+  if(vid.currentTime >= c.end - 0.03){ pvPause(); seek(c.start); return; }   // loop back, do not run on
+  if(pvPlaying) pvRaf = requestAnimationFrame(pvDraw);
+}
+function pvPlay(){
+  if(!pvClip) return;
+  pvPlaying = true; $('#pvPlay').textContent = '⏸ Pause';
+  vid.play().catch(()=>{});
+  pvDraw();                       // paint NOW: rAF can be throttled (backgrounded window), and a
+  pvRaf = requestAnimationFrame(pvDraw);   // preview that opens black reads as broken
+}
+function pvPause(){
+  pvPlaying = false; $('#pvPlay').textContent = '▶ Play';
+  try{ vid.pause(); }catch(e){}
+  cancelAnimationFrame(pvRaf);
+}
+
+// ---- Download ----------------------------------------------------------------------------------
+// Desktop reuses the fast-export pipeline that already ships: ffmpeg decodes the source segment into
+// numbered frames, the page composites each one through the tracked crop, and finished frames
+// stream back as raw RGBA. Web falls back to MediaRecorder, which is real-time and therefore
+// slower, but it is the only option without a native ffmpeg.
+//
+// The download is the CROPPED CLIP, clean — no captions, no branding. Those are the editor's job
+// and they are decisions, not defaults: a clean vertical cut is the thing you can drop into any
+// tool, and burning a caption style into it is the one edit you cannot undo.
+function canFast(){ return !!(window.voltNative && window.voltNative.fx && typeof window.voltNative.fx.begin === 'function'); }
+
+async function downloadClip(c, btn){
+  if(busy) return;
+  busy = true;
+  const setB = t => { if(btn){ btn.disabled = true; btn.textContent = t; } };
+  const OW = 1080, OH = 1920, FPS = 30;
+  let id = null;
+  try{
+    // A centre-cropped download of a two-shot is a plant and two pairs of legs. Frame it first.
+    if(!c.track){ setB('framing…'); await frameClip(c, p => setB('framing '+Math.round(p*100)+'%')); paintFramedBadge(c); await paint(c, Math.min(2,c.dur/2)); }
+
+    setB('audio…');
+    let wav = null;
+    try{ wav = await clipWav(c); }catch(e){ console.warn('no audio for this clip:', e); }
+
+    if(canFast()){
+      setB('decoding…');
+      const bytes = await file.arrayBuffer();
+      const begun = await window.voltNative.fx.begin({ sources:[{ bytes, trimStart:c.start, trimEnd:c.end }], fps:FPS, w:OW, h:OH, wav });
+      if(!begun || !begun.ok) throw new Error((begun && begun.error) || 'Could not start the export.');
+      id = begun.id;
+      const total = Math.max(1, Math.round(c.dur*FPS));
+      const out = document.createElement('canvas'); out.width=OW; out.height=OH;
+      const octx = out.getContext('2d', { willReadFrequently:true });
+      octx.imageSmoothingQuality = 'high';
+      let last = null;
+      for(let i=0;i<total;i++){
+        const buf = await window.voltNative.fx.get(id, 'c0', i);
+        if(buf){
+          const bmp = await createImageBitmap(new Blob([buf], { type:'image/jpeg' }));
+          if(last) try{ last.close(); }catch(e){}
+          last = bmp;
+        }
+        if(last) drawCrop(out, octx, last, last.width, last.height, c, i/FPS);
+        const px = octx.getImageData(0,0,OW,OH);
+        const r = await window.voltNative.fx.push(id, px.data.buffer);
+        if(!r || !r.ok) throw new Error((r && r.error) || 'The encoder stopped accepting frames.');
+        if(i % 10 === 0) setB(Math.round(i/total*100)+'%');
+      }
+      if(last) try{ last.close(); }catch(e){}
+      setB('encoding…');
+      const res = await window.voltNative.fx.end(id, safeName(c)+'.mp4', total);
+      id = null;
+      if(res && res.ok){ status2('✅ Saved — '+res.path, 'ok'); }
+      else if(res && res.canceled){ status2('Download cancelled.'); }
+      else throw new Error((res && res.error) || 'Encoding failed.');
+    } else {
+      // Web path: record the crop in real time. Slower by definition, and it says so.
+      setB('recording…');
+      const blob = await recordClip(c, OW, OH, FPS, p => setB(Math.round(p*100)+'%'));
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = safeName(c)+'.webm'; a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+      status2('✅ Downloaded '+safeName(c)+'.webm — the desktop app exports MP4.', 'ok');
+    }
+  }catch(err){
+    console.error('download failed:', err);
+    if(id){ try{ await window.voltNative.fx.cancel(id); }catch(e){} }
+    status2('Download failed: '+((err&&err.message)||'unknown'), 'err');
+  }finally{
+    busy = false;
+    if(btn){ btn.disabled = false; btn.textContent = '⬇ Download'; }
+  }
+}
+
+function safeName(c){
+  return ('SME_' + (c.title||'clip')).replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-').slice(0,60) || 'SME-clip';
+}
+
+// Real-time capture for the web build. Canvas video + the source's own audio, muxed by the browser.
+// ONE AudioContext and ONE MediaElementSourceNode for the whole session, created lazily.
+//
+// createMediaElementSource() may be called only ONCE per element — the second call throws, which
+// is why a second download in the same session came out silent. Worse, the first version closed
+// the context in its finally: closing the context that owns the source node severs the element's
+// audio permanently AND stalls its playback, which is why a 5-second clip recorded 12.4 seconds
+// (the watchdog stopped it; the end condition never fired because currentTime was not advancing).
+// Both faults, one cause. Create once, reuse, never close.
+let _recAC = null, _recSrc = null;
+function recAudio(){
+  if(_recSrc) return { ctx:_recAC, src:_recSrc };
+  try{
+    _recAC = new (window.AudioContext||window.webkitAudioContext)();
+    _recSrc = _recAC.createMediaElementSource(vid);
+    _recSrc.connect(_recAC.destination);   // so preview is audible; captures tap off the same node
+    return { ctx:_recAC, src:_recSrc };
+  }catch(e){ console.warn('no audio graph:', e); _recAC = null; _recSrc = null; return null; }
+}
+
+async function recordClip(c, OW, OH, FPS, onProg){
+  const out = document.createElement('canvas'); out.width=OW; out.height=OH;
+  const octx = out.getContext('2d');
+  const stream = out.captureStream(FPS);
+  const a = recAudio();
+  if(a){
+    // A FRESH destination each time, from the ONE cached source node — see recAudio().
+    const dest = a.ctx.createMediaStreamDestination();
+    a.src.connect(dest);
+    dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    a.extra = dest;
+  }
+  let mime = 'video/webm;codecs=vp9,opus';
+  if(!(window.MediaRecorder && MediaRecorder.isTypeSupported(mime))) mime = 'video/webm';
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+  const parts = [];
+  rec.ondataavailable = e => { if(e.data && e.data.size) parts.push(e.data); };
+  const done = new Promise(r => { rec.onstop = r; });
+  vid.muted = false;
+  await seek(c.start);
+  rec.start();
+  await vid.play();
+  // The draw loop runs on a TIMER, not requestAnimationFrame.
+  //
+  // rAF is throttled to zero in a backgrounded window, and this is a real-time recording — so an
+  // rAF loop means switching tabs mid-record stalls it forever with the recorder still open and
+  // no way out. A timer keeps firing (throttled, but it fires), captureStream picks up whatever
+  // the canvas has, and the watchdog below guarantees the promise settles either way.
+  let stalled = false;
+  await new Promise(res => {
+    let stopped = false;
+    const finish = () => { if(stopped) return; stopped = true; clearInterval(iv); clearTimeout(wd); res(); };
+    const draw = () => {
+      const off = vid.currentTime - c.start;
+      drawCrop(out, octx, vid, vid.videoWidth, vid.videoHeight, c, Math.max(0,off));
+      if(onProg) onProg(Math.max(0, Math.min(1, off/c.dur)));
+      if(vid.currentTime >= c.end - 0.02 || vid.ended) finish();
+    };
+    const iv = setInterval(draw, Math.round(1000/FPS));
+    // A real-time capture cannot legitimately take longer than the clip plus a margin. Without
+    // this, a stalled element leaves the recorder running and the button spinning forever — and
+    // silently produces a file of the wrong length, which is worse than an error.
+    const wd = setTimeout(()=>{ stalled = true; finish(); }, c.dur*1000 + 6000);
+    draw();
+  });
+  vid.pause(); vid.muted = true;
+  rec.stop(); await done;
+  // Disconnect this run's destination but NEVER close the context — see recAudio().
+  try{ if(a && a.extra) a.src.disconnect(a.extra); }catch(e){}
+  const blob = new Blob(parts, { type:'video/webm' });
+  if(blob.size < 2000) throw new Error('The recording came out empty.');
+  if(stalled) throw new Error('Playback stalled during the recording, so the clip would be the wrong length. Try again.');
+  return blob;
+}
+
+function status2(msg, kind){ const s=$('#bulkStatus'); if(s){ s.innerHTML=msg||''; s.className='status'+(kind?' '+kind:''); } }
+function paintFramedBadge(c){
+  const f = document.getElementById('fr'+c.i);
+  if(f && c.track){
+    const z = c.track.length ? (c.track.reduce((a,p)=>a+(p.zoom||1),0)/c.track.length) : 1;
+    f.textContent = 'auto-framed · '+z.toFixed(1)+'x · '+Math.round(c.trackConf*100)+'% sure';
+    f.classList.add('on');
+  }
+}
+
+
+// ---- modal wiring -----------------------------------------------------------------------------
+$('#pvClose').addEventListener('click', closePreview);
+$('#pv').addEventListener('click', e => { if(e.target.id === 'pv') closePreview(); });
+document.addEventListener('keydown', e => {
+  if($('#pv').style.display !== 'flex') return;
+  if(e.key === 'Escape') closePreview();
+  if(e.key === ' '){ e.preventDefault(); pvPlaying ? pvPause() : pvPlay(); }
+});
+$('#pvPlay').addEventListener('click', () => { pvPlaying ? pvPause() : pvPlay(); });
+$('#pvBar').addEventListener('click', async e => {
+  if(!pvClip) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const f = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  const was = pvPlaying; pvPause();
+  await seek(pvClip.start + f*pvClip.dur);
+  pvDraw();
+  if(was) pvPlay();
+});
+$('#pvFrame').addEventListener('click', async e => {
+  if(!pvClip || busy) return;
+  const b = e.currentTarget; const was = pvPlaying; pvPause();
+  busy = true; b.disabled = true;
+  try{
+    await frameClip(pvClip, p => { b.textContent = Math.round(p*100)+'%'; });
+    paintFramedBadge(pvClip);
+    $('#pvMeta').textContent = fmtT(pvClip.start)+'–'+fmtT(pvClip.end)+' · '+Math.round(pvClip.dur)+'s · auto-framed';
+    await paint(pvClip, Math.min(2, pvClip.dur/2));
+  }catch(err){ console.error(err); }
+  finally{ busy=false; b.disabled=false; b.textContent='🎞 Auto-frame';
+           await seek(pvClip.start); pvDraw(); if(was) pvPlay(); }
+});
+$('#pvDl').addEventListener('click', e => { if(pvClip){ pvPause(); downloadClip(pvClip, e.currentTarget); } });
+$('#pvSend').addEventListener('click', () => { if(pvClip){ const c=pvClip; closePreview(); sendToEditor([c]); } });
 
 // ---------------------------------------------------------------- hand-off
 // The editor needs the actual FILE, which cannot ride in sessionStorage. It goes into IndexedDB
