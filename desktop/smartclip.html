@@ -70,6 +70,20 @@
   .acts .go{background:rgba(182,255,61,.12);border-color:var(--accent);color:var(--accent);}
   .empty{color:var(--faint);font-size:14px;padding:36px 10px;text-align:center;}
   .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+  /* Length handles — the scorer's window is a preference, not a ceiling. */
+  .len{display:flex;align-items:center;gap:4px;font-family:var(--fm);font-size:10px;color:var(--faint);margin-top:2px;}
+  .len button{background:#0D0F15;border:1px solid var(--border-2);color:var(--dim);border-radius:7px;font-family:var(--fm);font-weight:700;font-size:10px;padding:4px 6px;cursor:pointer;}
+  .len button:hover{color:var(--accent);border-color:var(--accent);}
+  .len .sp{flex:1;text-align:center;color:var(--dim);}
+  .edited{color:var(--mid);}
+  /* History */
+  .hrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border);}
+  .hrow:first-child{border-top:0;}
+  .hmain{flex:1;min-width:0;} .hmain b{font-size:13.5px;font-weight:700;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .hmeta{font-family:var(--fm);font-size:10.5px;color:var(--faint);}
+  /* Click-to-focus overlay on the preview */
+  #pvCanvas.aim{cursor:crosshair;}
+  #pvHint{font-size:11.5px;color:var(--faint);margin:8px 0 0;line-height:1.45;}
   /* Preview — you cannot judge a crop from a still frame. */
   #pv{display:none;position:fixed;inset:0;z-index:9998;background:rgba(6,7,10,.9);backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:24px;}
   #pvBox{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:16px;max-width:min(94vw,460px);width:100%;}
@@ -142,6 +156,15 @@
     <div class="status" id="status"></div>
   </div>
 
+  <div id="hist" class="card" style="display:none;margin-top:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <span class="lbl" style="margin:0;">🕘 Previous scans</span>
+      <button class="mini" id="histClear">Clear all</button>
+    </div>
+    <p class="note" style="margin:4px 0 8px;">A scan costs a transcription and a minute of waiting. The transcript, the moments and your edits are kept per file — load the same recording above and restore it instead of scanning again. The video itself is not stored.</p>
+    <div id="histList"></div>
+  </div>
+
   <div id="results" class="grid"></div>
   <div id="none" class="empty" style="display:none;"></div>
 
@@ -171,10 +194,14 @@
     <div id="pvCtl">
       <button class="mini" id="pvPlay">▶ Play</button>
       <button class="mini" id="pvFrame">🎞 Auto-frame</button>
+      <button class="mini" id="pvAim">🎯 Set focus</button>
+      <button class="mini" id="pvZoomOut" title="Wider">－</button>
+      <button class="mini" id="pvZoomIn" title="Tighter">＋</button>
       <button class="mini" id="pvDl">⬇ Download</button>
       <button class="btn" id="pvSend" style="padding:8px 14px;font-size:12px;">→ Editor</button>
       <span id="pvTime"></span>
     </div>
+    <p id="pvHint"></p>
   </div>
 </div>
 
@@ -189,6 +216,10 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const fmtT = s => { s=Math.max(0,s||0); const m=Math.floor(s/60); return m+':'+String(Math.floor(s%60)).padStart(2,'0'); };
 
 let file = null, words = [], clips = [], selected = new Set(), busy = false;
+// Below ~6s there is no clip, only a reaction shot, and the nudge buttons must not be able to
+// collapse a moment to nothing.
+const MIN_CLIP = 6;
+let aiming = false;
 const vid = $('#v');
 
 function say(msg, kind){ const s=$('#status'); s.innerHTML=msg||''; s.className='status'+(kind?' '+kind:''); }
@@ -201,7 +232,11 @@ $('#file').addEventListener('change', e => {
   vid.addEventListener('loadedmetadata', () => {
     $('#fileInfo').textContent = file.name + ' — ' + fmtT(vid.duration) + ', ' + vid.videoWidth + '×' + vid.videoHeight;
     $('#scan').disabled = false;
-    say('Ready. Hit “Find the moments”.');
+    renderHistory();
+    const prev = loadHistory().find(x => x.key === fileKey(file));
+    if(prev && (prev.clips||[]).length){
+      say('You scanned this recording before. ' + prev.clips.length + ' moments are saved. Restore them from Previous scans below, or scan again.', 'ok');
+    } else say('Ready. Hit Find the moments.');
   }, { once:true });
 });
 
@@ -249,6 +284,7 @@ $('#scan').addEventListener('click', async () => {
     // Frame them straight away. Unframed, every card is the same centre crop of the same room, and
     // a grid you cannot tell apart is not a result.
     await frameAll('Framing');
+    saveSession();
   }catch(err){
     console.error(err); prog(null);
     say((err && err.message) || 'Scan failed.', 'err');
@@ -342,7 +378,10 @@ async function frameClip(c, onStep){
 // ONE place computes the crop. The thumbnail, the preview player and both download paths all go
 // through this, so what you review is exactly what gets encoded.
 function cropFor(c, offset, srcW, srcH, outW, outH){
-  const box = c && c.track ? window.AutoFrame.boxAt(c.track, offset||0) : { x:0.5, y:0.5, zoom:1 };
+  // A MANUAL focus wins over the tracker, everywhere and for the whole clip. If you are correcting
+  // the tracker you do not want it drifting off your correction two seconds later.
+  const box = (c && c.manual) ? c.manual
+            : (c && c.track ? window.AutoFrame.boxAt(c.track, offset||0) : { x:0.5, y:0.5, zoom:1 });
   return window.AutoFrame.cropRect(box, srcW, srcH, outW, outH);
 }
 function drawCrop(dst, dctx, src, srcW, srcH, c, offset){
@@ -377,6 +416,13 @@ function render(){
         + '<p class="ct">'+esc(c.title)+'</p>'
         + (c.hook?'<p class="ch">“'+esc(c.hook)+'”</p>':'')
         + '<p class="cw">'+esc(c.reason)+'</p>'
+        + '<div class="len">'
+          + '<button data-act="s-" data-i="'+c.i+'" title="Start 5s earlier">◀ 5s</button>'
+          + '<button data-act="s+" data-i="'+c.i+'" title="Start 5s later">5s ▶</button>'
+          + '<span class="sp'+(c.edited?' edited':'')+'">'+Math.round(c.dur)+'s'+(c.edited?' · edited':'')+'</span>'
+          + '<button data-act="e-" data-i="'+c.i+'" title="End 5s earlier">◀ 5s</button>'
+          + '<button data-act="e+" data-i="'+c.i+'" title="End 5s later">5s ▶</button>'
+        + '</div>'
         + '<div class="acts">'
           + '<button class="mini" data-act="preview" data-i="'+c.i+'">▶ Preview</button>'
           + '<button class="mini" data-act="download" data-i="'+c.i+'">⬇ Download</button>'
@@ -401,6 +447,11 @@ $('#results').addEventListener('click', async e => {
     return;
   }
   const c = clips.find(x=>x.i === +btn.dataset.i); if(!c || busy) return;
+  const act = btn.dataset.act;
+  if(act === 's-'){ nudge(c,'start',-5); return; }
+  if(act === 's+'){ nudge(c,'start', 5); return; }
+  if(act === 'e-'){ nudge(c,'end',  -5); return; }
+  if(act === 'e+'){ nudge(c,'end',   5); return; }
   if(btn.dataset.act === 'preview'){ openPreview(c); return; }
   if(btn.dataset.act === 'download'){ downloadClip(c, btn); return; }
   if(btn.dataset.act === 'send'){ sendToEditor([c]); }
@@ -485,12 +536,15 @@ function openPreview(c){
   pvClip = c;
   const m = $('#pv'); m.style.display = 'flex';
   $('#pvTitle').textContent = c.title || 'Moment';
-  $('#pvMeta').textContent = fmtT(c.start)+'–'+fmtT(c.end)+' · '+Math.round(c.dur)+'s · '+(c.track ? 'auto-framed' : 'centre crop');
+  pvMeta(); pvHint();
   const cv = $('#pvCanvas'); cv.width = 540; cv.height = 960;
   vid.muted = false; vid.volume = 1;
   seek(c.start).then(()=>{ pvDraw(); pvPlay(); });
 }
 function closePreview(){
+  aiming = false;
+  const ac=$('#pvCanvas'); if(ac) ac.classList.remove('aim');
+  const ab=$('#pvAim'); if(ab) ab.textContent='🎯 Set focus';
   pvPause();
   vid.muted = true;
   $('#pv').style.display = 'none';
@@ -684,6 +738,145 @@ function paintFramedBadge(c){
 }
 
 
+// ============================================================================================
+// MANUAL CONTROL — the tracker is a starting point, not a verdict
+//
+// Two things no automatic system gets right often enough to be left alone:
+//
+// LENGTH. The scorer optimises for a self-contained moment, which lands around 20–30 seconds.
+// That is right for a hook and wrong for a teaching clip: a point that needs a minute to make is
+// not improved by cutting it at 28 seconds. So every clip can be pushed out at either end, from
+// its own card, and the length window that generated it is a preference rather than a ceiling.
+//
+// FOCUS. On a wide two-shot the tracker holds a safe centred crop rather than guessing — which is
+// correct behaviour and still not the frame you wanted. Rather than pretend the heuristic will
+// improve, click where the face is. One click beats an afternoon of tuning weights, and a manual
+// focus is remembered for the whole clip.
+// ============================================================================================
+
+// ---- length ------------------------------------------------------------------------------------
+// Nudging an edge invalidates the auto-frame path (it was measured over the OLD span) and the
+// captions that came with it. Both are recomputed lazily rather than eagerly: you usually nudge
+// several times in a row, and re-tracking on every click would make it unusable.
+function nudge(c, edge, delta){
+  const src = vid.duration || 1e9;
+  if(edge === 'start') c.start = Math.max(0, Math.min(c.end - MIN_CLIP, c.start + delta));
+  else                 c.end   = Math.min(src, Math.max(c.start + MIN_CLIP, c.end + delta));
+  c.dur = c.end - c.start;
+  c.track = null; c.trackConf = 0; c.edited = true;   // the path no longer describes this span
+  renderOne(c);
+  scheduleSave();
+}
+
+// ---- manual focus --------------------------------------------------------------------------------
+// A manual focus is a FIXED box for the whole clip: position from the click, zoom from whatever
+// the tracker last thought (or a sensible default). Fixed beats tracked here — if you are
+// correcting the tracker, you do not want it drifting away from your correction two seconds later.
+function setManualFocus(c, nx, ny){
+  const z = c.manual ? c.manual.zoom : (c.track && c.track.length ? c.track[Math.floor(c.track.length/2)].zoom : 1.6);
+  c.manual = { x: Math.max(0, Math.min(1, nx)), y: Math.max(0, Math.min(1, ny)), zoom: z };
+  scheduleSave();
+}
+function setManualZoom(c, z){
+  if(!c.manual) c.manual = { x:0.5, y:0.5, zoom:1 };
+  c.manual.zoom = Math.max(1, Math.min(window.AutoFrame.DEFAULTS.maxZoom, z));
+  scheduleSave();
+}
+function clearManual(c){ c.manual = null; scheduleSave(); }
+
+// ---- history -------------------------------------------------------------------------------------
+// Scanning a 25-minute episode costs a Whisper bill and a minute of waiting, and until now closing
+// the tab threw all of it away. The transcript, the moments and every manual correction are saved
+// per source file; reopening the same recording restores the lot without a second scan.
+//
+// The VIDEO is not saved — it can be hundreds of megabytes and it is already on your disk. Reload
+// the same file and the work reattaches.
+const HIST_KEY = 'volt_smartclip_history_v1';
+const HIST_MAX = 12;
+let saveTimer = null;
+function fileKey(f){ return f ? (f.name + '|' + f.size) : null; }
+function loadHistory(){
+  try{ const a = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch(e){ return []; }
+}
+function saveHistory(a){
+  try{ localStorage.setItem(HIST_KEY, JSON.stringify(a.slice(0, HIST_MAX))); }
+  catch(e){ /* quota: an unsaveable history must never break the page */ }
+}
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveSession, 800);
+}
+function saveSession(){
+  if(!file || !clips.length) return;
+  const key = fileKey(file);
+  const entry = {
+    key, name: file.name, at: Date.now(),
+    dur: vid.duration || 0,
+    words: words.length,
+    // The transcript is the expensive part — that is the thing worth keeping.
+    w: words,
+    clips: clips.map(c => ({ start:c.start, end:c.end, title:c.title, hook:c.hook, reason:c.reason,
+                             score:c.score, track:c.track, trackConf:c.trackConf, manual:c.manual,
+                             edited:!!c.edited, text:(c.text||'').slice(0,600), why:c.why }))
+  };
+  const a = loadHistory().filter(e => e.key !== key);
+  a.unshift(entry);
+  saveHistory(a);
+  renderHistory();
+}
+function restoreSession(key){
+  const e = loadHistory().find(x => x.key === key);
+  if(!e) return false;
+  words = e.w || [];
+  clips = (e.clips || []).map((c, i) => Object.assign({ i, dur: c.end - c.start, why: c.why || [] }, c));
+  selected.clear();
+  render();
+  say('Restored ' + clips.length + ' moments from your last scan of this file — no second transcription.', 'ok');
+  clips.forEach(c => paint(c, Math.min(2, c.dur/2)));
+  return true;
+}
+function forgetSession(key){
+  saveHistory(loadHistory().filter(e => e.key !== key));
+  renderHistory();
+}
+function clearHistoryAll(){
+  try{ localStorage.removeItem(HIST_KEY); }catch(e){}
+  renderHistory();
+}
+function renderHistory(){
+  const box = $('#histList'), wrap = $('#hist');
+  if(!box || !wrap) return;
+  const a = loadHistory();
+  wrap.style.display = a.length ? 'block' : 'none';
+  if(!a.length){ box.innerHTML = ''; return; }
+  box.innerHTML = a.map(e => {
+    const when = new Date(e.at);
+    const same = file && fileKey(file) === e.key;
+    return '<div class="hrow">'
+      + '<div class="hmain"><b>' + esc(e.name) + '</b>'
+      + '<span class="hmeta">' + (e.clips||[]).length + ' moments · ' + fmtT(e.dur||0) + ' · '
+      + when.toLocaleDateString(undefined,{day:'numeric',month:'short'}) + ' ' + when.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})
+      + (same ? ' · <span style="color:var(--accent)">this file</span>' : '') + '</span></div>'
+      + '<button class="mini" data-hload="' + esc(e.key) + '"' + (same ? '' : ' title="Load the same file above first, then restore"') + '>↻ Restore</button>'
+      + '<button class="mini" data-hdel="' + esc(e.key) + '" title="Forget this scan">✕</button>'
+      + '</div>';
+  }).join('');
+}
+
+// One card, redrawn in place — nudging a length must not rebuild (and scroll) the whole grid.
+function renderOne(c){
+  const el = document.querySelector('.clip[data-i="'+c.i+'"]');
+  if(!el){ render(); return; }
+  const ts = el.querySelector('.tstamp');
+  if(ts) ts.textContent = fmtT(c.start)+'–'+fmtT(c.end)+' · '+Math.round(c.dur)+'s';
+  const sp = el.querySelector('.len .sp');
+  if(sp){ sp.textContent = Math.round(c.dur)+'s'+(c.edited?' · edited':''); sp.classList.toggle('edited', !!c.edited); }
+  const f = document.getElementById('fr'+c.i);
+  if(f && !c.track && !c.manual){ f.textContent = 'needs re-framing'; f.classList.remove('on'); }
+  paint(c, Math.min(2, c.dur/2));
+}
+
 // ---- modal wiring -----------------------------------------------------------------------------
 $('#pvClose').addEventListener('click', closePreview);
 $('#pv').addEventListener('click', e => { if(e.target.id === 'pv') closePreview(); });
@@ -715,6 +908,51 @@ $('#pvFrame').addEventListener('click', async e => {
   finally{ busy=false; b.disabled=false; b.textContent='🎞 Auto-frame';
            await seek(pvClip.start); pvDraw(); if(was) pvPlay(); }
 });
+// ---- manual focus ------------------------------------------------------------------------------
+// Click the frame where the face is. The tracker is a starting point; on a wide two-shot it holds
+// a safe centred crop by design, and no amount of weight-tuning turns that into the frame you
+// wanted. One click is faster, and it is remembered for the whole clip.
+function pvHint(){
+  const h=$('#pvHint'); if(!h||!pvClip) return;
+  h.innerHTML = aiming
+    ? '<b style="color:var(--accent)">Click the frame where the speaker is.</b> Drag to fine-tune. Press Set focus again to stop.'
+    : (pvClip.manual
+        ? 'Manual focus at ' + Math.round(pvClip.manual.x*100) + '% / ' + Math.round(pvClip.manual.y*100) + '%, ' + pvClip.manual.zoom.toFixed(1) + 'x, fixed for the whole clip. <button class="mini" id="pvClearAim" style="padding:3px 7px;font-size:10px;">Back to auto</button>'
+        : 'Tracking automatically. If it picks the wrong thing, hit <b>Set focus</b> and click the face.');
+  const cb=$('#pvClearAim');
+  if(cb) cb.onclick = ()=>{ clearManual(pvClip); pvMeta(); pvHint(); pvDraw(); paint(pvClip, Math.min(2,pvClip.dur/2)); };
+}
+function pvMeta(){
+  if(!pvClip) return;
+  $('#pvMeta').textContent = fmtT(pvClip.start)+'-'+fmtT(pvClip.end)+' · '+Math.round(pvClip.dur)+'s · '
+    + (pvClip.manual ? 'manual focus '+pvClip.manual.zoom.toFixed(1)+'x'
+                     : (pvClip.track ? 'auto-framed' : 'centre crop'));
+}
+function aimFrom(e){
+  if(!pvClip) return;
+  const cv=$('#pvCanvas'), r=cv.getBoundingClientRect();
+  // The click is in OUTPUT space; the focus lives in SOURCE space, so it is mapped back through
+  // the crop that produced what is on screen. Clicking a face has to move the crop TO that face,
+  // not to the same fraction of the whole source frame.
+  const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+  const off=Math.max(0, Math.min(pvClip.dur, vid.currentTime - pvClip.start));
+  const rect=cropFor(pvClip, off, vid.videoWidth, vid.videoHeight, cv.width, cv.height);
+  setManualFocus(pvClip, (rect.sx + fx*rect.sw)/vid.videoWidth, (rect.sy + fy*rect.sh)/vid.videoHeight);
+  pvDraw(); pvHint(); pvMeta();
+}
+$('#pvAim').addEventListener('click', ()=>{
+  aiming = !aiming;
+  $('#pvCanvas').classList.toggle('aim', aiming);
+  $('#pvAim').textContent = aiming ? 'Click the face' : '🎯 Set focus';
+  pvHint();
+});
+{ const cv=$('#pvCanvas'); let down=false;
+  cv.addEventListener('pointerdown', e=>{ if(!aiming) return; down=true; try{cv.setPointerCapture(e.pointerId);}catch(_){ } aimFrom(e); });
+  cv.addEventListener('pointermove', e=>{ if(aiming && down) aimFrom(e); });
+  cv.addEventListener('pointerup',   e=>{ if(!down) return; down=false; try{cv.releasePointerCapture(e.pointerId);}catch(_){ } if(pvClip) paint(pvClip, Math.min(2,pvClip.dur/2)); }); }
+$('#pvZoomIn').addEventListener('click', ()=>{ if(!pvClip) return; setManualZoom(pvClip, (pvClip.manual?pvClip.manual.zoom:1.4)+0.15); pvDraw(); pvHint(); pvMeta(); paint(pvClip, Math.min(2,pvClip.dur/2)); });
+$('#pvZoomOut').addEventListener('click', ()=>{ if(!pvClip) return; setManualZoom(pvClip, (pvClip.manual?pvClip.manual.zoom:1.4)-0.15); pvDraw(); pvHint(); pvMeta(); paint(pvClip, Math.min(2,pvClip.dur/2)); });
+
 $('#pvDl').addEventListener('click', e => { if(pvClip){ pvPause(); downloadClip(pvClip, e.currentTarget); } });
 $('#pvSend').addEventListener('click', () => { if(pvClip){ const c=pvClip; closePreview(); sendToEditor([c]); } });
 
@@ -762,6 +1000,25 @@ async function sendToEditor(list){
   }
 }
 $('#sendSel').addEventListener('click', () => sendToEditor(clips.filter(c=>selected.has(c.i))));
+// ---- history wiring ------------------------------------------------------------------------------
+$('#histClear').addEventListener('click', () => {
+  if(!confirm('Clear every saved scan? The transcripts and moments go with them.')) return;
+  clearHistoryAll();
+  say('History cleared.', 'ok');
+});
+$('#histList').addEventListener('click', e => {
+  const L = e.target.closest('[data-hload]');
+  if(L){
+    if(!file || fileKey(file) !== L.dataset.hload){ say('Load that recording above first, then restore. The video itself is not stored.', 'err'); return; }
+    restoreSession(L.dataset.hload); return;
+  }
+  const D = e.target.closest('[data-hdel]');
+  if(D){ forgetSession(D.dataset.hdel); }
+});
+renderHistory();
+
+// A scan that survives a closed tab is the difference between a tool and a demo.
+window.addEventListener('beforeunload', saveSession);
 </script>
 </body>
 </html>
