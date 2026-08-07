@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<!-- Volt — SmartClip (find the moments in a long recording, frame them, send them to the editor).
+     © 2026 Tshepho Joel.
+
+     ITS OWN MODULE ON PURPOSE. This started life as a panel inside the Video editor and that was
+     wrong twice over: the editor is already the densest page in Volt, and a feature buried in
+     someone else's layout cannot be tested, tuned or grown. Reviewing six candidate clips is a
+     job with its own shape — a grid, a preview per clip, a decision per clip — and it deserves
+     the screen. The editor's job starts AFTER you have chosen. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Volt — SmartClip</title>
+<script src="volt-auth.js"></script>
+<script src="volt-stt.js"></script>
+<script src="smartclip.js"></script>
+<script src="autoframe.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0B0F;--surface:#14171F;--surface-2:#1A1E28;--border:rgba(255,255,255,.09);--border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3;--dim:#888F9D;--faint:#5B616D;--accent:#B6FF3D;--accent-press:#a3ec2b;--good:#57E39A;--mid:#FFC857;--low:#FF7C7C;--info:#7FC8FF;
+    --fd:'Unbounded',system-ui;--fb:'Plus Jakarta Sans',system-ui;--fm:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;} html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fb);}
+  .wrap{max-width:1280px;margin:0 auto;padding:26px 22px 90px;}
+  h1{font-family:var(--fd);font-weight:800;font-size:30px;margin:0 0 6px;}
+  .sub{color:var(--dim);font-size:15px;line-height:1.55;margin:0 0 22px;max-width:760px;}
+  .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
+  .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
+  .tab:hover{color:var(--text); border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px 22px;}
+  .lbl{font-family:var(--fm);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:9px;font-weight:700;}
+  input[type=file]{width:100%; font-size:13px; color:var(--dim); font-family:var(--fb);}
+  input[type=file]::file-selector-button{margin-right:12px; padding:9px 14px; border-radius:9px; border:1px solid var(--border-2); background:#0D0F15; color:var(--text); font-family:var(--fm); font-weight:700; font-size:11.5px; cursor:pointer;}
+  select,input[type=text]{background:#0D0F15;border:1px solid var(--border-2);border-radius:11px;color:var(--text);font-family:var(--fb);font-size:14px;padding:10px 12px;outline:none;}
+  select:focus{border-color:var(--accent);}
+  .btn{background:var(--accent);color:#0A0B0F;border:none;border-radius:12px;font-family:var(--fm);font-weight:700;font-size:13.5px;padding:13px 22px;cursor:pointer;transition:background .15s;}
+  .btn:hover{background:var(--accent-press);} .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .mini{background:#0D0F15;border:1px solid var(--border-2);color:var(--dim);border-radius:10px;font-family:var(--fm);font-weight:700;font-size:11.5px;padding:8px 12px;cursor:pointer;transition:all .14s;}
+  .mini:hover{color:var(--text);border-color:var(--accent);} .mini:disabled{opacity:.45;cursor:not-allowed;}
+  .status{font-family:var(--fm);font-size:12.5px;margin-top:12px;min-height:16px;color:var(--dim);}
+  .status.err{color:var(--low);} .status.ok{color:var(--good);} .status.busy{color:var(--mid);}
+  .note{font-size:12.5px;color:var(--faint);line-height:1.5;margin:8px 0 0;}
+  .bar{height:5px;border-radius:3px;background:rgba(255,255,255,.08);margin-top:10px;overflow:hidden;display:none;}
+  .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s;}
+  .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(182,255,61,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* Results grid — the whole reason this is its own page. */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:16px;margin-top:20px;}
+  .clip{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .14s;}
+  .clip:hover{border-color:var(--border-2);}
+  .clip.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
+  .prevwrap{position:relative;background:#07080b;aspect-ratio:9/16;display:flex;align-items:center;justify-content:center;}
+  .prevwrap canvas{width:100%;height:100%;object-fit:contain;display:block;}
+  .badge{position:absolute;top:9px;left:9px;font-family:var(--fd);font-weight:800;font-size:13px;color:#0A0B0F;border-radius:9px;padding:5px 9px;}
+  .tstamp{position:absolute;top:9px;right:9px;font-family:var(--fm);font-size:10.5px;color:var(--text);background:rgba(6,7,10,.72);border-radius:7px;padding:5px 8px;}
+  .framed{position:absolute;bottom:9px;left:9px;font-family:var(--fm);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;border-radius:6px;padding:4px 7px;background:rgba(6,7,10,.72);color:var(--dim);}
+  .framed.on{color:var(--accent);}
+  .body{padding:13px 14px;display:flex;flex-direction:column;gap:7px;flex:1;}
+  .ct{font-weight:800;font-size:14.5px;line-height:1.3;margin:0;}
+  .cw{font-size:12px;color:var(--dim);line-height:1.45;margin:0;}
+  .ch{font-size:12px;color:var(--info);margin:0;}
+  .acts{display:flex;gap:7px;margin-top:auto;padding-top:4px;}
+  .acts .mini{flex:1;text-align:center;}
+  .acts .go{background:rgba(182,255,61,.12);border-color:var(--accent);color:var(--accent);}
+  .empty{color:var(--faint);font-size:14px;padding:36px 10px;text-align:center;}
+  .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+  .row>div{flex:1 1 170px;}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <nav class="topbar">
+    <a class="tab" href="index.html">✍️ Copy</a>
+    <a class="tab" href="campaign.html">⚡ Campaign</a>
+    <a class="tab" href="studio.html">🎨 Studio</a>
+    <a class="tab" href="analytics.html">📊 Stats</a>
+    <a class="tab" href="email.html">✉️ Email</a>
+    <a class="tab" href="schedule.html">📅 Schedule</a>
+    <a class="tab" href="video.html">🎬 Video</a>
+    <span class="tab active">🎯 SmartClip</span>
+    <a class="tab" href="videotok.html">📝 Transcribe</a>
+    <a class="tab" href="guide.html">📖 Guide</a>
+  </nav>
+
+  <h1>🎯 SmartClip</h1>
+  <p class="sub">Drop in a full podcast, webinar or Q&amp;A. SmartClip reads the whole recording, scores every possible cut, and returns only the moments that stand on their own — then follows the speaker so the portrait crop keeps them in shot. Pick the ones you want and send them straight to the editor.</p>
+
+  <div class="card">
+    <div class="row">
+      <div style="flex:2 1 320px;">
+        <label class="lbl">1 · The recording</label>
+        <input type="file" id="file" accept="video/*,audio/*" />
+        <p class="note" id="fileInfo">Nothing loaded yet. A 25-minute episode transcribes in about a minute.</p>
+      </div>
+      <div>
+        <label class="lbl">Spoken language</label>
+        <select id="lang" style="width:100%;" title="Whisper can only pin Afrikaans and English; everything else auto-detects, which is also the better path for code-switching">
+          <option value="">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="af">Afrikaans</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">How many</label>
+        <select id="count" style="width:100%;" title="It may return fewer. A moment that clears the bar is worth more than a full list.">
+          <option value="4">4 moments</option>
+          <option value="6" selected>6 moments</option>
+          <option value="8">8 moments</option>
+          <option value="10">10 moments</option>
+        </select>
+      </div>
+      <div>
+        <label class="lbl">Clip length</label>
+        <select id="len" style="width:100%;">
+          <option value="15,40">15–40s · tight</option>
+          <option value="18,60" selected>18–60s · standard</option>
+          <option value="25,90">25–90s · long-form</option>
+        </select>
+      </div>
+      <div style="flex:0 0 auto;">
+        <button class="btn" id="scan" disabled>🎯 Find the moments</button>
+      </div>
+    </div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div id="results" class="grid"></div>
+  <div id="none" class="empty" style="display:none;"></div>
+
+  <div class="card" id="bulk" style="display:none;margin-top:18px;">
+    <div class="row" style="align-items:center;">
+      <div style="flex:1 1 300px;">
+        <span class="lbl" style="margin:0;">Selected: <span id="selCount">0</span></span>
+        <p class="note" style="margin-top:4px;">“Send to editor” hands the clip over with its trim, its captions and its auto-frame path already set — the editor opens on it, ready to style and export.</p>
+      </div>
+      <div style="flex:0 0 auto;display:flex;gap:9px;">
+        <button class="mini" id="frameAll">🎞 Auto-frame every clip</button>
+        <button class="btn" id="sendSel" disabled>→ Send selected to editor</button>
+      </div>
+    </div>
+    <div class="status" id="bulkStatus"></div>
+  </div>
+
+  <video id="v" playsinline muted style="display:none;"></video>
+</main>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const API = 'https://tshephos-lab.vercel.app/api';
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtT = s => { s=Math.max(0,s||0); const m=Math.floor(s/60); return m+':'+String(Math.floor(s%60)).padStart(2,'0'); };
+
+let file = null, words = [], clips = [], selected = new Set(), busy = false;
+const vid = $('#v');
+
+function say(msg, kind){ const s=$('#status'); s.innerHTML=msg||''; s.className='status'+(kind?' '+kind:''); }
+function prog(pct){ const b=$('#bar'); if(pct==null){ b.style.display='none'; return; } b.style.display='block'; b.firstElementChild.style.width=Math.max(0,Math.min(100,pct))+'%'; }
+
+$('#file').addEventListener('change', e => {
+  file = e.target.files && e.target.files[0]; if(!file) return;
+  clips = []; words = []; selected.clear(); render();
+  vid.src = URL.createObjectURL(file);
+  vid.addEventListener('loadedmetadata', () => {
+    $('#fileInfo').textContent = file.name + ' — ' + fmtT(vid.duration) + ', ' + vid.videoWidth + '×' + vid.videoHeight;
+    $('#scan').disabled = false;
+    say('Ready. Hit “Find the moments”.');
+  }, { once:true });
+});
+
+// ---------------------------------------------------------------- scan
+$('#scan').addEventListener('click', async () => {
+  if(busy || !file) return;
+  busy = true; $('#scan').disabled = true; selected.clear();
+  try{
+    if(!words.length){
+      const res = await window.VoltSTT.transcribe(file, {
+        api: API, lang: $('#lang').value,
+        onProgress: (m, pct) => { say('<span class="spinner"></span>'+m, 'busy'); prog(pct); }
+      });
+      words = res.words;
+    }
+    say('<span class="spinner"></span>Scoring every possible cut…', 'busy'); prog(96);
+    const [lo, hi] = $('#len').value.split(',').map(Number);
+    const found = window.SmartClip.find(words, { count:+$('#count').value, minLen:lo, maxLen:hi });
+    prog(null);
+    if(!found.length){
+      clips = []; render();
+      say('Nothing in this recording clears the bar — every candidate either opens on a reference the viewer missed, ends mid-sentence, or has no specific in it. That is a verdict, not a failure.', 'err');
+      return;
+    }
+    // Name them. Optional: the timings are the product, the titles are a convenience.
+    say('<span class="spinner"></span>Found '+found.length+' moments — naming them…', 'busy');
+    let named = [];
+    try{
+      const r = await fetch(API+'/generate', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ task:'cliptitles', clips: found.map((c,i)=>({ i, text:c.text.slice(0,1200) })) }) });
+      const d = await r.json().catch(()=>({}));
+      if(r.ok && Array.isArray(d.titles)) named = d.titles;
+    }catch(_){ }
+    clips = found.map((c,i) => {
+      const n = named.find(x=>x && x.i===i) || {};
+      const top = c.why.filter(w=>w.points>0).sort((a,b)=>b.points-a.points);
+      return { ...c, i,
+        title: n.title || (top[0] ? top[0].label.replace(/^./,s=>s.toUpperCase()) : 'Moment '+(i+1)),
+        hook: n.hook || '',
+        reason: n.reason || top.slice(0,3).map(w=>w.label).join(' · '),
+        track: null };
+    });
+    render();
+    say(clips.length+' moments, '+fmtT(clips[0].start)+' to '+fmtT(clips[clips.length-1].end)+'. Boundaries come from the transcript, so none of them cut mid-sentence.', 'ok');
+  }catch(err){
+    console.error(err); prog(null);
+    say((err && err.message) || 'Scan failed.', 'err');
+  }finally{ busy=false; $('#scan').disabled=false; }
+});
+
+// ---------------------------------------------------------------- auto-frame
+// Sample the clip, track the speaker, and store a smoothed path. This is the part that makes a
+// portrait crop watchable: a fixed centre crop on a 16:9 podcast keeps ~32% of the width, so a
+// host sitting off-centre spends the whole clip half out of shot.
+const SAMPLE_W = 96, SAMPLE_H = 54, SAMPLE_HZ = 2;
+const sc = document.createElement('canvas'); sc.width=SAMPLE_W; sc.height=SAMPLE_H;
+const sctx = sc.getContext('2d', { willReadFrequently:true });
+
+function seek(t){
+  return new Promise(res => {
+    let done=false;
+    const on=()=>{ if(done) return; done=true; vid.removeEventListener('seeked',on); res(); };
+    vid.addEventListener('seeked', on);
+    try{ vid.currentTime = t; }catch(e){ on(); }
+    setTimeout(on, 900);   // a seek that never fires must not hang the whole run
+  });
+}
+
+async function frameClip(c, onStep){
+  const step = 1/SAMPLE_HZ, n = Math.max(2, Math.ceil((c.end-c.start)/step));
+  const cropFrac = window.AutoFrame.cropFraction(vid.videoWidth, vid.videoHeight, 1080, 1920);
+  let prev = null; const samples = [];
+  for(let k=0;k<=n;k++){
+    const t = Math.min(c.end, c.start + k*step);
+    await seek(t);
+    sctx.drawImage(vid, 0, 0, SAMPLE_W, SAMPLE_H);
+    const px = sctx.getImageData(0,0,SAMPLE_W,SAMPLE_H).data;
+    const r = window.AutoFrame.frameColumns(px, SAMPLE_W, SAMPLE_H, prev);
+    prev = r.luma;
+    const s = window.AutoFrame.subjectX(r.cols, cropFrac);
+    samples.push({ t: t - c.start, x: s.x, confidence: s.confidence });
+    if(onStep) onStep(k/n);
+  }
+  c.track = window.AutoFrame.smoothPath(samples);
+  c.trackConf = samples.reduce((a,s)=>a+s.confidence,0) / samples.length;
+  return c.track;
+}
+
+// Draw the portrait crop of one moment at a given offset, using the track if it has one.
+async function paint(c, offset){
+  const cv = document.getElementById('cv'+c.i); if(!cv) return;
+  const ctx2 = cv.getContext('2d');
+  const t = c.start + (offset||0);
+  await seek(t);
+  const sw = vid.videoWidth, sh = vid.videoHeight; if(!sw) return;
+  const frac = window.AutoFrame.cropFraction(sw, sh, cv.width, cv.height);
+  const cw = sw * frac;
+  const fx = c.track ? window.AutoFrame.xAt(c.track, offset||0) : 0.5;
+  let sx = fx * sw - cw/2;
+  sx = Math.max(0, Math.min(sw - cw, sx));
+  ctx2.fillStyle = '#07080b'; ctx2.fillRect(0,0,cv.width,cv.height);
+  ctx2.drawImage(vid, sx, 0, cw, sh, 0, 0, cv.width, cv.height);
+}
+
+// ---------------------------------------------------------------- render
+function render(){
+  const box = $('#results');
+  $('#bulk').style.display = clips.length ? 'block' : 'none';
+  $('#none').style.display = 'none';
+  if(!clips.length){ box.innerHTML=''; return; }
+  box.innerHTML = clips.map(c => {
+    const col = c.score>=45?'var(--good)':c.score>=32?'var(--mid)':'var(--low)';
+    return '<div class="clip'+(selected.has(c.i)?' sel':'')+'" data-i="'+c.i+'">'
+      + '<div class="prevwrap">'
+        + '<canvas id="cv'+c.i+'" width="270" height="480"></canvas>'
+        + '<span class="badge" style="background:'+col+'">'+c.score+'</span>'
+        + '<span class="tstamp">'+fmtT(c.start)+'–'+fmtT(c.end)+' · '+Math.round(c.dur)+'s</span>'
+        + '<span class="framed'+(c.track?' on':'')+'" id="fr'+c.i+'">'+(c.track?'auto-framed':'centre crop')+'</span>'
+      + '</div>'
+      + '<div class="body">'
+        + '<p class="ct">'+esc(c.title)+'</p>'
+        + (c.hook?'<p class="ch">“'+esc(c.hook)+'”</p>':'')
+        + '<p class="cw">'+esc(c.reason)+'</p>'
+        + '<div class="acts">'
+          + '<button class="mini" data-act="frame" data-i="'+c.i+'">🎞 Frame</button>'
+          + '<button class="mini" data-act="play" data-i="'+c.i+'">▶ Scrub</button>'
+          + '<button class="mini go" data-act="send" data-i="'+c.i+'">→ Editor</button>'
+        + '</div>'
+      + '</div></div>';
+  }).join('');
+  clips.forEach(c => paint(c, Math.min(2, c.dur/2)));
+  updateSel();
+}
+function updateSel(){
+  $('#selCount').textContent = selected.size;
+  $('#sendSel').disabled = selected.size === 0;
+  document.querySelectorAll('.clip').forEach(el => el.classList.toggle('sel', selected.has(+el.dataset.i)));
+}
+
+$('#results').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-act]');
+  const card = e.target.closest('.clip');
+  if(!btn){
+    if(card){ const i=+card.dataset.i; selected.has(i)?selected.delete(i):selected.add(i); updateSel(); }
+    return;
+  }
+  const c = clips.find(x=>x.i === +btn.dataset.i); if(!c || busy) return;
+  if(btn.dataset.act === 'frame'){
+    busy = true; btn.disabled = true; btn.textContent = '…';
+    try{
+      await frameClip(c, p => { btn.textContent = Math.round(p*100)+'%'; });
+      const f = document.getElementById('fr'+c.i);
+      if(f){ f.textContent = 'auto-framed · ' + Math.round(c.trackConf*100) + '% sure'; f.classList.add('on'); }
+      await paint(c, Math.min(2, c.dur/2));
+    }catch(err){ console.error(err); }
+    finally{ busy=false; btn.disabled=false; btn.textContent='🎞 Frame'; }
+    return;
+  }
+  if(btn.dataset.act === 'play'){
+    // Scrub the clip through the preview canvas so you can SEE the framing hold before committing.
+    busy = true; btn.disabled = true;
+    const t0 = performance.now();
+    const tick = async () => {
+      const el = (performance.now()-t0)/1000;
+      if(el >= c.dur){ busy=false; btn.disabled=false; await paint(c, Math.min(2,c.dur/2)); return; }
+      await paint(c, el);
+      requestAnimationFrame(tick);
+    };
+    tick();
+    return;
+  }
+  if(btn.dataset.act === 'send'){ sendToEditor([c]); }
+});
+
+$('#frameAll').addEventListener('click', async () => {
+  if(busy || !clips.length) return;
+  busy = true; const b=$('#frameAll'); b.disabled=true;
+  for(let k=0;k<clips.length;k++){
+    b.textContent = '🎞 Framing '+(k+1)+'/'+clips.length+'…';
+    await frameClip(clips[k]);
+    const f = document.getElementById('fr'+clips[k].i);
+    if(f){ f.textContent='auto-framed · '+Math.round(clips[k].trackConf*100)+'% sure'; f.classList.add('on'); }
+    await paint(clips[k], Math.min(2, clips[k].dur/2));
+  }
+  b.textContent='🎞 Auto-frame every clip'; b.disabled=false; busy=false;
+});
+
+// ---------------------------------------------------------------- hand-off
+// The editor needs the actual FILE, which cannot ride in sessionStorage. It goes into IndexedDB
+// under a one-shot key (same origin, so the editor just reads it back) and the key travels in
+// sessionStorage with the trim, the words and the auto-frame path.
+function idb(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('volt-handoff', 1);
+    r.onupgradeneeded = () => { if(!r.result.objectStoreNames.contains('files')) r.result.createObjectStore('files'); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function stash(key, blob){
+  const db = await idb();
+  await new Promise((res, rej) => {
+    const tx = db.transaction('files','readwrite');
+    tx.objectStore('files').put(blob, key);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function sendToEditor(list){
+  if(!list.length || !file) return;
+  const bs = $('#bulkStatus');
+  bs.textContent = 'Handing over…'; bs.className='status busy';
+  try{
+    const key = 'clip-' + Date.now();
+    await stash(key, file);
+    const payload = list.map(c => ({
+      start: c.start, end: c.end, title: c.title, hook: c.hook, score: c.score,
+      track: c.track || null,
+      // Only the words inside the clip, rebased to its own zero — the editor gets captions without
+      // paying for a second transcription.
+      words: words.filter(w => w.end > c.start && w.start < c.end)
+                  .map(w => ({ word:w.word, start:Math.max(0,w.start-c.start), end:Math.min(c.end-c.start, w.end-c.start) }))
+    }));
+    sessionStorage.setItem('volt_smartclip_handoff', JSON.stringify({ key, name:file.name, clips:payload, at:Date.now() }));
+    bs.textContent = 'Opening the editor…'; bs.className='status ok';
+    location.href = 'video.html';
+  }catch(err){
+    console.error(err);
+    bs.textContent = 'Could not hand over: ' + ((err&&err.message)||'unknown'); bs.className='status err';
+  }
+}
+$('#sendSel').addEventListener('click', () => sendToEditor(clips.filter(c=>selected.has(c.i))));
+</script>
+</body>
+</html>
