@@ -384,6 +384,29 @@ class CanvasRenderer {
         opts = opts || {};
         const ctx = this.ctx;
         this.setFont(font);
+        // BREAK ANYTHING THAT DOES NOT FIT.
+        //
+        // drawLines was documented as taking lines that are ALREADY broken, and its width argument
+        // only aligned them. Every call site that handed it a raw string — a headline, a subline, a
+        // bullet label — therefore ran off the canvas the moment the copy was longer than the
+        // fixture's. The render suite could not see it because it had no overflow check; adding one
+        // surfaced 42 designs across nine families doing exactly this.
+        //
+        // Wrapping here rather than at 42 call sites means the failure cannot come back through a
+        // new design that forgets. A caller that pre-wrapped is unaffected: its lines already fit,
+        // so this is a no-op for them. A line that grows is caught by the occlusion check, which is
+        // strictly better than text leaving the frame.
+        if (boxW > 0) {
+            const fitted = [];
+            for (const ln of lines) {
+                const str = String(ln == null ? '' : ln);
+                if (!str || ctx.measureText(str).width <= boxW) { fitted.push(str); continue; }
+                const parts = this.wrap(str, font, boxW);
+                this.setFont(font);                       // wrap() re-sets the font; put ours back
+                for (const p of parts) fitted.push(p);
+            }
+            lines = fitted;
+        }
         const align = opts.align || 'left';
         const lineH = font.size * (opts.lineHeight || 1.1);
         ctx.save();
@@ -1260,12 +1283,34 @@ function pButton(r, x, y, w, text, bg, fg) {
     r.drawLines([String(text || '').toUpperCase()], f, x, y + (h - fs) / 2, w, { color: fg, align: 'center' });
     return h;
 }
+// A LIST THAT KNOWS WHEN TO STOP. Items are drawn only while they fit above `limitY`; the rest
+// are dropped rather than stacked under the CTA. Long copy at a square dimension is where this
+// bites — the same three bullets that fit a portrait card run into the button on a 1080x1080.
+function pBullets(r, x, y, items, boxColor, txtColor, limitY, gap) {
+    const s = PG ? PG.bul : 58;
+    let drawn = 0;
+    for (const it of items) {
+        if (!it) continue;
+        if (limitY && y + s > limitY) break;      // no room left: stop, do not overlap the button
+        y += pBullet(r, x, y, String(it), boxColor, txtColor) + (gap == null ? pV(18) : gap);
+        drawn++;
+    }
+    return { y, drawn };
+}
 function pBullet(r, x, y, text, boxColor, txtColor) {
     const s = PG ? PG.bul : 58, fs = Math.round(40 * Math.min(1.08, s / 58));
     r.fillRoundRect(x, y, s, s, 16, boxColor);
     r.drawLines(['✓'], { family: 'Oswald', weight: '900', size: Math.round(s * 0.586) }, x, y + s * 0.2, s, { color: '#fff', align: 'center' });
-    r.drawLines([String(text || '')], { family: 'Roboto', weight: '400', size: fs }, x + s + 28, y + (s - fs) / 2, r.w - x - s - 28 - pPad(), { color: txtColor });
-    return s;
+    // WRAP. drawLines takes lines that are ALREADY broken — its width argument only aligns them —
+    // so handing it one long string ran the label off the right edge of the canvas. Short test
+    // copy ("First supporting point") never reached the edge, which is why every family shipped
+    // with this and nothing flagged it until a real webinar takeaway was long enough to fall off.
+    const font = { family: 'Roboto', weight: '400', size: fs };
+    const boxW = r.w - x - s - 28 - pPad();
+    const lines = r.wrap(String(text || ''), font, boxW);
+    const th = lines.length * fs * 1.3;
+    r.drawLines(lines, font, x + s + 28, y + Math.max(0, (s - th) / 2), boxW, { color: txtColor, lineHeight: 1.3 });
+    return Math.max(s, th);
 }
 function drawPremium(r, type, dir, v, assets) {
     r.ctx.textBaseline = 'top';
@@ -1280,7 +1325,264 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'podcast')   return drawPodcast(r, dir, v, assets);
     if (type === 'merch')     return drawMerch(r, dir, v, assets);
     if (type === 'feature')   return drawFeature(r, dir, v, assets);
+    if (type === 'hub')       return drawHub(r, dir, v, assets);
+    if (type === 'glossary')  return drawGlossary(r, dir, v, assets);
+    if (type === 'webinar')   return drawWebinar(r, dir, v, assets);
     r.fillBg(PC.navy); // safety fallback
+}
+
+// ===================== SME HUB · GLOSSARY · WEBINARS =====================
+// Three sections of the site that had no way to be posted about. Each family is built around what
+// that section actually DOES, not around a generic "promote a page" layout:
+//
+//   hub       the Hub sells MEMBERSHIP, and its own gating is the argument — the site literally
+//             shows guests a locked panel. That tension is the post.
+//   glossary  a definition is the most shareable unit SME South Africa publishes: one term, plain
+//             English, saveable. It wants to look like a dictionary card, not an advert.
+//   webinar   a session sells on WHEN and WHO. A date with no time is not a registration prompt,
+//             so every direction carries the full when, the format, and one clear action.
+
+// ---- SME HUB -----------------------------------------------------------------------------------
+function drawHub(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
+
+    if (dir === 'b') {
+        // THE LOCK. The Hub's own paywall, drawn honestly: the thing you cannot see is the offer.
+        // Blurring a headline is a cliché; naming what sits behind it is an argument.
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
+        r.radialGlow(W, 0, 520, 'rgba(156,28,31,0.26)', 'rgba(156,28,31,0)');
+        const acc = pSolid(PC.navy, PC.red, PC.paper);
+        let y = pLogo(r, a, PC.navy);
+        y += pPill(r, pad, y, v.pill || 'Members only', acc.fill, acc.on) + pV(30);
+        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(240), 1.06, { max: pT(80), min: 40 });
+        r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.06 });
+        y += fit.totalH + pV(26);
+        // The locked list. Ticks would say "you have these"; locks say "you do not, yet".
+        [v.i1, v.i2, v.i3, v.i4].forEach(function (it) {
+            if (!it) return;
+            const s = PG ? PG.bul : 58;
+            r.fillRoundRect(pad, y, s, s, 16, 'rgba(255,255,255,0.10)');
+            r.drawLines(['🔒'], { family: 'Roboto', weight: '700', size: Math.round(s * 0.46) }, pad, y + s * 0.24, s, { color: acc.text, align: 'center' });
+            r.drawLines([String(it)], { family: 'Roboto', weight: '500', size: 36 }, pad + s + 28, y + (s - 36) / 2, iW - s - 28, { color: PC.cbd });
+            y += s + pV(20);
+        });
+        pFootAt(r, btnY - pV(34), v.url || '', v.count || '', false, acc.text);
+        pButton(r, pad, btnY, iW, v.cta || 'Join the community →', acc.fill, acc.on);
+        return;
+    }
+
+    if (dir === 'c') {
+        // SOCIAL PROOF. One number, and the sentence that makes it mean something.
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.red, PC.navy);
+        r.rect(0, 0, W, 22, acc.fill);
+        let y = pLogo(r, a, PC.paper) + pV(14);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text });
+        y += pV(50);
+        const bigFit = r.fitFontSize(String(v.big || ''), { family: 'Oswald', weight: '900' }, iW, pV(200), 1, { max: pT(170), min: 60 });
+        r.drawLines(bigFit.lines, { family: 'Oswald', weight: '900', size: bigFit.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1 });
+        y += bigFit.totalH + pV(12);
+        r.drawLines([String(v.bigLabel || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 34 }, pad, y, iW, { color: acc.text });
+        y += pV(56);
+        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.slate, lineHeight: 1.4 });
+        y += sub.length * 38 * 1.4 + pV(26);
+        pBullets(r, pad, y, [v.i1, v.i2, v.i3], acc.fill, pInk(PC.paper), btnY - pV(40));
+        { const c2 = pSolid(PC.paper, PC.navy, PC.red); pButton(r, pad, btnY, iW, v.cta || 'Join free →', c2.fill, c2.on); }
+        pFootAt(r, btnY - pV(30), v.url || '', '', true, acc.text);
+        return;
+    }
+
+    // A: THE MEMBERSHIP CARD. What you get, in the order a founder cares about.
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+    r.radialGlow(0, H, 560, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
+    const acc = pSolid(PC.navy, PC.red, PC.paper);
+    let y = pLogo(r, a, PC.navy);
+    r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text });
+    y += pV(52);
+    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(250), 1.05, { max: pT(84), min: 40 });
+    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.05 });
+    y += fitA.totalH + pV(20);
+    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
+    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.4 });
+    y += subA.length * 38 * 1.4 + pV(30);
+    pBullets(r, pad, y, [v.i1, v.i2, v.i3, v.i4], acc.fill, '#ffffff', btnY - pV(40));
+    pFootAt(r, btnY - pV(34), v.url || '', v.price || '', false, acc.text);
+    pButton(r, pad, btnY, iW, v.cta || 'Join the community →', acc.fill, acc.on);
+}
+
+// ---- GLOSSARY ----------------------------------------------------------------------------------
+function drawGlossary(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
+
+    if (dir === 'b') {
+        // THE CORRECTION. Most glossary terms are words people already use wrongly, and "you think
+        // it means X" earns a stop in a way "here is a definition" never does.
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
+        const acc = pSolid(PC.navy, PC.red, PC.paper);
+        let y = pLogo(r, a, PC.navy);
+        y += pPill(r, pad, y, v.pill || 'Plain English', acc.fill, acc.on) + pV(28);
+        const tFit = r.fitFontSize(String(v.term || '').toUpperCase(), { family: 'Oswald', weight: '900' }, iW, pV(150), 1.02, { max: pT(96), min: 44 });
+        r.drawLines(tFit.lines, { family: 'Oswald', weight: '900', size: tFit.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.02 });
+        y += tFit.totalH + pV(34);
+        // Two panels: the assumption, then the fact. The second is the brand colour so the eye
+        // lands on the answer rather than the misconception.
+        const panelW = iW, ph = pV(150);
+        r.fillRoundRect(pad, y, panelW, ph, 20, 'rgba(255,255,255,0.06)');
+        r.drawLines([String(v.mythLabel || 'What people think').toUpperCase()], { family: 'Oswald', weight: '700', size: 26 }, pad + 26, y + 22, panelW - 52, { color: PC.cbd });
+        { const w1 = r.wrap(String(v.myth || ''), { family: 'Roboto', weight: '500', size: 34 }, panelW - 52);
+          r.drawLines(w1.slice(0, 3), { family: 'Roboto', weight: '500', size: 34 }, pad + 26, y + 62, panelW - 52, { color: pInk(PC.navy), lineHeight: 1.32 }); }
+        y += ph + pV(18);
+        r.fillRoundRect(pad, y, panelW, ph, 20, pRgba(acc.fill, 0.92));
+        r.drawLines([String(v.truthLabel || 'What it actually means').toUpperCase()], { family: 'Oswald', weight: '700', size: 26 }, pad + 26, y + 22, panelW - 52, { color: pRgba(acc.on, 0.8) });
+        { const w2 = r.wrap(String(v.truth || ''), { family: 'Roboto', weight: '700', size: 34 }, panelW - 52);
+          r.drawLines(w2.slice(0, 3), { family: 'Roboto', weight: '700', size: 34 }, pad + 26, y + 62, panelW - 52, { color: acc.on, lineHeight: 1.32 }); }
+        pFootAt(r, btnY - pV(30), v.url || '', '', false, acc.text);
+        pButton(r, pad, btnY, iW, v.cta || 'Read the full definition →', acc.fill, acc.on);
+        return;
+    }
+
+    if (dir === 'c') {
+        // THREE AT A TIME. A saveable mini-reference; the format people screenshot.
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.navy, PC.red);
+        r.rect(0, 0, W, 22, pSolid(PC.paper, PC.red, PC.navy).fill);
+        let y = pLogo(r, a, PC.paper) + pV(10);
+        r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: pAccentText(PC.paper, PC.red) });
+        y += pV(50);
+        const hFit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(170), 1.05, { max: pT(70), min: 36 });
+        r.drawLines(hFit.lines, { family: 'Oswald', weight: '700', size: hFit.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.05 });
+        y += hFit.totalH + pV(30);
+        // Each entry is "term — definition" on a ruled row: the shape of a reference, not a list.
+        [[v.t1, v.d1], [v.t2, v.d2], [v.t3, v.d3]].forEach(function (pair) {
+            if (!pair[0]) return;
+            r.rect(pad, y, 10, pV(76), acc.fill);
+            r.drawLines([String(pair[0]).toUpperCase()], { family: 'Oswald', weight: '700', size: 38 }, pad + 30, y, iW - 30, { color: pInk(PC.paper) });
+            const dw = r.wrap(String(pair[1] || ''), { family: 'Roboto', weight: '400', size: 32 }, iW - 30);
+            r.drawLines(dw.slice(0, 2), { family: 'Roboto', weight: '400', size: 32 }, pad + 30, y + 46, iW - 30, { color: PC.slate, lineHeight: 1.3 });
+            y += pV(76) + Math.max(0, (dw.length - 1)) * 20 + pV(28);
+        });
+        { const c2 = pSolid(PC.paper, PC.red, PC.navy); pButton(r, pad, btnY, iW, v.cta || 'Browse the glossary →', c2.fill, c2.on); }
+        pFootAt(r, btnY - pV(30), v.url || '', '', true, acc.fill);
+        return;
+    }
+
+    // A: THE DEFINITION CARD. One term, one plain-English definition, and why it matters. This is
+    // the whole product of the glossary in a single frame — no scroll, no click, nothing withheld.
+    r.fillBg(PC.paper);
+    const acc = pSolid(PC.paper, PC.navy, PC.red);
+    const accT = pAccentText(PC.paper, PC.red);
+    r.rect(0, 0, W, 26, pSolid(PC.paper, PC.red, PC.navy).fill);
+    let y = pLogo(r, a, PC.paper) + pV(12);
+    r.drawLines([String(v.eyebrow || 'Business glossary').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: accT });
+    y += pV(46);
+    const tf = r.fitFontSize(String(v.term || '').toUpperCase(), { family: 'Oswald', weight: '900' }, iW, pV(170), 1.02, { max: pT(104), min: 46 });
+    r.drawLines(tf.lines, { family: 'Oswald', weight: '900', size: tf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.02 });
+    y += tf.totalH + pV(10);
+    r.strokeLine(pad, y, pad + Math.min(iW, W * 0.28), y, acc.fill, 8);
+    y += pV(30);
+    { const df = r.fitFontSize(String(v.definition || ''), { family: 'Roboto', weight: '400' }, iW, pV(300), 1.38, { max: 42, min: 26 });
+      r.drawLines(df.lines, { family: 'Roboto', weight: '400', size: df.size }, pad, y, iW, { color: PC.ink, lineHeight: 1.38 });
+      y += df.totalH + pV(30); }
+    if (v.why) {
+        // A definition tells you what a word means; this line tells you why to care. Panelled so it
+        // reads as commentary rather than more of the definition.
+        const ww = r.wrap(String(v.why), { family: 'Roboto', weight: '500', size: 34 }, iW - 52);
+        const bh = 44 + ww.length * 34 * 1.32 + 22;
+        r.fillRoundRect(pad, y, iW, bh, 20, pRgba(acc.fill, 0.07));
+        r.rect(pad, y, 10, bh, acc.fill);
+        r.drawLines([String(v.whyLabel || 'Why it matters').toUpperCase()], { family: 'Oswald', weight: '700', size: 26 }, pad + 30, y + 20, iW - 52, { color: accT });
+        r.drawLines(ww, { family: 'Roboto', weight: '500', size: 34 }, pad + 30, y + 56, iW - 52, { color: PC.ink, lineHeight: 1.32 });
+    }
+    { const c2 = pSolid(PC.paper, PC.red, PC.navy); pButton(r, pad, btnY, iW, v.cta || 'More terms, plain English →', c2.fill, c2.on); }
+    pFootAt(r, btnY - pV(30), v.url || '', '', true, accT);
+}
+
+// ---- WEBINARS / EVENTS -------------------------------------------------------------------------
+function drawWebinar(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
+
+    if (dir === 'b') {
+        // THE SPEAKER. People register for a person before they register for a topic.
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        r.radialGlow(W, H, 520, 'rgba(156,28,31,0.24)', 'rgba(156,28,31,0)');
+        const acc = pSolid(PC.navy, PC.red, PC.paper);
+        let y = pLogo(r, a, PC.navy);
+        y += pPill(r, pad, y, v.pill || 'Free webinar', acc.fill, acc.on) + pV(26);
+        // Speaker photo if there is one; a lettered disc if not, so the layout never has a hole.
+        const ps = pV(220);
+        if (a.featured) {
+            r.ctx.save(); r.roundRectPath(pad, y, ps, ps, ps / 2); r.ctx.clip();
+            r.drawCover(a.featured, pad, y, ps, ps, 0.5, 0.35, 0, 1); r.ctx.restore();
+        } else {
+            r.fillRoundRect(pad, y, ps, ps, ps / 2, pRgba(acc.fill, 0.9));
+            r.drawLines([String(v.speaker || 'S').trim().charAt(0).toUpperCase()], { family: 'Oswald', weight: '700', size: Math.round(ps * 0.42) }, pad, y + ps * 0.26, ps, { color: acc.on, align: 'center' });
+        }
+        y += ps + pV(26);
+        r.drawLines([String(v.speaker || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 46 }, pad, y, iW, { color: pInk(PC.navy) });
+        y += pV(56);
+        if (v.role) { r.drawLines([String(v.role)], { family: 'Roboto', weight: '400', size: 34 }, pad, y, iW, { color: PC.cbd }); y += pV(50); }
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(200), 1.06, { max: pT(66), min: 34 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: acc.text, lineHeight: 1.06 });
+        pFootAt(r, btnY - pV(34), (v.date || '') + (v.time ? '  ·  ' + v.time : ''), v.format || '', false, acc.text);
+        pButton(r, pad, btnY, iW, v.cta || 'Save your seat →', acc.fill, acc.on);
+        return;
+    }
+
+    if (dir === 'c') {
+        // WHAT YOU WILL LEARN. The objection to a free webinar is never price, it is time.
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.navy, PC.red);
+        const accT = pAccentText(PC.paper, PC.red);
+        r.rect(0, 0, W, 24, pSolid(PC.paper, PC.red, PC.navy).fill);
+        let y = pLogo(r, a, PC.paper) + pV(12);
+        r.drawLines([String(v.eyebrow || 'In this session').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: accT });
+        y += pV(48);
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(220), 1.05, { max: pT(74), min: 38 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.05 });
+        y += hf.totalH + pV(30);
+        y = pBullets(r, pad, y, [v.i1, v.i2, v.i3], acc.fill, pInk(PC.paper), btnY - pV(150), pV(20)).y + pV(10);
+        // The when, given its own weight — a session with no time is not a registration prompt.
+        if (v.date) {
+            const bh = pV(110);
+            r.fillRoundRect(pad, Math.min(y, btnY - pV(46) - bh), iW, bh, 18, pRgba(acc.fill, 0.08));
+            const by = Math.min(y, btnY - pV(46) - bh);
+            r.drawLines([String(v.date).toUpperCase()], { family: 'Oswald', weight: '700', size: 40 }, pad + 28, by + 20, iW - 56, { color: pInk(PC.paper) });
+            r.drawLines([[v.time, v.format].filter(Boolean).join('  ·  ')], { family: 'Roboto', weight: '400', size: 30 }, pad + 28, by + 68, iW - 56, { color: PC.slate });
+        }
+        { const c2 = pSolid(PC.paper, PC.red, PC.navy); pButton(r, pad, btnY, iW, v.cta || 'Register free →', c2.fill, c2.on); }
+        pFootAt(r, btnY - pV(30), v.url || '', '', true, accT);
+        return;
+    }
+
+    // A: THE SESSION CARD. Date first, because that is the decision — everything else is detail.
+    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
+    r.radialGlow(0, 0, 540, 'rgba(156,28,31,0.24)', 'rgba(156,28,31,0)');
+    const acc = pSolid(PC.navy, PC.red, PC.paper);
+    let y = pLogo(r, a, PC.navy);
+    { const t = String(v.format || 'Online').toUpperCase();
+      const f = { family: 'JetBrains Mono', weight: '700', size: 26 };
+      const tw = r.textWidth(t, f), bh = pV(50);
+      r.fillRoundRect(W - pad - tw - 40, pTop() - 10, tw + 40, bh, bh / 2, pRgba('#ffffff', 0.12));
+      r.drawLines([t], f, W - pad - tw - 40, pTop() - 10 + (bh - 26) / 2, tw + 40, { color: PC.cbd, align: 'center' }); }
+    y += pPill(r, pad, y, v.pill || 'Free webinar', acc.fill, acc.on) + pV(30);
+    // The date block: big, unmissable, and the reason the card exists.
+    const df = r.fitFontSize(String(v.date || '').toUpperCase(), { family: 'Oswald', weight: '900' }, iW, pV(130), 1, { max: pT(86), min: 40 });
+    r.drawLines(df.lines, { family: 'Oswald', weight: '900', size: df.size }, pad, y, iW, { color: acc.text, lineHeight: 1 });
+    y += df.totalH + pV(8);
+    if (v.time) { r.drawLines([String(v.time).toUpperCase()], { family: 'Oswald', weight: '700', size: 40 }, pad, y, iW, { color: PC.cbd }); y += pV(52); }
+    r.strokeLine(pad, y, pad + Math.min(iW, W * 0.24), y, acc.fill, 8);
+    y += pV(30);
+    const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(260), 1.05, { max: pT(78), min: 38 });
+    r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.05 });
+    y += hf.totalH + pV(22);
+    if (v.speaker) {
+        r.drawLines([('With ' + v.speaker).toUpperCase()], { family: 'Oswald', weight: '700', size: 36 }, pad, y, iW, { color: PC.cbd });
+        y += pV(46);
+        if (v.role) r.drawLines([String(v.role)], { family: 'Roboto', weight: '400', size: 30 }, pad, y, iW, { color: pSubInk(PC.navy) });
+    }
+    pFootAt(r, btnY - pV(34), v.url || '', v.seats || '', false, acc.text);
+    pButton(r, pad, btnY, iW, v.cta || 'Register free →', acc.fill, acc.on);
 }
 
 // ===================== B2B MARKETPLACE FAMILIES =====================
@@ -1353,7 +1655,7 @@ function drawProviders(r, dir, v, a) {
         const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
         r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
         y += sub.length * 40 * 1.42 + pV(40);
-        [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, acc.fill, pInk(PC.paper)); y += pV(82); } });
+        pBullets(r, pad, y, [v.i1, v.i2, v.i3], acc.fill, pInk(PC.paper), btnY - pV(40), pV(82) - (PG ? PG.bul : 58));
         pButton(r, pad, btnY, iW, v.cta || 'Claim your listing →', cta.fill, cta.on);
         return;
     }
@@ -1373,7 +1675,7 @@ function drawProviders(r, dir, v, a) {
     const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
     r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.42 });
     y += subA.length * 40 * 1.42 + pV(38);
-    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, accA.fill, pInk(PC.navy)); y += pV(82); } });
+    pBullets(r, pad, y, [v.i1, v.i2, v.i3], accA.fill, pInk(PC.navy), btnY - pV(40), pV(82) - (PG ? PG.bul : 58));
     pButton(r, pad, btnY, iW, v.cta || 'List your company →', accA.fill, accA.on);
 }
 

@@ -184,6 +184,23 @@
       return bad.length ? 'under Instagram chrome — ' + bad.slice(0, 2).join('; ') : '';
     }
 
+    // 7) NOTHING MAY RUN OFF THE CANVAS. pBullet handed drawLines a single unwrapped string — its
+    //    width argument only ALIGNS, it does not break — so a long bullet label ran off the right
+    //    edge. Every family used it and nothing flagged it, because the fixture copy was short
+    //    enough to fit. Text that leaves the frame is unambiguous, so this is an ERROR.
+    //    A small tolerance absorbs glyph overhang (italic tails, accents) at the measured edge.
+    function checkOverflow(trace, W, H) {
+      const bad = [];
+      const tol = Math.max(4, W * 0.006);
+      for (const r of trace) {
+        if (r.kind !== 'text' || r.bg) continue;
+        if (r.x < -tol) bad.push('"' + (r.text || '').slice(0, 26) + '" starts ' + Math.round(-r.x) + 'px off the left');
+        else if (r.x + r.w > W + tol) bad.push('"' + (r.text || '').slice(0, 26) + '" runs ' + Math.round(r.x + r.w - W) + 'px past the right edge');
+        else if (r.y + r.h > H + tol) bad.push('"' + (r.text || '').slice(0, 26) + '" runs ' + Math.round(r.y + r.h - H) + 'px past the bottom');
+      }
+      return bad.length ? 'text leaves the canvas — ' + bad.slice(0, 2).join('; ') : '';
+    }
+
     function checkHasHeadline(trace) {
       const texts = trace.filter(r => r.kind === 'text');
       const biggest = texts.reduce((m, r) => Math.max(m, r.size), 0);
@@ -202,7 +219,7 @@
     function assertDesign(trace, W, H) {
       if (!trace || !trace.length) return { error: '', warn: '' };
       return {
-        error: checkHasHeadline(trace) || checkContrast(trace) || checkLogoClearance(trace, W) || checkStorySafeZone(trace, W, H),
+        error: checkHasHeadline(trace) || checkContrast(trace) || checkLogoClearance(trace, W) || checkStorySafeZone(trace, W, H) || checkOverflow(trace, W, H),
         warn: checkOcclusion(trace) || checkDeadSpace(trace, W, H)
       };
     }
@@ -304,7 +321,7 @@
     // 5) Premium matrix: every type x every dir x 3 sizes. Every family has exactly A/B/C — the old
     // D/E entries for providers/findpros did not exist in the PREMIUM registry and silently fell
     // through to the A branch, so they were reporting coverage that wasn't there.
-    const PREM_TYPES = ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros', 'podcast', 'merch', 'feature'];
+    const PREM_TYPES = ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros', 'podcast', 'merch', 'feature', 'hub', 'glossary', 'webinar'];
     // Minimum copy so the non-blank check is meaningful for text-driven directions (the draw fns
     // default the furniture, but not the headline/quote/product name).
     const PREM_VALS = {
@@ -319,7 +336,20 @@
       pro1: 'A pro', pro2: 'Another pro', con1: 'A con', vsLeft: 'A', vsRight: 'B',
       bigLabel: 'of SA small businesses never apply for funding they qualify for',
       author: 'Jenna Sprenger', authorRole: 'Founder & CEO, Fundrr', byline: 'By Karabo Kgophane',
-      coverTitle: 'Cover title', coverSub: 'Cover subtext', cardk: 'Label', cardh: 'Card head', cards: 'Card sub'
+      coverTitle: 'Cover title', coverSub: 'Cover subtext', cardk: 'Label', cardh: 'Card head', cards: 'Card sub',
+      // Hub / Glossary / Webinar. Deliberately LONG copy: a definition and a myth-vs-meaning panel
+      // are the two places where real text overruns a box that looked fine with three words in it.
+      i4: 'A fourth supporting point', price: 'Free to join', count: 'Free · 2 minutes',
+      term: 'Bootstrapping',
+      definition: 'A definition long enough to wrap several times, because a real glossary entry is a sentence or two and not a label.',
+      why: 'The line that explains why the term matters, which also wraps.', whyLabel: 'Why it matters',
+      myth: 'What people wrongly assume it means, at the length people actually write it.',
+      truth: 'What it really means, which is usually longer than the misconception it replaces.',
+      mythLabel: 'What people think', truthLabel: 'What it actually means',
+      t1: 'Working capital', d1: 'Money to run the business day to day.',
+      t2: 'Invoice financing', d2: 'Borrowing against invoices already issued.',
+      t3: 'Asset finance', d3: 'Funding tied to the thing you are buying.',
+      date: '18 June 2026', time: '11:00 SAST', format: 'Online', speaker: 'Thabo Mokoena', seats: 'Limited seats'
     };
     // EVERY premium design runs against BOTH brands. The dark-secondary brand is the happy path;
     // the light-secondary one is where every contrast bug we've shipped actually lived.

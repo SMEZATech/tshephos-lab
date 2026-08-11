@@ -206,6 +206,9 @@
                     <button onclick="setContentType('podcast')" id="ct-podcast" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🎙️ Podcast</button>
                     <button onclick="setContentType('feature')" id="ct-feature" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">📰 Latest Insight</button>
                     <button onclick="setContentType('merch')" id="ct-merch" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🛍️ Merch</button>
+                    <button onclick="setContentType('hub')" id="ct-hub" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🏛️ SME Hub</button>
+                    <button onclick="setContentType('glossary')" id="ct-glossary" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">📖 Glossary</button>
+                    <button onclick="setContentType('webinar')" id="ct-webinar" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🎟️ Webinars</button>
                 </div>
                 <p class="text-[10px] text-slate-500 leading-snug mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
             </div>
@@ -1356,13 +1359,37 @@
         b:{ name:'Price Hero (when price is the hook)', fields:{ eyebrow:'Built for founders', price:'R120', name:'Signature Red Cap', i1:'Structured six-panel, embroidered mark', i2:'Adjustable — one size, fits properly', i3:'Ships anywhere in South Africa', trust:'SA-wide shipping · Secure checkout', cta:'Get yours →' } },
         c:{ name:'The Collection', fields:{ eyebrow:"The Founder's Kit", head:'Equip your growth.', p1:'Signature Red Cap', p2:'Insulated Water Bottle', p3:"Founder's Edition Tee", trust:'SA-wide shipping · Secure checkout', cta:'See the full kit →', url:'smesouthafrica.co.za/shop' } }
       }},
+      // ---- SME HUB (smesouthafrica.co.za/sme-hub). The Hub sells MEMBERSHIP, and its own
+      // gating is the argument: the site shows guests a locked panel, so direction B draws that
+      // lock honestly rather than blurring a headline and hoping.
+      hub: { label:'SME Hub · Community', dirs:{
+        a:{ name:'Membership Card', fields:{ eyebrow:'The SME Hub', head:'Where South African SMEs connect, learn and grow.', sub:'One free account opens the feed, the forums, the groups and every session we run.', i1:'Forums & direct messaging', i2:'Collaboration groups', i3:'Webinars & events', i4:'Funding & resource library', price:'Free to join', cta:'Join the community →', url:'smesouthafrica.co.za/sme-hub' } },
+        b:{ name:'Members Only (the lock)', fields:{ pill:'Members only', head:"You're seeing the guest version of this.", i1:'The full activity feed', i2:'Direct messages to other founders', i3:'Collaboration groups in your sector', i4:'Every past webinar, on demand', count:'Free · 2 minutes', cta:'Unlock it free →', url:'smesouthafrica.co.za/sme-hub' } },
+        c:{ name:'The Community Number', fields:{ eyebrow:'The SME Hub', big:'60,000', bigLabel:'SA founders already inside', sub:'Ask a question at 11pm and someone who has solved it answers by morning. That is the whole point of a hub.', i1:'Sector groups, not one noisy feed', i2:'Founders, funders and advisors in one place', i3:'Free — no card, no trial', cta:'Join free →', url:'smesouthafrica.co.za/sme-hub' } }
+      }},
+      // ---- GLOSSARY (smesouthafrica.co.za/glossary). A definition is the most shareable unit the
+      // site publishes: one term, plain English, saveable. It should look like a reference card,
+      // not an advert — so direction A gives the WHOLE definition away and withholds nothing.
+      glossary: { label:'Glossary · Plain English', dirs:{
+        a:{ name:'The Definition Card', fields:{ eyebrow:'Business glossary', term:'Cash Flow', definition:'The movement of cash in and out of a business over a period. It is what you can actually spend — not what you have invoiced.', whyLabel:'Why it matters', why:'A profitable business with no cash still misses payroll. Cash flow is the honest picture; profit is the flattering one.', cta:'More terms, plain English →', url:'smesouthafrica.co.za/glossary' } },
+        b:{ name:'Myth vs Meaning', fields:{ pill:'Plain English', term:'Bootstrapping', mythLabel:'What people think', myth:'Building a business with no money at all.', truthLabel:'What it actually means', truth:'Funding growth from your own revenue instead of giving away equity — which needs MORE discipline, not less money.', cta:'Read the full definition →', url:'smesouthafrica.co.za/glossary' } },
+        c:{ name:'Three To Know', fields:{ eyebrow:'Business glossary', head:'Three funding terms every founder mixes up', t1:'Working capital', d1:'Money to run the business day to day — stock, salaries, rent.', t2:'Invoice financing', d2:'Borrowing against invoices you have issued but not been paid for.', t3:'Asset finance', d3:'Funding tied to a specific thing you are buying, secured by that thing.', cta:'Browse the glossary →', url:'smesouthafrica.co.za/glossary' } }
+      }},
+      // ---- WEBINARS / EVENTS (smesouthafrica.co.za/events). A session sells on WHEN and WHO, so
+      // every direction carries the full date, the time, the format and one clear action. A date
+      // with no time is not a registration prompt.
+      webinar: { label:'Webinars & Events', dirs:{
+        a:{ name:'The Session Card', fields:{ pill:'Free webinar', date:'18 June 2026', time:'11:00 SAST', format:'Online', head:'How to scale a business with minimal capital', speaker:'Thabo Mokoena', role:'Founder & CEO, Fundrr', seats:'Limited seats', cta:'Register free →', url:'smesouthafrica.co.za/events' } },
+        b:{ name:'Speaker Spotlight', fields:{ pill:'Free webinar', speaker:'Thabo Mokoena', role:'Founder & CEO, Fundrr', head:'The funding mistake that costs founders millions.', date:'18 June 2026', time:'11:00 SAST', format:'Online', cta:'Save your seat →', url:'smesouthafrica.co.za/events' } },
+        c:{ name:"What You'll Learn", fields:{ eyebrow:'In this session', head:'Predictive analytics for forecasting growth', i1:'Which three numbers actually predict next quarter', i2:'How to build a forecast in a spreadsheet you already have', i3:'The signals that mean stop, not scale', date:'30 July 2026', time:'11:00 SAST', format:'In person · Johannesburg', cta:'Register free →', url:'smesouthafrica.co.za/events' } }
+      }},
       resources: { label:'Resources', dirs:{
         a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
         b:{ name:'Checklist Preview', fields:{ eyebrow:'Free Resource', head:'Funding readiness checklist', i1:'Up-to-date management accounts', i2:'Clean, separate bank statements', i3:'Tax & CIPC compliance sorted', locked:'+ 9 more inside…', cta:'Get the full checklist →' } },
         c:{ name:'Bold Typography', fields:{ big:'FREE', head:'The SME Growth Toolkit', sub:'7 templates every founder needs — one download.', i1:'Cash-flow forecast (Excel)', i2:'Investor one-pager (Editable)', i3:'Pricing calculator + more', cta:'Grab it free →' } }
       }}
     };
-    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count',
+    const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count', i4:'Benefit 4', price:'Price line', term:'Term', definition:'Definition', why:'Why it matters', whyLabel:'Why-it-matters label', myth:'What people think', mythLabel:'Myth label', truth:'What it actually means', truthLabel:'Truth label', t1:'Term 1', d1:'Definition 1', t2:'Term 2', d2:'Definition 2', t3:'Term 3', d3:'Definition 3', date:'Date', time:'Time', format:'Format (Online / In person)', speaker:'Speaker', seats:'Seats line',
       show:'Show name', tagline:'Show tagline', ep:'Episode number', role:'Guest role', guest:'Guest name', quote:'Quote', platforms:'Available on',
       authorRole:'Author role', byline:'Byline', i1:'Takeaway 1', i2:'Takeaway 2', i3:'Takeaway 3',
       kicker:'Kicker', price:'Price (blank = drive clicks)', p1:'Product 1 (add | price to show it)', p2:'Product 2 (add | price to show it)', p3:'Product 3 (add | price to show it)' };
@@ -1406,7 +1433,7 @@
     const premPhotos = {};          // contentType -> Blob | null
     const premPhotoURLs = {};       // contentType -> object URL for the thumbnail
     function premFeatured(){ return premPhotos[state.contentType] || null; }
-    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)' };
+    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)' };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
         const af = document.getElementById('premium-autofill');
