@@ -1,5 +1,5 @@
 {
-  "desktopVersion": "1.0.0",
+  "desktopVersion": "1.0.1",
   "download": "https://github.com/SMEZATech/tshephos-lab/releases/latest",
-  "notes": "Latest Volt desktop build"
+  "notes": "faster export, MP4 blur fixed, SmartClip"
 }
