@@ -70,6 +70,15 @@
   .acts .go{background:rgba(182,255,61,.12);border-color:var(--accent);color:var(--accent);}
   .empty{color:var(--faint);font-size:14px;padding:36px 10px;text-align:center;}
   .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+  /* Add-a-moment */
+  #add{display:none;position:fixed;inset:0;z-index:9998;background:rgba(6,7,10,.9);backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:24px;}
+  #addBox{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:16px;max-width:min(94vw,520px);width:100%;}
+  #addCanvas{width:100%;max-height:46vh;object-fit:contain;background:#07080b;border-radius:12px;display:block;}
+  #addTrack{position:relative;height:16px;border-radius:8px;background:#0D0F15;border:1px solid var(--border-2);margin:12px 0 10px;cursor:pointer;}
+  #addRegion{position:absolute;top:0;bottom:0;background:rgba(182,255,61,.28);border-left:2px solid var(--accent);border-right:2px solid var(--accent);border-radius:4px;}
+  #addCtl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  #addCtl .am{font-family:var(--fm);font-size:10.5px;color:var(--faint);} #addCtl .am b{color:var(--accent);}
+  #addText{font-size:12px;color:var(--dim);line-height:1.5;margin:10px 0 0;max-height:74px;overflow:auto;background:#0D0F15;border-radius:10px;padding:9px 11px;}
   /* Length handles — the scorer's window is a preference, not a ceiling. */
   .len{display:flex;align-items:center;gap:4px;font-family:var(--fm);font-size:10px;color:var(--faint);margin-top:2px;}
   .len button{background:#0D0F15;border:1px solid var(--border-2);color:var(--dim);border-radius:7px;font-family:var(--fm);font-weight:700;font-size:10px;padding:4px 6px;cursor:pointer;}
@@ -87,9 +96,9 @@
   /* Preview — you cannot judge a crop from a still frame. */
   #pv{display:none;position:fixed;inset:0;z-index:9998;background:rgba(6,7,10,.9);backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:24px;}
   #pvBox{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:16px;max-width:min(94vw,460px);width:100%;}
-  #pvHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
-  #pvTitle{font-weight:800;font-size:15.5px;line-height:1.3;margin:0;}
-  #pvMeta{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin:4px 0 0;text-transform:uppercase;letter-spacing:.05em;}
+  #pvHead,#addHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;}
+  #pvTitle,.pvtitle{font-weight:800;font-size:15.5px;line-height:1.3;margin:0;}
+  #pvMeta,.pvmeta{font-family:var(--fm);font-size:10.5px;color:var(--faint);margin:4px 0 0;text-transform:uppercase;letter-spacing:.05em;}
   #pvCanvas{width:100%;max-height:62vh;object-fit:contain;background:#07080b;border-radius:12px;display:block;}
   #pvBar{height:5px;border-radius:3px;background:rgba(255,255,255,.1);margin:11px 0 9px;overflow:hidden;cursor:pointer;}
   #pvBar i{display:block;height:100%;background:var(--accent);width:0;}
@@ -175,6 +184,7 @@
         <p class="note" style="margin-top:4px;">“Send to editor” hands the clip over with its trim, its captions and its auto-frame path already set — the editor opens on it, ready to style and export.</p>
       </div>
       <div style="flex:0 0 auto;display:flex;gap:9px;">
+        <button class="mini" id="addBtn">+ Add a moment</button>
         <button class="mini" id="frameAll">🎞 Auto-frame every clip</button>
         <button class="btn" id="sendSel" disabled>→ Send selected to editor</button>
       </div>
@@ -202,6 +212,31 @@
       <span id="pvTime"></span>
     </div>
     <p id="pvHint"></p>
+  </div>
+</div>
+
+<div id="add">
+  <div id="addBox">
+    <div id="addHead">
+      <div><p class="pvtitle">Add a moment</p><p class="pvmeta">Scrub, mark in and out, add it to the grid</p></div>
+      <button class="mini" id="addClose">✕ Close</button>
+    </div>
+    <canvas id="addCanvas" width="360" height="640"></canvas>
+    <div id="addTrack"><div id="addRegion"></div></div>
+    <div id="addCtl">
+      <span class="am">IN <b id="addIn">0:00</b></span>
+      <button class="mini" data-a="in:-5">◀ 5s</button>
+      <button class="mini" data-a="in:5">5s ▶</button>
+      <span class="am" id="addLen">30s</span>
+      <button class="mini" data-a="out:-5">◀ 5s</button>
+      <button class="mini" data-a="out:5">5s ▶</button>
+      <span class="am">OUT <b id="addOut">0:30</b></span>
+    </div>
+    <p id="addText"></p>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <input type="text" id="addTitle" placeholder="Name it (optional)" style="flex:1;" />
+      <button class="btn" id="addNow" style="padding:10px 18px;font-size:12.5px;">+ Add moment</button>
+    </div>
   </div>
 </div>
 
@@ -235,7 +270,7 @@ $('#file').addEventListener('change', e => {
     renderHistory();
     const prev = loadHistory().find(x => x.key === fileKey(file));
     if(prev && (prev.clips||[]).length){
-      say('You scanned this recording before. ' + prev.clips.length + ' moments are saved. Restore them from Previous scans below, or scan again.', 'ok');
+      say('You worked on this recording before — ' + prev.clips.length + (prev.clips.length===1?' moment is':' moments are') + ' saved. Restore ' + (prev.clips.length===1?'it':'them') + ' from Previous scans below, or scan again.', 'ok');
     } else say('Ready. Hit Find the moments.');
   }, { once:true });
 });
@@ -400,15 +435,21 @@ async function paint(c, offset){
 // ---------------------------------------------------------------- render
 function render(){
   const box = $('#results');
-  $('#bulk').style.display = clips.length ? 'block' : 'none';
+  // The bar comes up once there is a FILE, not once there are clips. A scan that scored nothing is
+  // precisely when you need "Add a moment", and so is the case where you already know the timecode
+  // and never wanted a scan at all — hiding the bar there left you on an empty page with no way
+  // forward. The two buttons that need clips hide themselves.
+  $('#bulk').style.display = (clips.length || file) ? 'block' : 'none';
+  $('#frameAll').style.display = clips.length ? '' : 'none';
+  $('#sendSel').style.display = clips.length ? '' : 'none';
   $('#none').style.display = 'none';
   if(!clips.length){ box.innerHTML=''; return; }
   box.innerHTML = clips.map(c => {
-    const col = c.score>=45?'var(--good)':c.score>=32?'var(--mid)':'var(--low)';
+    const col = c.manualPick ? 'var(--info)' : (c.score>=45?'var(--good)':c.score>=32?'var(--mid)':'var(--low)');
     return '<div class="clip'+(selected.has(c.i)?' sel':'')+'" data-i="'+c.i+'">'
       + '<div class="prevwrap">'
         + '<canvas id="cv'+c.i+'" width="270" height="480"></canvas>'
-        + '<span class="badge" style="background:'+col+'">'+c.score+'</span>'
+        + '<span class="badge" style="background:'+col+'">'+(c.manualPick ? '★' : c.score)+'</span>'
         + '<span class="tstamp">'+fmtT(c.start)+'–'+fmtT(c.end)+' · '+Math.round(c.dur)+'s</span>'
         + '<span class="framed'+(c.track?' on':'')+'" id="fr'+c.i+'">'+(c.track?'auto-framed':'centre crop')+'</span>'
       + '</div>'
@@ -817,7 +858,8 @@ function saveSession(){
     // The transcript is the expensive part — that is the thing worth keeping.
     w: words,
     clips: clips.map(c => ({ start:c.start, end:c.end, title:c.title, hook:c.hook, reason:c.reason,
-                             score:c.score, track:c.track, trackConf:c.trackConf, manual:c.manual,
+                             score:c.score, manualPick:!!c.manualPick,
+                             track:c.track, trackConf:c.trackConf, manual:c.manual,
                              edited:!!c.edited, text:(c.text||'').slice(0,600), why:c.why }))
   };
   const a = loadHistory().filter(e => e.key !== key);
@@ -832,7 +874,7 @@ function restoreSession(key){
   clips = (e.clips || []).map((c, i) => Object.assign({ i, dur: c.end - c.start, why: c.why || [] }, c));
   selected.clear();
   render();
-  say('Restored ' + clips.length + ' moments from your last scan of this file — no second transcription.', 'ok');
+  say('Restored ' + clips.length + (clips.length===1?' moment':' moments') + ' from your last session on this file — no second transcription.', 'ok');
   clips.forEach(c => paint(c, Math.min(2, c.dur/2)));
   return true;
 }
@@ -875,6 +917,88 @@ function renderOne(c){
   const f = document.getElementById('fr'+c.i);
   if(f && !c.track && !c.manual){ f.textContent = 'needs re-framing'; f.classList.remove('on'); }
   paint(c, Math.min(2, c.dur/2));
+}
+
+// ---- add a moment the scorer missed -------------------------------------------------------------
+// The scorer returns FEW confident clips on purpose, and the cost of that is real: it will pass over
+// a moment you know is good. Without a way to add one, the only options were to re-scan with looser
+// settings (which floods the grid with weak clips to reach one strong one) or to give up on the
+// module and trim by hand in the editor.
+//
+// So: scrub the whole recording, mark in and out, add. The clip that comes back is identical to a
+// found one in every respect — it gets its words from the same transcript, it auto-frames the same
+// way, and it downloads and hands off through the same path. The only difference is where the
+// boundaries came from.
+let addIn = 0, addOut = 30;
+
+function addOpen(){
+  if(!file){ say('Load a recording first.', 'err'); return; }
+  $('#add').style.display = 'flex';
+  addIn = Math.max(0, Math.min(vid.duration - MIN_CLIP, vid.currentTime || 0));
+  addOut = Math.min(vid.duration, addIn + 30);
+  addSync(); addSeek(addIn);
+}
+function addClose(){ $('#add').style.display = 'none'; }
+function addSync(){
+  $('#addIn').textContent  = fmtT(addIn);
+  $('#addOut').textContent = fmtT(addOut);
+  $('#addLen').textContent = Math.round(addOut - addIn) + 's';
+  const d = vid.duration || 1;
+  $('#addRegion').style.left  = (addIn / d * 100) + '%';
+  $('#addRegion').style.width = ((addOut - addIn) / d * 100) + '%';
+  // What the transcript says inside the marks, so you can see WHAT you are cutting rather than
+  // guessing from a waveform you do not have.
+  const inside = words.filter(w => w.end > addIn && w.start < addOut).map(w => w.word).join(' ');
+  $('#addText').textContent = inside ? inside.slice(0, 400) + (inside.length > 400 ? '…' : '')
+    : (words.length ? '(no speech in this range)' : '(scan the recording first to see the words here)');
+}
+async function addSeek(t){
+  await seek(Math.max(0, Math.min((vid.duration || 0) - 0.05, t)));
+  const cv = $('#addCanvas');
+  drawCrop(cv, cv.getContext('2d'), vid, vid.videoWidth, vid.videoHeight, null, 0);
+}
+function addNudge(which, delta){
+  if(which === 'in')  addIn  = Math.max(0, Math.min(addOut - MIN_CLIP, addIn + delta));
+  else                addOut = Math.min(vid.duration, Math.max(addIn + MIN_CLIP, addOut + delta));
+  addSync(); addSeek(which === 'in' ? addIn : addOut);
+}
+
+async function addCommit(){
+  const start = addIn, end = addOut;
+  // Same shape as a scored clip, so every downstream path treats it identically. It is marked
+  // manual and scored 0 rather than given a fake score — an invented number would sit next to
+  // measured ones and be indistinguishable from them.
+  const c = {
+    i: clips.length ? Math.max.apply(null, clips.map(x => x.i)) + 1 : 0,
+    start, end, dur: end - start,
+    title: ($('#addTitle').value || '').trim() || 'Your pick',
+    hook: '', reason: 'You marked this one', score: 0, manualPick: true,
+    track: null, manual: null, why: [],
+    text: words.filter(w => w.end > start && w.start < end).map(w => w.word).join(' ')
+  };
+  // Inserting in time order RENUMBERS everything after it, and `selected` holds numbers. Carry the
+  // selection across on object identity, or ticking three clips and then adding a fourth silently
+  // sends the wrong three to the editor.
+  const wasSel = clips.filter(x => selected.has(x.i));
+  clips.push(c);
+  clips.sort((x, y) => x.start - y.start);
+  clips.forEach((x, k) => x.i = k);
+  selected.clear(); wasSel.forEach(x => selected.add(x.i));
+  addClose();
+  render();                       // render() rebuilds the grid, so every canvas is blank again
+  $('#addTitle').value = '';
+  // Tracking a 40s clip is ~80 seeks and takes the better part of a minute. Without a running
+  // percentage that reads as a hang, and the honest fix is to say how far along it is.
+  say('<span class="spinner"></span>Framing your moment…', 'busy'); prog(0);
+  try{
+    await frameClip(c, p => { prog(p*100); say('<span class="spinner"></span>Framing your moment… ' + Math.round(p*100) + '%', 'busy'); });
+    for(const x of clips){ paintFramedBadge(x); await paint(x, Math.min(2, x.dur/2)); }
+  }catch(e){ console.error(e); }
+  prog(null);
+  const mine = clips.filter(x => x.manualPick).length;
+  say('Added your moment at ' + fmtT(start) + '. ' + clips.length + (clips.length === 1 ? ' moment' : ' moments')
+      + ' in the grid, ' + mine + ' of them yours.', 'ok');
+  scheduleSave();
 }
 
 // ---- modal wiring -----------------------------------------------------------------------------
@@ -999,6 +1123,25 @@ async function sendToEditor(list){
     bs.textContent = 'Could not hand over: ' + ((err&&err.message)||'unknown'); bs.className='status err';
   }
 }
+// ---- add-a-moment wiring -------------------------------------------------------------------------
+$('#addBtn').addEventListener('click', addOpen);
+$('#addClose').addEventListener('click', addClose);
+$('#add').addEventListener('click', e => { if(e.target.id === 'add') addClose(); });
+$('#addTrack').addEventListener('click', async e => {
+  const r = e.currentTarget.getBoundingClientRect();
+  const t = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (vid.duration || 0);
+  // Click nearer a mark moves THAT mark — dragging two handles on a thin bar is fiddly, and
+  // "move whichever one you clicked toward" is what people expect from a trim bar.
+  if(Math.abs(t - addIn) <= Math.abs(t - addOut)) addIn = Math.min(t, addOut - MIN_CLIP);
+  else addOut = Math.max(t, addIn + MIN_CLIP);
+  addSync(); await addSeek(t);
+});
+$('#addCtl').addEventListener('click', async e => {
+  const b = e.target.closest('[data-a]'); if(!b) return;
+  const [which, delta] = b.dataset.a.split(':');
+  addNudge(which, parseFloat(delta));
+});
+$('#addNow').addEventListener('click', addCommit);
 $('#sendSel').addEventListener('click', () => sendToEditor(clips.filter(c=>selected.has(c.i))));
 // ---- history wiring ------------------------------------------------------------------------------
 $('#histClear').addEventListener('click', () => {

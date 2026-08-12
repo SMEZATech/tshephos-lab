@@ -349,13 +349,35 @@
       t1: 'Working capital', d1: 'Money to run the business day to day.',
       t2: 'Invoice financing', d2: 'Borrowing against invoices already issued.',
       t3: 'Asset finance', d3: 'Funding tied to the thing you are buying.',
-      date: '18 June 2026', time: '11:00 SAST', format: 'Online', speaker: 'Thabo Mokoena', seats: 'Limited seats'
+      date: '18 June 2026', time: '11:00 SAST', format: 'Online', speaker: 'Thabo Mokoena', seats: 'Limited seats',
+      runtime: '48 min', recorded: '18 June 2026', coveredLabel: 'What it covered'
     };
+    // WHICH DIRECTIONS EXIST is read from studio.html's own registry, not hardcoded here.
+    //
+    // This list used to be ['a','b','c'] with a special case for feature's D. Two failure modes
+    // followed from that, and both have actually happened: phantom entries (providers/D and /E were
+    // tested for months, fell through to the A branch, and reported coverage that did not exist),
+    // and the reverse — a real new direction that the suite never renders because nobody remembered
+    // to widen the array. Parsing the registry makes both impossible.
+    const studioSrc = await (await fetch('studio.html', { cache: 'no-store' })).text();
+    const DIRS = {};
+    for (const pt of PREM_TYPES) {
+      const at = studioSrc.indexOf('\n      ' + pt + ': { label:');
+      if (at < 0) { fail++; console.error('  x ' + pt + ' is in PREM_TYPES but not in studio.html PREMIUM'); continue; }
+      // Direction keys are the single letters at the start of a line inside this family's block,
+      // up to the next family (a line starting with six spaces and a name followed by ": {").
+      const nextFam = studioSrc.slice(at + 10).search(/\n      [a-z]+: \{ label:/);
+      const block = studioSrc.slice(at, nextFam < 0 ? undefined : at + 10 + nextFam);
+      DIRS[pt] = (block.match(/\n        ([a-z]):\{/g) || []).map(m => m.trim()[0]);
+      if (!DIRS[pt].length) { fail++; console.error('  x could not read any directions for ' + pt); }
+    }
+    console.log('Directions from the registry: ' + Object.keys(DIRS).map(k => k + '=' + DIRS[k].join('')).join(' '));
+
     // EVERY premium design runs against BOTH brands. The dark-secondary brand is the happy path;
     // the light-secondary one is where every contrast bug we've shipped actually lived.
     for (const [bLabel, b] of [['sme', brand], ['light', brandLight]]) {
       for (const pt of PREM_TYPES) {
-        for (const dir of (pt === 'feature' ? ['a','b','c','d'] : ['a','b','c'])) {
+        for (const dir of (DIRS[pt] || [])) {
           for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
             await run('premium/' + bLabel + '/' + pt + '/' + dir + '/' + sz,
               { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },

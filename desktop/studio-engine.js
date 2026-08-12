@@ -1555,6 +1555,90 @@ function drawWebinar(r, dir, v, a) {
         return;
     }
 
+    // ---- ON DEMAND (D/E/F) ---------------------------------------------------------------------
+    // A past session sells on something completely different from an upcoming one. Upcoming trades
+    // on WHEN and scarcity: a date, a seat, a deadline. Once it has happened, the date is the one
+    // thing working AGAINST you — "18 June 2026" on a card in August reads as expired, not as
+    // archive. So on-demand leads with the CONTENT and demotes the date to a credential.
+    //
+    // The library is also the bigger asset: dozens of past sessions against one upcoming, and every
+    // one of them is a permanent, re-postable thing that never goes out of date.
+    if (dir === 'd') {
+        // WATCH THE REPLAY. Runtime replaces the date, because the only question left is "how long
+        // is this going to take me".
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
+        r.radialGlow(W, 0, 500, 'rgba(156,28,31,0.22)', 'rgba(156,28,31,0)');
+        const accD = pSolid(PC.navy, PC.red, PC.paper);
+        let yD = pLogo(r, a, PC.navy);
+        yD += pPill(r, pad, yD, v.pill || 'On demand', accD.fill, accD.on) + pV(28);
+        // A play mark: the one piece of furniture that says "this is a recording" without a word.
+        { const s2 = pV(96);
+          r.fillRoundRect(pad, yD, s2, s2, s2 / 2, pRgba('#ffffff', 0.10));
+          r.ctx.save(); r.ctx.fillStyle = accD.text; r.ctx.beginPath();
+          r.ctx.moveTo(pad + s2 * 0.40, yD + s2 * 0.29); r.ctx.lineTo(pad + s2 * 0.72, yD + s2 * 0.5);
+          r.ctx.lineTo(pad + s2 * 0.40, yD + s2 * 0.71); r.ctx.closePath(); r.ctx.fill(); r.ctx.restore();
+          yD += s2 + pV(26); }
+        const fD = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(260), 1.05, { max: pT(80), min: 38 });
+        r.drawLines(fD.lines, { family: 'Oswald', weight: '700', size: fD.size }, pad, yD, iW, { color: pInk(PC.navy), lineHeight: 1.05 });
+        yD += fD.totalH + pV(22);
+        if (v.speaker) {
+            r.drawLines([('With ' + v.speaker).toUpperCase()], { family: 'Oswald', weight: '700', size: 36 }, pad, yD, iW, { color: PC.cbd });
+            yD += pV(46);
+            if (v.role) r.drawLines([String(v.role)], { family: 'Roboto', weight: '400', size: 30 }, pad, yD, iW, { color: pSubInk(PC.navy) });
+        }
+        // Runtime left, recorded-date right and quiet: a credential, not a deadline.
+        pFootAt(r, btnY - pV(34), v.runtime || '', v.recorded ? ('Recorded ' + v.recorded) : '', false, accD.text);
+        pButton(r, pad, btnY, iW, v.cta || 'Watch the replay →', accD.fill, accD.on);
+        return;
+    }
+
+    if (dir === 'e') {
+        // THE TAKEAWAY. A past session's best asset is the sentence somebody actually said in it.
+        // This is the same reason the podcast family has a pull-quote: quotes travel, adverts do not.
+        r.fillBg(PC.paper);
+        const accE = pSolid(PC.paper, PC.red, PC.navy);
+        r.rect(0, 0, W, 22, accE.fill);
+        let yE = pLogo(r, a, PC.paper) + pV(10);
+        r.drawLines([String(v.eyebrow || 'From the session').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, yE, iW, { color: accE.text });
+        yE += pV(52);
+        r.drawLines(['“'], { family: 'Oswald', weight: '900', size: pT(150) }, pad - 10, yE, iW, { color: accE.text, lineHeight: 1 });
+        yE += pV(92);
+        const qE = r.fitFontSize(String(v.quote || ''), { family: 'Oswald', weight: '700' }, iW, Math.max(pV(200), btnY - pV(210) - yE), 1.14, { max: pT(72), min: 32 });
+        r.drawLines(qE.lines, { family: 'Oswald', weight: '700', size: qE.size }, pad, yE, iW, { color: pInk(PC.paper), lineHeight: 1.14 });
+        yE += qE.totalH + pV(30);
+        if (v.speaker) {
+            r.drawLines([String(v.speaker).toUpperCase()], { family: 'Oswald', weight: '700', size: 40 }, pad, yE, iW, { color: pInk(PC.paper) });
+            yE += pV(48);
+            if (v.role) r.drawLines([String(v.role)], { family: 'Roboto', weight: '400', size: 30 }, pad, yE, iW, { color: PC.slate });
+        }
+        pFootAt(r, btnY - pV(30), v.url || '', v.runtime || '', true, accE.text);
+        { const c2 = pSolid(PC.paper, PC.navy, PC.red); pButton(r, pad, btnY, iW, v.cta || 'Watch the full session →', c2.fill, c2.on); }
+        return;
+    }
+
+    if (dir === 'f') {
+        // MISSED IT. The honest recovery post, and the one that works on a library: the session is
+        // over, nothing is lost, here is the whole thing. It leads on what was covered because that
+        // is the only thing a reader who was not there can evaluate.
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        const accF = pSolid(PC.navy, PC.red, PC.paper);
+        let yF = pLogo(r, a, PC.navy);
+        yF += pPill(r, pad, yF, v.pill || 'Missed it?', accF.fill, accF.on) + pV(28);
+        const fF = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(230), 1.05, { max: pT(74), min: 36 });
+        r.drawLines(fF.lines, { family: 'Oswald', weight: '700', size: fF.size }, pad, yF, iW, { color: pInk(PC.navy), lineHeight: 1.05 });
+        yF += fF.totalH + pV(18);
+        { const sw = r.wrap(String(v.sub || 'The full session is up. Nothing gated, nothing expired.'), { family: 'Roboto', weight: '400', size: 34 }, iW);
+          r.drawLines(sw, { family: 'Roboto', weight: '400', size: 34 }, pad, yF, iW, { color: PC.cbd, lineHeight: 1.4 });
+          yF += sw.length * 34 * 1.4 + pV(30); }
+        r.drawLines([String(v.coveredLabel || 'What it covered').toUpperCase()], { family: 'Oswald', weight: '700', size: 28 }, pad, yF, iW, { color: accF.text });
+        yF += pV(44);
+        // Three takeaways is the point of this direction, so the spacing is tightened to make room
+        // for three WRAPPED labels rather than letting the fit-guard quietly drop the last one.
+        pBullets(r, pad, yF, [v.i1, v.i2, v.i3], accF.fill, '#ffffff', btnY - pV(38), pV(12));
+        pFootAt(r, btnY - pV(34), v.runtime || '', v.recorded ? ('Recorded ' + v.recorded) : '', false, accF.text);
+        pButton(r, pad, btnY, iW, v.cta || 'Watch it now →', accF.fill, accF.on);
+        return;
+    }
     // A: THE SESSION CARD. Date first, because that is the decision — everything else is detail.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, 0, 540, 'rgba(156,28,31,0.24)', 'rgba(156,28,31,0)');
