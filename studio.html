@@ -223,7 +223,7 @@
                 <div id="premium-fields" class="flex flex-col gap-2"></div>
                 <!-- Latest Insight only: paste the article and let it fill all four directions. -->
                 <div id="premium-autofill" class="hidden mt-3 pt-3 border-t border-slate-700">
-                    <label class="text-xs text-slate-400 block mb-1">Auto-fill from the article</label>
+                    <label class="text-xs text-slate-400 block mb-1" id="prem-autofill-label">Auto-fill from the article</label>
                     <div class="flex gap-2">
                         <input type="url" id="prem-url" placeholder="Paste the article link…" class="flex-1 min-w-0 bg-slate-900 text-white rounded-md p-2 text-xs border border-slate-600 focus:border-[#B6FF3D] outline-none">
                         <button id="prem-autofill" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Fill</button>
@@ -991,24 +991,39 @@
     // extraction away and you'd have to fetch again.
     let premAutofill = null;
     function applyAutofillToDir() {
-        if (state.contentType !== 'feature' || !premAutofill) return;
+        if (!AUTOFILL[state.contentType] || !premAutofill) return;
         const d = premAutofill, dir = state.premiumDir;
         const set = (k, v) => { if (v) premVals[k] = v; };
-        if (dir === 'a') { set('quote', d.quote); set('author', d.author); set('authorRole', d.authorRole); }
-        else if (dir === 'b') { set('big', d.big); set('bigLabel', d.bigLabel); set('sub', d.sub); }
-        else if (dir === 'c') { set('head', d.head); set('i1', d.takeaways[0]); set('i2', d.takeaways[1]); set('i3', d.takeaways[2]); }
-        else if (dir === 'd') { set('head', d.head); set('sub', d.sub); set('byline', d.byline); }
-        set('url', d.url);
+        if (state.contentType === 'feature') {
+            if (dir === 'a') { set('quote', d.quote); set('author', d.author); set('authorRole', d.authorRole); }
+            else if (dir === 'b') { set('big', d.big); set('bigLabel', d.bigLabel); set('sub', d.sub); }
+            else if (dir === 'c') { set('head', d.head); set('i1', d.takeaways[0]); set('i2', d.takeaways[1]); set('i3', d.takeaways[2]); }
+            else if (dir === 'd') { set('head', d.head); set('sub', d.sub); set('byline', d.byline); }
+            set('url', d.url);
+        } else if (state.contentType === 'glossary') {
+            if (dir === 'a') { set('term', d.term); set('definition', d.definition); set('why', d.why); }
+            else if (dir === 'b') { set('term', d.term); set('myth', d.myth); set('truth', d.truth); }
+            else if (dir === 'c') {
+                const s = d.subterms || [];
+                set('head', d.head);
+                set('t1', s[0] && s[0].t); set('d1', s[0] && s[0].d);
+                set('t2', s[1] && s[1].t); set('d2', s[1] && s[1].d);
+                set('t3', s[2] && s[2].t); set('d3', s[2] && s[2].d);
+            }
+            // url is left alone — every glossary CTA points at the full glossary, not one term.
+        }
     }
 
     async function autofillInsight() {
+        const cfg = AUTOFILL[state.contentType];
         const urlEl = document.getElementById('prem-url');
         const btn = document.getElementById('prem-autofill');
         const st = document.getElementById('prem-autofill-status');
         const say = m => { if (st) st.textContent = m; };
+        if (!cfg) return;
         const url = (urlEl && urlEl.value.trim()) || '';
-        if (!url) { say('Paste the article link first.'); return; }
-        btn.disabled = true; say('Reading the article…');
+        if (!url) { say('Paste the link first.'); return; }
+        btn.disabled = true; say('Reading the page…');
         try {
             const r = await fetchWithProxy(url);
             const html = await r.text();
@@ -1016,29 +1031,34 @@
             const t = doc.querySelector('meta[property="og:title"]');
             const title = ((t && t.content) || doc.title || '').replace(' - SME South Africa', '').trim();
             const text = extractArticleText(doc);
-            if (!text) throw new Error('Could not find the article body on that page.');
-            say('Pulling the quote, the number and the takeaways…');
+            if (!text) throw new Error('Could not find the page body on that link.');
+            say('Pulling the details…');
             const gr = await fetch('/api/generate', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ task: 'insightcards', article: text, title, url: (new URL(url)).hostname.replace(/^www\./, '') })
+                body: JSON.stringify({ task: cfg.task, article: text, title, url: (new URL(url)).hostname.replace(/^www\./, '') })
             });
             let data = {}; try { data = await gr.json(); } catch (e) {}
             if (gr.status === 401) throw new Error('Please sign in.');
-            if (!gr.ok || !data.insight) throw new Error((data && data.error) || 'Could not read that article.');
+            if (!gr.ok || !data.insight) throw new Error((data && data.error) || 'Could not read that page.');
             premAutofill = data.insight;
             applyAutofillToDir(); renderPremFields(); renderPremiumPreview();
             // Say plainly what came back empty. A silent gap looks like a bug; "no figure in this
             // article" is information, and it tells you B isn't the direction to use.
             const gaps = [];
-            if (!premAutofill.quote) gaps.push('no quotable line');
-            if (!premAutofill.big) gaps.push('no figure to lead with');
-            if (!premAutofill.takeaways.length) gaps.push('no clear takeaways');
-            if (!premAutofill.head) gaps.push('nothing beyond the headline');
-            say(gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '.' : 'Filled all four directions ✓');
-            // The article's hero image is deliberately NOT pulled. It is the same picture the link
+            if (state.contentType === 'feature') {
+                if (!premAutofill.quote) gaps.push('no quotable line');
+                if (!premAutofill.big) gaps.push('no figure to lead with');
+                if (!premAutofill.takeaways.length) gaps.push('no clear takeaways');
+                if (!premAutofill.head) gaps.push('nothing beyond the headline');
+                say(gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '.' : 'Filled all four directions ✓');
+            } else if (state.contentType === 'glossary') {
+                if (!premAutofill.definition) gaps.push('no plain-English definition found');
+                if (!premAutofill.myth) gaps.push('no common misconception to correct');
+                if (!(premAutofill.subterms && premAutofill.subterms.length)) gaps.push('no related terms on this page');
+                say(gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '.' : 'Filled all three directions ✓');
+            }
+            // The page's hero image is deliberately NOT pulled. It is the same picture the link
             // preview already shows; restyling it is the copy-paste look we're moving away from.
-            // Pick a photo yourself, or leave it out — three of the four directions are type-only
-            // by design and read better without one.
         } catch (e) { say((e && e.message) || 'Auto-fill failed.'); }
         finally { btn.disabled = false; }
     }
@@ -1440,10 +1460,26 @@
     const premPhotoURLs = {};       // contentType -> object URL for the thumbnail
     function premFeatured(){ return premPhotos[state.contentType] || null; }
     const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)' };
+    // Which content types can auto-fill from a live page, what page they read, and the copy for
+    // each — one small config instead of a second copy-pasted button+handler per family.
+    const AUTOFILL = {
+      feature:  { task: 'insightcards', label: 'Auto-fill from the article', placeholder: 'Paste the article link…',
+                  hint: 'Pulls a verbatim quote, a real figure and three takeaways — and fills every direction at once, so you can pick whichever the article actually supports.' },
+      glossary: { task: 'glossaryfill', label: 'Auto-fill from the glossary page', placeholder: 'Paste the glossary term link…',
+                  hint: 'Pulls the definition, a myth it corrects and any related terms the page itself defines — and fills every direction at once, so you can pick whichever the page actually supports.' }
+    };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
         const af = document.getElementById('premium-autofill');
-        if (af) af.classList.toggle('hidden', state.contentType !== 'feature');
+        const afCfg = AUTOFILL[state.contentType];
+        if (af) {
+            af.classList.toggle('hidden', !afCfg);
+            if (afCfg) {
+                const lbl = document.getElementById('prem-autofill-label'); if (lbl) lbl.textContent = afCfg.label;
+                const urlEl = document.getElementById('prem-url'); if (urlEl) urlEl.placeholder = afCfg.placeholder;
+                const st = document.getElementById('prem-autofill-status'); if (st) st.textContent = afCfg.hint;
+            }
+        }
         const wants = !!PREM_PHOTO[state.contentType];
         box.classList.toggle('hidden', !wants);
         if (!wants) return;
@@ -1569,7 +1605,7 @@
     }
     function setContentType(type){
       state.contentType = type;
-      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros','podcast','merch','feature'];
+      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros','podcast','merch','feature','hub','glossary','webinar'];
       types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
         btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
       const isCreative = type === 'creative';

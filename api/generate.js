@@ -683,34 +683,28 @@ export default async function handler(req, res) {
     if (task === "campaign") {
       const brief = String(body.brief || "").trim().slice(0, 2000);
       if (!brief) return res.status(400).json({ error: "Describe the campaign first." });
-      const platform = String(body.platform || "").slice(0, 30);
-      // Studio premium field spec — the model must fill EXACTLY these keys per design.
-      const CREATIVE_SPEC = {
-        funding:    { a: ["pill","head","sub","b1","b2","b3","cta"], b: ["pill","head","sub","cardk","cardh","cards","cta"], c: ["big","head","speed","trust","cta"] },
-        solutions:  { a: ["eyebrow","head","sub","cta"], b: ["eyebrow","vsLeft","vsRight","head","sub","cta"], c: ["eyebrow","name","rating","sub","pro1","pro2","con1","cta"] },
-        newsletter: { a: ["eyebrow","head","sub","cta","meta"], b: ["pill","issue","head","i1","i2","i3","cta"], c: ["eyebrow","big","sub","placeholder","btn","meta"] },
-        resources:  { a: ["pill","coverTitle","coverSub","head","cta"], b: ["eyebrow","head","i1","i2","i3","locked","cta"], c: ["big","head","sub","i1","i2","i3","cta"] },
-      };
-      const specTxt = Object.entries(CREATIVE_SPEC).map(([t, dirs]) =>
-        Object.entries(dirs).map(([d, keys]) => t + "/" + d + ": {" + keys.join(", ") + "}").join("\n")).join("\n");
-      const sysCampaign =
-        "You are the head of marketing for South African SMEs. From ONE campaign brief you produce a complete, coherent, ready-to-ship campaign. " +
-        "Everything must share one message and voice. Be concrete and South African (Rand amounts, SA context). Reply ONLY with valid JSON.";
-      // Reroll ONE piece: same brief, but return a single fresh item that differs from what's there.
-      const regen = String(body.regenerate || "").toLowerCase();
-      const avoid = String(body.avoid || "").slice(0, 1500);
-      const regenNote = (regen === "copy" || regen === "creative")
-        ? "\n\nREGENERATE MODE — return ONLY ONE " + (regen === "copy" ? "copy angle (copy array of length 1; creatives/posts may be empty arrays and email empty strings)" : "creative (creatives array of length 1; copy/posts may be empty arrays and email empty strings)") +
-          ". It must be MEANINGFULLY DIFFERENT from these existing ones — different angle, different wording" + (regen === "creative" ? ", and prefer a different type/dir combination" : "") + ":\n" + avoid
-        : "";
+      // NOT WIRED UP. The one-brief-to-full-campaign generator (campaign.html) has no working
+      // handler here — say so cleanly rather than falling through to an unrelated task below.
+      return res.status(501).json({ error: "Campaign generation isn't wired up yet." });
+    }
+
+    // ---- Latest Insight autofill: pull a verbatim quote, a real figure and takeaways from ONE
+    // article, so all four Feature directions can be filled from a pasted link instead of typed
+    // by hand. Shares its extraction principle (fetch the page, pull the real body text, ask the
+    // model to lift specifics rather than invent them) with "glossaryfill" below.
+    if (task === "insightcards") {
+      const text = String(body.article || "").trim().slice(0, 12000);
+      if (text.length < 300) return res.status(400).json({ error: "Couldn't find enough article text on that page." });
+      const title = String(body.title || "").slice(0, 200);
+      const url = String(body.url || "").slice(0, 80);
       // The brief here is NOT "summarise this article". A card built from the headline and the hero
       // image is exactly what we are moving away from: it tells a scroller what they can already see
       // in the link preview, so there is no reason to stop. What earns a stop is something FROM
       // INSIDE the piece that they could not have guessed from the title.
       const prompt =
         "You are a publication's social editor. Your job is to find the material a reader could NOT have guessed from the headline.\n\n" +
-        (title ? "HEADLINE (context only — do NOT reuse or paraphrase it): " + String(title).slice(0, 200) + "\n\n" : "") +
-        "ARTICLE:\n" + text.slice(0, 12000) + "\n\n" +
+        (title ? "HEADLINE (context only — do NOT reuse or paraphrase it): " + title + "\n\n" : "") +
+        "ARTICLE:\n" + text + "\n\n" +
         "THE TEST FOR EVERY FIELD: would someone who has already seen the headline learn something NEW from it? If not, it has failed.\n" +
         "- Specific over general. A named lender, an actual threshold, a deadline, a rule most people get wrong, a number with a unit. Never 'businesses should plan carefully'.\n" +
         "- Prefer the counter-intuitive: what contradicts a reader's assumption, or the detail buried mid-article that the writer under-sold.\n" +
@@ -742,7 +736,58 @@ export default async function handler(req, res) {
         byline: clip(d.byline, 60),
         url: clip(url, 80),
       };
+      if (!insight.quote && !insight.big && !tk.length && !insight.head) {
+        return res.status(502).json({ error: "Could not pull anything usable from that article — try a different link." });
+      }
       await logContent(req.volt && req.volt.orgId, { tool: "insightcards", input: { len: text.length, title: clip(title, 120) }, output: { hasQuote: !!insight.quote, hasNumber: !!insight.big, takeaways: tk.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ insight });
+    }
+
+    // ---- Glossary autofill: same principle as insightcards, for a smesouthafrica.co.za/glossary
+    // term page. A glossary page is reference material, not a narrative article — so unlike
+    // insightcards this is allowed to WRITE plain-English phrasing rather than only lift verbatim
+    // lines, but the "myth" and "subterms" fields must still come from something genuinely on the
+    // page (a real named sub-concept, a real common confusion) rather than be invented to fill a
+    // field. An empty field beats a fabricated one.
+    if (task === "glossaryfill") {
+      const text = String(body.article || "").trim().slice(0, 10000);
+      if (text.length < 200) return res.status(400).json({ error: "Couldn't find enough text on that glossary page." });
+      const title = String(body.title || "").slice(0, 80);
+      const prompt =
+        "You are writing plain-English glossary content for South African small-business owners, based on ONE glossary page.\n\n" +
+        (title ? "TERM: " + title + "\n\n" : "") +
+        "PAGE CONTENT:\n" + text + "\n\n" +
+        "Return JSON with:\n" +
+        "- definition: the term explained in ONE plain sentence a business owner would actually use — your own words, faithful to the page, no jargon repeated back at them. <=170 chars.\n" +
+        "- why: one sentence on why this term matters in practice for a small business. Ground it in the page content, do not generalise. <=150 chars.\n" +
+        "- myth: a common misconception people genuinely have about this term — ONLY if there is a real, well-known one. If you cannot name a real one, return \"\". Never invent a misconception just to fill the field. <=120 chars.\n" +
+        "- truth: what the term actually means, phrased to directly correct the myth above. Return \"\" if myth is \"\". <=170 chars.\n" +
+        "- subterms: up to 3 related terms that are ACTUALLY explained or named within this page (a named sub-type, an acronym, an adjacent concept the page itself defines) — never invented. Each is {t: the term, <=28 chars; d: a one-line definition drawn from the page, <=90 chars}. Return fewer than 3, or none, rather than padding with something not on the page.\n" +
+        "- head: a short headline for a card titled 'three things to know' about the subterms found (e.g. 'Three types of cash flow'). Return \"\" if there are no subterms.\n\n" +
+        "South African context and spelling. Return JSON only: {\"definition\":\"\",\"why\":\"\",\"myth\":\"\",\"truth\":\"\",\"head\":\"\",\"subterms\":[{\"t\":\"\",\"d\":\"\"}]}";
+      const raw = await callProvider(prompt, { system: "You write faithful, plain-English reference copy from one glossary page. Never invent a fact, misconception or related term that isn't genuinely on the page. Return JSON only.", temperature: 0.4, maxTokens: 700 });
+      const d = safeParse(raw);
+      if (!d) return res.status(502).json({ error: "Could not read that glossary page — try again." });
+      const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+      const subterms = Array.isArray(d.subterms)
+        ? d.subterms.map((s) => ({ t: clip(s && s.t, 28), d: clip(s && s.d, 90) })).filter((s) => s.t && s.d).slice(0, 3)
+        : [];
+      const myth = clip(d.myth, 130);
+      const insight = {
+        term: clip(title, 40),
+        definition: clip(d.definition, 190),
+        why: clip(d.why, 160),
+        myth,
+        // truth only makes sense paired with a real myth to correct — an unpaired "truth" reads as
+        // a second definition with no reason to exist.
+        truth: myth ? clip(d.truth, 190) : "",
+        head: subterms.length ? clip(d.head, 70) : "",
+        subterms,
+      };
+      if (!insight.definition && !subterms.length) {
+        return res.status(502).json({ error: "Could not extract anything usable from that glossary page." });
+      }
+      await logContent(req.volt && req.volt.orgId, { tool: "glossaryfill", input: { len: text.length, title: insight.term }, output: { hasDefinition: !!insight.definition, hasMyth: !!insight.myth, subterms: subterms.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
       return res.status(200).json({ insight });
     }
 
