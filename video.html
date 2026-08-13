@@ -378,8 +378,8 @@
           <input type="text" id="hookText" placeholder="Scroll-stopping hook — e.g. The mistake that kills 90% of startups" />
           <label class="lbl" style="margin:10px 0 4px;">Show it for</label>
           <div class="seg" id="hookDurSeg">
-            <button data-hd="2.5" class="on">First 2.5s</button>
-            <button data-hd="5">First 5s</button>
+            <button data-hd="5" class="on">First 5s</button>
+            <button data-hd="10">First 10s</button>
             <button data-hd="full">Whole clip</button>
           </div>
           <p class="note" style="margin-top:6px;">Big headline to stop the scroll. Show it just at the open, or keep it up for the entire clip. Tip: generate post copy below for hook ideas.</p>
@@ -563,7 +563,7 @@ const $ = s => document.querySelector(s);
 
 const FMT = { '9x16':{w:1080,h:1920}, '1x1':{w:1080,h:1080}, '16x9':{w:1920,h:1080} };
 const FOCUS = { left:0, center:0.5, right:1 };
-const HOOK_DUR = 2.5;
+const HOOK_DUR = 5;
 
 const cv = $('#stageCanvas');
 const ctx = cv.getContext('2d');
@@ -615,7 +615,7 @@ const state = {
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
   words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
-  hookOn:false, hookDur:2.5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
+  hookOn:false, hookDur:5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
   brand:null, exportFmt:'mp4', upscale:1, layers:[], transition:'cross',
   // Format templates. `template` is a PRESET over the fields above plus a few draw branches — the
@@ -1367,9 +1367,6 @@ function drawHook(ct){
   // scrim
   ctx.fillStyle='rgba(0,0,0,0.45)';
   roundRect(W*0.06, cy - blockH/2 - fs*0.55, W*0.88, blockH + fs*1.0, 18); ctx.fill();
-  // lime accent bar
-  ctx.fillStyle='#B6FF3D';
-  ctx.fillRect(W/2 - W*0.07, cy - blockH/2 - fs*0.85, W*0.14, Math.max(5, fs*0.10));
   // text
   let y = cy - blockH/2 + lh/2;
   ctx.lineWidth = Math.max(4, fs*0.14); ctx.lineJoin='round'; ctx.strokeStyle='rgba(0,0,0,0.85)';
@@ -2198,7 +2195,7 @@ const VIDEO_TEMPLATES = {
     label: 'Podcast short',
     note: 'Cold open, audiogram bars, guest lower-third. Built for the scroll, not the click.',
     apply: { introOn:false, outroOn:true, outroDur:2.0, nameOn:true, captionsOn:true, hookOn:true,
-             hookDur:2.5, progressOn:true, brandFlashOn:true, markOn:true, waveOn:true, qaOn:false,
+             hookDur:5, progressOn:true, brandFlashOn:true, markOn:true, waveOn:true, qaOn:false,
              capPos:'bottom', capSize:'L', capBg:'none', capsOn:true }
   },
   qa: {
