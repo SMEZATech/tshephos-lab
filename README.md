@@ -1,5 +1,13 @@
 # Tshepho's Lab
 
+> **⚠️ This README describes an early, single-tool version of the project.** Volt has since
+> grown into an 11-tool suite (Copy, Campaign, Studio, Freeform, Video, SmartClip, Transcribe,
+> Email, Schedule, Stats) with real auth (Supabase) and a routed API — the deploy steps below
+> (Gemini-key-only, no auth) are no longer how this repo actually runs. For current architecture
+> and state, read **[`BLUEPRINT.html`](BLUEPRINT.html)** first. This file is kept as-is rather
+> than rewritten blind; happy to rebuild it properly in its own session once BLUEPRINT.html's
+> env-var/setup section has been verified end-to-end.
+
 An ad creative engine: drop in an offer and get a ranked batch of ad angles, each written and graded on hook, clarity, and urgency. Runs on a **free** AI API key — no ongoing cost.
 
 © 2026 Tshepho Joel. All rights reserved.

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!-- Volt — Blueprint. The one doc every session reads first and updates last. © 2026 Tshepho Joel.
+
+     WHY THIS FILE EXISTS: every other doc in this project (CLAUDE.md, the two READMEs) was written
+     once and then quietly went stale while real work kept shipping — by 2026-08-13, CLAUDE.md still
+     described a repo layout, an auth model (x-app-key) and a tool list that hadn't been true for
+     weeks, because nothing forced anyone (human or AI) to update it. That's the actual bug this file
+     fixes: it is git-tracked IN THE PRODUCT REPO (not a personal note, not a local-only file), so it
+     travels with every clone, survives a fresh session, a different machine, or a different person
+     picking up the work — and the RULE below is the mechanism that keeps it honest.
+
+     DELIBERATELY NOT added to RAIL_TILES (volt-auth.js) or build-sync's PAGES/ASSETS lists. This is
+     a docs page, not a product surface — giving it desktop-parity would recreate the exact kind of
+     drift this file exists to prevent. It lives ONLY here, in tshephos-lab (the deployed, most-active
+     repo); the desktop repo's README just points here instead of duplicating it. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Volt — Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28; --border:rgba(255,255,255,.09);
+    --border-2:rgba(255,255,255,.14); --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
+    --accent:#B6FF3D; --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
+    --fd:'Unbounded',system-ui; --fb:'Plus Jakarta Sans',system-ui; --fm:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--fb); line-height:1.55; padding-bottom:80px;}
+  .wrap{max-width:920px; margin:0 auto; padding:40px 24px;}
+  h1{font-family:var(--fd); font-weight:800; font-size:clamp(28px,5vw,42px); margin:0 0 6px; letter-spacing:-.01em;}
+  .sub{color:var(--dim); font-size:15px; margin:0 0 28px;}
+  h2{font-family:var(--fd); font-weight:800; font-size:20px; margin:44px 0 14px; padding-top:14px; border-top:1px solid var(--border); letter-spacing:.01em;}
+  h3{font-family:var(--fb); font-weight:700; font-size:15px; margin:22px 0 8px; color:var(--text);}
+  p{margin:0 0 12px;}
+  a{color:var(--info); text-decoration:none;} a:hover{text-decoration:underline;}
+  code{font-family:var(--fm); font-size:.92em; background:var(--surface-2); border:1px solid var(--border); border-radius:5px; padding:1px 6px;}
+  pre{font-family:var(--fm); font-size:13px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; overflow-x:auto; line-height:1.5;}
+  ul,ol{padding-left:22px; margin:0 0 12px;} li{margin-bottom:6px;}
+  .rule{background:var(--surface); border:1px solid var(--accent); border-left:4px solid var(--accent); border-radius:12px; padding:20px 22px; margin-bottom:8px;}
+  .rule h2{margin-top:0; padding-top:0; border-top:none; font-size:17px;}
+  .rule ol{margin-bottom:0;}
+  table{width:100%; border-collapse:collapse; margin:10px 0 18px; font-size:14px;}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:top;}
+  th{color:var(--dim); font-family:var(--fm); font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;}
+  tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block; font-family:var(--fm); font-size:11px; font-weight:700; padding:2px 8px; border-radius:100px; letter-spacing:.04em;}
+  .tag.ok{background:rgba(87,227,154,.12); color:var(--good); border:1px solid rgba(87,227,154,.3);}
+  .tag.open{background:rgba(255,200,87,.12); color:var(--mid); border:1px solid rgba(255,200,87,.3);}
+  .tag.web{background:rgba(127,200,255,.12); color:var(--info); border:1px solid rgba(127,200,255,.3);}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:12px;}
+  .card h3{margin-top:0;}
+  .log-entry{border-left:2px solid var(--border-2); padding:2px 0 14px 16px; margin-bottom:2px; position:relative;}
+  .log-entry::before{content:''; position:absolute; left:-4px; top:6px; width:8px; height:8px; border-radius:50%; background:var(--accent);}
+  .log-date{font-family:var(--fm); font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:4px;}
+  footer{color:var(--faint); font-size:12.5px; margin-top:60px; padding-top:20px; border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>🧭 Volt Blueprint</h1>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last verified 2026-08-13</strong>, against <code>tshephos-lab@4dbe3ff</code> / <code>volt-desktop@main</code>.</p>
+
+  <div class="rule">
+    <h2>📌 The rule</h2>
+    <ol>
+      <li><strong>Read this file before starting any non-trivial Volt work</strong> — regardless of which session, machine, or person is doing the work. Don't assume you're continuing from a prior conversation; assume real work happened that you haven't seen.</li>
+      <li><strong>After finishing meaningful work</strong> (a new feature, an architecture change, a bug whose cause wasn't obvious from the diff), <strong>prepend an entry to the Change log</strong> below and correct whatever section it affects. A stale entry here is worse than no entry — it actively misleads the next session.</li>
+      <li>If something you verify here turns out to be wrong, <strong>fix it in place</strong> — don't leave it and add a caveat elsewhere. This file only works if it can be trusted at face value.</li>
+      <li>This file lives <strong>only in <code>tshephos-lab/</code></strong> (the deployed repo). Don't copy it into <code>volt-desktop/app/</code> or add it to <code>build-sync.cjs</code>'s <code>PAGES</code>/<code>ASSETS</code> — that would create a second copy to keep in sync, which is the exact failure mode this file exists to end.</li>
+    </ol>
+  </div>
+
+  <h2>What Volt is</h2>
+  <p><strong>Volt</strong> is an in-house AI marketing suite built for <strong>SME South Africa</strong> (<code>smesouthafrica.co.za</code>) — copy generation, canvas graphic design, short-form video editing, a newsletter builder, and performance analytics, all sharing one Brand Kit and one backend.</p>
+  <table>
+    <tr><th>Deployment</th><th>URL / location</th><th>Notes</th></tr>
+    <tr><td>Web app</td><td><code>tshephos-lab.vercel.app</code></td><td>Daily-use surface; falls back to Vercel env API keys.</td></tr>
+    <tr><td>Desktop app</td><td><code>Volt Setup.exe</code> (Windows, Electron)</td><td>Shared with one <code>@smesouthafrica.co.za</code> colleague; sends their own keys via request headers.</td></tr>
+  </table>
+  <p>Both deployments call the <strong>same</strong> Vercel backend — public API URLs never change between them.</p>
+
+  <h2>Repos &amp; the sync workflow</h2>
+  <table>
+    <tr><th>Repo</th><th>Local path</th><th>Role</th></tr>
+    <tr><td><code>SMEZATech/volt-desktop</code></td><td><code>volt-desktop/volt-desktop/</code></td><td>Electron shell (<code>main.js</code>, <code>preload.js</code>, <code>build-sync.cjs</code>, code-signing) <strong>and</strong> <code>app/</code> — the canonical source for every page.</td></tr>
+    <tr><td><code>SMEZATech/tshephos-lab</code></td><td><code>volt-desktop/tshephos-lab/</code></td><td>The <strong>deployed</strong> repo (Vercel). Receives synced page copies from <code>app/</code>, plus owns <code>api/</code> (serverless — desktop always calls the hosted one, so it has no local copy).</td></tr>
+  </table>
+  <p><strong>Edit in <code>app/&lt;page&gt;.html</code>, never the web copy directly.</strong> Then from the desktop repo:</p>
+  <pre>cd volt-desktop/volt-desktop
+npm run sync          # build-sync.cjs — validates (node --check + tag-balance) then writes
+                       # URL-relativized copies into tshephos-lab/ AND tshephos-lab/desktop/
+cd ../tshephos-lab
+git add -A && git commit -m "..." && git push   # Vercel auto-deploys; desktop app pulls
+                                                 # /desktop/ pages live, no reinstall needed
+cd ../volt-desktop && git add -A && git commit -m "..." && git push  # keep app/ history matched</pre>
+  <p><strong>Currently synced pages</strong> (<code>build-sync.cjs</code> <code>PAGES</code>): <code>home, index, campaign, studio, freeform, analytics, email, video, smartclip, videotok, schedule, guide, health, admin</code>.</p>
+  <p><strong>Currently synced shared scripts</strong> (<code>ASSETS</code>): <code>volt-auth.js, email-blocks.js, studio-engine.js, volt-stt.js, smartclip.js, autoframe.js</code>.</p>
+  <p><strong>Deliberately NOT synced</strong> (web-only, on purpose): <code>welcome.html</code> (public front door — no desktop equivalent makes sense), <code>BLUEPRINT.html</code> (this file), <code>api/</code> (backend).</p>
+  <div class="card">
+    <h3>Gotcha this file exists partly to prevent <span class="tag ok">RESOLVED 2026-08-13</span></h3>
+    <p><code>app/</code> and the web copy CAN diverge if someone edits the web copy directly instead of <code>app/</code> — it happened (studio.html and email.html carried unreconciled work for a few days in late July). It got resolved as a side effect of extracting <code>studio-engine.js</code> / <code>email-blocks.js</code> out of the HTML and re-syncing. <strong>To verify parity at any time:</strong></p>
+    <pre>diff volt-desktop/app/&lt;page&gt;.html tshephos-lab/&lt;page&gt;.html   # expect ONLY the absolute→relative API-url swap
+diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expect ZERO diff — these must be byte-identical</pre>
+  </div>
+
+  <h2>Tool inventory <span class="tag web" style="vertical-align:2px;">11 in the left rail</span></h2>
+  <table>
+    <tr><th>Tool</th><th>Page(s)</th><th>What it does</th></tr>
+    <tr><td>✦ Create</td><td><code>home.html</code></td><td>Goal-oriented hub: quick-starts, the full module grid, live Recent projects and a 🧠 brain-learned tip.</td></tr>
+    <tr><td>✍️ Copy</td><td><code>index.html</code></td><td>AI ad-copy engine — generates and scores ad angles (hook, clarity, urgency) from an offer brief.</td></tr>
+    <tr><td>⚡ Campaign</td><td><code>campaign.html</code></td><td>"One brief in, a campaign out" — fans a single brief into a multi-surface campaign package.</td></tr>
+    <tr><td>🎨 Studio</td><td><code>studio.html</code> + <code>studio-engine.js</code></td><td>Canvas graphic-design engine. Creative mode (free layout) plus premium content families: funding, solutions, newsletter, resources, marketplace (providers/findpros), podcast, merch, feature story, SME Hub, glossary, webinar.</td></tr>
+    <tr><td>🖌️ Freeform</td><td><code>freeform.html</code></td><td>Fabric.js layered canvas editor — text/shapes/images, brand swatches, AI background removal (<code>@imgly/background-removal</code>, in-browser), AI image generation.</td></tr>
+    <tr><td>🎬 Video</td><td><code>video.html</code></td><td>Short-form video editor/exporter. Per-template intro/outro cards (webinar, podcast short, Q&amp;A, freeform), captions, hook overlay, MP4/WebM export.</td></tr>
+    <tr><td>🎯 SmartClip</td><td><code>smartclip.html</code> + <code>smartclip.js</code> + <code>autoframe.js</code></td><td>Its own module on purpose (was a Video panel, outgrew it): finds the best moments in a long recording, 2D auto-frames/zooms them, hands the chosen clip to Video.</td></tr>
+    <tr><td>📝 Transcribe</td><td><code>videotok.html</code></td><td>Video → title, description, tags, chapters (VideoTok).</td></tr>
+    <tr><td>✉️ Email</td><td><code>email.html</code> + <code>email-blocks.js</code></td><td>AI newsletter builder — section library (content, webinar, resource, podcast, merch, sponsored, task, opportunity, CTA, signature, custom), preview-editable, sends to Kit.</td></tr>
+    <tr><td>📅 Schedule</td><td><code>schedule.html</code></td><td>Compose once, publish to social channels via Postiz.</td></tr>
+    <tr><td>📊 Stats</td><td><code>analytics.html</code></td><td>Manual KPI entry + live Postiz performance; feeds the Volt Brain feedback loop.</td></tr>
+  </table>
+  <p><strong>Off-rail pages</strong> (still real, just not product-nav): <code>welcome.html</code> (public front door — deliberately has no volt-auth.js gate), <code>guide.html</code> (in-app operator's guide), <code>health.html</code> (end-to-end API/DB probe), <code>admin.html</code> (owner-only control of which modules/designs are live).</p>
+
+  <h2>API surface</h2>
+  <p>4 functions stay top-level (hot/heavy paths get their own cold-start budget): <code>generate.js</code>, <code>transcribe.js</code>, <code>postiz.js</code>, <code>projects.js</code>.</p>
+  <p>Everything else dispatches through one catch-all, <code>api/[...volt].js</code>, to handlers in <code>api/_routes/</code>: <code>kit, image, upload, scrape, assets, billing, paystack, brain</code>. Public URLs are unchanged either way (<code>/api/kit</code> etc.) — this exists only to stay under Vercel Hobby's 12-function cap.</p>
+  <div class="card">
+    <h3>Gotcha <span class="tag ok">FIXED 2026-08-13, commit 31a97a5</span></h3>
+    <p>The router used to read the endpoint name from <code>req.query.volt</code> (the catch-all param). Vercel does <strong>not</strong> reliably populate that for plain Node functions — in production it arrived empty, so <strong>every routed endpoint 404'd</strong> ("Unknown endpoint") until someone hit one. Fixed to derive the name from the URL path instead; param kept only as a fast path. If this class of bug ever resurfaces, check <code>endpointName()</code> in <code>api/[...volt].js</code> first.</p>
+  </div>
+  <p><strong>Auth is a real Supabase session</strong> (<code>requireSession</code> in <code>api/_guard.js</code>), fail-closed (503) if Supabase env vars are missing. The old public <code>x-app-key</code>/<code>APP_KEY</code> path is retired dead code — <strong>do not tell anyone to send that header</strong>; several stale docs (old CLAUDE.md, this repo's own README) still say to, and they're wrong.</p>
+
+  <h2>Hard rules that are still true</h2>
+  <ul>
+    <li><strong>No paid services.</strong> Volt runs on free-tier APIs only (free Gemini model, not Imagen/OpenAI). Flag it and offer a free alternative if a feature would need a paid one.</li>
+    <li><strong>Push to live by default.</strong> Joel wants changes committed <em>and</em> pushed to <code>main</code> (Vercel prod); he QCs from the live app, not a preview branch.</li>
+    <li><strong><code>webSecurity</code> is ON</strong> in the desktop shell. Any new external image load MUST go through <code>window.voltAsset(url)</code> (routes via <code>/api/scrape?img=1</code> so bytes arrive same-origin) or canvas export will taint/fail.</li>
+    <li><strong>Email typography must be inline, not stylesheet-only.</strong> Any new email body section is either fully inline-styled or bare <code>&lt;p&gt;/&lt;h2&gt;</code> (which <code>inlineBaseTypography()</code> in <code>email-blocks.js</code> will normalise) — Outlook and several ESPs ignore or strip a <code>&lt;style&gt;</code> block. Never hand-write a font-family fallback chain; use the shared <code>FAM_HEAD</code>/<code>FAM_BODY</code> constants.</li>
+    <li><strong>New API endpoints go in <code>api/_routes/</code> + the router's <code>ROUTES</code> map</strong>, never as a new top-level file (the 12-function cap).</li>
+  </ul>
+
+  <h2>Open items right now</h2>
+  <div class="card">
+    <h3>Podcast-short outro hosts photo <span class="tag open">quality-limited</span></h3>
+    <p><code>video.html</code>'s podcast-template outro embeds a single flattened 640×258 JPEG (<code>PODCAST_HOSTS_SRC</code>, base64 in-source) of the three hosts already composited onto a dark-red background. Running Volt's own background-removal pipeline on it (2026-08-13, tested via the same <code>@imgly/background-removal</code> path Freeform uses) works but isn't clean — colour fringing around hair/shoulders and a leftover dark-red fragment kept as false foreground, because the source is small and already flattened. <strong>Fix path:</strong> get the 3 original individual photos (before they were merged) from Joel; cut each out cleanly at full resolution and rebuild the composite. Don't try to improve the current baked-in JPEG further — it's at its ceiling.</p>
+  </div>
+  <div class="card">
+    <h3>Joel's to do (nobody else has DB/dashboard access)</h3>
+    <p>Hard spend caps / budget alerts on Gemini, Groq and Vercel — the plan is uncapped, so this is the only backstop against a runaway loop or a leaked session.</p>
+  </div>
+  <div class="card">
+    <h3>Deliberately not built, with reasons</h3>
+    <p>Faster-than-real-time video export (spec exists in <code>AUDIT-2026-07.md</code> §8 — MediaRecorder is real-time by construction; the real fix is an ffmpeg-based rewrite of the export path, desktop-only, needs a session where Joel can watch it export). A rewrite of the most-used module's critical path, untestable without a live clip/Electron/ffmpeg — held this position when asked to "do everything" because half-built scaffolding nobody calls is worse than a clean spec.</p>
+  </div>
+
+  <h2>Change log</h2>
+  <p style="color:var(--faint); font-size:13px; margin-top:-6px;">Newest first. Prepend a short entry after any session that changes behaviour, fixes a non-obvious bug, or ships a new surface. Routine copy/config tweaks don't need an entry.</p>
+
+  <div class="log-entry">
+    <span class="log-date">2026-08-13</span>
+    <strong>Created this file.</strong> Also: fixed the API router's "Unknown endpoint" bug (see above, commit 31a97a5); fixed email sections rendering at inconsistent sizes in the actually-sent email vs. the in-app preview via <code>inlineBaseTypography()</code> + <code>ensureFontFamily()</code> + <code>normalizeFontStacks()</code> in <code>email-blocks.js</code> (two passes — the first only handled missing <em>size</em>, not missing <em>face</em>); tested background-removal on the podcast outro's hosts photo (see Open items).
+  </div>
+  <div class="log-entry">
+    <span class="log-date">2026-07-31 → 2026-08-13</span>
+    <strong>26 commits, not previously logged anywhere living:</strong> SmartClip shipped as its own module (whole-recording moment finder, 2D auto-framing/zoom, manual clip length/focus, scan history, reachable from the rail/⌘K/home) — see <code>smartclip.html/js</code> + <code>autoframe.js</code>. Video gained format templates (Podcast short / Q&amp;A / Freeform, each with its own intro+outro card design), a Story format (1080×1920) with safe zones, hardened self-verifying MP4 export, a face-safe frame for Q&amp;A, and a podcast-outro redesign (real platform marks, hosts photo, a landscape sizing bug fix, an export-cutoff fix). Studio gained several premium content families (Feature story, SME Hub, Glossary, Webinars) and a canvas-overflow check. <code>welcome.html</code> shipped as a public front door (deliberately ungated). <code>admin.html</code> shipped for owner-only module/design control.
+  </div>
+  <div class="log-entry">
+    <span class="log-date">2026-07-31</span>
+    <strong>Full audit landed</strong> (commits <code>c61e80b → ff69cbd</code>, reasoning in <code>AUDIT-2026-07.md</code>): API router (12→5 functions), <code>studio-engine.js</code>/<code>email-blocks.js</code> extracted out of their HTML files, render-test assertions with teeth (contrast/occlusion/dead-space checks against two brands, 179 renders), <code>webSecurity</code> flipped ON (<code>voltAsset()</code> proxy + offline server over 127.0.0.1 instead of <code>file://</code> made it safe to), observability (<code>/api/brain?action=diag</code>, health.html probes), the performance feedback loop went live (post_metric now stores the platform name, captures passively, Brain states facts + one-click "apply to brief"), org model fixed (freemail domains get a private workspace instead of sharing one).
+  </div>
+
+  <footer>
+    For the full reasoning behind the July 31 audit, see <a href="AUDIT-2026-07.md">AUDIT-2026-07.md</a> (a frozen point-in-time record — treat as history, not current state; this file supersedes it going forward). This file is git-tracked in <code>SMEZATech/tshephos-lab</code>; edit it exactly like any other page in this repo.
+  </footer>
+
+</div>
+</body>
+</html>
