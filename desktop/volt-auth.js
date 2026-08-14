@@ -393,6 +393,63 @@
     if (x) x.addEventListener("click", function () { try { localStorage.setItem("volt_update_dismissed", latest); } catch (e) {} bar.remove(); document.body.classList.remove("va-has-update"); });
   }
 
+  /* ---------- content update notifier (for a tab left open across a deploy) ---------- */
+  // "Web pages are always live from Vercel" is only true for a page that reloads. A tab left open
+  // all day is running whatever JS was current when it loaded — Studio's field registry, a bug
+  // fix, anything — and nothing ever told it a newer version had shipped. This polls a timestamp
+  // build-sync.cjs stamps on every successful sync and, if it has moved on since THIS tab loaded,
+  // offers a one-click refresh. Shares va-update-bar with the desktop shell notifier above so the
+  // two can never stack — whichever has something to say fires first and wins.
+  var CONTENT_VERSION_URL = "build-version.json";
+  var CONTENT_POLL_MS = 4 * 60 * 1000;
+  var _contentBuiltAt = null, _contentDismissed = false, _contentPollT = null;
+  function maybeContentUpdateCheck() {
+    fetch(CONTENT_VERSION_URL + "?ts=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (info) {
+        if (!info || !info.builtAt) return;
+        if (_contentBuiltAt == null) { _contentBuiltAt = info.builtAt; return; } // baseline: what THIS tab is running
+        if (info.builtAt <= _contentBuiltAt || _contentDismissed) return;
+        if (document.getElementById("va-update-bar")) return; // desktop shell notice takes priority
+        showContentUpdateBanner();
+      })
+      .catch(function () {});
+  }
+  function showContentUpdateBanner() {
+    if (document.getElementById("va-update-bar")) return;
+    if (!document.getElementById("va-ub-style")) {
+      // Same stylesheet the desktop notifier defines (same class names) — write it if this page
+      // reaches an update before that one ever has.
+      var st = document.createElement("style"); st.id = "va-ub-style";
+      st.textContent =
+        "#va-update-bar{position:fixed;top:0;left:76px;right:0;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;background:linear-gradient(90deg,#1A1E28,#14171F);border-bottom:1px solid var(--border-2,rgba(255,255,255,.14));font-family:var(--fb,system-ui);font-size:13px;color:var(--text,#ECEEF3)}" +
+        "body.va-has-update{padding-top:42px}" +
+        "#va-update-bar .va-ub-cur{color:var(--faint,#5B616D)}" +
+        "#va-update-bar .va-ub-actions{display:flex;align-items:center;gap:8px;flex:none}" +
+        "#va-update-bar .va-ub-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+        "#va-update-bar .va-ub-btn{background:var(--accent,#B6FF3D);color:#0A0B0F;text-decoration:none;font-weight:600;padding:5px 12px;border-radius:8px;font-size:12px;white-space:nowrap;border:none;cursor:pointer;font-family:inherit;}" +
+        "#va-update-bar .va-ub-x{background:transparent;border:1px solid var(--border-2,rgba(255,255,255,.14));color:var(--dim,#888F9D);padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px}" +
+        "@media(max-width:760px){#va-update-bar{left:0}}";
+      document.head.appendChild(st);
+    }
+    var bar = document.createElement("div"); bar.id = "va-update-bar";
+    bar.innerHTML =
+      '<span class="va-ub-txt">✨ Volt has been updated since you opened this page</span>' +
+      '<span class="va-ub-actions">' +
+        '<button class="va-ub-btn" id="va-ub-refresh">Refresh now</button>' +
+        '<button class="va-ub-x" id="va-ub-x">Later</button>' +
+      "</span>";
+    document.body.appendChild(bar);
+    document.body.classList.add("va-has-update");
+    var go = document.getElementById("va-ub-refresh");
+    if (go) go.addEventListener("click", function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); });
+    var x = document.getElementById("va-ub-x");
+    if (x) x.addEventListener("click", function () {
+      _contentDismissed = true; // this tab; a reload (or a genuinely newer build later) can ask again
+      bar.remove(); document.body.classList.remove("va-has-update");
+    });
+  }
+
   /* ---------- Sleep mode (Jarvis-style ambient screen after inactivity) ---------- */
   /* ==================================================================
      SLEEP / STANDBY UI  —  SAFE TO EDIT (visual only)
@@ -1254,6 +1311,8 @@
     initAutosave();
     maybeOnboard();
     maybeUpdateCheck();
+    maybeContentUpdateCheck();
+    if (!_contentPollT) _contentPollT = setInterval(maybeContentUpdateCheck, CONTENT_POLL_MS);
     maybeGreetOwner();
     initSleep();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
