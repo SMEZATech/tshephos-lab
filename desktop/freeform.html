@@ -5,6 +5,15 @@
 <script src="volt-auth.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<!-- Receives a finished Studio design as editable objects. See design-bridge.js. -->
+<script src="design-bridge.js"></script>
+<!-- THE BRAND'S OWN TYPEFACES. Freeform shipped without loading any webfont, so anything it drew
+     fell back to a system serif -- fine-ish for a blank canvas, fatal for a design handed over
+     from Studio: the engine measured every line in Oswald, and re-measuring in Times re-wraps and
+     overlaps all of it. Same families studio.html loads, so a design looks the same on both sides. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Volt — Freeform</title>
@@ -26,7 +35,7 @@
     '1080x1080': { w:1080, h:1080, label:'Square · 1080×1080' },
     '1080x1920': { w:1080, h:1920, label:'Story · 1080×1920' }
   };
-  const FONTS = ['Unbounded','Plus Jakarta Sans','JetBrains Mono','Georgia','Arial Black','Impact'];
+  const FONTS = ['Oswald','Roboto','Unbounded','Plus Jakarta Sans','JetBrains Mono','Georgia','Arial Black','Impact'];
 
   function brand(){
     try{
@@ -87,6 +96,10 @@
   const voltAssetUrl = (u) => (typeof window.voltAsset === 'function' ? window.voltAsset(u) : u);
   let fullW = 1200, fullH = 628, exportMult = 1;
   const fc = new fabric.Canvas('ff-canvas', { backgroundColor:'#ffffff', preserveObjectStacking:true });
+  // A handle on the canvas. Fabric keeps no discoverable back-reference from the DOM element, so
+  // without this there is no way to inspect or drive this page from the console or a test — which
+  // is how a broken handoff stays invisible until someone reports it.
+  window.voltFreeform = { canvas: fc };
   function sizeCanvas(key){
     const s = SIZES[key] || SIZES['1200x628'];
     fullW = s.w; fullH = s.h;
@@ -231,9 +244,85 @@
       return true;
     } catch (e) { ffRestoring = false; return false; }
   };
+  // ---- a design handed over from Studio ----------------------------------------------------
+  // Studio renders the design once with the type withheld and hands over that plate plus the
+  // exact position, font, size and colour of every line it drew. The plate goes down as a LOCKED
+  // background so the art is pixel-identical to what was approved, and the type goes on top as
+  // real editable objects. The point is to start from the finished thing, not from blank.
+  function hydrateHandoff(){
+    if (!window.VoltDesignBridge) return false;
+    const h = window.VoltDesignBridge.take();
+    if (!h || !h.scene || !h.scene.objects || !h.scene.objects.length) return false;
+    const sc = h.scene;
+    // Match the canvas to the design. An unlisted size (portrait 1080x1350) is registered on the
+    // fly rather than snapped to the nearest preset, which would letterbox someone's design.
+    const key = sc.width + 'x' + sc.height;
+    if (!SIZES[key]) {
+      SIZES[key] = { w: sc.width, h: sc.height, label: 'From Studio · ' + sc.width + '×' + sc.height };
+      const sel = $$('ff-size');
+      if (sel) { const o = document.createElement('option'); o.value = key; o.textContent = SIZES[key].label; sel.appendChild(o); }
+    }
+    const sel = $$('ff-size'); if (sel) sel.value = key;
+    sizeCanvas(key);
+
+    // LOAD THE EXACT FACES FIRST, and wait for them.
+    //
+    // document.fonts.ready is NOT enough on its own: it resolves when nothing is *pending*, and
+    // until something on the page actually asks for Oswald 700 nothing is pending — so it resolves
+    // immediately, the textboxes get built against the system fallback (which measures ~20% wider),
+    // and Fabric caches that wrapping. The design then arrives re-wrapped and overlapping even
+    // though the right font is sitting there loaded a moment later. Asking for each face by name
+    // is what actually blocks until the metrics are real.
+    const faces = Array.from(new Set(sc.objects.map(o =>
+      (o.fontWeight || '400') + ' ' + Math.max(12, Math.round(o.fontSize)) + 'px "' + (o.fontFamily || 'Oswald') + '"')));
+    const fontsIn = (document.fonts && document.fonts.load)
+      ? Promise.all(faces.map(f => document.fonts.load(f).catch(() => null)))
+      : Promise.resolve();
+
+    const addText = () => {
+      sc.objects.forEach(o => {
+        const tb = new fabric.Textbox(o.text, {
+          left: o.left, top: o.top, width: o.width,
+          fontSize: o.fontSize, fill: o.fill,
+          fontFamily: o.fontFamily, fontWeight: o.fontWeight,
+          textAlign: o.textAlign, lineHeight: o.lineHeight,
+          // Fabric measures a textbox from its top-left; the engine draws from the text BASELINE
+          // block top, which is the same origin here because drawLines uses textBaseline 'top'.
+          objectCaching: false
+        });
+        fc.add(tb);
+      });
+      fc.renderAll();
+      // Re-measure once the webfonts have actually arrived. Fabric caches text metrics at creation
+      // time, so a box built during the swap period keeps its fallback wrapping forever.
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => {
+          fc.getObjects().forEach(o => { if (o.type === 'textbox') { o.initDimensions && o.initDimensions(); o.setCoords(); } });
+          fc.renderAll();
+        });
+      }
+      if ($$('ff-status')) $$('ff-status').textContent =
+        (h.meta && h.meta.label ? h.meta.label + ' — ' : '') + 'text is editable; the artwork behind it is locked.';
+    };
+
+    fontsIn.then(() => {
+      if (sc.plate) {
+        fabric.Image.fromURL(sc.plate, img => {
+          img.set({ left: 0, top: 0, selectable: false, evented: false, excludeFromExport: false });
+          img.scaleToWidth(sc.width);
+          fc.setBackgroundImage(img, () => { addText(); });
+        });
+      } else { addText(); }
+    });
+    return true;
+  }
+  const cameFromStudio = hydrateHandoff();
+
   if (window.voltRegisterAutosave) window.voltRegisterAutosave('freeform', { snapshot: ffSnapshot, restore: ffApply });
   if (window.voltState) {
-    const saved = window.voltState.load('freeform');
+    // Do NOT restore the previous canvas over a design we were just handed — the handoff is the
+    // more recent intent, and clobbering it would look exactly like the feature not working.
+    const saved = cameFromStudio ? null : window.voltState.load('freeform');
     if (saved) ffApply(saved);
     const push = () => {
       const v = ffSnapshot(); if (!v) return;

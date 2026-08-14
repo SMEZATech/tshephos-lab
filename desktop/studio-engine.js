@@ -110,6 +110,8 @@ class CanvasRenderer {
         // because the 32px CTA label cleared the "largest text >= 28px" bar. A role is a fact the
         // draw code knows for certain; a size is a guess made after the fact.
         this.role = null;
+        // See drawLines: withhold ink, keep layout + trace. Used to build the editable-handoff plate.
+        this.suppressText = false;
     }
     // Records go in LOGICAL canvas coordinates, which means the current ctx transform has to be
     // applied first. Without this, anything drawn inside a translate/rotate — the resources/A guide
@@ -438,13 +440,28 @@ class CanvasRenderer {
             let lx = x;
             if (align === 'center') lx = x + (boxW - w) / 2;
             else if (align === 'right') lx = x + boxW - w;
-            if (opts.stroke) ctx.strokeText(line, lx, y + i * lineH); // outline first, fill on top (meme style)
-            ctx.fillText(line, lx, y + i * lineH);
+            // TEXTLESS PLATE MODE. Everything is measured, positioned and traced exactly as normal —
+            // only the ink is withheld. That yields a render carrying all the art (gradients, glows,
+            // photos, the logo) with no type baked into it, which is what "Edit in Freeform" lays
+            // real editable text on top of. Measuring and tracing must still happen or the text
+            // objects would be placed from a layout that was never computed.
+            if (!this.suppressText) {
+                if (opts.stroke) ctx.strokeText(line, lx, y + i * lineH); // outline first, fill on top (meme style)
+                ctx.fillText(line, lx, y + i * lineH);
+            }
             // Per-LINE box (not the nominal box): a right-aligned or centred line occupies only its
             // own width, and that is what has to be contrast- and overlap-checked.
             if (this.trace && String(line).trim()) {
+                // family/weight/align/lineHeight are recorded so the trace is not just a set of
+                // boxes to assert on but a LAYOUT MAP faithful enough to rebuild the design from —
+                // which is what "Edit in Freeform" hydrates. Without the font, a rebuilt design
+                // would come back in the wrong typeface and stop being the design you approved.
+                // Text is no longer truncated at 60 chars for the same reason: an editable object
+                // whose copy has been silently clipped is worse than useless.
                 this._tr('text', { x: lx, y: y + i * lineH, w, h: font.size, size: font.size,
-                                   color: opts.color || '#000000', text: String(line).slice(0, 60),
+                                   color: opts.color || '#000000', text: String(line),
+                                   family: font.family, weight: font.weight,
+                                   align: align, lineHeight: (opts.lineHeight || 1.1),
                                    stroke: !!opts.stroke });
             }
         }
@@ -476,7 +493,7 @@ class CanvasRenderer {
         ctx.save();
         ctx.fillStyle = opts.fg || '#000000';
         ctx.textBaseline = 'top';
-        ctx.fillText(String(text), x + padX, y + padY);
+        if (!this.suppressText) ctx.fillText(String(text), x + padX, y + padY);
         ctx.restore();
         return { width: tagW, height: tagH };
     }
@@ -2597,6 +2614,7 @@ self.onmessage = async (e) => {
             const W = msg.w || 1080, H = msg.h || 1080, scale = msg.scale || 2;
             const r = new CanvasRenderer(W, H, scale);
             if (msg.trace) r.trace = [];      // render tests ask for the draw log; production never does
+            if (msg.textless) r.suppressText = true;   // plate for the editable handoff (see drawLines)
             if (W > H * 1.2) {
                 drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC, featured });
             } else {
