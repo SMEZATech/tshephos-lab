@@ -3,6 +3,9 @@
 <html lang="en">
 <head>
   <script src="volt-auth.js"></script>
+  <!-- The same guardrails the render suite enforces (smoke.html loads this identical file), so a
+       design cannot pass in CI and be flagged here, or the reverse. See render-checks.js. -->
+  <script src="render-checks.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Volt — Studio</title>
@@ -468,6 +471,14 @@
                 <button onclick="setZoom('fit')" class="ml-1 px-2 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] uppercase border border-slate-600" title="Fit to view">Fit</button>
             </div>
         </div>
+
+        <!-- LIVE RENDER GUARDRAILS. The render suite has always held every design to a set of rules
+             built from bugs that actually shipped (unreadable CTA, text off the canvas, a button
+             under Instagram's reply bar). Those rules ran in CI only, which is the wrong end: the
+             person who needs to hear "that is now unreadable" is the one editing, as they edit.
+             This strip runs the SAME module (render-checks.js) against the SAME draw trace the
+             preview just produced. Silent when the design is clean, so it costs nothing to ignore. -->
+        <div id="guardrails" class="hidden mb-4 shrink-0 z-20 w-full" style="max-width:560px;"></div>
 
         <div id="canvas-wrapper" class="origin-top shrink-0 mb-20 shadow-2xl">
             <div id="export-canvas" class="relative bg-white" style="width: 1200px; height: 628px;"></div>
@@ -1547,6 +1558,45 @@
       _premChain = p.catch(() => {});
       return p;
     }
+    // ---- live render guardrails ------------------------------------------------------------------
+    // Runs the render suite's OWN rules (render-checks.js) against the trace the preview just drew.
+    // Errors are things that have shipped broken before and are never acceptable — unreadable text,
+    // copy off the canvas, a CTA under Instagram's reply bar. Warnings are judgement calls that
+    // depend on how long the copy is. Both are shown plainly and neither blocks anything: the point
+    // is to tell you BEFORE you post, not to argue with you.
+    function renderGuardrails(trace, W, H){
+      const box = document.getElementById('guardrails'); if(!box) return;
+      const RC = window.VoltRenderChecks;
+      if (!RC || !trace || !trace.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      let findings = [];
+      try { findings = RC.reviewDesign(trace, W, H) || []; }
+      catch(e){ console.error('guardrails failed', e); box.classList.add('hidden'); return; }
+      if (!findings.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      // One line per DISTINCT problem. Six overflowing bullets are one overflow problem to a human,
+      // and listing them individually turns a useful warning into a wall to scroll past.
+      const seen = new Set(), rows = [];
+      for (const f of findings) {
+        if (seen.has(f.rule)) continue;
+        seen.add(f.rule);
+        const n = findings.filter(x => x.rule === f.rule).length;
+        rows.push({ sev: f.severity, short: f.short, detail: f.message, n });
+      }
+      const err = rows.filter(r => r.sev === 'error');
+      box.classList.remove('hidden');
+      box.innerHTML =
+        '<div style="background:' + (err.length ? 'rgba(255,124,124,.08)' : 'rgba(255,200,87,.07)') +
+        ';border:1px solid ' + (err.length ? 'rgba(255,124,124,.35)' : 'rgba(255,200,87,.3)') +
+        ';border-radius:12px;padding:10px 13px;">' +
+        rows.map(r =>
+          '<div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;' +
+          (r === rows[0] ? '' : 'margin-top:6px;') + '" title="' + esc(r.detail) + '">' +
+            '<span style="flex:none;font-size:11px;line-height:1.5;">' + (r.sev === 'error' ? '⛔' : '⚠️') + '</span>' +
+            '<span style="color:' + (r.sev === 'error' ? '#FF9E9E' : '#FFD98A') + ';">' + esc(r.short) +
+              (r.n > 1 ? ' <span style="opacity:.65;">(' + r.n + ' places)</span>' : '') + '</span>' +
+          '</div>').join('') +
+        '</div>';
+    }
+
     let _premPreviewT = null, _premPreviewURL = null, _premGen = 0;
     function renderPremiumPreview(){ _premGen++; clearTimeout(_premPreviewT); _premPreviewT = setTimeout(doPremiumPreview, 160); }
     async function doPremiumPreview(){
@@ -1554,9 +1604,13 @@
       try {
         await ensureLogoBlob(); await ensureColorLogoBlob();
         const dm = premDims();
-        const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(), premType: state.contentType, dir: state.premiumDir, vals: premVals, w: dm.w, h: dm.h, scale: 1, filename: 'preview.png' };
+        // trace:true asks the engine for its draw log. It costs one array push per primitive (~50 per
+        // design) and it is what the guardrails below read — the preview and the check are then
+        // guaranteed to be talking about the same render, not two renders that might differ.
+        const payload = { type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(), premType: state.contentType, dir: state.premiumDir, vals: premVals, w: dm.w, h: dm.h, scale: 1, trace: true, filename: 'preview.png' };
         const result = await premPost(payload);
         if (myGen !== _premGen || state.contentType === 'creative') return;  // superseded / switched away
+        renderGuardrails(result.trace, dm.w, dm.h);
         // NOTE: the canvas SIZE is owned synchronously by setFormat/applyPremiumSize — never set it from
         // this async path (a slow stale render used to clobber the size). We only swap the image here.
         const url = URL.createObjectURL(result.blob);
@@ -1609,6 +1663,9 @@
       types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
         btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
       const isCreative = type === 'creative';
+      // Creative renders through a different path (renderSlide, not drawPremium) and the guardrail
+      // strip is scoped to premium designs — leave a stale warning up and it reads as a live one.
+      if (isCreative) { const g = document.getElementById('guardrails'); if (g) { g.classList.add('hidden'); g.innerHTML = ''; } }
       const prem = document.getElementById('premium-controls'); if(prem) prem.classList.toggle('hidden', isCreative);
       const cc = document.getElementById('creative-controls'); if(cc) cc.classList.toggle('hidden', !isCreative);
       const sc = document.getElementById('size-controls'); if(sc) sc.classList.remove('hidden'); // Dimensions apply to premium too

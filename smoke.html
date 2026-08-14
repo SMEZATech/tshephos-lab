@@ -15,6 +15,10 @@
   td.ok{color:#57E39A;} td.bad{color:#FF7C7C;font-weight:700;} td.warnc{color:#FFC857;}
   .thumb{width:72px;height:auto;border:1px solid #23262E;border-radius:3px;display:block;}
 </style>
+<!-- The render guardrails are a SHARED module (app/render-checks.js), not a copy living in
+     this page. studio.html loads the exact same file to warn the user live while they edit, so a
+     design cannot pass here and be flagged there, or vice versa. -->
+<script src="render-checks.js"></script>
 </head>
 <body>
 <h1>Studio Smoke Test</h1>
@@ -66,163 +70,12 @@
     const brandLight = { primary: '#3d1152', secondary: '#e9e9ec', cta: 'Browse Directory', url: 'serv.co.za' };
 
     // ---- Draw-trace assertions -------------------------------------------------------------
-    // The worker can report every text and fill it drew (msg.trace). These turn "the canvas has ink
-    // on it" into real checks. Each returns a reason string, or '' when the design is fine.
-    function lum(hex) {
-      const h = String(hex || '').replace('#', '').trim();
-      if (h.length !== 6) return null;
-      const n = parseInt(h, 16); if (!isFinite(n)) return null;
-      const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
-      return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
-    }
-    function contrast(a, b) { const la = lum(a), lb = lum(b); if (la == null || lb == null) return null; return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05); }
-    const covers = (box, t) => box.x <= t.x + 1 && box.y <= t.y + 1 && box.x + box.w >= t.x + t.w - 1 && box.y + box.h >= t.y + t.h - 1;
-
-    // 1) TEXT MUST BE READABLE ON WHAT IT SITS ON. Walk backwards to the last fill drawn before the
-    //    text that fully contains it — that is the surface the reader actually sees.
-    function checkContrast(trace) {
-      const bad = [];
-      for (let i = 0; i < trace.length; i++) {
-        const t = trace[i]; if (t.kind !== 'text' || t.stroke) continue;   // outlined meme text is legible by construction
-        if (t.size < 30) continue;               // body/eyebrow scale — judged, not asserted (see warnings)
-        let bg = null;
-        for (let j = i - 1; j >= 0; j--) {
-          const f = trace[j];
-          if (!covers(f, t)) continue;
-          // A gradient or a photo IS the surface — it hides whatever is under it — but its colour
-          // varies, so stop the walk and decide nothing rather than reading through to the page bg.
-          if (f.kind === 'image' || (f.kind === 'fill' && f.gradient)) { bg = null; break; }
-          if (f.kind === 'fill') { bg = f.color; break; }
-        }
-        if (!bg) continue;                       // gradient / image backdrop — not decidable from the log
-        const c = contrast(t.color, bg);
-        if (c == null) continue;                 // rgba() or a named colour — skip rather than guess
-        // Two bars. Real copy must clear 3.0 (the large-text standard). A single decorative glyph —
-        // an outsized quote mark, a tick in a badge — only has to be VISIBLE, so it clears 1.5:
-        // that still catches the badge that vanished at 1.13 without failing SME's own red-on-navy
-        // watermark at 1.80, which is a deliberate brand choice and not a defect.
-        const isGlyph = t.text.trim().length <= 2;
-        const bar = isGlyph ? 1.5 : 3.0;
-        if (c < bar) bad.push('"' + t.text + '" ' + t.color + ' on ' + bg + ' = ' + c.toFixed(2) + ':1 (needs ' + bar + ')');
-      }
-      return bad.length ? 'unreadable text — ' + bad.slice(0, 2).join('; ') : '';
-    }
-
-    // 2) NOTHING MAY BE PRINTED OVER SOMETHING DRAWN LATER. Catches a footer landing inside the CTA.
-    function checkOcclusion(trace) {
-      const bad = [];
-      for (let i = 0; i < trace.length; i++) {
-        const t = trace[i]; if (t.kind !== 'text') continue;
-        for (let j = i + 1; j < trace.length; j++) {
-          const f = trace[j]; if (f.kind !== 'fill' || f.bg) continue;
-          const ox = Math.max(0, Math.min(t.x + t.w, f.x + f.w) - Math.max(t.x, f.x));
-          const oy = Math.max(0, Math.min(t.y + t.h, f.y + f.h) - Math.max(t.y, f.y));
-          if (t.w * t.h > 0 && (ox * oy) / (t.w * t.h) > 0.55) { bad.push('"' + t.text + '" buried under a later fill'); break; }
-        }
-      }
-      return bad.length ? bad.slice(0, 2).join('; ') : '';
-    }
-
-    // 3) NO SLAB OF DEAD CANVAS. The portrait letterbox bug was exactly this: content stopped
-    //    two-thirds down and the rest was empty. Measured against the real content extent.
-    function checkDeadSpace(trace, W, H) {
-      let top = Infinity, bottom = -Infinity;
-      for (const r of trace) {
-        if (r.bg) continue;                       // the full-canvas background isn't content
-        // Images count. Leaving them out made every landscape design report "25% dead space above"
-        // because the logo at the top is an image, not a fill.
-        if (r.kind !== 'text' && r.kind !== 'fill' && r.kind !== 'image') continue;
-        top = Math.min(top, r.y); bottom = Math.max(bottom, r.y + r.h);
-      }
-      if (!isFinite(top)) return 'nothing drawn';
-      const below = (H - bottom) / H, above = top / H;
-      if (below > 0.22) return 'dead space: ' + Math.round(below * 100) + '% of the canvas below the last element';
-      if (above > 0.22) return 'dead space: ' + Math.round(above * 100) + '% above the first element';
-      return '';
-    }
-
-    // 4) A DESIGN MUST HAVE A HEADLINE. findpros.c rendered a wide banner with no headline at all
-    //    because that direction stores it under `category`, which drawLandscape never read.
-    // 5) THE LOGO MUST NEVER CROWD THE COPY. Reported on funding/C: the first heading sat right
-    //    under the mark. Fixing one design per report is a losing game, so the clearance is a rule
-    //    the whole engine is held to. 30px on a 1080 canvas is the minimum that reads as deliberate.
-    function checkLogoClearance(trace, W) {
-      const MIN = Math.max(24, Math.round(W * 0.028));
-      const logos = trace.filter(r => r.kind === 'image' && r.y < W * 0.18 && r.h <= W * 0.09);
-      if (!logos.length) return '';
-      const bad = [];
-      for (const lg of logos) {
-        const lgBottom = lg.y + lg.h, lgL = lg.x, lgR = lg.x + lg.w;
-        for (const t of trace) {
-          if (t.kind !== 'text') continue;
-          if (t.y < lgBottom) continue;                       // above or beside the mark, not below
-          if (t.y - lgBottom >= MIN) continue;                // enough air
-          const overlapsX = (t.x < lgR + W * 0.04) && (t.x + t.w > lgL - W * 0.04);
-          if (overlapsX) bad.push('"' + t.text + '" is ' + Math.round(t.y - lgBottom) + 'px under the logo (needs ' + MIN + ')');
-        }
-      }
-      return bad.length ? 'logo crowds the copy — ' + bad.slice(0, 2).join('; ') : '';
-    }
-
-    // 6) NOTHING MAY SIT UNDER INSTAGRAM'S CHROME. A 9:16 canvas is shared with the platform:
-    //    the profile row owns the top ~190px of 1920 and the reply bar owns the bottom ~260px,
-    //    opaquely. The first funding story pinned its CTA at y=1820 — a button nobody could see,
-    //    let alone tap. This is an ERROR, not a warning: unlike overflow it does not depend on how
-    //    long the copy is, and there is no reading of it that is acceptable.
-    //    Full-bleed backgrounds and images are exempt — bleeding art THROUGH the chrome is correct;
-    //    only deliberate elements (text, buttons, pills) have to stay clear.
-    function checkStorySafeZone(trace, W, H) {
-      if (H / W < 1.7) return '';
-      const top = Math.round(H * 0.099), bot = Math.round(H * 0.135);
-      const bad = [];
-      for (const r of trace) {
-        if (r.bg) continue;
-        if (r.kind !== 'text') continue;                 // fills may bleed; type may not
-        if (r.y < top) bad.push('"' + (r.text || '').slice(0, 30) + '" sits ' + Math.round(top - r.y) + 'px into the top chrome');
-        else if (r.y + r.h > H - bot) bad.push('"' + (r.text || '').slice(0, 30) + '" sits ' + Math.round((r.y + r.h) - (H - bot)) + 'px into the reply bar');
-      }
-      return bad.length ? 'under Instagram chrome — ' + bad.slice(0, 2).join('; ') : '';
-    }
-
-    // 7) NOTHING MAY RUN OFF THE CANVAS. pBullet handed drawLines a single unwrapped string — its
-    //    width argument only ALIGNS, it does not break — so a long bullet label ran off the right
-    //    edge. Every family used it and nothing flagged it, because the fixture copy was short
-    //    enough to fit. Text that leaves the frame is unambiguous, so this is an ERROR.
-    //    A small tolerance absorbs glyph overhang (italic tails, accents) at the measured edge.
-    function checkOverflow(trace, W, H) {
-      const bad = [];
-      const tol = Math.max(4, W * 0.006);
-      for (const r of trace) {
-        if (r.kind !== 'text' || r.bg) continue;
-        if (r.x < -tol) bad.push('"' + (r.text || '').slice(0, 26) + '" starts ' + Math.round(-r.x) + 'px off the left');
-        else if (r.x + r.w > W + tol) bad.push('"' + (r.text || '').slice(0, 26) + '" runs ' + Math.round(r.x + r.w - W) + 'px past the right edge');
-        else if (r.y + r.h > H + tol) bad.push('"' + (r.text || '').slice(0, 26) + '" runs ' + Math.round(r.y + r.h - H) + 'px past the bottom');
-      }
-      return bad.length ? 'text leaves the canvas — ' + bad.slice(0, 2).join('; ') : '';
-    }
-
-    function checkHasHeadline(trace) {
-      const texts = trace.filter(r => r.kind === 'text');
-      const biggest = texts.reduce((m, r) => Math.max(m, r.size), 0);
-      if (!texts.length) return 'no text was drawn at all';
-      // Absolute, not relative to canvas width: a landscape banner's headline is legitimately
-      // smaller than a portrait one, and keying off width made editorial/landscape a false failure.
-      if (biggest < 28) return 'no headline-sized text (largest is ' + biggest + 'px)';
-      return '';
-    }
-
-    // ERRORS fail the build. WARNINGS are reported and counted but don't. The split is deliberate:
-    // contrast and "is there a headline" are unambiguous defects, whereas dead space and occlusion
-    // depend on how long the copy is — with deliberately-long test copy they flag real overflow
-    // risk that isn't a bug in the shipped defaults. Promote them once the designs are tuned for
-    // worst-case copy; leaving them as hard failures now would just teach everyone to ignore red.
-    function assertDesign(trace, W, H) {
-      if (!trace || !trace.length) return { error: '', warn: '' };
-      return {
-        error: checkHasHeadline(trace) || checkContrast(trace) || checkLogoClearance(trace, W) || checkStorySafeZone(trace, W, H) || checkOverflow(trace, W, H),
-        warn: checkOcclusion(trace) || checkDeadSpace(trace, W, H)
-      };
-    }
+    // These used to be defined inline here, which meant only this test suite could see them — so
+    // the person MOVING an element in Studio, who most needs to be told "that is now unreadable",
+    // was the one person the rules never reached. They now live in app/render-checks.js and are
+    // loaded by this page AND by studio.html, from one definition that cannot drift between them.
+    // Every rule in there exists because of a design that shipped broken; see that file's header.
+    const { assertDesign } = window.VoltRenderChecks;
 
     function post(payload) {
       return new Promise((resolve, reject) => {
@@ -360,7 +213,7 @@
     // and the reverse — a real new direction that the suite never renders because nobody remembered
     // to widen the array. Parsing the registry makes both impossible.
     const studioSrc = await (await fetch('studio.html', { cache: 'no-store' })).text();
-    const DIRS = {};
+    const DIRS = {}, FIELDS = {};
     for (const pt of PREM_TYPES) {
       const at = studioSrc.indexOf('\n      ' + pt + ': { label:');
       if (at < 0) { fail++; console.error('  x ' + pt + ' is in PREM_TYPES but not in studio.html PREMIUM'); continue; }
@@ -370,8 +223,64 @@
       const block = studioSrc.slice(at, nextFam < 0 ? undefined : at + 10 + nextFam);
       DIRS[pt] = (block.match(/\n        ([a-z]):\{/g) || []).map(m => m.trim()[0]);
       if (!DIRS[pt].length) { fail++; console.error('  x could not read any directions for ' + pt); }
+      // ...and WHICH FIELDS each direction actually declares. See valsFor() below for why.
+      for (const dir of DIRS[pt]) {
+        const dAt = block.indexOf('\n        ' + dir + ':{');
+        if (dAt < 0) continue;
+        const fAt = block.indexOf('fields:{', dAt);
+        if (fAt < 0) continue;
+        // Walk braces from `fields:{` so a value containing '}' cannot end the slice early.
+        let depth = 0, endF = -1;
+        for (let i = fAt + 7; i < block.length; i++) {
+          const c = block[i];
+          if (c === '{') depth++;
+          else if (c === '}') { depth--; if (!depth) { endF = i; break; } }
+        }
+        if (endF < 0) continue;
+        // key -> the direction's OWN shipped default. Both halves matter: the key set makes the
+        // render realistic, and the value is what that slot really holds (a label like
+        // 'Why it matters' is a label, not a paragraph).
+        const body = block.slice(fAt + 8, endF), pairs = {};
+        // BOTH quote styles. The registry uses double quotes whenever the copy contains an
+        // apostrophe ("You're seeing the guest version"), and a single-quote-only pattern
+        // silently dropped exactly those fields -- which then rendered empty and read as a
+        // product bug when it was a hole in this parser.
+        const rx = /([A-Za-z]\w*)\s*:\s*(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)")/g;
+        let mm;
+        while ((mm = rx.exec(body))) {
+          const raw = mm[2] !== undefined ? mm[2] : mm[3];
+          pairs[mm[1]] = raw.replace(/\\(['"\\])/g, '$1');
+        }
+        FIELDS[pt + '.' + dir] = pairs;
+      }
     }
     console.log('Directions from the registry: ' + Object.keys(DIRS).map(k => k + '=' + DIRS[k].join('')).join(' '));
+
+    // EACH DESIGN GETS ONLY THE FIELDS IT ACTUALLY DECLARES.
+    //
+    // This used to hand every design one shared PREM_VALS containing every key any family uses --
+    // head, quote, category, name, big, term, the lot. That is a superset no real design ever has,
+    // and it made the suite structurally blind to the one bug that keeps recurring: a renderer that
+    // never reads the key THIS direction stores its headline under. findpros.c hit it via
+    // `category`; glossary/a and /b hit it again via `term`, shipping as an eyebrow over empty
+    // space while the suite reported them green -- because the fixture supplied a `head` they do
+    // not have. A design is now rendered with exactly the field set the app would give it.
+    //
+    // Values still come from PREM_VALS wherever a key exists there, because those are deliberately
+    // over-long: the point of the fixture is to stress wrapping and overflow, and swapping in the
+    // registry's own short defaults would quietly retire that coverage.
+    // PREM_VALS is deliberately over-long, to stress wrapping and overflow. It is used for the
+    // keys it defines; every other key falls back to the direction's OWN shipped default rather
+    // than to a generic long sentence, because a slot like `mythLabel` or `t1` really is a short
+    // label and stuffing a paragraph into it tests a design nobody will ever make.
+    function valsFor(pt, dir) {
+      const pairs = FIELDS[pt + '.' + dir];
+      if (!pairs || !Object.keys(pairs).length) return PREM_VALS;   // unparsed -- test broadly
+      const out = {};
+      for (const k of Object.keys(pairs)) out[k] = (PREM_VALS[k] !== undefined) ? PREM_VALS[k] : pairs[k];
+      if (PREM_VALS.url !== undefined && out.url === undefined) out.url = PREM_VALS.url;
+      return out;
+    }
 
     // EVERY premium design runs against BOTH brands. The dark-secondary brand is the happy path;
     // the light-secondary one is where every contrast bug we've shipped actually lived.
@@ -380,7 +289,7 @@
         for (const dir of (DIRS[pt] || [])) {
           for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
             await run('premium/' + bLabel + '/' + pt + '/' + dir + '/' + sz,
-              { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
+              { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: valsFor(pt, dir), w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
               wh[0] * S, wh[1] * S);
           }
         }
@@ -390,7 +299,7 @@
     for (const [pt, dir] of [['podcast', 'a'], ['podcast', 'b'], ['merch', 'a']]) {
       for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
         await run('premium+photo/' + pt + '/' + dir + '/' + sz,
-          { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, featuredBlob, premType: pt, dir, vals: PREM_VALS, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
+          { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, featuredBlob, premType: pt, dir, vals: valsFor(pt, dir), w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
           wh[0] * S, wh[1] * S);
       }
     }

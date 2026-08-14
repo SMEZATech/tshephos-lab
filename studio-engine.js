@@ -104,6 +104,12 @@ class CanvasRenderer {
         // every one of the invisible-button / buried-footer / dead-space bugs — into exact
         // assertions the render tests can make. See smoke.html.
         this.trace = null;
+        // SEMANTIC ROLE of whatever is being drawn right now ('headline', 'cta', …), stamped onto
+        // every trace record while set. Size alone cannot tell a headline from a button label —
+        // glossary/a and /b shipped as an eyebrow over empty space and the render suite passed them,
+        // because the 32px CTA label cleared the "largest text >= 28px" bar. A role is a fact the
+        // draw code knows for certain; a size is a guess made after the fact.
+        this.role = null;
     }
     // Records go in LOGICAL canvas coordinates, which means the current ctx transform has to be
     // applied first. Without this, anything drawn inside a translate/rotate — the resources/A guide
@@ -126,7 +132,15 @@ class CanvasRenderer {
                 h: Math.max.apply(null, ys) - Math.min.apply(null, ys)
             });
         }
+        if (this.role) rec = Object.assign({}, rec, { role: this.role });
         this.trace.push(Object.assign({ kind }, rec));
+    }
+    // Run fn with everything it draws tagged as `role`. Restores the previous role afterwards, so
+    // nesting is safe and a throw can't leave the tag stuck on for the rest of the render.
+    as(role, fn) {
+        const prev = this.role;
+        this.role = role;
+        try { return fn(); } finally { this.role = prev; }
     }
 
     // --- Primitives ---
@@ -1751,7 +1765,10 @@ function drawProviders(r, dir, v, a) {
     let y = pLogo(r, a, PC.navy);
     // The URL rides on the logo line, top-right. At the bottom it collided with the third bullet,
     // which grows down towards the pinned CTA and leaves no reliable footer band.
-    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, pad + 12, iW, { color: pSubInk(PC.navy), align: 'right' });
+    // It must sit on the LOGO's line, which means pTop() (= pad + safe-top), not pad. Using the raw
+    // pad put it 80px inside Instagram's profile row on every 9:16 story — invisible, on a line
+    // whose whole job is to tell people where to go.
+    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, pTop() + 12, iW, { color: pSubInk(PC.navy), align: 'right' });
     y += pPill(r, pad, y, v.pill || 'Grow your business', accA.fill, accA.on) + pV(34);
     const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.04, { max: pT(96), min: 46 });
     r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.04 });
@@ -2023,7 +2040,11 @@ function drawPodcast(r, dir, v, a) {
 function pUrlTop(r, url, bgRef) {
     const t = String(url || ''); if (!t) return;
     const pad = pPad();
-    r.drawLines([t], { family: 'Oswald', weight: '700', size: 28 }, pad, pad + 12, r.w - pad * 2, { color: pSubInk(bgRef), align: 'right' });
+    // pTop(), not pad: the story safe zone is part of "the top of the frame". Anchoring to the raw
+    // pad put this line 80px under Instagram's profile row on every 9:16 feature story — four
+    // directions' worth of a URL nobody could see. pLogo has always used pTop(); this rides the
+    // logo's line, so it has to agree with it.
+    r.drawLines([t], { family: 'Oswald', weight: '700', size: 28 }, pad, pTop() + 12, r.w - pad * 2, { color: pSubInk(bgRef), align: 'right' });
 }
 
 function drawFeature(r, dir, v, a) {
@@ -2271,9 +2292,13 @@ function drawLandscape(r, type, dir, v, a) {
     const kicker = String(v.eyebrow || v.pill || v.show || '').toUpperCase();
     // Some designs carry their headline under another key (findpros.c = category, merch = name,
     // podcast.b = quote). Missing them here rendered a banner with NO headline at all.
-    const title = String(v.head || v.quote || v.category || v.name || v.big || '').toUpperCase();
+    // `term` is the Glossary families' headline (glossary/a and /b have no `head` at all). Leaving
+    // it out rendered those two as an eyebrow and a CTA button over empty space — the same defect
+    // this list already exists to prevent, recurring the moment a family was added without one of
+    // the known keys. The live guardrails in Studio are what surfaced it.
+    const title = String(v.head || v.quote || v.category || v.name || v.big || v.term || '').toUpperCase();
     // Secondary line: the design's own concrete proof, not just the generic sub.
-    const sub = String(v.sub || v.count || v.price || v.guest || '');
+    const sub = String(v.sub || v.count || v.price || v.guest || v.definition || v.truth || '');
     const cta = v.cta || '';
     // A product/guest shot earns a right-hand image panel — a wide banner with a photo out-performs
     // a wall of type, and the text column narrows so nothing collides.
@@ -2295,10 +2320,11 @@ function drawLandscape(r, type, dir, v, a) {
     r.rect(pad, y, 110, 10, barC); y += 30;
     const availH = Math.max(120, btnY - y - 100);   // reserve ~100 for the sub, so nothing hits the button
     const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
-    r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, colW, { color: txt, lineHeight: 1.03 }); y += fit.totalH + 16;
+    r.as('headline', () => r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, colW, { color: txt, lineHeight: 1.03 }));
+    y += fit.totalH + 16;
     if (sub) { const sl = r.wrap(sub, { family: 'Roboto', weight: '400', size: 32 }, colW).slice(0, 2); r.drawLines(sl, { family: 'Roboto', weight: '400', size: 32 }, pad, y, colW, { color: subC, lineHeight: 1.35 }); }
     let btnW = 0;
-    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(); btnW = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, btnW, 80, 12, btnBg); r.drawLines([t], f, pad, btnY + 24, btnW, { color: pInk(btnBg), align: 'center' }); }
+    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(); btnW = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, btnW, 80, 12, btnBg); r.as('cta', () => r.drawLines([t], f, pad, btnY + 24, btnW, { color: pInk(btnBg), align: 'center' })); }
     // The brand's own site, not a hardcoded one — this was still saying smesouthafrica.co.za on
     // creatives made for another brand. It sits on the rail to the RIGHT of the CTA, shrinking to
     // fit; if even 18px won't fit it is dropped rather than printed over the button.
