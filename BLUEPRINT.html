@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last verified 2026-08-13</strong>, against <code>tshephos-lab@4dbe3ff</code> / <code>volt-desktop@main</code>.</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last verified 2026-08-14</strong>, against <code>tshephos-lab@1859601</code> / <code>volt-desktop@a6ddb73</code>.</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -145,10 +145,6 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>Open items right now</h2>
   <div class="card">
-    <h3>Podcast-short outro hosts photo <span class="tag open">quality-limited</span></h3>
-    <p><code>video.html</code>'s podcast-template outro embeds a single flattened 640×258 JPEG (<code>PODCAST_HOSTS_SRC</code>, base64 in-source) of the three hosts already composited onto a dark-red background. Running Volt's own background-removal pipeline on it (2026-08-13, tested via the same <code>@imgly/background-removal</code> path Freeform uses) works but isn't clean — colour fringing around hair/shoulders and a leftover dark-red fragment kept as false foreground, because the source is small and already flattened. <strong>Fix path:</strong> get the 3 original individual photos (before they were merged) from Joel; cut each out cleanly at full resolution and rebuild the composite. Don't try to improve the current baked-in JPEG further — it's at its ceiling.</p>
-  </div>
-  <div class="card">
     <h3>Joel's to do (nobody else has DB/dashboard access)</h3>
     <p>Hard spend caps / budget alerts on Gemini, Groq and Vercel — the plan is uncapped, so this is the only backstop against a runaway loop or a leaked session.</p>
   </div>
@@ -161,8 +157,8 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   <p style="color:var(--faint); font-size:13px; margin-top:-6px;">Newest first. Prepend a short entry after any session that changes behaviour, fixes a non-obvious bug, or ships a new surface. Routine copy/config tweaks don't need an entry.</p>
 
   <div class="log-entry">
-    <span class="log-date">2026-08-13</span>
-    <strong>Created this file.</strong> Also: fixed the API router's "Unknown endpoint" bug (see above, commit 31a97a5); fixed email sections rendering at inconsistent sizes in the actually-sent email vs. the in-app preview via <code>inlineBaseTypography()</code> + <code>ensureFontFamily()</code> + <code>normalizeFontStacks()</code> in <code>email-blocks.js</code> (two passes — the first only handled missing <em>size</em>, not missing <em>face</em>); tested background-removal on the podcast outro's hosts photo (see Open items).
+    <span class="log-date">2026-08-13/14</span>
+    <strong>Podcast outro hosts photo actually fixed</strong> (commit <code>a6ddb73</code>/<code>1859601</code>) — a first pass only tested background-removal and correctly recommended getting cleaner source photos, but shipped nothing; a later pass on the same day did the real work instead of waiting: GrabCut segmentation seeded on the three hosts, mask erosion + edge decontamination (motion-blur/anti-aliasing had mixed red-backdrop colour halfway into the edge pixels — a naive alpha blend kept it at half strength; decontaminating unmixes it against the sampled background), quantized to a 200-colour indexed PNG (174KB→27KB). <code>rowPhoto()</code> changed from cover-crop-into-a-rounded-box to CONTAIN-at-own-aspect, since the source is a real cutout now, not a rectangle. Independently re-verified (not just trusted the commit message) by re-rendering the exact current <code>rowPhoto</code> + the live embedded image at all three export formats (9:16, 1:1, 16:9) — confirmed clean on the card's own navy background, no fringe, no red panel. <strong>Created this file</strong> the same day; fixed the API router's "Unknown endpoint" bug (see above, commit 31a97a5); fixed email sections rendering at inconsistent sizes in the actually-sent email vs. the in-app preview via <code>inlineBaseTypography()</code> + <code>ensureFontFamily()</code> + <code>normalizeFontStacks()</code> in <code>email-blocks.js</code> (two passes — the first only handled missing <em>size</em>, not missing <em>face</em>).
   </div>
   <div class="log-entry">
     <span class="log-date">2026-07-31 → 2026-08-13</span>
