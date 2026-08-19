@@ -458,6 +458,15 @@
                 <span>🖌️</span><span id="edit-freeform-text">Tweak in Freeform</span>
             </button>
 
+            <!-- PREMIUM CAROUSEL. Every direction in a family is already written, brand-safe and
+                 render-checked — this just wraps them (hook, each direction in turn, CTA) into the
+                 one format IG/LinkedIn favour that Volt had zero of. Nothing new is authored per
+                 post; the wrapper is the only new copy. -->
+            <button onclick="triggerPremiumCarouselExport()" id="btn-premium-carousel" class="hidden w-full mt-2 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Export this family's directions as a swipeable carousel (hook + each direction + CTA)">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                <span id="premium-carousel-text">Export as Carousel (ZIP)</span>
+            </button>
+
             <!-- MOTION. A static card and the same card with its type animating in are the same
                  design; one of them stops the scroll. Text-to-video is paid per second everywhere
                  and Volt is free-tier only — but motion is the part that actually performs, and it
@@ -1835,6 +1844,50 @@
       if (typeof recordExport === 'function') recordExport();
       nudgeStory();
     }
+    // ---- carousel: a family's own directions, wrapped in a hook + CTA, as a ZIP -----------------
+    // The hook and CTA are the only new copy in this feature — every other slide is exactly what
+    // drawPremium already renders and render-checks already validates for that direction. Directions
+    // other than the one on screen use their own declared defaults (PREMIUM[type].dirs[k].fields),
+    // the same defaults loadPremDefaults() seeds premVals from, so a slide the user never opened
+    // still ships real, family-appropriate copy rather than blank fields.
+    async function triggerPremiumCarouselExport(){
+      if (state.isExporting || state.contentType === 'creative') return;
+      const btn = document.getElementById('btn-premium-carousel');
+      const lbl = document.getElementById('premium-carousel-text');
+      const was = lbl ? lbl.textContent : '';
+      const fam = PREMIUM[state.contentType];
+      if (!fam) return;
+      try {
+        if (btn) btn.disabled = true; if (lbl) lbl.textContent = 'Preparing…';
+        await ensureLogoBlob(); await ensureColorLogoBlob();
+        const keys = premDirKeys();
+        if (!keys.length) throw new Error('This family has no directions to build a carousel from.');
+        const valsFor = (k) => k === state.premiumDir
+          ? Object.assign({}, premVals)
+          : Object.assign({ url: premVals.url || 'smesouthafrica.co.za' }, (fam.dirs[k] && fam.dirs[k].fields) || {});
+        const lastVals = valsFor(keys[keys.length - 1]);
+        const hookVals = { head: (fam.dirs[state.premiumDir] && fam.dirs[state.premiumDir].name) || fam.label };
+        const ctaVals = { head: 'WANT MORE?', cta: lastVals.cta, url: lastVals.url };
+        const slides = [{ kind: 'hook', vals: hookVals }]
+          .concat(keys.map(k => ({ kind: 'dir', dir: k, vals: valsFor(k) })))
+          .concat([{ kind: 'cta', vals: ctaVals }]);
+        const payload = {
+          type: 'render-premium-carousel-zip', brand: brandPayload(), fontBuffers: fontBuffers,
+          logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(),
+          premType: state.contentType, label: fam.label, slides, w: 1080, h: 1350, scale: 2,
+          filename: 'SME_' + state.contentType + '_Carousel.zip'
+        };
+        const result = await premPost(payload);
+        downloadBlob(result.blob, result.filename);
+        if (typeof showToast === 'function') showToast('Carousel exported: ' + result.filename, 'success');
+        if (typeof recordExport === 'function') recordExport();
+      } catch(e){
+        console.error('premium carousel export failed', e);
+        if (typeof showToast === 'function') showToast((e && e.message) || 'Could not export the carousel.', 'error');
+      } finally {
+        if (btn) btn.disabled = false; if (lbl) lbl.textContent = was;
+      }
+    }
     function premDirKeys(){ const t = PREMIUM[state.contentType]; return t ? Object.keys(t.dirs) : []; }
     function renderPremDirs(){
       const wrap = document.getElementById('premium-dirs'); if(!wrap) return;
@@ -1875,6 +1928,7 @@
       // its renderSlide path doesn't produce the tagged trace this depends on.
       { const eb = document.getElementById('btn-edit-freeform'); if (eb) eb.classList.toggle('hidden', isCreative); }
       { const mb = document.getElementById('motion-box'); if (mb) mb.classList.toggle('hidden', isCreative); if (!isCreative) renderMotionStyles(); }
+      { const pc = document.getElementById('btn-premium-carousel'); if (pc) pc.classList.toggle('hidden', isCreative); }
       const prem = document.getElementById('premium-controls'); if(prem) prem.classList.toggle('hidden', isCreative);
       const cc = document.getElementById('creative-controls'); if(cc) cc.classList.toggle('hidden', !isCreative);
       const sc = document.getElementById('size-controls'); if(sc) sc.classList.remove('hidden'); // Dimensions apply to premium too

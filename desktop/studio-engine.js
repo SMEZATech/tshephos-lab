@@ -1362,6 +1362,47 @@ function drawPremium(r, type, dir, v, assets) {
     r.fillBg(PC.navy); // safety fallback
 }
 
+// ===================== PREMIUM CAROUSEL BOOKENDS =====================
+// A carousel is a family's own existing directions, rendered in sequence through drawPremium
+// unchanged, wrapped in two slides that don't exist anywhere else: a hook (stop the scroll, say
+// what section this is) and a CTA (one clear ask, once, at the end). Deliberately NOT per-family
+// authored copy — the entire point of this feature is reusing content already written and
+// render-checked. Only the wrapper is new.
+function drawCarouselHook(r, label, v, assets) {
+    v = v || {}; assets = assets || {};
+    pGeom(r.w, r.h);
+    const W = r.w, H = r.h, pad = pPad();
+    r.fillBg(PC.navy);
+    pLogoC(r, assets, PC.navy);
+    // A pill, not plain coloured text: brand red on navy is well under the 3:1 minimum for text,
+    // but comfortably clears it as a solid block behind white — the same trick the funding pill uses.
+    const s = pSolid(PC.navy, PC.red);
+    pPill(r, pad, pTop(), label || '', s.fill, pInk(s.fill));
+    const headSize = pT(84);
+    const headFont = { family: 'Oswald', weight: '900', size: headSize };
+    const lines = r.wrap(String(v.head || label || 'SWIPE THROUGH').toUpperCase(), headFont, W - pad * 2);
+    const totalH = lines.length * headSize * 1.06;
+    r.drawLines(lines, headFont, pad, Math.round((H - totalH) / 2), W - pad * 2, { color: '#fff', lineHeight: 1.06 });
+    r.drawLines(['SWIPE →'], { family: 'Oswald', weight: '700', size: pT(28) }, pad, H - pSafeB() - pT(70), W - pad * 2, { color: PC.f8 });
+}
+function drawCarouselCTA(r, label, v, assets) {
+    v = v || {}; assets = assets || {};
+    pGeom(r.w, r.h);
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2;
+    r.fillBg(PC.navy);
+    pLogoC(r, assets, PC.navy);
+    const y0 = Math.round(H * 0.24);
+    const s = pSolid(PC.navy, PC.red);
+    { const t = String(label || '').toUpperCase(), f = { family: 'Oswald', weight: '700', size: pT(28) }, w = r.textWidth(t, f) + 68, h = pT(60);
+      r.fillRoundRect((W - w) / 2, y0, w, h, h / 2, s.fill); r.drawLines([t], f, (W - w) / 2, y0 + (h - f.size) / 2, w, { color: pInk(s.fill), align: 'center' }); }
+    const headFont = { family: 'Oswald', weight: '900', size: pT(60) };
+    const lines = r.wrap(String(v.head || 'WANT MORE?').toUpperCase(), headFont, iW);
+    r.drawLines(lines, headFont, pad, y0 + pT(96), iW, { color: '#fff', align: 'center', lineHeight: 1.1 });
+    const btnY = H - pSafeB() - pBtnH();
+    r.drawLines([String(v.url || 'smesouthafrica.co.za')], { family: 'Roboto', weight: '400', size: pT(26) }, pad, btnY - pT(44), iW, { color: PC.f8, align: 'center' });
+    pButton(r, pad, btnY, iW, v.cta || 'Learn more', PC.red, PC.white);
+}
+
 // ===================== SME HUB · GLOSSARY · WEBINARS =====================
 // Three sections of the site that had no way to be posted about. Each family is built around what
 // that section actually DOES, not around a generic "promote a page" layout:
@@ -2650,6 +2691,49 @@ self.onmessage = async (e) => {
 
             if (featured) featured.close();
             if (logo) logo.close();
+            return;
+        }
+
+        if (msg.type === 'render-premium-carousel-zip') {
+            self.postMessage({ type: 'progress', percent: 3, label: 'Loading fonts' });
+            await loadFonts(msg.fontBuffers);
+
+            self.postMessage({ type: 'progress', percent: 8, label: 'Decoding images' });
+            const logoW = await blobToBitmap(msg.logoWhiteBlob);
+            const logoC = await blobToBitmap(msg.logoColorBlob);
+            const featured = await blobToBitmap(msg.featuredBlob);
+            const assets = { logoW, logoC, featured };
+
+            const W = msg.w || 1080, H = msg.h || 1350;
+            const slides = msg.slides || [];
+            const zip = new JSZip();
+            const traces = msg.trace ? [] : null;   // render tests ask for the per-slide draw log; production never does
+            for (let i = 0; i < slides.length; i++) {
+                const s = slides[i];
+                const pct = 10 + Math.round((i / slides.length) * 80);
+                self.postMessage({ type: 'progress', percent: pct, label: 'Rendering slide ' + (i + 1) + '/' + slides.length });
+                const r = new CanvasRenderer(W, H, msg.scale || 2);
+                if (msg.trace) r.trace = [];
+                if (s.kind === 'hook') drawCarouselHook(r, msg.label, s.vals, assets);
+                else if (s.kind === 'cta') drawCarouselCTA(r, msg.label, s.vals, assets);
+                else drawPremium(r, msg.premType, s.dir, s.vals, assets);
+                if (traces) traces.push({ kind: s.kind || s.dir, trace: r.trace });
+                const blob = await r.toBlob('image/png', 1.0);
+                const buf = await blob.arrayBuffer();
+                zip.file('SME_Premium_Carousel_' + String(i + 1).padStart(2, '0') + '.png', buf);
+            }
+
+            self.postMessage({ type: 'progress', percent: 92, label: 'Compressing ZIP' });
+            const zipBlob = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+
+            self.postMessage({ type: 'progress', percent: 100, label: 'Done' });
+            self.postMessage({ type: 'done', blob: zipBlob, filename: msg.filename || 'SME_Premium_Carousel.zip', traces: traces });
+
+            if (logoW) logoW.close(); if (logoC) logoC.close(); if (featured) featured.close();
             return;
         }
 
