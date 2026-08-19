@@ -119,6 +119,70 @@
         .bg-sme-navy   { background-color: var(--bs) !important; }
         .text-sme-navy { color: var(--bs) !important; }
 
+        /* ============================================================================
+           STUDIO SIDEBAR COMPONENTS.
+           Every option button in this panel — post type, format, theme, dimension,
+           slide, direction, motion style — used to carry its own hand-written Tailwind
+           class string, and seven different JS functions each added and removed a
+           DIFFERENT set of classes to show selection (bg-slate-700 + border-white in
+           one, bg-[#B6FF3D] + border-red-500 in another, bg-red-600 in a third). Same
+           control, four looks. One class here, one `.on` modifier, and every selector
+           in the sidebar reads the same and toggles the same way.
+           ============================================================================ */
+        .vt-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:4px; background:#14171F; border:1px solid #23262E; border-radius:12px; }
+        .vt-tab {
+            display:flex; align-items:center; justify-content:center; gap:6px;
+            font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;
+            padding:9px 6px; border-radius:9px; border:0; background:transparent; color:#888F9D;
+            cursor:pointer; transition:background .14s, color .14s;
+        }
+        .vt-tab:hover { color:#ECEEF3; background:rgba(255,255,255,0.045); }
+        .vt-tab.on { background:#B6FF3D; color:#0A0B0F; }
+        .vt-tab .n { font-family:'JetBrains Mono',monospace; font-size:10px; opacity:0.5; }
+        .vt-tab.on .n { opacity:0.65; }
+
+        .vt-lbl { display:flex; align-items:center; gap:8px; font-size:10px; font-weight:800; letter-spacing:0.14em; text-transform:uppercase; color:#B6FF3D; margin-bottom:10px; }
+        .vt-lbl .hint { color:#5B616D; font-size:10px; font-weight:600; letter-spacing:0.02em; text-transform:none; }
+        .vt-sub { display:block; font-size:10px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#888F9D; margin-bottom:5px; }
+        .vt-note { font-size:10px; line-height:1.5; color:#5B616D; }
+        .vt-card { background:#14171F; border:1px solid #23262E; border-radius:14px; padding:15px; }
+
+        .vt-opt {
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+            font-size:11px; font-weight:700; letter-spacing:0.02em; text-transform:uppercase; line-height:1.25;
+            padding:10px 7px; border-radius:10px; background:#171A22; color:#888F9D; border:1px solid #23262E;
+            cursor:pointer; transition:background .14s, color .14s, border-color .14s; text-align:center;
+        }
+        .vt-opt:hover { color:#ECEEF3; border-color:#39404d; background:#1C2029; }
+        .vt-opt.on { background:#B6FF3D; color:#0A0B0F; border-color:#B6FF3D; font-weight:800; }
+        .vt-opt .sub { font-size:9px; font-weight:600; letter-spacing:0.04em; opacity:0.6; text-transform:none; }
+        /* The direction buttons are wider and left-read, with the letter as a prefix. */
+        .vt-opt.wide { flex-direction:row; justify-content:flex-start; text-align:left; gap:7px; }
+        .vt-opt .k { font-family:'JetBrains Mono',monospace; font-size:9px; opacity:0.5; }
+        /* The collapsed post-type summary: reads as a settled choice, not a live option, so it
+           does not compete with the one filled button on screen (Download). */
+        #ct-current { border-color:rgba(182,255,61,0.3); color:#ECEEF3; background:#14171F; }
+        #ct-current:hover { border-color:#B6FF3D; background:#1C2029; }
+
+        .vt-btn {
+            display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+            font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;
+            padding:11px 12px; border-radius:11px; background:#171A22; color:#ECEEF3; border:1px solid #23262E;
+            cursor:pointer; transition:background .14s, border-color .14s;
+        }
+        .vt-btn:hover { background:#1C2029; border-color:#39404d; }
+        .vt-btn-accent { background:#B6FF3D; color:#0A0B0F; border-color:#B6FF3D; }
+        .vt-btn-accent:hover { background:#c5ff5e; border-color:#c5ff5e; }
+        .vt-btn-primary { background:#B6FF3D; color:#0A0B0F; border-color:#B6FF3D; font-size:13px; padding:14px 12px; letter-spacing:0.06em; }
+        .vt-btn-primary:hover { background:#c5ff5e; border-color:#c5ff5e; }
+
+        .vt-in { width:100%; background:#0D0F15; color:#ECEEF3; border:1px solid #23262E; border-radius:10px; padding:10px 12px; font-size:13px; outline:none; transition:border-color .14s; }
+        .vt-in::placeholder { color:#4a505c; }
+        .vt-in:focus { border-color:#B6FF3D; }
+        .vt-file { width:100%; font-size:12px; color:#888F9D; }
+        .vt-file::file-selector-button { margin-right:12px; padding:8px 14px; border-radius:9px; border:1px solid #23262E; background:#171A22; color:#ECEEF3; font-size:11px; font-weight:700; cursor:pointer; }
+        .vt-file::file-selector-button:hover { background:#1C2029; }
+
         /* Brand Kit form fields */
         .bk-lbl { display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#888F9D; font-weight:700; margin-bottom:4px; }
         .bk-in  { width:100%; background:#0D0F15; color:#ECEEF3; border:1px solid #2A2E38; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; }
@@ -129,14 +193,24 @@
 
     <div id="toast"></div>
 
-    <!-- Sidebar Controls -->
-    <aside class="w-full md:w-[480px] bg-slate-900 border-r border-slate-800 flex flex-col h-full overflow-y-auto shrink-0 z-10 shadow-2xl relative">
+    <!-- ============================================================================
+         SIDEBAR — THREE STEPS, NOT ONE SCROLL.
+         This panel used to be a single ~1400px column: header, feed grid, auto-fill,
+         thirteen post types, directions, formats, dimensions, themes, framing, six
+         text inputs, typography — and then a sticky export block with eight buttons.
+         Sticky header (~330px) plus sticky export (~500px) left almost no viewport
+         for the controls in between, so the only thing on screen was chrome: you
+         scrolled to the bottom and could not find the design options at all.
+         Now: a compact header, three tabs (Design / Content / Export), one scrolling
+         pane, and a single always-visible primary action. Nothing was removed.
+         ============================================================================ -->
+    <aside class="w-full md:w-[420px] bg-[#0D0F15] border-r border-[#23262E] flex flex-col h-full shrink-0 z-10 shadow-2xl relative">
 
-        <!-- Header -->
-        <div class="p-6 border-b border-slate-800 bg-slate-900/95 sticky top-0 z-20 backdrop-blur-sm">
+        <!-- Header — compact. The advisor moved into the Design tab where its action lives. -->
+        <div class="px-5 pt-4 pb-4 border-b border-[#23262E] shrink-0">
             <nav class="nav-tabs">
                 <a class="nav-tab" href="index.html">✍️ Copy</a>
-        <a class="nav-tab" href="campaign.html">⚡ Campaign</a>
+                <a class="nav-tab" href="campaign.html">⚡ Campaign</a>
                 <span class="nav-tab active">🎨 Studio</span>
                 <a class="nav-tab" href="analytics.html">📊 Stats</a>
                 <a class="nav-tab" href="email.html">✉️ Email</a>
@@ -145,356 +219,361 @@
                 <a class="nav-tab" href="videotok.html">📝 Transcribe</a>
                 <a class="nav-tab" href="guide.html">📖 Guide</a>
             </nav>
-            <div class="flex items-center justify-between">
-                <h1 class="text-3xl font-extrabold text-white tracking-tight leading-none" style="font-family:'Unbounded',sans-serif;">Volt<span style="color:#B6FF3D;">.</span></h1>
-                <span class="engine-badge"><span class="w-1.5 h-1.5 rounded-full" style="background:#B6FF3D;"></span> No API key</span>
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-baseline gap-2.5 min-w-0">
+                    <h1 class="text-2xl font-extrabold text-white tracking-tight leading-none" style="font-family:'Unbounded',sans-serif;">Volt<span style="color:#B6FF3D;">.</span></h1>
+                    <span class="text-[10px] text-[#5B616D] tracking-[0.18em] uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Studio</span>
+                </div>
+                <span class="engine-badge shrink-0"><span class="w-1.5 h-1.5 rounded-full" style="background:#B6FF3D;"></span> No API key</span>
             </div>
-            <p class="text-xs text-slate-400 mt-1 tracking-widest uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Design Studio</p>
 
-            <button onclick="openBrandKit()" id="brand-chip" class="mt-4 w-full flex items-center justify-between gap-2 bg-slate-800/60 hover:bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 transition-colors">
+            <button onclick="openBrandKit()" id="brand-chip" class="mt-3 w-full flex items-center justify-between gap-2 bg-[#14171F] hover:bg-[#1A1E28] border border-[#23262E] rounded-lg px-3 py-2 transition-colors">
                 <span class="flex items-center gap-2 min-w-0">
-                    <span id="brand-chip-swatch" class="w-4 h-4 rounded-sm shrink-0 border border-white/20" style="background:#9c1c1f;"></span>
-                    <span class="text-xs text-slate-300 font-bold truncate">Brand: <span id="brand-chip-name" class="text-white">SME South Africa</span></span>
+                    <span id="brand-chip-swatch" class="w-3.5 h-3.5 rounded-sm shrink-0 border border-white/20" style="background:#9c1c1f;"></span>
+                    <span class="text-[11px] text-[#888F9D] font-bold truncate"><span id="brand-chip-name" class="text-white">SME South Africa</span></span>
                 </span>
-                <span class="text-[10px] font-bold uppercase tracking-widest shrink-0" style="color:#B6FF3D;">Manage</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest shrink-0" style="color:#B6FF3D;">Manage</span>
             </button>
+        </div>
 
-            <div id="advisor-panel" class="mt-4 bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 p-4 rounded-xl shadow-lg">
-                <div class="flex items-center gap-2 mb-2 text-sm font-bold text-blue-300 uppercase tracking-widest">
-                    <span>🤖</span> Strategy Proxy
-                </div>
-                <p id="advisor-msg" class="text-sm text-slate-300 leading-snug font-medium"></p>
-                <div id="advisor-action" class="mt-3 flex gap-2"></div>
+        <!-- The three steps. Design what it is → write what it says → ship it. -->
+        <div class="px-5 pt-3 pb-3 shrink-0">
+            <div class="vt-tabs">
+                <button type="button" id="tab-design"  class="vt-tab on" onclick="setStudioTab('design')"><span class="n">01</span> Design</button>
+                <button type="button" id="tab-content" class="vt-tab"    onclick="setStudioTab('content')"><span class="n">02</span> Content</button>
+                <button type="button" id="tab-export"  class="vt-tab"    onclick="setStudioTab('export')"><span class="n">03</span> Export</button>
             </div>
         </div>
 
-        <div class="p-6 space-y-8 flex-1">
+        <div id="pane-scroll" class="flex-1 overflow-y-auto px-5 pb-6">
 
-            <!-- Feed Simulator -->
-            <div class="bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 shadow-inner">
-                <div class="flex items-center justify-between mb-3">
-                    <label class="text-xs font-bold uppercase tracking-widest flex items-center gap-2" style="color:#B6FF3D;">📱 Feed Preview</label>
-                    <span id="variety-badge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded" style="background:rgba(255,255,255,0.06);color:#888F9D;">—</span>
-                </div>
-                <div class="h-1.5 rounded-full overflow-hidden mb-3" style="background:rgba(255,255,255,0.08)">
-                    <div id="variety-bar" class="h-full rounded-full" style="width:0%;background:#B6FF3D;transition:width .4s ease,background .4s ease"></div>
-                </div>
-                <div id="feed-grid" class="grid grid-cols-3 gap-1.5"></div>
-                <p id="feed-hint" class="text-[10px] text-slate-500 leading-snug mt-3">Your last 9 exports show here as an Instagram-style grid — a quick gut-check on whether your feed looks varied.</p>
-                <button onclick="openAudit()" class="w-full mt-3 text-[11px] font-bold uppercase tracking-widest py-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors" style="color:#B6FF3D;">📊 Full content audit</button>
-            </div>
+            <!-- ==================== 01 · DESIGN ==================== -->
+            <div id="pane-design" class="space-y-6">
 
-            <!-- Step 1: Link & Context -->
-            <div class="space-y-3 bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 shadow-inner">
-                <label class="text-xs font-bold text-blue-400 uppercase tracking-widest block flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                    1. Auto-Fill Content
-                </label>
-                <div class="flex gap-2">
-                    <input type="text" id="in-url" placeholder="Paste article link..." class="flex-1 bg-slate-900 text-white rounded-lg p-3 text-sm border border-slate-600 outline-none focus:ring-2 focus:ring-blue-500">
-                    <button onclick="fetchArticleData()" id="btn-fetch" class="bg-blue-600 hover:bg-blue-500 text-[#0A0B0F] font-bold py-3 px-4 rounded-lg text-sm transition-colors whitespace-nowrap shadow-lg flex items-center justify-center min-w-[100px]">
-                        Auto-Fill
-                    </button>
-                </div>
-                <p class="text-[10px] text-slate-500 leading-snug">Scraper extracts headline, image, and runs the smart slicer to auto-populate carousel slides from the article description.</p>
-            </div>
-
-            <!-- Step 0: What do you want to design? (content-type switch) -->
-            <div>
-                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">What do you want to design?</label>
-                <div class="grid grid-cols-3 gap-2" id="content-type-switch">
-                    <button onclick="setContentType('creative')"  id="ct-creative"  class="ct-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-2.5 px-2 rounded-lg border border-red-500 transition-all text-[11px] uppercase tracking-wide">🎨 Creative</button>
-                    <button onclick="setContentType('funding')"   id="ct-funding"   class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">💰 Funding</button>
-                    <button onclick="setContentType('solutions')" id="ct-solutions" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">◆ Solutions</button>
-                    <button onclick="setContentType('newsletter')" id="ct-newsletter" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">✉ Newsletter</button>
-                    <button onclick="setContentType('resources')" id="ct-resources" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">▤ Resources</button>
-                    <button onclick="setContentType('providers')" id="ct-providers" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🤝 Get Providers</button>
-                    <button onclick="setContentType('findpros')" id="ct-findpros" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🔎 Find Providers</button>
-                    <button onclick="setContentType('podcast')" id="ct-podcast" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🎙️ Podcast</button>
-                    <button onclick="setContentType('feature')" id="ct-feature" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">📰 Latest Insight</button>
-                    <button onclick="setContentType('merch')" id="ct-merch" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🛍️ Merch</button>
-                    <button onclick="setContentType('hub')" id="ct-hub" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🏛️ SME Hub</button>
-                    <button onclick="setContentType('glossary')" id="ct-glossary" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">📖 Glossary</button>
-                    <button onclick="setContentType('webinar')" id="ct-webinar" class="ct-btn bg-slate-800 text-slate-400 font-bold py-2.5 px-2 rounded-lg border border-slate-600 transition-all text-[11px] uppercase tracking-wide">🎟️ Webinars</button>
-                </div>
-                <p class="text-[10px] text-slate-500 leading-snug mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
-            </div>
-
-            <!-- Premium content-type controls (hidden for Creative) -->
-            <div id="premium-controls" class="hidden">
-                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">Design direction</label>
-                <!-- Filled from the PREMIUM registry so a family can have any number of
-                     directions. Hardcoding A/B/C meant a fourth idea couldn't be reached at all. -->
-                <div class="grid gap-2 mb-3" id="premium-dirs"></div>
-                <p class="text-[11px] font-bold text-slate-300 mb-1" id="pdir-name"></p>
-                <div id="premium-fields" class="flex flex-col gap-2"></div>
-                <!-- Latest Insight only: paste the article and let it fill all four directions. -->
-                <div id="premium-autofill" class="hidden mt-3 pt-3 border-t border-slate-700">
-                    <label class="text-xs text-slate-400 block mb-1" id="prem-autofill-label">Auto-fill from the article</label>
-                    <div class="flex gap-2">
-                        <input type="url" id="prem-url" placeholder="Paste the article link…" class="flex-1 min-w-0 bg-slate-900 text-white rounded-md p-2 text-xs border border-slate-600 focus:border-[#B6FF3D] outline-none">
-                        <button id="prem-autofill" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Fill</button>
+                <div id="advisor-panel" class="vt-card" style="border-color:rgba(182,255,61,0.22);background:linear-gradient(180deg,rgba(182,255,61,0.06),rgba(182,255,61,0.02));">
+                    <div class="flex items-center gap-2 mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em]" style="color:#B6FF3D;">
+                        <span>🤖</span> Strategy Proxy
                     </div>
-                    <p id="prem-autofill-status" class="text-[10px] text-slate-500 mt-1">Pulls a verbatim quote, a real figure and three takeaways — and fills every direction at once, so you can pick whichever the article actually supports.</p>
+                    <p id="advisor-msg" class="text-[13px] text-[#ECEEF3] leading-snug"></p>
+                    <div id="advisor-action" class="mt-3 flex gap-2"></div>
                 </div>
-                <!-- Photo slot for the families that use one (Podcast = guest, Merch = product).
-                     Feeds the SAME currentImageBlob path as the Creative featured image, so there
-                     is only one image pipeline to reason about. -->
-                <div id="premium-image" class="hidden mt-3 pt-3 border-t border-slate-700">
-                    <label class="text-xs text-slate-400 block mb-1" id="premium-image-label">Photo</label>
-                    <input type="file" id="prem-image" accept="image/*" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer hover:file:bg-slate-600 transition-colors">
-                    <div class="flex gap-2 mt-2">
-                        <input type="text" id="prem-ai-prompt" placeholder="…or describe it and generate with AI" class="flex-1 bg-slate-900 text-white rounded-md p-2 text-xs border border-slate-600 focus:border-[#B6FF3D] outline-none">
-                        <button id="prem-ai-btn" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Generate</button>
+
+                <div class="vt-sec">
+                    <div class="vt-lbl">Post type</div>
+                    <!-- Thirteen buttons is the right menu and the wrong permanent fixture: once you
+                         have chosen, it is 200px of answered question sitting above the controls you
+                         actually came to use. Collapses to what you picked, one click from the menu. -->
+                    <button type="button" id="ct-current" class="vt-opt wide hidden w-full" style="justify-content:space-between;" onclick="openTypePicker()">
+                        <span id="ct-current-name">Creative</span>
+                        <span class="k" style="opacity:.75;">Change ▾</span>
+                    </button>
+                    <div id="ct-picker">
+                    <button onclick="setContentType('creative')" id="ct-creative" class="vt-opt ct-btn on w-full mb-2" style="text-align:left;padding-left:14px;">🎨 Creative — build from scratch</button>
+                    <div class="grid grid-cols-3 gap-2" id="content-type-switch">
+                        <button onclick="setContentType('funding')"    id="ct-funding"    class="vt-opt ct-btn">💰 Funding</button>
+                        <button onclick="setContentType('solutions')"  id="ct-solutions"  class="vt-opt ct-btn">◆ Solutions</button>
+                        <button onclick="setContentType('newsletter')" id="ct-newsletter" class="vt-opt ct-btn">✉ Newsletter</button>
+                        <button onclick="setContentType('resources')"  id="ct-resources"  class="vt-opt ct-btn">▤ Resources</button>
+                        <button onclick="setContentType('providers')"  id="ct-providers"  class="vt-opt ct-btn">🤝 Get Providers</button>
+                        <button onclick="setContentType('findpros')"   id="ct-findpros"   class="vt-opt ct-btn">🔎 Find Providers</button>
+                        <button onclick="setContentType('podcast')"    id="ct-podcast"    class="vt-opt ct-btn">🎙️ Podcast</button>
+                        <button onclick="setContentType('feature')"    id="ct-feature"    class="vt-opt ct-btn">📰 Latest Insight</button>
+                        <button onclick="setContentType('merch')"      id="ct-merch"      class="vt-opt ct-btn">🛍️ Merch</button>
+                        <button onclick="setContentType('hub')"        id="ct-hub"        class="vt-opt ct-btn">🏛️ SME Hub</button>
+                        <button onclick="setContentType('glossary')"   id="ct-glossary"   class="vt-opt ct-btn">📖 Glossary</button>
+                        <button onclick="setContentType('webinar')"    id="ct-webinar"    class="vt-opt ct-btn">🎟️ Webinars</button>
                     </div>
-                    <div id="prem-image-has" class="hidden flex items-center gap-3 mt-2">
-                        <img id="prem-image-thumb" alt="" class="w-12 h-12 rounded-md object-cover border border-slate-600 bg-slate-900" />
-                        <button id="prem-image-clear" type="button" class="text-[11px] uppercase tracking-wide font-bold px-2 py-1.5 rounded-md bg-red-900/60 hover:bg-red-800 text-red-100">✕ Remove photo</button>
                     </div>
-                    <p id="prem-image-status" class="text-[10px] text-slate-500 mt-2"></p>
+                    <p class="vt-note mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
                 </div>
-            </div>
 
-            <!-- Step 2: Strategic Format (Creative only) -->
-            <div id="creative-controls">
-                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">2. Strategic Format</label>
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <button onclick="setCampaign('standard')" id="camp-standard" class="camp-btn bg-[#B6FF3D] text-[#0A0B0F] font-bold py-3 px-3 rounded-lg border border-red-500 transition-all text-xs uppercase tracking-wider">
-                        🖼️ Standard
-                    </button>
-                    <button onclick="setCampaign('carousel')" id="camp-carousel" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
-                        📄 Carousel
-                    </button>
+                <!-- Premium: which direction. The copy for it lives in tab 02. -->
+                <div id="premium-controls" class="vt-sec hidden">
+                    <div class="vt-lbl">Design direction</div>
+                    <!-- Filled from the PREMIUM registry so a family can have any number of
+                         directions. Hardcoding A/B/C meant a fourth idea couldn't be reached at all. -->
+                    <div class="grid gap-2" id="premium-dirs"></div>
+                    <p class="vt-note mt-2" id="pdir-name"></p>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="setCampaign('poll')" id="camp-poll" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
-                        📊 Community Poll
-                    </button>
-                    <button onclick="setCampaign('whatsapp')" id="camp-whatsapp" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
-                        💬 WhatsApp Channel
-                    </button>
-                </div>
-                <div class="grid grid-cols-2 gap-2 mt-2">
-                    <button onclick="setCampaign('stat')" id="camp-stat" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
-                        📈 Stat Spotlight
-                    </button>
-                    <button onclick="setCampaign('quote')" id="camp-quote" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
-                        ❝ Quote
-                    </button>
-                    <button onclick="setCampaign('meme')" id="camp-meme" class="camp-btn bg-slate-800 text-slate-400 font-bold py-3 px-3 rounded-lg border border-slate-600 transition-all text-xs uppercase tracking-wider">
-                        😂 Meme
-                    </button>
-                </div>
-            </div>
 
-            <!-- Step 3: Theme Dimensions -->
-            <div id="size-controls">
-                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">3. Select Dimensions</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="setFormat('landscape')" id="btn-landscape" class="format-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Land (LinkedIn)</button>
-                    <button onclick="setFormat('square')" id="btn-square" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Sq (IG Grid)</button>
-                    <button onclick="setFormat('portrait')" id="btn-portrait" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Port (IG Feed)</button>
-                    <button onclick="setFormat('story')" id="btn-story" class="format-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Story (IG 9:16)</button>
-                </div>
-            </div>
-
-            <!-- Step 4: Design Theme (Standard Only) -->
-            <div id="theme-controls">
-                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">4. Design Theme</label>
-                <div class="grid grid-cols-3 gap-2">
-                    <button onclick="setTheme('classic')" id="theme-classic" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Classic</button>
-                    <button onclick="setTheme('navy')" id="theme-navy" class="theme-btn bg-slate-700 border-2 border-white text-white font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Navy</button>
-                    <button onclick="setTheme('cinematic')" id="theme-cinematic" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Cinematic</button>
-                    <button onclick="setTheme('modern')" id="theme-modern" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Modern</button>
-                    <button onclick="setTheme('editorial')" id="theme-editorial" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Editorial</button>
-                    <button onclick="setTheme('bold')" id="theme-bold" class="theme-btn bg-slate-800 border border-slate-600 text-slate-400 font-bold py-2 rounded text-center text-[10px] uppercase transition-all">Bold</button>
-                </div>
-            </div>
-
-            <!-- Carousel UI -->
-            <div id="carousel-controls" class="hidden space-y-3 bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-                <div class="flex justify-between items-center mb-2">
-                    <label class="text-xs font-bold text-white uppercase tracking-widest">Slides (6)</label>
-                    <button onclick="autoSliceFromTitle()" class="text-[10px] font-bold text-blue-300 hover:text-blue-200 uppercase tracking-widest underline decoration-dotted underline-offset-4">↻ Re-slice</button>
-                </div>
-                <div class="grid grid-cols-3 gap-1">
-                    <button onclick="changeSlide(0)" id="sl-0" class="slide-nav py-1.5 rounded bg-red-600 text-[#0A0B0F] text-xs font-bold">1</button>
-                    <button onclick="changeSlide(1)" id="sl-1" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">2</button>
-                    <button onclick="changeSlide(2)" id="sl-2" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">3</button>
-                    <button onclick="changeSlide(3)" id="sl-3" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">4</button>
-                    <button onclick="changeSlide(4)" id="sl-4" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">5</button>
-                    <button onclick="changeSlide(5)" id="sl-5" class="slide-nav py-1.5 rounded bg-slate-700 text-slate-300 text-xs font-bold">6</button>
-                </div>
-                <p class="text-[10px] text-slate-500 leading-snug pt-1">Smart slicer auto-fills slides 2–5 from the article body. Edit any slide manually; the export button ships a single ZIP with all 6 PNGs.</p>
-            </div>
-
-            <!-- Focal Point Engine -->
-            <div id="framing-controls" class="space-y-4 bg-slate-800/40 p-5 rounded-xl border border-emerald-500/30 shadow-inner">
-                <label class="text-xs font-bold text-emerald-400 uppercase tracking-widest block">5. Image Framing</label>
-                <div class="space-y-3">
-                    <div>
-                        <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
-                            <span>Horizontal</span> <span id="val-img-x">50%</span>
+                <!-- Creative: format, theme and slides. All three are meaningless for a premium
+                     family, so they live in one wrapper that setContentType hides as a unit —
+                     they used to stay on screen, doing nothing, next to the design you'd picked. -->
+                <div id="creative-controls" class="space-y-6">
+                    <div class="vt-sec">
+                        <div class="vt-lbl">Format</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setCampaign('standard')" id="camp-standard" class="vt-opt camp-btn on">🖼️ Standard</button>
+                            <button onclick="setCampaign('carousel')" id="camp-carousel" class="vt-opt camp-btn">📄 Carousel</button>
+                            <button onclick="setCampaign('poll')"     id="camp-poll"     class="vt-opt camp-btn">📊 Community Poll</button>
+                            <button onclick="setCampaign('whatsapp')" id="camp-whatsapp" class="vt-opt camp-btn">💬 WhatsApp</button>
+                            <button onclick="setCampaign('stat')"     id="camp-stat"     class="vt-opt camp-btn">📈 Stat Spotlight</button>
+                            <button onclick="setCampaign('quote')"    id="camp-quote"    class="vt-opt camp-btn">❝ Quote</button>
+                            <button onclick="setCampaign('meme')"     id="camp-meme"     class="vt-opt camp-btn">😂 Meme</button>
                         </div>
-                        <input type="range" id="in-img-x" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
                     </div>
-                    <div>
-                        <div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
-                            <span>Vertical</span> <span id="val-img-y">50%</span>
+
+                    <div id="theme-controls" class="vt-sec">
+                        <div class="vt-lbl">Theme</div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="setTheme('classic')"   id="theme-classic"   class="vt-opt theme-btn">Classic</button>
+                            <button onclick="setTheme('navy')"      id="theme-navy"      class="vt-opt theme-btn on">Navy</button>
+                            <button onclick="setTheme('cinematic')" id="theme-cinematic" class="vt-opt theme-btn">Cinematic</button>
+                            <button onclick="setTheme('modern')"    id="theme-modern"    class="vt-opt theme-btn">Modern</button>
+                            <button onclick="setTheme('editorial')" id="theme-editorial" class="vt-opt theme-btn">Editorial</button>
+                            <button onclick="setTheme('bold')"      id="theme-bold"      class="vt-opt theme-btn">Bold</button>
                         </div>
-                        <input type="range" id="in-img-y" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
+                    </div>
+
+                    <div id="carousel-controls" class="vt-sec hidden">
+                        <div class="vt-lbl">Slides <span class="hint">— 6 in the ZIP</span>
+                            <button onclick="autoSliceFromTitle()" class="ml-auto text-[10px] font-bold uppercase tracking-widest" style="color:#B6FF3D;">↻ Re-slice</button>
+                        </div>
+                        <div class="grid grid-cols-6 gap-1.5">
+                            <button onclick="changeSlide(0)" id="sl-0" class="vt-opt slide-nav on">1</button>
+                            <button onclick="changeSlide(1)" id="sl-1" class="vt-opt slide-nav">2</button>
+                            <button onclick="changeSlide(2)" id="sl-2" class="vt-opt slide-nav">3</button>
+                            <button onclick="changeSlide(3)" id="sl-3" class="vt-opt slide-nav">4</button>
+                            <button onclick="changeSlide(4)" id="sl-4" class="vt-opt slide-nav">5</button>
+                            <button onclick="changeSlide(5)" id="sl-5" class="vt-opt slide-nav">6</button>
+                        </div>
+                        <p class="vt-note mt-2">Smart slicer auto-fills slides 2–5 from the article body. Edit any slide manually; the export ships one ZIP with all 6 PNGs.</p>
+                    </div>
+                </div>
+
+                <!-- Dimensions apply to premium AND creative, so this sits outside both wrappers. -->
+                <div id="size-controls" class="vt-sec">
+                    <div class="vt-lbl">Dimensions</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setFormat('landscape')" id="btn-landscape" class="vt-opt format-btn on">Landscape <span class="sub">LinkedIn</span></button>
+                        <button onclick="setFormat('square')"    id="btn-square"    class="vt-opt format-btn">Square <span class="sub">IG grid</span></button>
+                        <button onclick="setFormat('portrait')"  id="btn-portrait"  class="vt-opt format-btn">Portrait <span class="sub">IG feed</span></button>
+                        <button onclick="setFormat('story')"     id="btn-story"     class="vt-opt format-btn">Story <span class="sub">9:16</span></button>
                     </div>
                 </div>
             </div>
 
-            <!-- Content Inputs -->
-            <div class="space-y-4">
-                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">6. Content Adjustment</label>
-                <div id="tag-group">
-                    <label class="text-xs text-slate-400 block mb-1">Tag</label>
-                    <input type="text" id="in-tag" value="SME Knowledge HUB" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
-                </div>
-                <div id="title-group">
-                    <label class="text-xs text-slate-400 block mb-1" id="lbl-title">Main Headline</label>
-                    <textarea id="in-title" rows="3" class="w-full bg-slate-800 text-white rounded-lg p-3 text-lg font-bold border border-slate-700 outline-none focus:ring-2 focus:ring-red-500 resize-none transition-shadow" oninput="syncDOM()">Four Business Ideas To Solve Socio-Economic Issues</textarea>
-                </div>
-                <div id="poll-controls" class="hidden space-y-2 mt-4">
-                    <label class="text-xs text-slate-400 block mb-1">Poll Options</label>
-                    <input type="text" id="poll-opt-1" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="Yes, definitely" oninput="syncDOM()">
-                    <input type="text" id="poll-opt-2" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="No, we need help" oninput="syncDOM()">
-                    <input type="text" id="poll-opt-3" class="w-full bg-slate-800 text-white rounded p-2 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" value="Not sure yet" oninput="syncDOM()">
-                </div>
-                <div id="stat-controls" class="hidden space-y-2 mt-4">
-                    <label class="text-xs text-slate-400 block mb-1">The big stat / number</label>
-                    <input type="text" id="in-stat" value="73%" class="w-full bg-slate-800 text-white rounded-lg p-3 text-2xl font-black border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
-                    <p class="text-[10px] text-slate-500 leading-snug">Keep it short — a percentage or figure (e.g. &ldquo;73%&rdquo;, &ldquo;3&times;&rdquo;, &ldquo;R2.4bn&rdquo;). The headline above becomes the supporting line.</p>
-                </div>
-                <div id="quote-controls" class="hidden space-y-2 mt-4">
-                    <label class="text-xs text-slate-400 block mb-1">Attribution</label>
-                    <input type="text" id="in-author" value="Thabo M., SME Founder" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
-                    <p class="text-[10px] text-slate-500 leading-snug">The headline above is the quote. Add who said it here (name, role).</p>
-                </div>
-                <div id="meme-controls" class="hidden space-y-2 mt-4">
-                    <label class="text-xs text-slate-400 block mb-1">Top text</label>
-                    <input type="text" id="in-meme-top" value="WHEN THE VAT THRESHOLD" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm font-bold border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
-                    <label class="text-xs text-slate-400 block mb-1 mt-2">Bottom text</label>
-                    <input type="text" id="in-meme-bottom" value="JUMPS TO R2.3 MILLION" class="w-full bg-slate-800 text-white rounded-lg p-3 text-sm font-bold border border-slate-700 outline-none focus:ring-2 focus:ring-red-500" oninput="syncDOM()">
-                    <p class="text-[10px] text-slate-500 leading-snug">Upload your image below, then add classic top/bottom meme text (white with a black outline). Great for the Friday post. Leave either line blank to skip it.</p>
-                </div>
-                <div id="image-upload-wrapper">
-                    <label class="text-xs text-slate-400 block mb-1">Featured Image</label>
-                    <input type="file" id="in-image" accept="image/*" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-700 file:text-white cursor-pointer hover:file:bg-slate-600 transition-colors">
-                    <div class="mt-2">
+            <!-- ==================== 02 · CONTENT ==================== -->
+            <div id="pane-content" class="space-y-6 hidden">
+
+                <!-- Premium copy: the fields for the chosen direction. -->
+                <div id="premium-content" class="space-y-5 hidden">
+                    <div class="vt-sec">
+                        <div class="vt-lbl">Copy <span class="hint" id="pdir-name-2"></span></div>
+                        <div id="premium-fields" class="flex flex-col gap-2"></div>
+                    </div>
+
+                    <!-- Latest Insight / Glossary: paste the page and let it fill every direction. -->
+                    <div id="premium-autofill" class="vt-card hidden">
+                        <div class="vt-lbl" id="prem-autofill-label">Auto-fill from the article</div>
                         <div class="flex gap-2">
-                            <input type="text" id="ai-img-prompt" placeholder="…or describe an image to generate with AI" class="flex-1 bg-slate-900 text-white rounded-md p-2 text-xs border border-slate-600 focus:border-[#B6FF3D] outline-none">
-                            <button id="ai-img-btn" type="button" class="text-xs font-bold py-2 px-3 rounded-md shrink-0" style="background:#B6FF3D;color:#0A0B0F;">✨ Generate</button>
+                            <input type="url" id="prem-url" placeholder="Paste the article link…" class="vt-in flex-1 min-w-0">
+                            <button id="prem-autofill" type="button" class="vt-btn vt-btn-accent shrink-0" style="width:auto;padding-left:14px;padding-right:14px;">✨ Fill</button>
                         </div>
-                        <p id="ai-img-status" class="text-[10px] text-slate-500 mt-1"></p>
+                        <p id="prem-autofill-status" class="vt-note mt-2">Pulls a verbatim quote, a real figure and three takeaways — and fills every direction at once, so you can pick whichever the article actually supports.</p>
                     </div>
-                    <!-- Uploading was one-way: there was no path back to the stock image. -->
-                    <div id="in-image-has" class="hidden flex items-center gap-3 mt-2">
-                        <img id="in-image-thumb" alt="" class="w-12 h-12 rounded-md object-cover border border-slate-600 bg-slate-900" />
-                        <button id="in-image-clear" type="button" class="text-[11px] uppercase tracking-wide font-bold px-2 py-1.5 rounded-md bg-red-900/60 hover:bg-red-800 text-red-100">✕ Remove image</button>
+
+                    <!-- Photo slot for the families that use one (Podcast = guest, Merch = product). -->
+                    <div id="premium-image" class="vt-card hidden">
+                        <div class="vt-lbl" id="premium-image-label">Photo</div>
+                        <input type="file" id="prem-image" accept="image/*" class="vt-file">
+                        <div class="flex gap-2 mt-2">
+                            <input type="text" id="prem-ai-prompt" placeholder="…or describe it and generate with AI" class="vt-in flex-1 min-w-0">
+                            <button id="prem-ai-btn" type="button" class="vt-btn vt-btn-accent shrink-0" style="width:auto;padding-left:14px;padding-right:14px;">✨ Generate</button>
+                        </div>
+                        <div id="prem-image-has" class="hidden flex items-center gap-3 mt-3">
+                            <img id="prem-image-thumb" alt="" class="w-12 h-12 rounded-lg object-cover border border-[#23262E] bg-[#0D0F15]" />
+                            <button id="prem-image-clear" type="button" class="vt-btn" style="width:auto;padding:7px 12px;font-size:10px;">✕ Remove photo</button>
+                        </div>
+                        <p id="prem-image-status" class="vt-note mt-2"></p>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between mt-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-                    <label class="text-xs text-slate-300 font-bold uppercase tracking-wide cursor-pointer flex-1" for="toggle-footer">Show Footer / CTA Branding</label>
-                    <input type="checkbox" id="toggle-footer" checked class="w-4 h-4 accent-red-500 cursor-pointer" onchange="state.showFooter = this.checked; renderLayout();">
+                <!-- Creative copy. Hidden as a unit for premium families — these inputs drive
+                     renderSlide(), which a premium design never calls, so leaving them on screen
+                     meant typing into a headline box that changed nothing. -->
+                <div id="creative-content" class="space-y-5">
+
+                    <div class="vt-card">
+                        <div class="vt-lbl">Auto-fill from a link</div>
+                        <div class="flex gap-2">
+                            <input type="text" id="in-url" placeholder="Paste article link..." class="vt-in flex-1 min-w-0">
+                            <button onclick="fetchArticleData()" id="btn-fetch" class="vt-btn vt-btn-accent shrink-0" style="width:auto;padding-left:16px;padding-right:16px;">Fill</button>
+                        </div>
+                        <p class="vt-note mt-2">Pulls the headline and image, and runs the smart slicer to populate carousel slides from the article body.</p>
+                    </div>
+
+                    <div class="vt-sec space-y-3">
+                        <div class="vt-lbl">Text</div>
+                        <div id="tag-group">
+                            <label class="vt-sub" for="in-tag">Tag</label>
+                            <input type="text" id="in-tag" value="SME Knowledge HUB" class="vt-in" oninput="syncDOM()">
+                        </div>
+                        <div id="title-group">
+                            <label class="vt-sub" id="lbl-title" for="in-title">Main headline</label>
+                            <textarea id="in-title" rows="3" class="vt-in resize-none" style="font-size:16px;font-weight:700;line-height:1.35;" oninput="syncDOM()">Four Business Ideas To Solve Socio-Economic Issues</textarea>
+                        </div>
+                        <div id="poll-controls" class="hidden space-y-2">
+                            <label class="vt-sub">Poll options</label>
+                            <input type="text" id="poll-opt-1" class="vt-in" value="Yes, definitely" oninput="syncDOM()">
+                            <input type="text" id="poll-opt-2" class="vt-in" value="No, we need help" oninput="syncDOM()">
+                            <input type="text" id="poll-opt-3" class="vt-in" value="Not sure yet" oninput="syncDOM()">
+                        </div>
+                        <div id="stat-controls" class="hidden space-y-1">
+                            <label class="vt-sub" for="in-stat">The big stat / number</label>
+                            <input type="text" id="in-stat" value="73%" class="vt-in" style="font-size:22px;font-weight:900;" oninput="syncDOM()">
+                            <p class="vt-note">Keep it short — a percentage or figure (e.g. &ldquo;73%&rdquo;, &ldquo;3&times;&rdquo;, &ldquo;R2.4bn&rdquo;). The headline above becomes the supporting line.</p>
+                        </div>
+                        <div id="quote-controls" class="hidden space-y-1">
+                            <label class="vt-sub" for="in-author">Attribution</label>
+                            <input type="text" id="in-author" value="Thabo M., SME Founder" class="vt-in" oninput="syncDOM()">
+                            <p class="vt-note">The headline above is the quote. Add who said it here (name, role).</p>
+                        </div>
+                        <div id="meme-controls" class="hidden space-y-2">
+                            <div>
+                                <label class="vt-sub" for="in-meme-top">Top text</label>
+                                <input type="text" id="in-meme-top" value="WHEN THE VAT THRESHOLD" class="vt-in" style="font-weight:700;" oninput="syncDOM()">
+                            </div>
+                            <div>
+                                <label class="vt-sub" for="in-meme-bottom">Bottom text</label>
+                                <input type="text" id="in-meme-bottom" value="JUMPS TO R2.3 MILLION" class="vt-in" style="font-weight:700;" oninput="syncDOM()">
+                            </div>
+                            <p class="vt-note">Classic top/bottom meme text (white with a black outline). Leave either line blank to skip it.</p>
+                        </div>
+                    </div>
+
+                    <div id="image-upload-wrapper" class="vt-card">
+                        <div class="vt-lbl">Featured image</div>
+                        <input type="file" id="in-image" accept="image/*" class="vt-file">
+                        <div class="flex gap-2 mt-2">
+                            <input type="text" id="ai-img-prompt" placeholder="…or describe an image to generate with AI" class="vt-in flex-1 min-w-0">
+                            <button id="ai-img-btn" type="button" class="vt-btn vt-btn-accent shrink-0" style="width:auto;padding-left:14px;padding-right:14px;">✨ Generate</button>
+                        </div>
+                        <p id="ai-img-status" class="vt-note mt-2"></p>
+                        <!-- Uploading was one-way: there was no path back to the stock image. -->
+                        <div id="in-image-has" class="hidden flex items-center gap-3 mt-3">
+                            <img id="in-image-thumb" alt="" class="w-12 h-12 rounded-lg object-cover border border-[#23262E] bg-[#0D0F15]" />
+                            <button id="in-image-clear" type="button" class="vt-btn" style="width:auto;padding:7px 12px;font-size:10px;">✕ Remove image</button>
+                        </div>
+                    </div>
+
+                    <div id="framing-controls" class="vt-card">
+                        <div class="vt-lbl">Image framing</div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between vt-sub" style="margin-bottom:4px;"><span>Horizontal</span><span id="val-img-x" class="font-mono text-[#ECEEF3]">50%</span></div>
+                                <input type="range" id="in-img-x" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
+                            </div>
+                            <div>
+                                <div class="flex justify-between vt-sub" style="margin-bottom:4px;"><span>Vertical</span><span id="val-img-y" class="font-mono text-[#ECEEF3]">50%</span></div>
+                                <input type="range" id="in-img-y" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vt-card">
+                        <div class="flex justify-between vt-sub" style="margin-bottom:6px;">
+                            <label for="in-font-size">Typography scale</label>
+                            <span id="font-size-val" class="font-mono text-[#ECEEF3]">100%</span>
+                        </div>
+                        <input type="range" id="in-font-size" min="60" max="140" value="100" class="w-full cursor-pointer" oninput="syncDOM()">
+                        <div class="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-[#23262E]">
+                            <label class="vt-sub cursor-pointer" style="margin:0;" for="toggle-footer">Show footer / CTA branding</label>
+                            <input type="checkbox" id="toggle-footer" checked class="w-4 h-4 cursor-pointer" style="accent-color:#B6FF3D;" onchange="state.showFooter = this.checked; renderLayout();">
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Typography Scaling -->
-            <div class="space-y-4 pb-10">
-                <div class="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="text-xs text-slate-400 font-bold block">Typography Scale</label>
-                        <span id="font-size-val" class="text-xs font-mono font-bold text-white bg-red-900/50 px-2 py-0.5 rounded">100%</span>
+            <!-- ==================== 03 · EXPORT ==================== -->
+            <div id="pane-export" class="space-y-6 hidden">
+
+                <div class="vt-card">
+                    <div class="vt-lbl">📱 Feed preview
+                        <span id="variety-badge" class="ml-auto text-[10px] font-mono font-bold px-2 py-0.5 rounded" style="background:rgba(255,255,255,0.06);color:#888F9D;">—</span>
                     </div>
-                    <input type="range" id="in-font-size" min="60" max="140" value="100" class="w-full cursor-pointer" oninput="syncDOM()">
-                    <p class="text-[10px] text-slate-500 leading-snug mt-2">Auto-fit binary search guarantees text never overflows the bounding box, regardless of slider position.</p>
+                    <div class="h-1.5 rounded-full overflow-hidden mb-3" style="background:rgba(255,255,255,0.08)">
+                        <div id="variety-bar" class="h-full rounded-full" style="width:0%;background:#B6FF3D;transition:width .4s ease,background .4s ease"></div>
+                    </div>
+                    <div id="feed-grid" class="grid grid-cols-3 gap-1.5"></div>
+                    <p id="feed-hint" class="vt-note mt-3">Your last 9 exports as an Instagram-style grid — a gut-check on whether your feed looks varied.</p>
+                    <button onclick="openAudit()" class="vt-btn mt-3">📊 Full content audit</button>
                 </div>
+
+                <div class="vt-sec space-y-2">
+                    <div class="vt-lbl">More formats</div>
+
+                    <!-- Story twin. Instagram stories drew 45 interactions in three months against
+                         3 549 for feed posts — not because stories underperform, but because we
+                         barely made any. The day's count sits on the button. -->
+                    <button onclick="exportStoryTwin()" id="btn-story-twin" class="vt-btn">
+                        <span>✨</span><span id="story-twin-text">Also make the Story (9:16)</span>
+                        <span id="story-twin-count" class="ml-auto font-mono text-[10px] normal-case tracking-normal text-[#5B616D]"></span>
+                    </button>
+
+                    <!-- Creative carousel: all 6 slides as one ZIP. -->
+                    <button onclick="triggerCarouselZipExport()" id="btn-download-zip" class="vt-btn hidden">
+                        <span>🗂️</span><span>Export all 6 slides (ZIP)</span>
+                    </button>
+
+                    <!-- PREMIUM CAROUSEL. Every direction in a family is already written, brand-safe
+                         and render-checked — this wraps them (hook, each direction, CTA) into the one
+                         format IG/LinkedIn favour that Volt had none of. -->
+                    <button onclick="triggerPremiumCarouselExport()" id="btn-premium-carousel" class="vt-btn hidden" title="Export this family's directions as a swipeable carousel">
+                        <span>🗂️</span><span id="premium-carousel-text">Export as carousel (ZIP)</span>
+                    </button>
+
+                    <button onclick="triggerAllFormatsExport()" id="btn-download-all" class="vt-btn" title="Export at all four sizes, story included">
+                        <span>⛶</span><span>All 4 sizes</span>
+                    </button>
+                    <button onclick="sendToScheduler()" id="btn-send-schedule" class="vt-btn" title="Host this graphic and add it to the Scheduler's image library">
+                        <span>📅</span><span>Send to Scheduler</span>
+                    </button>
+
+                    <!-- THE WAY OUT OF THE TEMPLATE. Until now a Studio design was finished or it was
+                         nothing: if the form didn't expose the change you wanted, your options were to
+                         rebuild it blank in Freeform or leave for another tool. This hands the actual
+                         design over — art intact, every line of type editable where the engine put it. -->
+                    <button onclick="editInFreeform()" id="btn-edit-freeform" class="vt-btn hidden" title="Open this exact design in the Freeform canvas, with the text editable">
+                        <span>🖌️</span><span id="edit-freeform-text">Tweak in Freeform</span>
+                    </button>
+                </div>
+
+                <!-- MOTION. A static card and the same card with its type animating in are the same
+                     design; one of them stops the scroll. Text-to-video is paid per second everywhere
+                     and Volt is free-tier only — but motion is the part that actually performs, and it
+                     is buildable from the design we already drew. Reuses the Freeform handoff exactly:
+                     the plate holds still, the type moves. -->
+                <div id="motion-box" class="vt-card hidden">
+                    <div class="vt-lbl">🎬 Animate it</div>
+                    <div class="grid grid-cols-2 gap-2 mb-2" id="motion-styles"></div>
+                    <p id="motion-hint" class="vt-note mb-3"></p>
+                    <div class="flex items-center gap-2 mb-3">
+                        <label class="vt-sub" style="margin:0;" for="motion-dur">Length</label>
+                        <input type="range" id="motion-dur" min="3" max="10" step="1" value="5" class="flex-1 cursor-pointer" style="accent-color:#B6FF3D;">
+                        <span id="motion-dur-label" class="text-[10px] font-mono text-[#888F9D] w-8 text-right">5s</span>
+                    </div>
+                    <button onclick="exportMotion()" id="btn-motion" class="vt-btn">
+                        <span>🎬</span><span id="motion-btn-text">Export animated post</span>
+                    </button>
+                    <p id="motion-status" class="vt-note mt-2 min-h-[13px]"></p>
+                </div>
+
+                <p class="text-[10px] text-[#3d424c] font-bold tracking-[0.2em] uppercase text-center pt-2">Developed by Tshepho Joel © 2026</p>
             </div>
         </div>
 
-        <!-- Export -->
-        <div class="p-4 bg-slate-900 border-t border-slate-800 sticky bottom-0 z-20 shadow-2xl space-y-2">
-            <button onclick="triggerExport()" id="btn-download" class="w-full bg-[#B6FF3D] hover:bg-[#a3ec2b] text-[#0A0B0F] font-black py-3 px-6 rounded-xl text-base transition-transform active:scale-[0.98] shadow-xl uppercase flex items-center justify-center gap-2 border border-red-500/50 relative overflow-hidden">
-                <svg id="icon-download" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                <svg id="icon-loading" class="w-6 h-6 animate-spin hidden absolute left-[20%]" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <!-- The one action that is always one click away, on every tab. -->
+        <div class="px-5 py-4 border-t border-[#23262E] bg-[#0D0F15] shrink-0 z-20">
+            <button onclick="triggerExport()" id="btn-download" class="vt-btn vt-btn-primary">
+                <svg id="icon-download" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <svg id="icon-loading" class="w-5 h-5 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span id="download-text">Download HD PNG</span>
             </button>
-
-            <!-- Secondary action for carousel: zip all 6 slides -->
-            <button onclick="triggerCarouselZipExport()" id="btn-download-zip" class="hidden w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition-transform active:scale-[0.98] shadow-lg uppercase flex items-center justify-center gap-2 border border-slate-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
-                <span>Export All 6 Slides (ZIP)</span>
-            </button>
-
-            <!-- Story twin. Instagram stories drew 45 interactions in three months against 3 549
-                 for feed posts — not because stories underperform, but because we barely made any.
-                 Every feed graphic gets its 9:16 in one click, and the day's count sits on the button. -->
-            <button onclick="exportStoryTwin()" id="btn-story-twin" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-4 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-2 border border-slate-600">
-                <span>✨</span><span id="story-twin-text">Also make the Story (9:16)</span>
-                <span id="story-twin-count" class="font-mono text-[10px] normal-case text-slate-400"></span>
-            </button>
-
-            <!-- Secondary actions, compact side-by-side so they don't hog the sidebar -->
-            <div class="grid grid-cols-2 gap-2">
-                <button onclick="triggerAllFormatsExport()" id="btn-download-all" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Export at all four sizes, story included">
-                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m-4 12h2a2 2 0 002-2v-2"></path></svg>
-                    <span>All 4 sizes</span>
-                </button>
-                <button onclick="sendToScheduler()" id="btn-send-schedule" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Host this graphic and add it to the Scheduler's image library">
-                    <span>📅</span><span>Schedule</span>
-                </button>
-            </div>
-
-            <!-- THE WAY OUT OF THE TEMPLATE. Until now a Studio design was finished or it was
-                 nothing: if the form didn't expose the change you wanted, your options were to
-                 rebuild it blank in Freeform or leave for another tool. This hands the actual
-                 design over — art intact, every line of type editable where the engine put it. -->
-            <button onclick="editInFreeform()" id="btn-edit-freeform" class="hidden w-full mt-2 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Open this exact design in the Freeform canvas, with the text editable">
-                <span>🖌️</span><span id="edit-freeform-text">Tweak in Freeform</span>
-            </button>
-
-            <!-- PREMIUM CAROUSEL. Every direction in a family is already written, brand-safe and
-                 render-checked — this just wraps them (hook, each direction in turn, CTA) into the
-                 one format IG/LinkedIn favour that Volt had zero of. Nothing new is authored per
-                 post; the wrapper is the only new copy. -->
-            <button onclick="triggerPremiumCarouselExport()" id="btn-premium-carousel" class="hidden w-full mt-2 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Export this family's directions as a swipeable carousel (hook + each direction + CTA)">
-                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
-                <span id="premium-carousel-text">Export as Carousel (ZIP)</span>
-            </button>
-
-            <!-- MOTION. A static card and the same card with its type animating in are the same
-                 design; one of them stops the scroll. Text-to-video is paid per second everywhere
-                 and Volt is free-tier only — but motion is the part that actually performs, and it
-                 is buildable from the design we already drew. Reuses the Freeform handoff exactly:
-                 the plate holds still, the type moves. -->
-            <div id="motion-box" class="hidden mt-2 pt-3 border-t border-slate-700">
-                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">Animate it</label>
-                <div class="grid grid-cols-2 gap-2 mb-2" id="motion-styles"></div>
-                <p id="motion-hint" class="text-[10px] text-slate-500 leading-snug mb-2"></p>
-                <div class="flex items-center gap-2 mb-2">
-                    <label class="text-[10px] uppercase tracking-wide text-slate-500">Length</label>
-                    <input type="range" id="motion-dur" min="3" max="10" step="1" value="5" class="flex-1 accent-[#B6FF3D]">
-                    <span id="motion-dur-label" class="text-[10px] font-mono text-slate-400 w-8 text-right">5s</span>
-                </div>
-                <button onclick="exportMotion()" id="btn-motion" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600">
-                    <span>🎬</span><span id="motion-btn-text">Export animated post</span>
-                </button>
-                <p id="motion-status" class="text-[10px] text-slate-500 mt-1.5 min-h-[13px]"></p>
-            </div>
-
             <div id="progress-shell" style="opacity:0">
                 <div id="progress-bar"></div>
             </div>
-            <p id="progress-label" class="text-[10px] text-slate-500 text-center font-mono uppercase tracking-widest" style="min-height:14px"></p>
-
-            <div class="text-center">
-                <p class="text-[10px] text-slate-500 font-bold tracking-[0.2em] uppercase">Developed by Tshepho Joel © 2026</p>
-            </div>
+            <p id="progress-label" class="text-[10px] text-[#5B616D] text-center font-mono uppercase tracking-widest" style="min-height:14px"></p>
         </div>
     </aside>
 
@@ -1332,32 +1411,23 @@
         return true;
     }
 
+    // ONE way to show which option is chosen. Every selector group in the sidebar is
+    // `.vt-opt` plus an `.on` modifier, so selection is a single toggle instead of the
+    // four different add/remove class lists this file used to carry.
+    function pickOne(groupSel, activeEl) {
+        document.querySelectorAll(groupSel).forEach(b => b.classList.toggle('on', b === activeEl));
+    }
+
     function setTheme(themeName) {
         state.theme = themeName;
-        document.querySelectorAll('.theme-btn').forEach(b => {
-            b.classList.remove('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
-            b.classList.add('bg-slate-800', 'border-transparent', 'text-slate-400');
-        });
-        const a = document.getElementById('theme-' + themeName);
-        if (a) {
-            a.classList.remove('bg-slate-800', 'border-transparent', 'text-slate-400');
-            a.classList.add('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
-        }
+        pickOne('.theme-btn', document.getElementById('theme-' + themeName));
         renderLayout();
     }
 
     function setFormat(formatName) {
         state.format = formatName;
         userZoom = null; // new size → refit to view
-        document.querySelectorAll('.format-btn').forEach(b => {
-            b.classList.remove('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
-            b.classList.add('bg-slate-800', 'border-slate-600', 'text-slate-400');
-        });
-        const a = document.getElementById('btn-' + formatName);
-        if (a) {
-            a.classList.remove('bg-slate-800', 'border-slate-600', 'text-slate-400');
-            a.classList.add('bg-slate-700', 'border-white', 'text-white', 'shadow-inner');
-        }
+        pickOne('.format-btn', document.getElementById('btn-' + formatName));
         if (formatName === 'landscape') { canvas.style.width = '1200px'; canvas.style.height = '628px'; }
         else if (formatName === 'square') { canvas.style.width = '1080px'; canvas.style.height = '1080px'; }
         else if (formatName === 'portrait') { canvas.style.width = '1080px'; canvas.style.height = '1350px'; }
@@ -1482,15 +1552,19 @@
     function renderPremFields(){
       const wrap = document.getElementById('premium-fields'); if(!wrap) return;
       const d = currentPremDir(); if(!d){ wrap.innerHTML=''; return; }
+      // The direction's name is shown in BOTH tabs — beside the picker in Design, and above the
+      // fields in Content, where otherwise you'd be typing into a form with no idea which of six
+      // layouts it feeds.
       const nm = document.getElementById('pdir-name'); if(nm) nm.textContent = d.name;
+      const nm2 = document.getElementById('pdir-name-2'); if(nm2) nm2.textContent = '— ' + d.name;
       wrap.innerHTML = Object.keys(premVals).map(k => {
         const label = PREM_FIELD_LABELS[k] || k;
         const long = String(premVals[k] || '').length > 36;
         const val = esc(premVals[k]);
-        return `<div><div class="text-[10px] uppercase tracking-wide text-slate-500 mb-1">${label}</div>`
+        return `<div><label class="vt-sub">${label}</label>`
           + (long
-             ? `<textarea data-pk="${k}" rows="2" class="prem-inp w-full bg-slate-900 text-white rounded-lg p-2 text-xs border border-slate-700 outline-none focus:ring-1 focus:ring-red-500 resize-none">${val}</textarea>`
-             : `<input data-pk="${k}" value="${val}" class="prem-inp w-full bg-slate-900 text-white rounded-lg p-2 text-xs border border-slate-700 outline-none focus:ring-1 focus:ring-red-500">`)
+             ? `<textarea data-pk="${k}" rows="2" class="prem-inp vt-in resize-none" style="font-size:12px;">${val}</textarea>`
+             : `<input data-pk="${k}" value="${val}" class="prem-inp vt-in" style="font-size:12px;">`)
           + `</div>`;
       }).join('');
       wrap.querySelectorAll('.prem-inp').forEach(inp => inp.addEventListener('input', e => { premVals[e.target.dataset.pk] = e.target.value; renderPremiumPreview(); }));
@@ -1701,9 +1775,7 @@
       const S = window.VoltMotion.STYLES;
       wrap.innerHTML = Object.keys(S).map(k => {
         const on = k === motionStyle;
-        return '<button type="button" data-ms="' + k + '" class="text-[11px] font-bold uppercase py-2 px-2 rounded-lg border transition-all '
-          + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border-red-500' : 'bg-slate-800 text-slate-400 border-slate-600')
-          + '">' + esc(S[k].label) + '</button>';
+        return '<button type="button" data-ms="' + k + '" class="vt-opt' + (on ? ' on' : '') + '">' + esc(S[k].label) + '</button>';
       }).join('');
       wrap.querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => {
         motionStyle = b.dataset.ms; renderMotionStyles();
@@ -1895,7 +1967,7 @@
       // Up to 3 per row; 4+ wraps to two rows rather than squeezing.
       // Names need room, so two columns once there are more than three, and two columns is also
       // where a six-direction family reads as three pairs rather than a wall.
-      wrap.className = 'grid gap-2 mb-3 ' + (keys.length > 3 ? 'grid-cols-2' : 'grid-cols-1');
+      wrap.className = 'grid gap-2 ' + (keys.length > 3 ? 'grid-cols-2' : 'grid-cols-1');
       // The button says what the design IS. It used to say "A", "B", "C" — so choosing a direction
       // meant clicking each one to find out, and the name only appeared after you had committed.
       // With six directions in a family that is unusable; with three it was merely annoying.
@@ -1903,9 +1975,8 @@
       wrap.innerHTML = keys.map(k => {
         const on = k === state.premiumDir;
         const nm = (dirs[k] && dirs[k].name) ? dirs[k].name : k.toUpperCase();
-        return '<button type="button" data-pd="' + k + '" title="' + String(nm).replace(/"/g, '&quot;') + '" class="pdir-btn font-bold py-2.5 px-2 rounded-lg text-[10px] leading-tight tracking-wide text-left '
-          + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600')
-          + '"><span class="opacity-60 mr-1">' + k.toUpperCase() + '</span>' + String(nm).replace(/[<>&]/g, '') + '</button>';
+        return '<button type="button" data-pd="' + k + '" title="' + String(nm).replace(/"/g, '&quot;') + '" class="vt-opt wide pdir-btn' + (on ? ' on' : '')
+          + '"><span class="k">' + k.toUpperCase() + '</span>' + String(nm).replace(/[<>&]/g, '') + '</button>';
       }).join('');
       wrap.querySelectorAll('.pdir-btn').forEach(b => b.addEventListener('click', () => setPremiumDir(b.dataset.pd)));
     }
@@ -1915,11 +1986,40 @@
       renderPremDirs();
       loadPremDefaults(); applyAutofillToDir(); renderPremFields(); syncPremImage(); renderPremiumPreview();
     }
+    // ---- the three steps ------------------------------------------------------------------------
+    // Design what it is (01) → write what it says (02) → ship it (03). Purely a view concern, so it
+    // is deliberately NOT persisted with the design: reopening Studio should start at the beginning.
+    let studioTab = 'design';
+    function setStudioTab(t){
+      if (['design','content','export'].indexOf(t) < 0) t = 'design';
+      studioTab = t;
+      ['design','content','export'].forEach(k => {
+        const pane = document.getElementById('pane-' + k), tab = document.getElementById('tab-' + k);
+        if (pane) pane.classList.toggle('hidden', k !== t);
+        if (tab)  tab.classList.toggle('on', k === t);
+      });
+      // Panes share one scroller. Landing halfway down a fresh tab reads as a broken page.
+      const s = document.getElementById('pane-scroll'); if (s) s.scrollTop = 0;
+    }
+
+    // The type menu collapses to its answer. openTypePicker() puts it back.
+    function openTypePicker(){
+      const p = document.getElementById('ct-picker'), c = document.getElementById('ct-current');
+      if (p) p.classList.remove('hidden');
+      if (c) c.classList.add('hidden');
+    }
+    function collapseTypePicker(type){
+      const p = document.getElementById('ct-picker'), c = document.getElementById('ct-current');
+      const n = document.getElementById('ct-current-name'), btn = document.getElementById('ct-' + type);
+      if (!p || !c || !n || !btn) return;
+      n.textContent = btn.textContent.trim();
+      p.classList.add('hidden'); c.classList.remove('hidden');
+    }
+
     function setContentType(type){
       state.contentType = type;
-      const types = ['creative','funding','solutions','newsletter','resources','providers','findpros','podcast','merch','feature','hub','glossary','webinar'];
-      types.forEach(t => { const btn = document.getElementById('ct-'+t); if(btn){ const on = t===type;
-        btn.className = 'ct-btn font-bold py-2.5 px-2 rounded-lg transition-all text-[11px] uppercase tracking-wide ' + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border border-red-500' : 'bg-slate-800 text-slate-400 border border-slate-600'); } });
+      pickOne('.ct-btn', document.getElementById('ct-' + type));
+      collapseTypePicker(type);
       const isCreative = type === 'creative';
       // Creative renders through a different path (renderSlide, not drawPremium) and the guardrail
       // strip is scoped to premium designs — leave a stale warning up and it reads as a live one.
@@ -1929,26 +2029,27 @@
       { const eb = document.getElementById('btn-edit-freeform'); if (eb) eb.classList.toggle('hidden', isCreative); }
       { const mb = document.getElementById('motion-box'); if (mb) mb.classList.toggle('hidden', isCreative); if (!isCreative) renderMotionStyles(); }
       { const pc = document.getElementById('btn-premium-carousel'); if (pc) pc.classList.toggle('hidden', isCreative); }
-      const prem = document.getElementById('premium-controls'); if(prem) prem.classList.toggle('hidden', isCreative);
-      const cc = document.getElementById('creative-controls'); if(cc) cc.classList.toggle('hidden', !isCreative);
+      // The two halves of each tab. A premium family and a Creative post share no controls at
+      // all, and both used to be on screen at once: in premium mode the Creative headline box,
+      // theme picker and framing sliders sat there accepting input that changed nothing.
+      const half = (id, show) => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !show); };
+      half('premium-controls', !isCreative);   // 01 · direction picker
+      half('creative-controls', isCreative);   // 01 · format + theme + slides
+      half('premium-content', !isCreative);    // 02 · the family's copy fields
+      half('creative-content', isCreative);    // 02 · headline, image, framing, typography
       const sc = document.getElementById('size-controls'); if(sc) sc.classList.remove('hidden'); // Dimensions apply to premium too
       const zip = document.getElementById('btn-download-zip'); if(zip && !isCreative) zip.classList.add('hidden');
       const hint = document.getElementById('ct-hint');
       if(isCreative){ syncPremImage(); renderLayout(); return; }
       if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
-      if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction (A/B/C) and edit the text. Dimensions apply: landscape, square and portrait each get their own layout.'
-        + ((type === 'podcast' || type === 'merch') ? ' Load a Featured Image below to use a ' + (type === 'podcast' ? 'guest photo' : 'product shot') + '.' : '');
+      if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction, then write the copy in Content.'
+        + ((type === 'podcast' || type === 'merch') ? ' A ' + (type === 'podcast' ? 'guest photo' : 'product shot') + ' can be loaded there too.' : '');
       state.premiumDir = 'a'; setPremiumDir('a');
     }
 
     function setCampaign(campType) {
         state.campaign = campType;
-        document.querySelectorAll('.camp-btn').forEach(b => {
-            b.classList.remove('bg-[#B6FF3D]', 'text-[#0A0B0F]', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
-            b.classList.add('bg-slate-800', 'text-slate-400', 'border-slate-600');
-        });
-        const a = document.getElementById('camp-' + campType);
-        if (a) a.classList.add('bg-[#B6FF3D]', 'text-[#0A0B0F]', 'border-red-500', 'shadow-lg', 'shadow-red-900/20');
+        pickOne('.camp-btn', document.getElementById('camp-' + campType));
 
         const tog = (id, show) => {
             const el = document.getElementById(id);
@@ -2027,10 +2128,7 @@
         if (inTitle) state.slides[state.currentSlide] = inTitle.value;
         state.currentSlide = idx;
         if (inTitle) inTitle.value = state.slides[idx] || '';
-        document.querySelectorAll('.slide-nav').forEach((b, i) => {
-            if (i === idx) { b.classList.remove('bg-slate-700', 'text-slate-300'); b.classList.add('bg-red-600', 'text-[#0A0B0F]'); }
-            else { b.classList.remove('bg-red-600', 'text-[#0A0B0F]'); b.classList.add('bg-slate-700', 'text-slate-300'); }
-        });
+        document.querySelectorAll('.slide-nav').forEach((b, i) => b.classList.toggle('on', i === idx));
         const btnDown = document.getElementById('download-text');
         if (state.campaign === 'carousel' && btnDown) btnDown.innerText = 'Download Slide ' + (idx + 1);
         renderLayout();
@@ -2846,6 +2944,8 @@
     });
 
     // Expose for inline onclick handlers
+    window.setStudioTab = setStudioTab;
+    window.openTypePicker = openTypePicker;
     window.setTheme = setTheme;
     window.setFormat = setFormat;
     window.setCampaign = setCampaign;
