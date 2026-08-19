@@ -8,6 +8,8 @@
   <script src="render-checks.js"></script>
   <!-- Turns a finished design into editable objects for Freeform. See design-bridge.js. -->
   <script src="design-bridge.js"></script>
+  <!-- Turns a finished design into an animated post. See motion.js. -->
+  <script src="motion.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Volt — Studio</title>
@@ -455,6 +457,26 @@
             <button onclick="editInFreeform()" id="btn-edit-freeform" class="hidden w-full mt-2 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600" title="Open this exact design in the Freeform canvas, with the text editable">
                 <span>🖌️</span><span id="edit-freeform-text">Tweak in Freeform</span>
             </button>
+
+            <!-- MOTION. A static card and the same card with its type animating in are the same
+                 design; one of them stops the scroll. Text-to-video is paid per second everywhere
+                 and Volt is free-tier only — but motion is the part that actually performs, and it
+                 is buildable from the design we already drew. Reuses the Freeform handoff exactly:
+                 the plate holds still, the type moves. -->
+            <div id="motion-box" class="hidden mt-2 pt-3 border-t border-slate-700">
+                <label class="text-xs font-bold text-red-500 uppercase tracking-widest block mb-2">Animate it</label>
+                <div class="grid grid-cols-2 gap-2 mb-2" id="motion-styles"></div>
+                <p id="motion-hint" class="text-[10px] text-slate-500 leading-snug mb-2"></p>
+                <div class="flex items-center gap-2 mb-2">
+                    <label class="text-[10px] uppercase tracking-wide text-slate-500">Length</label>
+                    <input type="range" id="motion-dur" min="3" max="10" step="1" value="5" class="flex-1 accent-[#B6FF3D]">
+                    <span id="motion-dur-label" class="text-[10px] font-mono text-slate-400 w-8 text-right">5s</span>
+                </div>
+                <button onclick="exportMotion()" id="btn-motion" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 px-2 rounded-lg text-xs transition-transform active:scale-[0.98] uppercase flex items-center justify-center gap-1.5 border border-slate-600">
+                    <span>🎬</span><span id="motion-btn-text">Export animated post</span>
+                </button>
+                <p id="motion-status" class="text-[10px] text-slate-500 mt-1.5 min-h-[13px]"></p>
+            </div>
 
             <div id="progress-shell" style="opacity:0">
                 <div id="progress-bar"></div>
@@ -1630,6 +1652,153 @@
         if (typeof resizeWrapper === 'function') setTimeout(resizeWrapper, 30);
       } catch (e) { console.error('premium preview failed', e); }
     }
+    // ---- one design -> a plate + its type, used by BOTH the Freeform handoff and Motion --------
+    // Rendered ONCE, textless, with the trace: the artwork and the type positions then come from a
+    // single layout pass and cannot disagree. Two renders could drift on anything that re-fits a
+    // size or re-wraps a line, and the text would land off its own artwork.
+    async function buildScene(){
+      await ensureLogoBlob(); await ensureColorLogoBlob();
+      const dm = premDims();
+      const result = await premPost({
+        type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers,
+        logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(),
+        premType: state.contentType, dir: state.premiumDir, vals: premVals,
+        w: dm.w, h: dm.h, scale: 1, trace: true, textless: true, filename: 'plate.png'
+      });
+      if (!result || !result.blob) throw new Error('The design could not be prepared.');
+      // JPEG, not the worker's PNG: as a data URL the plate lands ~450KB, over volt-auth's
+      // 400KB-per-module autosave cap. It is full-bleed art with nothing transparent to keep.
+      const plate = await new Promise((res, rej) => {
+        const im = new Image();
+        im.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = im.naturalWidth; c.height = im.naturalHeight;
+          c.getContext('2d').drawImage(im, 0, 0);
+          URL.revokeObjectURL(im.src);
+          res(c.toDataURL('image/jpeg', 0.88));
+        };
+        im.onerror = rej;
+        im.src = URL.createObjectURL(result.blob);
+      });
+      const scene = window.VoltDesignBridge.toScene(result.trace || [], dm.w, dm.h, plate);
+      if (!scene.objects.length) throw new Error('There is no text in this design to work with.');
+      return scene;
+    }
+
+    // ---- motion ---------------------------------------------------------------------------------
+    let motionStyle = 'rise';
+    function renderMotionStyles(){
+      const wrap = document.getElementById('motion-styles'); if(!wrap || !window.VoltMotion) return;
+      const S = window.VoltMotion.STYLES;
+      wrap.innerHTML = Object.keys(S).map(k => {
+        const on = k === motionStyle;
+        return '<button type="button" data-ms="' + k + '" class="text-[11px] font-bold uppercase py-2 px-2 rounded-lg border transition-all '
+          + (on ? 'bg-[#B6FF3D] text-[#0A0B0F] border-red-500' : 'bg-slate-800 text-slate-400 border-slate-600')
+          + '">' + esc(S[k].label) + '</button>';
+      }).join('');
+      wrap.querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => {
+        motionStyle = b.dataset.ms; renderMotionStyles();
+      }));
+      const hint = document.getElementById('motion-hint');
+      if (hint) hint.textContent = S[motionStyle] ? S[motionStyle].hint : '';
+    }
+    { const d = document.getElementById('motion-dur');
+      if (d) d.addEventListener('input', () => { const l = document.getElementById('motion-dur-label'); if (l) l.textContent = d.value + 's'; }); }
+
+    async function exportMotion(){
+      const btn = document.getElementById('btn-motion');
+      const lbl = document.getElementById('motion-btn-text');
+      const st  = document.getElementById('motion-status');
+      const say = m => { if (st) st.textContent = m || ''; };
+      const was = lbl ? lbl.textContent : '';
+      if (!window.VoltMotion || !window.VoltDesignBridge) { say('Motion module missing — reload the page.'); return; }
+      try {
+        if (btn) btn.disabled = true; if (lbl) lbl.textContent = 'Preparing…';
+        say('Rendering the design…');
+        const scene = await buildScene();
+
+        // The faces have to be REAL before the first frame. A frame measured against a fallback
+        // keeps that measurement, and the video would not match the still it came from.
+        await window.VoltMotion.loadFonts(scene);
+
+        const plate = await new Promise((res, rej) => {
+          const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = scene.plate;
+        });
+
+        const dur = parseInt((document.getElementById('motion-dur') || {}).value, 10) || 5;
+        const plan = window.VoltMotion.plan(scene, { style: motionStyle, duration: dur, fps: 30 });
+        const total = window.VoltMotion.frameCount(plan);
+
+        const cv = document.createElement('canvas');
+        cv.width = scene.width; cv.height = scene.height;
+        const ctx = cv.getContext('2d');
+
+        // captureStream(0) + requestFrame pushes exactly one frame per COMPUTED frame, so no frame
+        // is ever dropped or duplicated by a busy machine — the content is a pure function of the
+        // frame index.
+        //
+        // The pacing below is not optional. MediaRecorder timestamps by WALL CLOCK, not by frames
+        // pushed: rendering all 150 frames in 300ms hands it a 0.3-second clip it has no time to
+        // encode, and the file comes back empty — which is exactly what the first version of this
+        // did. Frames are therefore released on a real-time schedule. Only the CAPTURE is real
+        // time; every frame's content still comes from its index, so the same design yields the
+        // same video on any machine.
+        const stream = cv.captureStream(0);
+        const track = stream.getVideoTracks()[0];
+        let mime = 'video/webm;codecs=vp9';
+        if (!(window.MediaRecorder && MediaRecorder.isTypeSupported(mime))) mime = 'video/webm;codecs=vp8';
+        if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+        const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12000000 });
+        const chunks = [];
+        rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+        const done = new Promise(res => { rec.onstop = res; });
+        rec.start();
+
+        const frameMs = 1000 / plan.fps;
+        const t0 = performance.now();
+        for (let i = 0; i < total; i++) {
+          window.VoltMotion.drawFrame(ctx, i / (total - 1 || 1), plan, scene, plate);
+          if (track.requestFrame) track.requestFrame();
+          else if (stream.requestFrame) stream.requestFrame();
+          if (i % 6 === 0) say('Recording ' + Math.round((i / total) * 100) + '%…');
+          // Wait until this frame's slot has actually elapsed. If drawing already took longer than
+          // the slot the wait is zero and we simply fall behind, which costs a little duration
+          // accuracy but never a corrupt file.
+          const due = t0 + (i + 1) * frameMs;
+          const wait = due - performance.now();
+          await new Promise(r => setTimeout(r, wait > 0 ? wait : 0));
+        }
+        // Let the recorder drain the last pushed frame before stopping, or the final beat of the
+        // animation never makes it into the file.
+        await new Promise(r => setTimeout(r, 300));
+        rec.stop();
+        await done;
+
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        if (!blob.size) throw new Error('The recorder produced an empty file.');
+        const base = 'SME_' + state.contentType + '_' + state.premiumDir + '_' + motionStyle;
+
+        // Desktop converts to MP4 through the bundled ffmpeg — same path the video editor uses,
+        // including the CFR normalisation that fixes MediaRecorder's variable frame timing.
+        if (window.voltNative && typeof window.voltNative.toMp4 === 'function') {
+          say('Converting to MP4…');
+          const res = await window.voltNative.toMp4(await blob.arrayBuffer(), base + '.mp4', {});
+          if (res && res.ok) { say('Saved — ' + res.path); }
+          else if (res && res.canceled) { say('Export canceled.'); }
+          else { downloadBlob(blob, base + '.webm'); say('MP4 conversion failed — saved WebM instead.'); }
+        } else {
+          downloadBlob(blob, base + '.webm');
+          say('Saved ' + base + '.webm (' + Math.round(blob.size / 1024) + 'KB).');
+        }
+        if (typeof recordExport === 'function') recordExport();
+      } catch(e){
+        console.error('motion export failed', e);
+        say((e && e.message) || 'Could not export the animation.');
+      } finally {
+        if (btn) btn.disabled = false; if (lbl) lbl.textContent = was;
+      }
+    }
+
     // ---- hand this design to Freeform, editable -----------------------------------------------
     // ONE render, textless, with the trace. The plate (art, no type) and the type positions then
     // come from the same layout pass and cannot disagree — two renders could drift on any input
@@ -1640,34 +1809,7 @@
       const was = lbl ? lbl.textContent : '';
       try {
         if (btn) btn.disabled = true; if (lbl) lbl.textContent = 'Preparing…';
-        await ensureLogoBlob(); await ensureColorLogoBlob();
-        const dm = premDims();
-        const result = await premPost({
-          type:'render-premium', brand: brandPayload(), fontBuffers: fontBuffers,
-          logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(),
-          premType: state.contentType, dir: state.premiumDir, vals: premVals,
-          w: dm.w, h: dm.h, scale: 1, trace: true, textless: true, filename: 'plate.png'
-        });
-        if (!result || !result.blob) throw new Error('The design could not be prepared.');
-        // JPEG, NOT the worker's PNG. The plate is full-bleed art — gradients, glows, a photo —
-        // with nothing transparent to preserve, and as a PNG data URL it lands around 450KB. That
-        // is over volt-auth's 400KB-per-module autosave cap, so every handed-over design would
-        // announce "canvas too large to autosave" and then quietly fail to survive a reload.
-        // Re-encoding costs one canvas draw and takes it to roughly a fifth of the size.
-        const plate = await new Promise((res, rej) => {
-          const im = new Image();
-          im.onload = () => {
-            const c = document.createElement('canvas');
-            c.width = im.naturalWidth; c.height = im.naturalHeight;
-            c.getContext('2d').drawImage(im, 0, 0);
-            URL.revokeObjectURL(im.src);
-            res(c.toDataURL('image/jpeg', 0.88));
-          };
-          im.onerror = rej;
-          im.src = URL.createObjectURL(result.blob);
-        });
-        const scene = window.VoltDesignBridge.toScene(result.trace || [], dm.w, dm.h, plate);
-        if (!scene.objects.length) throw new Error('There is no text in this design to edit.');
+        const scene = await buildScene();
         const ok = window.VoltDesignBridge.stash(scene, {
           from: 'studio', type: state.contentType, dir: state.premiumDir,
           label: (PREMIUM[state.contentType] && PREMIUM[state.contentType].label) || state.contentType
@@ -1732,6 +1874,7 @@
       // Freeform handoff is premium-only: Creative already has its own canvas-editing story, and
       // its renderSlide path doesn't produce the tagged trace this depends on.
       { const eb = document.getElementById('btn-edit-freeform'); if (eb) eb.classList.toggle('hidden', isCreative); }
+      { const mb = document.getElementById('motion-box'); if (mb) mb.classList.toggle('hidden', isCreative); if (!isCreative) renderMotionStyles(); }
       const prem = document.getElementById('premium-controls'); if(prem) prem.classList.toggle('hidden', isCreative);
       const cc = document.getElementById('creative-controls'); if(cc) cc.classList.toggle('hidden', !isCreative);
       const sc = document.getElementById('size-controls'); if(sc) sc.classList.remove('hidden'); // Dimensions apply to premium too
