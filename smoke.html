@@ -287,7 +287,14 @@
     for (const [bLabel, b] of [['sme', brand], ['light', brandLight]]) {
       for (const pt of PREM_TYPES) {
         for (const dir of (DIRS[pt] || [])) {
-          for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
+          // ORDER IS PART OF THE TEST. The worker outlives every render and the engine's geometry
+          // (PG) is module-global, so a design can be correct alone and broken after a DIFFERENT
+          // aspect ratio ran before it. Landscape shipped broken for exactly this reason: it read
+          // the story's 260px bottom safe-zone without setting its own geometry, and the old order
+          // (…landscape, story) meant landscape was always preceded by a portrait, which is the one
+          // ordering that hides it. Story now runs BEFORE landscape, so every landscape design in
+          // this suite is also a leak test.
+          for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['story', [1080, 1920]], ['landscape', [1200, 628]]]) {
             await run('premium/' + bLabel + '/' + pt + '/' + dir + '/' + sz,
               { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: valsFor(pt, dir), w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
               wh[0] * S, wh[1] * S);

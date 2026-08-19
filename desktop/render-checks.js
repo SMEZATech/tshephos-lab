@@ -96,22 +96,36 @@
     }
 
     // 2) NOTHING MAY BE PRINTED OVER SOMETHING DRAWN LATER. Catches a footer landing inside the CTA.
+    // The bar used to be 55% of the text's area, which is far more forgiving than it sounds. A CTA
+    // button landing across the left half of a two-line headline covers ~47% of the first line —
+    // visually catastrophic, silently passing. That is not hypothetical: it is precisely how every
+    // landscape design shipped with its button printed through the headline, past this very check.
+    // A filled shape drawn OVER existing text is never a design intent (deliberate text-on-a-block
+    // draws the fill FIRST, so it is excluded by the j > i scan). Any real overlap is a defect;
+    // a big one fails the build rather than adding another warning nobody reads.
+    var OCCL_ERROR = 0.30, OCCL_WARN = 0.10;
     function findOcclusion(trace) {
         var out = [];
         for (var i = 0; i < trace.length; i++) {
             var t = trace[i]; if (t.kind !== 'text') continue;
+            if (!(t.w > 0 && t.h > 0)) continue;
+            // Worst single overlap, not the first one over the line — with several fills the first
+            // to cross the threshold is rarely the one doing the damage.
+            var worst = 0, culprit = null;
             for (var j = i + 1; j < trace.length; j++) {
                 var f = trace[j]; if (f.kind !== 'fill' || f.bg) continue;
                 var ox = Math.max(0, Math.min(t.x + t.w, f.x + f.w) - Math.max(t.x, f.x));
                 var oy = Math.max(0, Math.min(t.y + t.h, f.y + f.h) - Math.max(t.y, f.y));
-                if (t.w * t.h > 0 && (ox * oy) / (t.w * t.h) > 0.55) {
-                    out.push({
-                        rule: 'occlusion', severity: 'warn', box: t, text: t.text,
-                        message: '"' + t.text + '" buried under a later fill',
-                        short: 'Covered by something drawn after it'
-                    });
-                    break;
-                }
+                var frac = (ox * oy) / (t.w * t.h);
+                if (frac > worst) { worst = frac; culprit = f; }
+            }
+            if (worst > OCCL_WARN) {
+                out.push({
+                    rule: 'occlusion', severity: worst > OCCL_ERROR ? 'error' : 'warn',
+                    box: t, text: t.text, cover: worst,
+                    message: '"' + t.text + '" is ' + Math.round(worst * 100) + '% buried under a shape drawn after it',
+                    short: Math.round(worst * 100) + '% covered by a later shape'
+                });
             }
         }
         return out;
@@ -283,12 +297,18 @@
         var contrastBad = findContrast(trace), overflowBad = findOverflow(trace, W, H),
             logoBad = findLogoClearance(trace, W), zoneBad = findStorySafeZone(trace, W, H),
             headBad = findHeadline(trace), occBad = findOcclusion(trace), deadBad = findDeadSpace(trace, W, H);
+        // Occlusion now grades itself (see OCCL_ERROR): a shape sitting on a THIRD of a line is not
+        // a long-copy judgement call, it is the design being wrong, and it stays a build failure.
+        // Smaller nibbles remain warnings, which is what the note above was really protecting.
+        var occErr = occBad.filter(function (f) { return f.severity === 'error'; });
+        var occWarn = occBad.filter(function (f) { return f.severity !== 'error'; });
         var err = first(headBad)
             || (contrastBad.length ? 'unreadable text — ' + contrastBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
             || (logoBad.length ? 'logo crowds the copy — ' + logoBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
             || (zoneBad.length ? 'under Instagram chrome — ' + zoneBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
-            || (overflowBad.length ? 'text leaves the canvas — ' + overflowBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '');
-        var warn = (occBad.length ? occBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
+            || (overflowBad.length ? 'text leaves the canvas — ' + overflowBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
+            || (occErr.length ? 'drawn over its own copy — ' + occErr.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '');
+        var warn = (occWarn.length ? occWarn.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
             || first(deadBad);
         return { error: err, warn: warn };
     }

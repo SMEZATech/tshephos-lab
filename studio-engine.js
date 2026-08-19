@@ -2331,20 +2331,31 @@ function drawMerch(r, dir, v, a) {
 // Generic across all content types: logo, kicker, headline, sub, CTA laid out wide, with the design's
 // colour family. Flow + fitFontSize + a bottom-anchored button guarantee no overlap.
 function drawLandscape(r, type, dir, v, a) {
-    const W = r.w, H = r.h, pad = 70, key = type + '.' + dir;
+    const W = r.w, H = r.h, key = type + '.' + dir;
+    // ESTABLISH OUR OWN GEOMETRY. PG is worker-global and the worker outlives every render, so
+    // reading it without setting it means inheriting whatever the LAST canvas left behind. This
+    // function calls pSafeB() — which is 260px on a 9:16 story and 0 everywhere else — so after a
+    // single story preview, every landscape pinned its CTA 260px too high, straight through the
+    // headline, for the rest of the session. drawPremium() has always called pGeom() as its first
+    // act; this entry point silently did not. Any top-level draw entry MUST set its own geometry.
+    // CI never caught it because the suite renders square -> portrait -> landscape -> story, and
+    // the only order that breaks it is story -> landscape, which the fixture never produced.
+    pGeom(W, H);
+    const pad = 70;
     r.ctx.textBaseline = 'top';
     const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
     // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
     // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
     // therefore derived from the actual background luminance, for every brand, forever.
-    let bgRef, accent = pOn(PC.red, PC.off, '#ff6b4a'), barC = PC.red, btnBg = PC.red;
-    if (red) { r.linearGradient(0, 0, W, H, [[0, PC.red], [1, pShade(PC.red, -0.2)]], 'br'); r.radialGlow(0, H, 440, 'rgba(10,44,61,0.4)', 'rgba(10,44,61,0)'); bgRef = PC.red; barC = PC.navy; btnBg = PC.navy; accent = pOn(PC.red, PC.off, PC.off); }
-    else if (light) { r.fillBg(PC.paper); bgRef = PC.paper; barC = PC.red; btnBg = PC.red; accent = PC.red; }
+    let bgRef, barC = PC.red, btnBg = PC.red;
+    if (red) { r.linearGradient(0, 0, W, H, [[0, PC.red], [1, pShade(PC.red, -0.2)]], 'br'); r.radialGlow(0, H, 440, 'rgba(10,44,61,0.4)', 'rgba(10,44,61,0)'); bgRef = PC.red; barC = PC.navy; btnBg = PC.navy; }
+    else if (light) { r.fillBg(PC.paper); bgRef = PC.paper; barC = PC.red; btnBg = PC.red; }
     else { r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br'); r.radialGlow(W, 0, 460, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)'); bgRef = PC.navy; }
     const txt = pInk(bgRef), subC = pSubInk(bgRef), logo = pIsLight(bgRef) ? a.logoC : a.logoW;
-    // keep the kicker legible too — an accent that vanishes into the background is no accent
-    if (pContrast(accent, bgRef) < 2.2) accent = pInk(bgRef);
+    // The old free-floating `accent` colour for the kicker is gone: it is a filled pill now, whose
+    // colour comes from pSolid() and whose label comes from pInk() of that fill — both brand-safe
+    // by construction, instead of an accent that had to be contrast-corrected after the fact.
     if (pContrast(barC, bgRef) < 1.6) barC = pInk(bgRef);
     if (logo) r.drawContain(logo, pad, pad, 200, 50, { });
     const kicker = String(v.eyebrow || v.pill || v.show || '').toUpperCase();
@@ -2371,28 +2382,138 @@ function drawLandscape(r, type, dir, v, a) {
         const fadeW = 150;
         r.linearGradient(W - picW, 0, fadeW, H, [[0, pRgba(bgRef, 1)], [1, pRgba(bgRef, 0)]], 'right');
     }
-    const colW = (hasPic ? W - picW - pad * 2 - 30 : Math.round(W * 0.9) - pad);
-    const btnY = H - pad - pSafeB() - 92;
-    let y = pad + 84;
-    if (kicker) { r.drawLines([kicker], { family: 'Oswald', weight: '700', size: 30 }, pad, y, colW, { color: accent }); y += 46; }
-    r.rect(pad, y, 110, 10, barC); y += 30;
-    const availH = Math.max(120, btnY - y - 100);   // reserve ~100 for the sub, so nothing hits the button
-    const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
-    r.as('headline', () => r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, colW, { color: txt, lineHeight: 1.03 }));
-    y += fit.totalH + 16;
-    if (sub) { const sl = r.wrap(sub, { family: 'Roboto', weight: '400', size: 32 }, colW).slice(0, 2); r.drawLines(sl, { family: 'Roboto', weight: '400', size: 32 }, pad, y, colW, { color: subC, lineHeight: 1.35 }); }
-    let btnW = 0;
-    if (cta) { const f = { family: 'Oswald', weight: '700', size: 32 }, t = String(cta).toUpperCase(); btnW = r.textWidth(t, f) + 76; r.fillRoundRect(pad, btnY, btnW, 80, 12, btnBg); r.as('cta', () => r.drawLines([t], f, pad, btnY + 24, btnW, { color: pInk(btnBg), align: 'center' })); }
-    // The brand's own site, not a hardcoded one — this was still saying smesouthafrica.co.za on
-    // creatives made for another brand. It sits on the rail to the RIGHT of the CTA, shrinking to
-    // fit; if even 18px won't fit it is dropped rather than printed over the button.
     const urlT = String(v.url || BRAND.url || '');
-    if (urlT) {
-        const railX = pad + btnW + 24, railW = (pad + (hasPic ? colW : W - pad * 2)) - railX;
-        let us = 26;
-        while (us > 18 && r.textWidth(urlT, { family: 'Oswald', weight: '700', size: us }) > railW) us -= 2;
-        if (r.textWidth(urlT, { family: 'Oswald', weight: '700', size: us }) <= railW)
-            r.drawLines([urlT], { family: 'Oswald', weight: '700', size: us }, railX, btnY + 40 - us / 2, railW, { color: subC, align: 'right' });
+
+    // ---- THREE LAYOUTS, NOT ONE ---------------------------------------------------------------
+    // Every family used to render the identical left-aligned stack in landscape: kicker, rule,
+    // headline, sub, button bottom-left — with the right third of a 1200x628 banner left empty.
+    // Twelve families, one look, and the emptiest part of the canvas is the part LinkedIn shows
+    // biggest. The layout is now chosen per FAMILY (not per direction), so a family keeps a
+    // recognisable landscape identity while the set as a whole stops looking like one template:
+    //
+    //   spine  a full-height accent edge, type running the width. Quietest — for the families
+    //          whose copy is long and wants the room.
+    //   panel  type left, a solid accent block holding the CTA down the right third. Fills the
+    //          dead space with the ask, which is the one thing that column should be doing.
+    //   band   headline dominant up top, a full-width accent band across the foot carrying the
+    //          CTA and the URL on one baseline. The most poster-like of the three.
+    //
+    // A photo always wins the right third, so a photo family falls back to `spine` — otherwise the
+    // panel and the picture would be fighting over the same pixels.
+    const LS_LAYOUT = {
+        funding: 'panel', solutions: 'spine', newsletter: 'band', resources: 'spine',
+        providers: 'panel', findpros: 'band', podcast: 'panel', merch: 'spine',
+        feature: 'band', hub: 'panel', glossary: 'spine', webinar: 'band'
+    };
+    const layout = hasPic ? 'spine' : (LS_LAYOUT[type] || 'spine');
+    const sub2 = pSolid(bgRef, PC.red);          // a block colour that is legible against this bg
+
+    // Geometry per layout: the type column, and where the foot furniture sits.
+    let colX = pad, colW, btnY, bandH = 0, panelX = 0, panelW = 0;
+    if (layout === 'panel') {
+        panelW = Math.round(W * 0.34); panelX = W - panelW;
+        colW = panelX - pad - 40;
+        btnY = H - pad - 92;                      // unused by this layout; kept for the sub's floor
+    } else if (layout === 'band') {
+        bandH = 116;
+        colW = hasPic ? W - picW - pad * 2 - 30 : W - pad * 2;
+        btnY = H - bandH;
+    } else {
+        colX = pad + 24;                          // clear the spine
+        colW = (hasPic ? W - picW - colX - pad - 30 : W - colX - pad);
+        btnY = H - pad - 92;
+    }
+
+    // Decoration is drawn BEFORE any type. A fill that lands on existing text is what the render
+    // suite calls occlusion, and the only reliable way never to trip it is to paint first.
+    if (layout === 'spine') r.rect(0, 0, 14, H, sub2.fill);
+    if (layout === 'panel') {
+        r.rect(panelX, 0, panelW, H, sub2.fill);
+        // A hairline of the page colour keeps the block from looking pasted on.
+        r.rect(panelX, 0, 3, H, pRgba(bgRef, 0.35));
+    }
+    if (layout === 'band') r.rect(0, H - bandH, W, bandH, sub2.fill);
+
+    if (logo) r.drawContain(logo, colX, pad, 200, 50, { });
+
+    // MEASURE, THEN PLACE. The old landscape started the type at a fixed y and let it end wherever
+    // it ended, so short copy left a quarter of the canvas dead under the sub while long copy ran
+    // at the floor. Everything is measured first and the block is centred in the space between the
+    // logo and whatever furniture owns the foot, so a one-line headline and a three-line one are
+    // both composed rather than merely fitted.
+    const kf = { family: 'Oswald', weight: '700', size: 28 };
+    const sf = { family: 'Roboto', weight: '400', size: 32 };
+    const kickH = kicker ? 46 + 26 : 40;
+    const topLimit = pad + 50 + 40;                                   // clear of the logo
+    const botLimit = (layout === 'band') ? H - bandH - 30
+                   : (layout === 'panel') ? H - pad
+                   : btnY - 30;
+    const availH = Math.max(120, (botLimit - topLimit) - kickH - (sub ? 100 : 0));
+    const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
+    const subLines = sub ? r.wrap(sub, sf, colW).slice(0, 2) : [];
+    const subH = subLines.length ? Math.round(subLines.length * sf.size * 1.35) + 18 : 0;
+    const blockH = kickH + fit.totalH + subH;
+    let y = topLimit + Math.max(0, Math.round((botLimit - topLimit - blockH) / 2));
+
+    if (kicker) {
+        // A filled pill reads as a label; plain accent text at 30px read as a stray line, and on a
+        // light background the accent had to be dimmed so far to stay legible it stopped being one.
+        const kw = r.textWidth(kicker, kf) + 44, kh = 46;
+        r.fillRoundRect(colX, y, kw, kh, kh / 2, sub2.fill);
+        r.drawLines([kicker], kf, colX, y + (kh - kf.size) / 2 + 2, kw, { color: pInk(sub2.fill), align: 'center' });
+        y += kh + 26;
+    } else {
+        r.rect(colX, y + 14, 110, 10, barC); y += 40;
+    }
+    r.as('headline', () => r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, colX, y, colW, { color: txt, lineHeight: 1.03 }));
+    y += fit.totalH + 18;
+    if (subLines.length) r.drawLines(subLines, sf, colX, y, colW, { color: subC, lineHeight: 1.35 });
+
+    // ---- the ask ------------------------------------------------------------------------------
+    const ctaF = { family: 'Oswald', weight: '700', size: 32 };
+    const ctaT = String(cta || '').toUpperCase();
+    if (layout === 'panel') {
+        // Centred in the accent column: CTA on a contrasting chip, the URL beneath it.
+        const inner = panelW - 56;
+        const chipBg = pInk(sub2.fill);                  // white on red, ink on a light accent
+        if (ctaT) {
+            // Wrap to the chip's INNER width, not its full width, or the label sits flush against
+            // its own rounded corners.
+            const lines = r.wrap(ctaT, ctaF, inner - 36);
+            const chipH = Math.max(80, lines.length * 40 + 40);
+            const chipY = Math.round(H / 2 - chipH / 2);
+            r.fillRoundRect(panelX + 28, chipY, inner, chipH, 12, chipBg);
+            r.as('cta', () => r.drawLines(lines, ctaF, panelX + 28, chipY + (chipH - lines.length * 38) / 2, inner, { color: sub2.fill, align: 'center', lineHeight: 1.2 }));
+            if (urlT) {
+                let us = 24;
+                while (us > 15 && r.textWidth(urlT, { family: 'Oswald', weight: '700', size: us }) > inner) us -= 1;
+                r.drawLines([urlT], { family: 'Oswald', weight: '700', size: us }, panelX + 28, chipY + chipH + 22, inner, { color: pInk(sub2.fill), align: 'center' });
+            }
+        }
+    } else if (layout === 'band') {
+        // One baseline across the foot: the ask on the left, the address on the right.
+        const bandInk = pInk(sub2.fill), midY = H - bandH + Math.round((bandH - 34) / 2);
+        if (ctaT) r.as('cta', () => r.drawLines([ctaT + '  →'], ctaF, pad, midY, Math.round(W * 0.6), { color: bandInk }));
+        if (urlT) {
+            const uf = { family: 'Oswald', weight: '700', size: 26 };
+            const railX = Math.round(W * 0.6), railW = W - pad - railX;
+            if (r.textWidth(urlT, uf) <= railW) r.drawLines([urlT], uf, railX, midY + 4, railW, { color: pRgba(bandInk, 0.82), align: 'right' });
+        }
+    } else {
+        // spine: a real button bottom-left, the address on the rail to its right.
+        let btnW = 0;
+        if (ctaT) {
+            btnW = r.textWidth(ctaT, ctaF) + 76;
+            r.fillRoundRect(colX, btnY, btnW, 80, 12, btnBg);
+            r.as('cta', () => r.drawLines([ctaT], ctaF, colX, btnY + 24, btnW, { color: pInk(btnBg), align: 'center' }));
+        }
+        if (urlT) {
+            const railX = colX + btnW + 24, railW = (colX + colW) - railX;
+            let us = 26;
+            while (us > 18 && r.textWidth(urlT, { family: 'Oswald', weight: '700', size: us }) > railW) us -= 2;
+            if (r.textWidth(urlT, { family: 'Oswald', weight: '700', size: us }) <= railW)
+                r.drawLines([urlT], { family: 'Oswald', weight: '700', size: us }, railX, btnY + 40 - us / 2, railW, { color: subC, align: 'right' });
+        }
     }
 }
 // SME logo top-left (light=true → colour logo for light backgrounds; else white). Returns the y to
