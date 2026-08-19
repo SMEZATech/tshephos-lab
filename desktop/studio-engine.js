@@ -2330,6 +2330,131 @@ function drawMerch(r, dir, v, a) {
 // Dedicated LANDSCAPE (LinkedIn 1200x628) layout — a real horizontal banner, not a squeezed square.
 // Generic across all content types: logo, kicker, headline, sub, CTA laid out wide, with the design's
 // colour family. Flow + fitFontSize + a bottom-anchored button guarantee no overlap.
+// ===================== LANDSCAPE: CONTENT-LED LAYOUTS =====================
+// Three layouts that are chosen by what the copy IS, not by which family it belongs to. The
+// registry already carries the raw material — `big`/`price` figures on 9 directions, `quote` on 3,
+// `i1..i3` three-point lists on 13 — and every one of them was being poured into the same
+// headline-and-a-button banner. A number worth putting on a poster was being set at 92px next to a
+// sub-heading; a three-point list was being flattened into prose. These render the content as the
+// kind of creative it actually is, which is where the variety comes from: the same family produces
+// visibly different posts across its directions, instead of one look repeated until it goes stale.
+
+// A big figure is the strongest device in business creative. Set it as the hero and let the
+// headline support it, rather than the other way round.
+function lsStat(r, c) {
+    const { W, H, pad, txt, subC, sub2, btnBg, big, bigLabel } = c;
+    const colW = Math.round(W * 0.44), rightX = pad + colW + 56, rightW = W - rightX - pad;
+    r.rect(pad + colW + 22, pad + 24, 3, H - pad * 2 - 48, pRgba(txt, 0.16));   // hairline divider
+
+    // The figure is centred in the space BELOW the logo, not in the raw canvas. Centring on H alone
+    // pushed a 240px numeral up under the mark — caught by the logo-clearance rule, which is the
+    // one that exists precisely because a heading touching the logo has shipped before.
+    const nTop = pad + 50 + 34, nBot = H - pad;
+    // ONE LINE, ALWAYS. fitFontSize() wraps, and a wrapped hero figure is not a hero figure —
+    // "R2.4bn" came back as "R2.4b" over "n". Shrink to fit the column's WIDTH instead.
+    const nStr = String(big);
+    let nSize = Math.min(240, Math.round((nBot - nTop) * 0.62));
+    while (nSize > 56 && r.textWidth(nStr, { family: 'Oswald', weight: '900', size: nSize }) > colW) nSize -= 4;
+    const labelH = bigLabel ? 48 : 0, ruleH = 30;
+    let ny = nTop + Math.max(0, Math.round((nBot - nTop - nSize - labelH - ruleH) / 2));
+    // The accent goes on a rule, not on the numeral: brand red set on brand navy is a weak enough
+    // pairing that a 200px figure in it reads washed out, even though it clears the contrast bar.
+    r.rect(pad, ny, 96, 10, sub2.fill); ny += ruleH;
+    r.drawLines([nStr], { family: 'Oswald', weight: '900', size: nSize }, pad, ny, colW, { color: txt, lineHeight: 0.92 });
+    if (bigLabel) {
+        const lf = { family: 'Oswald', weight: '700', size: 30 };
+        r.drawLines([String(bigLabel).toUpperCase()], lf, pad, ny + nSize + 16, colW, { color: subC });
+    }
+
+    const hf = r.fitFontSize(c.title, { family: 'Oswald', weight: '700' }, rightW, Math.round(H * 0.34), 1.05, { max: 58, min: 30 });
+    const sf = { family: 'Roboto', weight: '400', size: 27 };
+    const sl = c.sub ? r.wrap(c.sub, sf, rightW).slice(0, 3) : [];
+    const subH = sl.length ? sl.length * sf.size * 1.35 + 18 : 0;
+    const ctaH = c.cta ? 92 : 0;
+    let y = Math.round((H - (hf.totalH + subH + ctaH)) / 2);
+    r.as('headline', () => r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, rightX, y, rightW, { color: txt, lineHeight: 1.05 }));
+    y += hf.totalH + 18;
+    if (sl.length) { r.drawLines(sl, sf, rightX, y, rightW, { color: subC, lineHeight: 1.35 }); y += subH; }
+    if (c.cta) {
+        const bf = { family: 'Oswald', weight: '700', size: 30 }, t = c.cta;
+        const bw = r.textWidth(t, bf) + 68;
+        r.fillRoundRect(rightX, y + 8, bw, 74, 12, btnBg);
+        r.as('cta', () => r.drawLines([t], bf, rightX, y + 8 + 22, bw, { color: pInk(btnBg), align: 'center' }));
+    }
+    if (c.urlT) r.drawLines([c.urlT], { family: 'Oswald', weight: '700', size: 22 }, pad, H - pad - 4, W - pad * 2, { color: subC, align: 'right' });
+}
+
+// A pull quote wants air and a mark, not a headline slot.
+function lsQuote(r, c) {
+    const { W, H, pad, txt, subC, sub2 } = c;
+    const colW = Math.round(W * 0.78);
+    // The quotation mark as artwork, set large and low-contrast behind the opening line.
+    r.drawLines(['“'], { family: 'Oswald', weight: '900', size: 210 }, pad - 8, pad + 4, 260, { color: pRgba(sub2.fill, 0.5) });
+
+    const qf = r.fitFontSize(c.quote, { family: 'Oswald', weight: '700' }, colW, Math.round(H * 0.42), 1.12, { max: 62, min: 30 });
+    const who = String(c.speaker || '').toUpperCase(), role = String(c.role || '');
+    const attrH = who ? 76 : 0;
+    let y = Math.round((H - qf.totalH - attrH) / 2) + 22;
+    r.as('headline', () => r.drawLines(qf.lines, { family: 'Oswald', weight: '700', size: qf.size }, pad + 96, y, colW, { color: txt, lineHeight: 1.12 }));
+    y += qf.totalH + 26;
+    if (who) {
+        r.rect(pad + 96, y + 12, 56, 6, sub2.fill);
+        r.drawLines([who], { family: 'Oswald', weight: '700', size: 28 }, pad + 172, y, colW, { color: txt });
+        if (role) r.drawLines([role], { family: 'Roboto', weight: '400', size: 24 }, pad + 172, y + 34, colW, { color: subC });
+    }
+    if (c.cta) {
+        const bf = { family: 'Oswald', weight: '700', size: 28 };
+        r.as('cta', () => r.drawLines([c.cta + '  →'], bf, pad + 96, H - pad - 30, Math.round(W * 0.5), { color: sub2.text || txt }));
+    }
+    if (c.urlT) r.drawLines([c.urlT], { family: 'Oswald', weight: '700', size: 22 }, pad, H - pad - 26, W - pad * 2, { color: subC, align: 'right' });
+}
+
+// Three points, drawn as three things. A numbered row reads as a carousel promise in one frame and
+// is the format business audiences actually stop for.
+function lsList(r, c) {
+    const { W, H, pad, txt, subC, sub2, btnBg, items } = c;
+    const cardH = 176, cardY = H - pad - cardH, gap = 22;
+    const cardW = Math.round((W - pad * 2 - gap * 2) / 3);
+
+    // Header: kicker, headline left; the ask parked at the right so the row below stays clean.
+    let hy = pad + 78;
+    if (c.kicker) {
+        const kf = { family: 'Oswald', weight: '700', size: 26 };
+        const kw = r.textWidth(c.kicker, kf) + 40, kh = 42;
+        r.fillRoundRect(pad, hy, kw, kh, kh / 2, sub2.fill);
+        r.drawLines([c.kicker], kf, pad, hy + (kh - kf.size) / 2 + 2, kw, { color: pInk(sub2.fill), align: 'center' });
+        hy += kh + 18;
+    }
+    // MEASURE THE BUTTON FIRST. Giving the headline a flat 60% and sizing the button afterwards
+    // meant a long CTA grew leftwards into the headline column and was painted over it — the button
+    // is a fill drawn after the type, which is exactly what the occlusion rule flags.
+    const bf = { family: 'Oswald', weight: '700', size: 28 }, bh = 70;
+    const bw = c.cta ? Math.min(Math.round(W * 0.34), r.textWidth(c.cta, bf) + 60) : 0;
+    const headW = c.cta ? (W - pad * 2 - bw - 36) : (W - pad * 2);
+    const hf = r.fitFontSize(c.title, { family: 'Oswald', weight: '700' }, headW, cardY - hy - 34, 1.04, { max: 62, min: 30 });
+    r.as('headline', () => r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, hy, headW, { color: txt, lineHeight: 1.04 }));
+    if (c.cta) {
+        const bx = W - pad - bw, by = hy + Math.max(0, Math.round((hf.totalH - bh) / 2));
+        r.fillRoundRect(bx, by, bw, bh, 12, btnBg);
+        r.as('cta', () => r.drawLines([c.cta], bf, bx, by + 20, bw, { color: pInk(btnBg), align: 'center' }));
+        if (c.urlT) r.drawLines([c.urlT], { family: 'Oswald', weight: '700', size: 20 }, bx - 240, by + bh + 14, bw + 240, { color: subC, align: 'right' });
+    }
+
+    // The row. Cards are painted first, every line of type after — nothing can land under a panel.
+    for (let i = 0; i < 3; i++) {
+        const x = pad + i * (cardW + gap);
+        r.fillRoundRect(x, cardY, cardW, cardH, 14, pRgba(txt, 0.07));
+        r.rect(x, cardY, cardW, 5, sub2.fill);
+    }
+    for (let i = 0; i < 3; i++) {
+        const x = pad + i * (cardW + gap), inner = cardW - 44;
+        r.drawLines(['0' + (i + 1)], { family: 'Oswald', weight: '900', size: 34 }, x + 22, cardY + 24, inner, { color: sub2.text || txt });
+        const tf = { family: 'Roboto', weight: '500', size: 24 };
+        const tl = r.wrap(String(items[i] || ''), tf, inner).slice(0, 3);
+        r.drawLines(tl, tf, x + 22, cardY + 74, inner, { color: subC, lineHeight: 1.32 });
+    }
+}
+
 function drawLandscape(r, type, dir, v, a) {
     const W = r.w, H = r.h, key = type + '.' + dir;
     // ESTABLISH OUR OWN GEOMETRY. PG is worker-global and the worker outlives every render, so
@@ -2357,7 +2482,11 @@ function drawLandscape(r, type, dir, v, a) {
     // colour comes from pSolid() and whose label comes from pInk() of that fill — both brand-safe
     // by construction, instead of an accent that had to be contrast-corrected after the fact.
     if (pContrast(barC, bgRef) < 1.6) barC = pInk(bgRef);
-    if (logo) r.drawContain(logo, pad, pad, 200, 50, { });
+    // NOTE: the logo is drawn further down, once, at the type column's x — see `colX`. It used to
+    // be drawn here at `pad` as well, which put two marks on every landscape. On the panel and band
+    // layouts colX === pad, so the two landed pixel-perfect on top of each other and nothing looked
+    // wrong; only the spine layouts (merch, solutions, resources, glossary) inset the column by 24px
+    // and showed the double. An invisible duplicate is still a duplicate.
     const kicker = String(v.eyebrow || v.pill || v.show || '').toUpperCase();
     // Some designs carry their headline under another key (findpros.c = category, merch = name,
     // podcast.b = quote). Missing them here rendered a banner with NO headline at all.
@@ -2405,8 +2534,38 @@ function drawLandscape(r, type, dir, v, a) {
         providers: 'panel', findpros: 'band', podcast: 'panel', merch: 'spine',
         feature: 'band', hub: 'panel', glossary: 'spine', webinar: 'band'
     };
-    const layout = hasPic ? 'spine' : (LS_LAYOUT[type] || 'spine');
     const sub2 = pSolid(bgRef, PC.red);          // a block colour that is legible against this bg
+
+    // CONTENT LEADS. Before falling back to the family's house layout, look at what this direction
+    // actually holds: a figure, a quotation, or a three-point list each deserve to be SET as that
+    // thing. A photo still takes the right third, so a photo direction keeps the type-left form.
+    const bigT = String(v.big || v.price || v.count || '').trim();
+    const quoteT = String(v.quote || '').trim();
+    const items = [v.i1, v.i2, v.i3].map(function (x) { return String(x == null ? '' : x).trim(); });
+    const hasList = items.filter(Boolean).length === 3;
+    const ctx = {
+        W: W, H: H, pad: pad, bgRef: bgRef, txt: txt, subC: subC, barC: barC, btnBg: btnBg, sub2: sub2,
+        kicker: kicker, title: title, sub: sub, cta: String(cta || '').toUpperCase(), urlT: urlT,
+        big: bigT, bigLabel: v.bigLabel || v.label || '', quote: quoteT,
+        speaker: v.speaker || v.guest || v.name || '', role: v.role || '', items: items
+    };
+    // Decide FIRST, draw second. Drawing the logo before knowing whether a content layout applies
+    // left it on the canvas when none did, and the family layout below then drew its own — the
+    // exact double-logo this pass is fixing, reintroduced two lines from the fix. The duplicate-art
+    // rule caught it on 38 designs; without that rule it would have shipped invisible again.
+    const contentLayout = !hasPic && title
+        ? (quoteT ? 'quote'                                        // a quote IS the design
+          : (bigT && bigT.length <= 12) ? 'stat'                   // a figure short enough to be a hero
+          : hasList ? 'list' : null)
+        : null;
+    if (contentLayout) {
+        if (logo) r.drawContain(logo, pad, pad, 200, 50, {});
+        if (contentLayout === 'quote') lsQuote(r, ctx);
+        else if (contentLayout === 'stat') lsStat(r, ctx);
+        else lsList(r, ctx);
+        return;
+    }
+    const layout = hasPic ? 'spine' : (LS_LAYOUT[type] || 'spine');
 
     // Geometry per layout: the type column, and where the foot furniture sits.
     let colX = pad, colW, btnY, bandH = 0, panelX = 0, panelW = 0;
@@ -2448,10 +2607,13 @@ function drawLandscape(r, type, dir, v, a) {
     const botLimit = (layout === 'band') ? H - bandH - 30
                    : (layout === 'panel') ? H - pad
                    : btnY - 30;
-    const availH = Math.max(120, (botLimit - topLimit) - kickH - (sub ? 100 : 0));
-    const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
+    // Measure the sub BEFORE budgeting the headline. Reserving a flat ~100px for it was a guess,
+    // and two lines of 32px actually need 104 — so on long copy the block ran past its floor and
+    // the foot band was painted across the last line of the sub.
     const subLines = sub ? r.wrap(sub, sf, colW).slice(0, 2) : [];
     const subH = subLines.length ? Math.round(subLines.length * sf.size * 1.35) + 18 : 0;
+    const availH = Math.max(120, (botLimit - topLimit) - kickH - subH);
+    const fit = r.fitFontSize(title, { family: 'Oswald', weight: '700' }, colW, availH, 1.03, { max: 92, min: 34 });
     const blockH = kickH + fit.totalH + subH;
     let y = topLimit + Math.max(0, Math.round((botLimit - topLimit - blockH) / 2));
 

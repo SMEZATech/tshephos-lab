@@ -242,6 +242,39 @@
     //    Where the engine has TAGGED the headline (r.as('headline', ...)) that guess is replaced by
     //    a fact: the draw code knows what it is drawing. Untagged renders keep the old heuristic, so
     //    tagging can be rolled out design by design without every untagged one failing meanwhile.
+    // 8) THE SAME ART TWICE, IN THE SAME PLACE. A refactor left the logo being drawn both at the
+    //    frame padding and at the type column's x. On layouts where those two are equal the marks
+    //    landed pixel-perfect on top of each other and looked completely fine; only the layouts
+    //    that inset the column by 24px showed a visible double. So the defect shipped to every
+    //    landscape design while being observable on a third of them.
+    //    Two images of the same size sitting on top of each other are never intentional — a real
+    //    repeat (a pattern, a row of avatars) does not overlap itself.
+    function findDuplicateArt(trace) {
+        var out = [], seen = {};
+        for (var i = 0; i < trace.length; i++) {
+            var m = trace[i]; if (m.kind !== 'image') continue;
+            for (var j = i + 1; j < trace.length; j++) {
+                var n = trace[j]; if (n.kind !== 'image') continue;
+                if (Math.abs(m.w - n.w) > 2 || Math.abs(m.h - n.h) > 2) continue;   // different art
+                var ox = Math.max(0, Math.min(m.x + m.w, n.x + n.w) - Math.max(m.x, n.x));
+                var oy = Math.max(0, Math.min(m.y + m.h, n.y + n.h) - Math.max(m.y, n.y));
+                var area = m.w * m.h;
+                if (area > 0 && (ox * oy) / area > 0.5) {
+                    var k = Math.round(m.x) + ',' + Math.round(m.y);
+                    if (seen[k]) continue;
+                    seen[k] = 1;
+                    out.push({
+                        rule: 'duplicate', severity: 'error',
+                        box: m, cover: (ox * oy) / area,
+                        message: 'the same ' + Math.round(m.w) + 'x' + Math.round(m.h) + ' image is drawn twice, overlapping (likely a double-drawn logo)',
+                        short: 'Image drawn twice in the same place'
+                    });
+                }
+            }
+        }
+        return out;
+    }
+
     function findHeadline(trace) {
         var texts = trace.filter(function (r) { return r.kind === 'text'; });
         if (!texts.length) return [{ rule: 'headline', severity: 'error', box: null, message: 'no text was drawn at all', short: 'Nothing written' }];
@@ -275,6 +308,7 @@
             .concat(findLogoClearance(trace, W))
             .concat(findStorySafeZone(trace, W, H))
             .concat(findOverflow(trace, W, H))
+            .concat(findDuplicateArt(trace))
             .concat(findOcclusion(trace))
             .concat(findDeadSpace(trace, W, H));
         return all.sort(function (a, b) {
@@ -296,7 +330,8 @@
         var first = function (list) { return list.length ? list[0].message : ''; };
         var contrastBad = findContrast(trace), overflowBad = findOverflow(trace, W, H),
             logoBad = findLogoClearance(trace, W), zoneBad = findStorySafeZone(trace, W, H),
-            headBad = findHeadline(trace), occBad = findOcclusion(trace), deadBad = findDeadSpace(trace, W, H);
+            headBad = findHeadline(trace), occBad = findOcclusion(trace), deadBad = findDeadSpace(trace, W, H),
+            dupBad = findDuplicateArt(trace);
         // Occlusion now grades itself (see OCCL_ERROR): a shape sitting on a THIRD of a line is not
         // a long-copy judgement call, it is the design being wrong, and it stays a build failure.
         // Smaller nibbles remain warnings, which is what the note above was really protecting.
@@ -307,7 +342,8 @@
             || (logoBad.length ? 'logo crowds the copy — ' + logoBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
             || (zoneBad.length ? 'under Instagram chrome — ' + zoneBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
             || (overflowBad.length ? 'text leaves the canvas — ' + overflowBad.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
-            || (occErr.length ? 'drawn over its own copy — ' + occErr.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '');
+            || (occErr.length ? 'drawn over its own copy — ' + occErr.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
+            || (dupBad.length ? 'drawn twice — ' + dupBad[0].message : '');
         var warn = (occWarn.length ? occWarn.slice(0, 2).map(function (f) { return f.message; }).join('; ') : '')
             || first(deadBad);
         return { error: err, warn: warn };
@@ -317,7 +353,7 @@
         lum: lum, contrast: contrast, covers: covers, surfaceUnder: surfaceUnder,
         findContrast: findContrast, findOcclusion: findOcclusion, findDeadSpace: findDeadSpace,
         findLogoClearance: findLogoClearance, findStorySafeZone: findStorySafeZone,
-        findOverflow: findOverflow, findHeadline: findHeadline,
+        findOverflow: findOverflow, findHeadline: findHeadline, findDuplicateArt: findDuplicateArt,
         reviewDesign: reviewDesign, assertDesign: assertDesign
     };
 }));

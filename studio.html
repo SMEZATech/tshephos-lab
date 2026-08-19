@@ -224,7 +224,9 @@
                     <h1 class="text-2xl font-extrabold text-white tracking-tight leading-none" style="font-family:'Unbounded',sans-serif;">Volt<span style="color:#B6FF3D;">.</span></h1>
                     <span class="text-[10px] text-[#5B616D] tracking-[0.18em] uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Studio</span>
                 </div>
-                <span class="engine-badge shrink-0"><span class="w-1.5 h-1.5 rounded-full" style="background:#B6FF3D;"></span> No API key</span>
+                <!-- The "No API key" badge lived here. It reported an implementation detail nobody
+                     using Studio can act on — the graphics engine is local and needs no key — and
+                     read like a warning about a broken setup. Removed rather than reworded. -->
             </div>
 
             <button onclick="openBrandKit()" id="brand-chip" class="mt-3 w-full flex items-center justify-between gap-2 bg-[#14171F] hover:bg-[#1A1E28] border border-[#23262E] rounded-lg px-3 py-2 transition-colors">
@@ -345,10 +347,10 @@
                 <div id="size-controls" class="vt-sec">
                     <div class="vt-lbl">Dimensions</div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="setFormat('landscape')" id="btn-landscape" class="vt-opt format-btn on">Landscape <span class="sub">LinkedIn</span></button>
-                        <button onclick="setFormat('square')"    id="btn-square"    class="vt-opt format-btn">Square <span class="sub">IG grid</span></button>
-                        <button onclick="setFormat('portrait')"  id="btn-portrait"  class="vt-opt format-btn">Portrait <span class="sub">IG feed</span></button>
-                        <button onclick="setFormat('story')"     id="btn-story"     class="vt-opt format-btn">Story <span class="sub">9:16</span></button>
+                        <button onclick="setFormat('landscape')" id="btn-landscape" class="vt-opt format-btn on">Landscape <span class="sub">LinkedIn · 1200×628</span></button>
+                        <button onclick="setFormat('square')"    id="btn-square"    class="vt-opt format-btn">Square <span class="sub">IG grid · 1080×1080</span></button>
+                        <button onclick="setFormat('portrait')"  id="btn-portrait"  class="vt-opt format-btn">Portrait <span class="sub">IG feed · 1080×1350</span></button>
+                        <button onclick="setFormat('story')"     id="btn-story"     class="vt-opt format-btn">Story <span class="sub">Reels · 1080×1920</span></button>
                     </div>
                 </div>
             </div>
@@ -359,7 +361,12 @@
                 <!-- Premium copy: the fields for the chosen direction. -->
                 <div id="premium-content" class="space-y-5 hidden">
                     <div class="vt-sec">
-                        <div class="vt-lbl">Copy <span class="hint" id="pdir-name-2"></span></div>
+                        <div class="vt-lbl">Copy <span class="hint" id="pdir-name-2"></span>
+                            <!-- Editing a direction's copy was one-way: there was no path back to
+                                 the wording the design was written around, so experimenting cost
+                                 you the original. -->
+                            <button type="button" onclick="resetPremCopy()" class="ml-auto text-[10px] font-bold uppercase tracking-widest text-[#5B616D] hover:text-[#B6FF3D] transition-colors" title="Restore this direction's original wording">↺ Reset</button>
+                        </div>
                         <div id="premium-fields" class="flex flex-col gap-2"></div>
                     </div>
 
@@ -487,6 +494,13 @@
 
             <!-- ==================== 03 · EXPORT ==================== -->
             <div id="pane-export" class="space-y-6 hidden">
+
+                <!-- WHAT AM I ABOUT TO DOWNLOAD? The Export tab is a wall of buttons two clicks away
+                     from the controls that decided what they act on. This restates the answer. -->
+                <div class="vt-card" style="padding:12px 15px;">
+                    <div class="vt-sub" style="margin-bottom:4px;">Exporting</div>
+                    <div id="export-summary" class="text-[13px] font-bold text-[#ECEEF3] leading-snug">—</div>
+                </div>
 
                 <div class="vt-card">
                     <div class="vt-lbl">📱 Feed preview
@@ -2000,6 +2014,30 @@
       });
       // Panes share one scroller. Landing halfway down a fresh tab reads as a broken page.
       const s = document.getElementById('pane-scroll'); if (s) s.scrollTop = 0;
+      if (t === 'export') paintExportSummary();
+    }
+
+    // Recomputed when the Export tab opens rather than wired into setContentType/setPremiumDir/
+    // setFormat separately — three call sites is three chances for it to go stale, and it is only
+    // ever read at the moment this tab is shown.
+    const FMT_LABEL = { landscape: 'Landscape 1200×628', square: 'Square 1080×1080', portrait: 'Portrait 1080×1350', story: 'Story 1080×1920' };
+    function paintExportSummary(){
+      const el = document.getElementById('export-summary'); if (!el) return;
+      const size = FMT_LABEL[state.format] || state.format;
+      if (state.contentType === 'creative') {
+        const camp = ({ standard:'Standard', carousel:'Carousel', poll:'Community Poll', whatsapp:'WhatsApp', stat:'Stat Spotlight', quote:'Quote', meme:'Meme' })[state.campaign] || 'Standard';
+        el.textContent = 'Creative · ' + camp + ' · ' + size;
+      } else {
+        const fam = PREMIUM[state.contentType], d = fam && fam.dirs[state.premiumDir];
+        el.textContent = ((fam && fam.label) || state.contentType) + ' · ' + ((d && d.name) || String(state.premiumDir).toUpperCase()) + ' · ' + size;
+      }
+    }
+
+    // Put a direction's own wording back. Mirrors setPremiumDir's refresh, minus the dir switch.
+    function resetPremCopy(){
+      if (state.contentType === 'creative') return;
+      loadPremDefaults(); applyAutofillToDir(); renderPremFields(); renderPremiumPreview();
+      if (typeof showToast === 'function') showToast('Copy reset to this direction’s original wording.', 'success');
     }
 
     // The type menu collapses to its answer. openTypePicker() puts it back.
@@ -2039,6 +2077,10 @@
       half('creative-content', isCreative);    // 02 · headline, image, framing, typography
       const sc = document.getElementById('size-controls'); if(sc) sc.classList.remove('hidden'); // Dimensions apply to premium too
       const zip = document.getElementById('btn-download-zip'); if(zip && !isCreative) zip.classList.add('hidden');
+      // setCampaign() renames the download button per Creative format ("Download Slide 2",
+      // "Download Meme"). Nothing put it back, so switching to a premium family left the button
+      // still offering to download slide 2 of a carousel you were no longer looking at.
+      if (!isCreative) { const dt = document.getElementById('download-text'); if (dt) dt.innerText = 'Download HD PNG'; }
       const hint = document.getElementById('ct-hint');
       if(isCreative){ syncPremImage(); renderLayout(); return; }
       if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
@@ -2946,6 +2988,16 @@
     // Expose for inline onclick handlers
     window.setStudioTab = setStudioTab;
     window.openTypePicker = openTypePicker;
+    window.resetPremCopy = resetPremCopy;
+
+    // Ctrl/Cmd+S exports, because every other design tool in the world does and muscle memory
+    // currently fires the browser's "save this web page" dialog instead.
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && String(e.key).toLowerCase() === 's') {
+        e.preventDefault();
+        if (!state.isExporting) triggerExport();
+      }
+    });
     window.setTheme = setTheme;
     window.setFormat = setFormat;
     window.setCampaign = setCampaign;
