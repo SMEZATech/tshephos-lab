@@ -386,24 +386,35 @@ function renderIgChip(){
 // The source is routed through voltAsset() — the same proxy Studio uses — because a cross-origin
 // image taints the canvas and toDataURL() then throws instead of returning a file.
 async function toHostedJpeg(url){
-  const src = (window.voltAsset ? window.voltAsset(url) : url);
+  // FETCH THE BYTES, DON'T POINT AN <img> AT THE URL. /api/scrape now requires a signed-in
+  // session (it used to be an open proxy — closed as a real abuse-surface fix), and that session
+  // token is attached by volt-auth.js's fetch() patch. An <img src="..."> load is a native browser
+  // resource fetch that can never carry a custom header, so pointing one at the proxied URL got a
+  // silent 401 and the image simply "failed to load" with no clue why. Every other asset loader in
+  // Studio (ensureLogoBlob, ensureDefaultImageBlob) already gets this right by fetching first and
+  // only handing the canvas a blob — this is that same pattern, and as a side effect a blob: URL
+  // never taints the canvas, so the crossOrigin dance isn't needed either.
+  const r = await fetch(window.voltAsset ? window.voltAsset(url) : url);
+  if(!r.ok) throw new Error('Could not load that image to convert it to JPEG.');
+  const srcBlob = await r.blob();
+  const objUrl = URL.createObjectURL(srcBlob);
   const img = await new Promise((res, rej)=>{
     const i = new Image();
-    i.crossOrigin = 'anonymous';
     i.onload = ()=>res(i);
-    i.onerror = ()=>rej(new Error('Could not load that image to convert it to JPEG.'));
-    i.src = src;
+    i.onerror = ()=>rej(new Error('Could not decode that image.'));
+    i.src = objUrl;
   });
   const c = document.createElement('canvas');
   c.width = img.naturalWidth; c.height = img.naturalHeight;
   const x = c.getContext('2d');
   x.fillStyle = '#ffffff'; x.fillRect(0,0,c.width,c.height);   // JPEG has no alpha; flatten first
   x.drawImage(img, 0, 0);
+  URL.revokeObjectURL(objUrl);
   const dataUrl = c.toDataURL('image/jpeg', 0.92);
-  const r = await fetch(API+'/upload', { method:'POST', headers:{'Content-Type':'application/json'},
+  const up = await fetch(API+'/upload', { method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ dataBase64:dataUrl, filename:'story.jpg', contentType:'image/jpeg' }) });
-  let d={}; try{ d=await r.json(); }catch(_){}
-  if(!r.ok || !d.url) throw new Error((d&&(d.message||d.error))||'Could not host the JPEG.');
+  let d={}; try{ d=await up.json(); }catch(_){}
+  if(!up.ok || !d.url) throw new Error((d&&(d.message||d.error))||'Could not host the JPEG.');
   addLib(d.url);
   return d.url;
 }
