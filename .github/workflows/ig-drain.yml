@@ -1,4 +1,4 @@
-name: Publish due Instagram posts
+name: Publish due social posts
 
 # THE SCHEDULER'S CLOCK.
 #
@@ -6,9 +6,16 @@ name: Publish due Instagram posts
 # 17:00" — and the whole point of the weekly shape on the Schedule page is hitting 17h instead of
 # the 15h-16h dead window. GitHub Actions runs on a 5-minute floor and is free, so it is the clock.
 #
-# It carries no logic: it pokes one endpoint, which claims each due row atomically and publishes
-# it. Anything that fails is retried on the next run (three attempts, then it is marked errored and
-# shows on the Schedule page) — so a five-minute outage costs five minutes, not a post.
+# It carries no logic: it pokes one endpoint per platform, each of which claims its own due rows
+# atomically and publishes them. Anything that fails is retried on the next run (three attempts,
+# then it is marked errored and shows on the Schedule page) — so a five-minute outage costs five
+# minutes, not a post.
+#
+# ONE WORKFLOW, ONE SCHEDULE, ONE CURL PER PLATFORM — not a shared drain endpoint. Instagram and
+# Facebook publish through genuinely different Graph flows (media-container-then-poll vs. a direct
+# feed/photos POST) with their own queue tables, so keeping their drains as separate, independently-
+# failing endpoints means one platform's outage can never block the other's. Adding a third platform
+# later is one more curl block here, not a rewrite of this file's shape.
 #
 # Requires one repo secret: CRON_SECRET, matching the CRON_SECRET env var in Vercel.
 #   GitHub → Settings → Secrets and variables → Actions → New repository secret
@@ -22,10 +29,10 @@ on:
     - cron: '*/5 * * * *'
   workflow_dispatch:        # so a scheduled post can be forced out by hand
 
-# One drain at a time. Two overlapping runs would both be safe (the claim is atomic) but there is
-# no reason to pay for the contention.
+# One drain at a time. Two overlapping runs would both be safe (each platform's claim is atomic)
+# but there is no reason to pay for the contention.
 concurrency:
-  group: ig-drain
+  group: social-drain
   cancel-in-progress: false
 
 jobs:
@@ -41,12 +48,17 @@ jobs:
             echo "CRON_SECRET repo secret is not set — nothing to do."
             exit 0
           fi
-          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' \
-            -H "x-volt-cron: $CRON_SECRET" \
-            "https://tshephos-lab.vercel.app/api/instagram?action=drain")
-          echo "HTTP $code"
-          # The body names which posts went out and why any failed — the only log for a job that
-          # runs while nobody is watching.
-          cat /tmp/out.json || true
-          echo
-          if [ "$code" != "200" ]; then exit 1; fi
+          fail=0
+          for platform in instagram facebook; do
+            echo "== $platform =="
+            code=$(curl -sS -o /tmp/out.json -w '%{http_code}' \
+              -H "x-volt-cron: $CRON_SECRET" \
+              "https://tshephos-lab.vercel.app/api/$platform?action=drain")
+            echo "HTTP $code"
+            # The body names which posts went out and why any failed — the only log for a job that
+            # runs while nobody is watching.
+            cat /tmp/out.json || true
+            echo
+            if [ "$code" != "200" ]; then fail=1; fi
+          done
+          if [ "$fail" != "0" ]; then exit 1; fi

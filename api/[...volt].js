@@ -26,8 +26,9 @@ import billing from "./_routes/billing.js";
 import paystack from "./_routes/paystack.js";
 import brain from "./_routes/brain.js";
 import instagram from "./_routes/instagram.js";
+import facebook from "./_routes/facebook.js";
 
-const ROUTES = { kit, image, upload, scrape, assets, billing, paystack, brain, instagram };
+const ROUTES = { kit, image, upload, scrape, assets, billing, paystack, brain, instagram, facebook };
 
 // Resolve the endpoint name (e.g. "kit" for /api/kit). Vercel is SUPPOSED to expose the catch-all
 // segments under the filename's param (req.query.volt), but for plain (non-Next) Node functions it

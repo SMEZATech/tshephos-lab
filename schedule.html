@@ -158,6 +158,7 @@
       <div class="blk">
         <label class="lbl">Publish to</label>
         <div class="chips" id="igChip" style="margin-bottom:9px;"></div>
+        <div class="chips" id="fbChip" style="margin-bottom:9px;"></div>
         <div class="chips" id="scChannels"><span class="empty">Loading your channels…</span></div>
       </div>
       <div class="blk">
@@ -314,7 +315,7 @@ async function loadIg(){
   }catch(e){
     st.textContent='unavailable';
     body.innerHTML = '<p class="note" style="margin:0;">Couldn’t check Instagram: '+esc(e.message||'')+'</p>';
-    renderIgChip(); return;
+    renderIgChip(); renderFbChip(); return;
   }
   if(ig.connected && ig.account){
     st.textContent = 'connected';
@@ -331,7 +332,13 @@ async function loadIg(){
       + '<a href="analytics.html" class="chip" style="text-decoration:none;">📊 View report</a>'
       + '<button type="button" class="chip" id="igOff">Disconnect</button></div>'
       + (exp ? '<p class="note">'+esc(exp)+'</p>' : '')
-      + (!ig.cron ? '<p class="note" style="color:var(--low)">Scheduling is off — CRON_SECRET isn’t set in Vercel, so only “Post now” will work.</p>' : '');
+      + (!ig.cron ? '<p class="note" style="color:var(--low)">Scheduling is off — CRON_SECRET isn’t set in Vercel, so only “Post now” will work.</p>' : '')
+      // Facebook Page posting is the SAME Meta connection, one more scope — no separate "Connect
+      // Facebook" button asking for a token Volt already has. Shown here, not as its own card, so
+      // it never implies a second setup step that doesn't exist.
+      + (ig.facebook && ig.facebook.ready
+          ? '<p class="note" style="color:var(--good);margin-top:10px;">✓ Facebook Page posting is also ready on this connection.</p>'
+          : '<p class="note" style="margin-top:10px;">Want to post to your Facebook Page too? Reconnect above with <code>pages_manage_posts</code> added to the token’s permissions — same connection, one more scope. See SETUP-INSTAGRAM.md.</p>');
     $('#igOff') && $('#igOff').addEventListener('click', async ()=>{
       if(!confirm('Disconnect Instagram from Volt? Scheduled posts will stop publishing.')) return;
       try{ await igFetch('disconnect', {}); }catch(e){}
@@ -371,6 +378,7 @@ async function loadIg(){
     });
   }
   renderIgChip();
+  refreshFbLabel();   // populates ig.facebook.ready-gated chip; no-op until Facebook scope is added
 }
 
 function renderIgChip(){
@@ -440,6 +448,61 @@ async function igSend(){
   return 'Scheduled on Instagram for ' + at.toLocaleString() + (d.cron ? '' : ' (⚠ CRON_SECRET not set — it will not publish)');
 }
 
+// =====================================================================
+// FACEBOOK — same Meta connection as Instagram, one more scope. No separate connect flow: see
+// the note inside loadIg() and api/_routes/facebook.js's header comment for the full reasoning.
+// =====================================================================
+let fbSelected = false;
+
+function fbFetch(action, body){
+  const u = API + '/facebook' + (body ? '' : '?action=' + encodeURIComponent(action));
+  return fetch(u, body
+    ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({ action }, body)) }
+    : {}).then(async r => {
+      let d={}; try{ d=await r.json(); }catch(_){}
+      if(!r.ok) throw new Error((d&&(d.error||d.message))||('Facebook request failed ('+r.status+')'));
+      return d;
+    });
+}
+
+function renderFbChip(){
+  const box=$('#fbChip'); if(!box) return;
+  if(!ig.facebook || !ig.facebook.ready){ box.innerHTML=''; return; }
+  const name = (window.__fbPageName || 'Facebook Page');
+  box.innerHTML = '<button type="button" class="chip'+(fbSelected?' on':'')+'" id="fbPick">📘 '
+    + esc(name) + ' <span class="pf">facebook · direct</span></button>';
+  $('#fbPick').addEventListener('click', ()=>{ fbSelected=!fbSelected; renderFbChip(); updatePreview(); });
+}
+// Fetch the Page's display name once ready, purely for the chip label — status data itself lives
+// on `ig.facebook` (from /api/instagram) since that's the single source of truth for readiness.
+async function refreshFbLabel(){
+  // ALWAYS re-render, even when not ready — a ready-to-not-ready transition (disconnect, or a
+  // reconnect without the new scope) must clear a chip that was showing from a previous state,
+  // not leave a stale, still-clickable button behind.
+  if(!ig.facebook || !ig.facebook.ready){ fbSelected = false; renderFbChip(); return; }
+  try{ const d = await fbFetch('status'); window.__fbPageName = (d.page && d.page.name) || 'Facebook Page'; }
+  catch(e){ window.__fbPageName = 'Facebook Page'; }
+  renderFbChip();
+}
+
+// Facebook has no Story/Reel concept here — just a feed post, with or without a photo. The post-
+// type segmented control (Feed/Story/Reel) is Instagram's; Facebook's own kind is decided purely
+// by whether an image is attached, which is why this ignores `postType` entirely.
+async function fbSend(){
+  const message = ($('#scContent').value||'').trim();
+  const kind = selectedImage ? 'photo' : 'post';
+  if(kind === 'photo' && !message){ /* a caption is optional on a photo post — fine either way */ }
+  if(kind === 'post' && !message) throw new Error('Write something to post first.');
+  if(when==='now'){
+    await fbFetch('publish', { kind, message, imageUrl: selectedImage });
+    return 'Published to Facebook';
+  }
+  if(when==='draft') throw new Error('Facebook has no drafts over the API — choose “Post now” or “Schedule”.');
+  const at = new Date($('#scDate').value);
+  const d = await fbFetch('schedule', { kind, message, imageUrl: selectedImage, at: at.toISOString() });
+  return 'Scheduled on Facebook for ' + at.toLocaleString() + (d.cron ? '' : ' (⚠ CRON_SECRET not set — it will not publish)');
+}
+
 async function loadChannels(){
   const box = $('#scChannels');
   try{
@@ -463,9 +526,11 @@ $('#scGo').addEventListener('click', async ()=>{
   const image = selectedImage;
   // A story is an image, not a sentence — requiring caption text before it would publish was the
   // rule that made the story button useless for the thing stories actually are.
-  const needsText = !(igSelected && postType === 'story' && !selected.size);
+  // A story is an image, not a sentence; a Facebook photo post's caption is optional too — neither
+  // should be blocked by the "write something" rule that makes sense for a plain feed/Postiz post.
+  const needsText = !((igSelected && postType === 'story' && !selected.size) || (fbSelected && selectedImage && !selected.size && !igSelected));
   if(needsText && !content){ setStatus('Write your post first.','err'); return; }
-  if(!selected.size && !igSelected){ setStatus('Pick at least one destination to publish to.','err'); return; }
+  if(!selected.size && !igSelected && !fbSelected){ setStatus('Pick at least one destination to publish to.','err'); return; }
   let date = null;
   if(when==='schedule'){ const v=$('#scDate').value; if(!v){ setStatus('Choose a date & time.','err'); return; } date = new Date(v).toISOString(); }
   const btn=$('#scGo'); btn.disabled=true;
@@ -477,6 +542,12 @@ $('#scGo').addEventListener('click', async ()=>{
     setStatus('<span class="spinner"></span> Publishing to Instagram…','busy');
     try{ notes.push('✓ ' + await igSend()); }
     catch(e){ fails.push('Instagram: ' + ((e&&e.message)||'failed')); }
+  }
+
+  if(fbSelected){
+    setStatus('<span class="spinner"></span> Publishing to Facebook…','busy');
+    try{ notes.push('✓ ' + await fbSend()); }
+    catch(e){ fails.push('Facebook: ' + ((e&&e.message)||'failed')); }
   }
 
   if(selected.size){
@@ -496,7 +567,7 @@ $('#scGo').addEventListener('click', async ()=>{
   if(notes.length && when!=='draft' && (postType==='story' || postType==='reel')){
     logDay(postType==='story'?STORY_LOG_KEY:REEL_LOG_KEY, when==='now'?new Date():new Date($('#scDate').value||Date.now()));
   }
-  loadQueue(); if(igSelected) loadIg();
+  loadQueue(); if(igSelected || fbSelected) loadIg();
   btn.disabled=false;
 });
 
@@ -607,33 +678,66 @@ function renderIgQueue(){
       + '<span class="q-state">'+st+'</span></div>';
   }).join('');
 }
+// Facebook's own queue — a near-mirror of Instagram's above. Volt owns both (published by the
+// same drain cron, two independent endpoints); Postiz never sees either.
+let fbQueueData = [];
+function renderFbQueue(){
+  const rows = (fbQueueData||[]).filter(i => ['pending','publishing','error'].includes(i.status));
+  if(!rows.length) return '';
+  return rows.map(i=>{
+    const dt = i.run_at ? new Date(i.run_at) : null;
+    const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
+    const st = i.status==='error' ? 'Failed' : (i.status==='publishing' ? 'Publishing' : 'Scheduled');
+    const body = i.error ? '<span style="color:var(--low)">'+esc(i.error)+'</span>' : esc(i.message || ('Facebook '+i.kind));
+    return '<div class="q-row"><div class="q-when">'+when+'</div>'
+      + '<div class="q-body">'+body+'<div class="q-meta">facebook · '+esc(i.kind)
+      + (i.attempts ? (' · '+i.attempts+' attempt'+(i.attempts>1?'s':'')) : '')+'</div></div>'
+      + '<button type="button" class="chip" data-fbcancel="'+esc(i.id)+'" style="padding:4px 9px;font-size:10px;">Cancel</button>'
+      + '<span class="q-state">'+st+'</span></div>';
+  }).join('');
+}
 document.addEventListener('click', async e=>{
-  const b = e.target.closest('[data-igcancel]'); if(!b) return;
-  b.disabled = true;
-  try{ await igFetch('cancel', { id: b.dataset.igcancel }); await loadIg(); loadQueue(); }
-  catch(err){ setStatus((err&&err.message)||'Could not cancel that.','err'); b.disabled=false; }
+  const bi = e.target.closest('[data-igcancel]');
+  if(bi){ bi.disabled = true;
+    try{ await igFetch('cancel', { id: bi.dataset.igcancel }); await loadIg(); loadQueue(); }
+    catch(err){ setStatus((err&&err.message)||'Could not cancel that.','err'); bi.disabled=false; }
+    return;
+  }
+  const bf = e.target.closest('[data-fbcancel]');
+  if(bf){ bf.disabled = true;
+    try{ await fbFetch('cancel', { id: bf.dataset.fbcancel }); await refreshFbLabel(); loadQueue(); }
+    catch(err){ setStatus((err&&err.message)||'Could not cancel that.','err'); bf.disabled=false; }
+  }
 });
 
 // ---- Queue / calendar of scheduled + upcoming posts ----
 async function loadQueue(){
   const box=$('#scQueue'); if(!box) return;
   box.innerHTML='<span class="empty">Loading your queue…</span>';
+  // Postiz and Volt's own two direct queues are independent sources — one being unconfigured or
+  // erroring must never hide the other two. This used to return early on ANY Postiz failure,
+  // which hid the Instagram/Facebook rows too even though they had nothing to do with Postiz.
+  let q = [], postizNote = '';
   try{
     const r=await fetch(API+'/postiz?action=queue');
     let d={}; try{ d=await r.json(); }catch(_){}
-    if(r.status===401){ box.innerHTML='<span class="empty">Please sign in.</span>'; renderShape([]); return; }
-    if(!r.ok || (d&&d.error==='NOT_CONFIGURED')){ box.innerHTML='<span class="empty">Connect Postiz to see your schedule.</span>'; renderShape([]); return; }
-    const q=(d&&d.queue)||[];
-    renderShape(q);
-    const igRows = renderIgQueue();
-    if(!q.length){ box.innerHTML = igRows || '<span class="empty">Nothing scheduled yet — compose something above and schedule it.</span>'; return; }
-    box.innerHTML = igRows + q.map(p=>{
-      const dt = p.publishDate ? new Date(p.publishDate) : null;
-      const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
-      const st = p.state==='QUEUE'?'Scheduled':(p.state==='DRAFT'?'Draft':(p.state||''));
-      return '<div class="q-row"><div class="q-when">'+when+'</div><div class="q-body">'+esc(p.content||'(no text)')+'<div class="q-meta">'+esc(p.channel||'')+(p.platform?(' · '+esc(p.platform)):'')+'</div></div><span class="q-state">'+esc(st)+'</span></div>';
-    }).join('');
-  }catch(e){ box.innerHTML='<span class="empty">Couldn’t load the queue. '+esc(e.message||'')+'</span>'; renderShape([]); }
+    if(r.status===401) postizNote = 'Please sign in to see Postiz-scheduled posts.';
+    else if(!r.ok || (d&&d.error==='NOT_CONFIGURED')) postizNote = 'Connect Postiz to see channels scheduled there too.';
+    else q = (d&&d.queue)||[];
+  }catch(e){ postizNote = 'Couldn’t reach Postiz.'; }
+  // ig.queue is kept current by loadIg() itself; Facebook's queue is fetched fresh here since
+  // there's no equivalent shared refresh point for it yet.
+  try{ const fd = await fbFetch('status'); fbQueueData = (fd && fd.queue) || []; }catch(e){ /* not connected yet, or an error — just show nothing for it */ }
+  renderShape(q);
+  const igRows = renderIgQueue(), fbRows = renderFbQueue();
+  const directRows = igRows + fbRows;
+  if(!q.length){ box.innerHTML = directRows || (postizNote ? '<span class="empty">'+esc(postizNote)+'</span>' : '<span class="empty">Nothing scheduled yet — compose something above and schedule it.</span>'); return; }
+  box.innerHTML = directRows + q.map(p=>{
+    const dt = p.publishDate ? new Date(p.publishDate) : null;
+    const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
+    const st = p.state==='QUEUE'?'Scheduled':(p.state==='DRAFT'?'Draft':(p.state||''));
+    return '<div class="q-row"><div class="q-when">'+when+'</div><div class="q-body">'+esc(p.content||'(no text)')+'<div class="q-meta">'+esc(p.channel||'')+(p.platform?(' · '+esc(p.platform)):'')+'</div></div><span class="q-state">'+esc(st)+'</span></div>';
+  }).join('');
 }
 $('#scRefreshQueue').addEventListener('click', loadQueue);
 

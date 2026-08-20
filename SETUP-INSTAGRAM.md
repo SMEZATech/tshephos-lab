@@ -47,7 +47,7 @@ Note the **App ID** and **App Secret** from *App settings → Basic* — step 4 
 1. Open the **Graph API Explorer**: <https://developers.facebook.com/tools/explorer>
 2. Top right: pick your app in **Meta App**.
 3. Click **Generate Access Token** and sign in / grant access.
-4. In **Permissions**, add all five:
+4. In **Permissions**, add all six:
    - `instagram_basic`
    - `instagram_content_publish`
    - `pages_show_list`
@@ -56,6 +56,9 @@ Note the **App ID** and **App Secret** from *App settings → Basic* — step 4 
      Stats page** to show reach and profile-view trends. Without it, Stats still works — likes,
      comments and follower count don't need this permission at all — it just won't have those two
      numbers, and says so plainly rather than silently omitting them.
+   - `pages_manage_posts` — optional for Instagram, but **required to also post to your Facebook
+     Page** from the same connection (see "Facebook Page posting" below). Skip it if you only want
+     Instagram; add it (and reconnect) any time later if you change your mind.
 5. Click **Generate Access Token** again so the token actually carries those scopes.
 6. Copy the token.
 
@@ -84,9 +87,11 @@ derived from a long-lived user token do not expire. Volt shows you which one it 
 
 ## 5. Tell Volt
 
-### 5a. Create the queue table
+### 5a. Create the queue table(s)
 
-Supabase → **SQL Editor** → paste and run [`sql/ig_queue.sql`](sql/ig_queue.sql) from this repo.
+Supabase → **SQL Editor** → paste and run [`sql/ig_queue.sql`](sql/ig_queue.sql). If you're also
+setting up Facebook Page posting (below), run [`sql/fb_queue.sql`](sql/fb_queue.sql) too — it's a
+separate small table, not an Instagram dependency, so skip it if you only want Instagram for now.
 
 ### 5b. Add two environment variables in Vercel
 
@@ -156,6 +161,33 @@ posts and best-time-to-post chart. Two tiers, deliberately:
 Every post Stats reads is also logged into **Volt Brain** — the same table Postiz's own top-posts
 action writes into — so Studio's Strategy Proxy gets stronger from real Instagram outcomes
 regardless of which of the two publishing paths posted them.
+
+---
+
+## Facebook Page posting
+
+Not a second integration — **the same Meta app, the same connected Page, the same token.**
+Facebook Page posting only ever needed one more scope (`pages_manage_posts`, see step 3), because
+LinkedIn-style partner gating turned out NOT to apply here: posting to a Page you administer is
+Standard Access, self-serve, exactly like Instagram's own publishing permission.
+
+**If you already connected Instagram before adding `pages_manage_posts`:** repeat step 3 with it
+added, then Schedule → Instagram card → Connect again with the new token. There's no separate
+"Connect Facebook" button — once the scope is on the connection, a **📘 Facebook Page** chip
+appears under *Publish to* automatically.
+
+What it can do today: **feed posts** (text) and **photo posts** (image + optional caption) — the
+two Graph endpoints that publish synchronously, no media-container-and-poll dance like Instagram's
+stories. There's no Facebook Story/Reel support in this build. A caption is optional on a photo
+post; a caption is required on a text-only post (there has to be something to say).
+
+Scheduling works the same way as Instagram — same drain cron (`.github/workflows/ig-drain.yml` now
+loops over both `instagram` and `facebook` each run), same atomic per-row claim, same three-attempt
+retry before a row shows as *Failed* with Facebook's own error text.
+
+**No fixed daily post cap** the way Instagram has an explicit 100/24h — Meta's own docs describe an
+engagement-scaled formula instead, plus an undisclosed anti-spam layer, so there's nothing honest to
+show as a quota number here the way the Instagram card does.
 
 ---
 

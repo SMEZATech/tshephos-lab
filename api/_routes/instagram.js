@@ -106,11 +106,12 @@ async function resolveAccount(token, explicitIgId) {
     const me = await graph("/" + encodeURIComponent(explicitIgId), { fields: "id,username,name", access_token: token });
     return { igUserId: String(me.id), username: me.username || me.name || "", via: "explicit" };
   }
-  // A Page token: /me is the Page, which carries instagram_business_account.
+  // A Page token: /me is the Page ITSELF (its own numeric id — this is also the Facebook Page id
+  // Facebook Page posting needs), and it carries instagram_business_account for the linked account.
   try {
     const me = await graph("/me", { fields: "id,name,instagram_business_account{id,username}", access_token: token });
     if (me && me.instagram_business_account && me.instagram_business_account.id) {
-      return { igUserId: String(me.instagram_business_account.id), username: me.instagram_business_account.username || "", page: me.name || "", via: "page-token" };
+      return { igUserId: String(me.instagram_business_account.id), username: me.instagram_business_account.username || "", page: me.name || "", pageId: String(me.id), via: "page-token" };
     }
   } catch (e) { /* fall through to the account list */ }
   // A User token: walk the Pages and take the first with an Instagram account attached.
@@ -151,6 +152,7 @@ async function resolveAccount(token, explicitIgId) {
     igUserId: String(hit.instagram_business_account.id),
     username: hit.instagram_business_account.username || "",
     page: hit.name || "",
+    pageId: String(hit.id),
     // The PAGE token is the one to keep: Page tokens derived from a long-lived user token do not
     // expire, whereas the user token itself does. Storing the user token is why these integrations
     // mysteriously stop working after 60 days.
@@ -464,15 +466,21 @@ export default async function handler(req, res) {
       try {
         account = await graph("/" + creds.igUserId, { fields: "id,username,name,profile_picture_url,followers_count", access_token: creds.token });
       } catch (e) { err = (e && e.message) || "Token check failed"; }
+      const ti = await tokenInfo(creds.token);
       return res.status(200).json({
         connected: !err,
         error: err,
         apiVersion: V,
         cron: !!process.env.CRON_SECRET,
         account: account ? { id: account.id, username: account.username, name: account.name, picture: account.profile_picture_url, followers: account.followers_count } : { id: creds.igUserId, username: creds.username || "" },
-        token: await tokenInfo(creds.token),
+        token: ti,
         quota: err ? null : await quota(creds),
         queue: await queueList(orgId),
+        // The same connection also carries the Facebook Page — see facebook.js. `ready` needs BOTH
+        // the Page id (only present since the pageId field was added; an older connection needs a
+        // reconnect to pick it up) AND the pages_manage_posts scope, which has to be requested up
+        // front — Meta doesn't allow silently upgrading an existing token's scopes.
+        facebook: { pageId: creds.pageId || null, ready: !!(creds.pageId && (ti.scopes || []).includes("pages_manage_posts")) },
       });
     }
 
@@ -501,7 +509,10 @@ export default async function handler(req, res) {
       // Prove it can actually see the account with the token we are about to store, so "Connected"
       // never means "we stored something and hoped".
       const me = await graph("/" + acct.igUserId, { fields: "id,username", access_token: keep });
-      const ok = await saveCreds(orgId, { igUserId: acct.igUserId, token: keep, username: me.username || acct.username || "" });
+      // pageId rides along on the SAME connection — it's what api/_routes/facebook.js needs to post
+      // to the Page's own feed/photos, using this exact token (Facebook Page posting is "the same
+      // Page token, one more scope", not a separate auth flow — see facebook.js's header comment).
+      const ok = await saveCreds(orgId, { igUserId: acct.igUserId, token: keep, username: me.username || acct.username || "", pageId: acct.pageId || null });
       if (!ok) return res.status(502).json({ error: "Could not save the connection. Is SECRETS_MASTER_KEY set in Vercel?" });
       return res.status(200).json({ ok: true, account: { id: me.id, username: me.username || "" }, via: acct.via, page: acct.page || null, token: await tokenInfo(keep) });
     }
@@ -582,3 +593,10 @@ export default async function handler(req, res) {
     });
   }
 }
+
+// Facebook Page posting rides on this EXACT connection — same Meta app, same Page, same token,
+// just one more scope (pages_manage_posts) requested at connect time. Rather than a second
+// credential store and a second "Connect" button asking for a token Volt already has, facebook.js
+// reads the identical org_secret row (provider "instagram" — it's really "the Meta connection")
+// via this loadCreds, and posts with creds.pageId + creds.token through the same graph() helper.
+export { graph, loadCreds };
