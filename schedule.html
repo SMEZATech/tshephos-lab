@@ -346,14 +346,23 @@ async function loadIg(){
       + '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-start;">'
       + '<input id="igToken" type="password" placeholder="Paste your Meta access token…" style="flex:1;min-width:240px;" autocomplete="off">'
       + '<button type="button" class="chip" id="igGo" style="padding:13px 16px;">Connect</button></div>'
+      // Volt walks your Pages (and Business Portfolios) to find the linked Instagram account
+      // automatically — this is only for the rare case where that walk still can't see it (a Page
+      // shared into a Business a different way, or one your token can list but not fully read). If
+      // you know the numeric Instagram Business Account ID (Graph API Explorer: query your Page's
+      // id with fields=instagram_business_account and it's the id inside that object), paste it
+      // here to skip the search entirely.
+      + '<details style="margin-top:9px;"><summary style="cursor:pointer;font-size:12px;color:var(--faint);">Know the exact Instagram account ID? (optional, only needed if Connect can’t find it)</summary>'
+      + '<input id="igIdOverride" type="text" placeholder="e.g. 17841404968795368" style="margin-top:8px;" autocomplete="off"></details>'
       + '<div class="status" id="igStatus"></div>';
     $('#igGo').addEventListener('click', async ()=>{
       const tok = ($('#igToken').value||'').trim();
+      const igUserId = ($('#igIdOverride') && $('#igIdOverride').value || '').trim();
       const s = $('#igStatus');
       if(!tok){ s.textContent='Paste the token first.'; s.className='status err'; return; }
       s.innerHTML='<span class="spinner"></span> Checking with Instagram…'; s.className='status busy';
       try{
-        const d = await igFetch('connect', { token: tok });
+        const d = await igFetch('connect', igUserId ? { token: tok, igUserId } : { token: tok });
         s.textContent = '✓ Connected as @' + ((d.account&&d.account.username)||'') + (d.page?(' via '+d.page):'');
         s.className='status ok';
         setTimeout(()=>{ loadIg(); loadQueue(); }, 700);

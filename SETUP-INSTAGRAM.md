@@ -151,7 +151,22 @@ The Schedule page shows Instagram's own error text. The two you are most likely 
 
 | Message | Fix |
 |---|---|
-| *No Instagram Business account is attached to any Page…* | Step 1 — link the Page, and check the account is Business/Creator |
+| *No Instagram Business account is attached to any Page…* | Volt checks `/me/accounts` first, then walks your Business Portfolios (`/me/businesses` → each one's owned/client Pages) — most real accounts are set up this second way, so this should resolve on its own. If it still can't find it: confirm in Meta Business Suite that the Page really has an Instagram account under **Page Settings → Linked accounts** (this is a different toggle from Instagram's own "Connect a Facebook Page"), and that the account is Business/Creator. As a last resort, paste the numeric Instagram account ID directly into the optional field under the token box on the Connect screen — find it via Graph API Explorer: query your Page's `id` with `fields=instagram_business_account` and use the `id` inside that object. |
 | *Instagram only accepts JPEG for stories* | Shouldn't happen (Volt converts), but re-send from Studio if it does |
 | *The 24-hour publishing limit is used up* | Wait — it is a rolling window |
 | *Please sign in* / 401 | Your token was revoked or the app was switched to Live mode without review; redo steps 3–4 |
+
+**A note on the app-creation wizard, since it changed recently:** the "Use cases" step now has a
+sub-choice between **"API setup with Instagram login"** (a newer, Page-free flow) and **"API setup
+with Facebook login"** (the classic Page-based one this guide is written for). If your app defaults
+to the Instagram-login tab, switch to the Facebook-login one — that's the one whose permission names
+(`pages_show_list`, `instagram_content_publish`, etc.) match everything above. In the Graph API
+Explorer itself, watch the domain dropdown next to `graph.` at the top: it can silently flip from
+`.facebook.com` to `.instagram.com` when certain permissions are picked, taking you into the other
+flow without any obvious signal beyond the button relabelling to "Generate **Instagram** Access
+Token." If you see that, switch the dropdown back to `.facebook.com`.
+
+**Also:** checking a permission box in Explorer only affects the *next* token — it does not
+retroactively apply to whatever token is already sitting in the Access Token field. After adding a
+permission, always click **Generate Access Token** again before using or copying the token, and
+sanity-check the "Access Token Info" panel actually lists all the scopes you expect.

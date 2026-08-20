@@ -115,11 +115,36 @@ async function resolveAccount(token, explicitIgId) {
   } catch (e) { /* fall through to the account list */ }
   // A User token: walk the Pages and take the first with an Instagram account attached.
   const list = await graph("/me/accounts", { fields: "id,name,access_token,instagram_business_account{id,username}", limit: "50", access_token: token });
-  const pages = (list && list.data) || [];
-  const hit = pages.find((p) => p && p.instagram_business_account && p.instagram_business_account.id);
+  let pages = (list && list.data) || [];
+  let hit = pages.find((p) => p && p.instagram_business_account && p.instagram_business_account.id);
+
+  // /me/accounts ONLY lists Pages the personal profile administers DIRECTLY. A Page owned by a
+  // BUSINESS PORTFOLIO — which is how Meta sets up most Pages now, and which the app-creation
+  // wizard itself pushes you toward by requiring a Business Portfolio to attach the app to — does
+  // not show up there at all, even with a correctly-scoped, fully-permissioned token. Confirmed
+  // directly: /me/accounts returned an empty array for a token whose OWN consent screen said
+  // "1 Page selected," while querying that Page's id directly returned its instagram_business_account
+  // with no trouble. So: walk the Business Portfolios the token can see and check the Pages owned
+  // (or shared as a client) inside each one.
+  if (!hit) {
+    try {
+      const biz = await graph("/me/businesses", { fields: "id,name", limit: "25", access_token: token });
+      for (const b of (biz && biz.data) || []) {
+        for (const edge of ["owned_pages", "client_pages"]) {
+          try {
+            const bp = await graph("/" + b.id + "/" + edge, { fields: "id,name,access_token,instagram_business_account{id,username}", limit: "50", access_token: token });
+            const found = ((bp && bp.data) || []).find((p) => p && p.instagram_business_account && p.instagram_business_account.id);
+            if (found) { hit = found; pages = pages.concat((bp && bp.data) || []); break; }
+          } catch (e) { /* this business may not expose this edge to this token — try the next */ }
+        }
+        if (hit) break;
+      }
+    } catch (e) { /* /me/businesses itself can fail for a token with no business at all — fine, fall through */ }
+  }
+
   if (!hit) {
     throw Object.assign(new Error(
-      "That token works, but no Instagram Business account is attached to any Page it can see. In Meta Business Suite, link your Instagram account to your Facebook Page, and make sure it is a Business or Creator account (not Personal)."
+      "That token works, but no Instagram Business account is attached to any Page it can see — including inside your Business Portfolios. In Meta Business Suite, link your Instagram account to your Facebook Page, and make sure it is a Business or Creator account (not Personal)."
     ), { status: 400 });
   }
   return {
