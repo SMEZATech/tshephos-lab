@@ -26,12 +26,19 @@ A story cannot be published by API from a Personal account, and no token will fi
 ## 2. Create a Meta app
 
 1. Go to <https://developers.facebook.com/apps> → **Create app**
-2. Use case: **Other** → app type: **Business**
-3. Name it something like `Volt Publisher`. Leave it in **Development** mode.
-4. On the app dashboard, add the **Instagram** product (or just use the Graph API Explorer below —
-   the product page is not strictly required for a Dev-mode app).
+2. Fill in **App details** (name it something like `Volt Publisher`, any contact email).
+3. **Use cases** step: filter to **Content management** (or search "Instagram") and select
+   **"Manage messaging and content on Instagram."** That is the one use case that covers
+   publishing — don't add Marketing API, WhatsApp, Threads, etc., you don't need them.
+4. **Business** step: connect a Business Portfolio (create one on the spot if you don't have one —
+   any name is fine). You do **not** need to complete Business *Verification* (the ID-document
+   flow) — that is only required for apps that publish to accounts they don't own. This app only
+   ever publishes to your own account, which stays at Standard Access with no review needed.
+5. **Requirements** step: should show green checks if step 1 above (professional account + linked
+   Page) is already done. A red "not connected" here means go back and finish step 1 first.
+6. **Overview** → **Finish**. Leave the app in **Development** mode — it never needs to go Live.
 
-Note the **App ID** and **App Secret** from *App settings → Basic* — step 4 uses them.
+Note the **App ID** and **App Secret** from *App settings → Basic* — step 4 below uses them.
 
 ---
 
