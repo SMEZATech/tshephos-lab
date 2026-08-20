@@ -327,7 +327,8 @@ async function loadIg(){
       + (ig.account.picture ? '<img src="'+esc(ig.account.picture)+'" alt="" style="width:42px;height:42px;border-radius:50%;border:1px solid var(--border);">' : '')
       + '<div style="flex:1;min-width:180px;"><div style="font-weight:700;font-size:15px;">@'+esc(ig.account.username||'instagram')+'</div>'
       + '<div class="prev-when">'+(ig.account.followers!=null?(Number(ig.account.followers).toLocaleString()+' followers · '):'')
-      + (q && q.used!=null ? (q.used+'/'+q.limit+' posts used today') : 'ready')+'</div></div>'
+      + (q && q.used!=null ? (q.used+'/'+q.limit+' posts used today') : 'ready')+'</div>'
+      + '<a href="analytics.html" class="chip" style="text-decoration:none;">📊 View report</a>'
       + '<button type="button" class="chip" id="igOff">Disconnect</button></div>'
       + (exp ? '<p class="note">'+esc(exp)+'</p>' : '')
       + (!ig.cron ? '<p class="note" style="color:var(--low)">Scheduling is off — CRON_SECRET isn’t set in Vercel, so only “Post now” will work.</p>' : '');

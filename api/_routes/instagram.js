@@ -252,6 +252,119 @@ async function quota(creds) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Reporting. Two tiers, on purpose: likes/comments/media metadata come off the plain Media
+// endpoint and need only `instagram_basic` — the scope every connection already has — so ranked
+// top posts work from the day you connect. Reach/saves/profile-views need `instagram_manage_insights`,
+// a scope not requested during the original connect (publishing and reading insights are separate
+// grants in Meta's model). Rather than make the whole report depend on a scope most connections
+// won't have yet, each insights call is attempted and quietly omitted on failure — the report shows
+// whatever it can, then documents what unlocks with the wider connection.
+// ---------------------------------------------------------------------------------------------
+
+// Same shape as api/postiz.js's `analytics` action (`{days, metrics:[{label,latest,first,
+// percentageChange,points}]}`), on purpose: analytics.html's whole dashboard (KPI cards, deltas,
+// sparkline points) already knows how to render exactly that shape for a Postiz channel. Returning
+// it unchanged means the direct Instagram connection becomes just ANOTHER channel to that page
+// instead of a second reporting UI to build and keep in sync.
+async function accountAnalytics(creds, days) {
+  const metrics = [];
+  // follower_count is its own metric family (needs metric_type=time_series explicitly on current
+  // API versions); reach/profile_views vary by version on whether metric_type is required at all,
+  // so each is tried bare first and, only on a 400, retried with metric_type=time_series. Two tries,
+  // not a guess baked into the URL — the same "verify, don't assume the shape" discipline as
+  // everywhere else this file touches a Graph endpoint whose exact contract isn't in front of us.
+  const since = Math.floor((Date.now() - days * 86400000) / 1000);
+  const until = Math.floor(Date.now() / 1000);
+  async function tryMetric(name, extra) {
+    const base = { metric: name, period: "day", since: String(since), until: String(until), access_token: creds.token };
+    try { return await graph("/" + creds.igUserId + "/insights", Object.assign({}, base, extra), "GET"); }
+    catch (e) {
+      if (extra && extra.metric_type) throw e;   // already tried the fallback; let it fail upward
+      return graph("/" + creds.igUserId + "/insights", Object.assign({}, base, { metric_type: "time_series" }), "GET");
+    }
+  }
+  for (const name of ["reach", "profile_views"]) {
+    try {
+      const d = await tryMetric(name);
+      const row = (d && d.data && d.data[0]) || {};
+      const points = (row.values || []).map((v) => ({ date: v.end_time, total: Number(v.value) })).filter((p) => Number.isFinite(p.total));
+      if (!points.length) continue;
+      const latest = points[points.length - 1].total, first = points[0].total;
+      metrics.push({
+        label: name === "reach" ? "Reach" : "Profile views",
+        latest, first,
+        percentageChange: first ? ((latest - first) / first) * 100 : null,
+        points,
+      });
+    } catch (e) { /* this account may not have instagram_manage_insights yet — omit, don't fail the report */ }
+  }
+  // Follower count and media count come straight off the account object — always available.
+  try {
+    const acc = await graph("/" + creds.igUserId, { fields: "followers_count,media_count", access_token: creds.token });
+    if (acc.followers_count != null) metrics.push({ label: "Followers", latest: acc.followers_count, first: null, percentageChange: null, points: [] });
+    if (acc.media_count != null) metrics.push({ label: "Total posts", latest: acc.media_count, first: null, percentageChange: null, points: [] });
+  } catch (e) { /* account read itself failing means the token is bad — status action already surfaces that */ }
+  return { days, metrics, insightsAvailable: metrics.some((m) => m.label === "Reach" || m.label === "Profile views") };
+}
+
+// Same shape as api/postiz.js's `topposts` action (`{days, topPosts:[{id,content,publishDate,url,
+// metrics,engagement}]}`) for the identical reason — analytics.html's top-posts card, best-time-to-
+// post chart and playbook AI call all already consume that shape unmodified.
+async function topPosts(creds, orgId, days, limit) {
+  const since = Math.floor((Date.now() - days * 86400000) / 1000);
+  const list = await graph("/" + creds.igUserId + "/media", {
+    fields: "id,caption,timestamp,permalink,like_count,comments_count,media_product_type",
+    limit: "50", access_token: creds.token,
+  });
+  let posts = ((list && list.data) || []).filter((p) => p && p.timestamp && new Date(p.timestamp).getTime() / 1000 >= since);
+
+  // Base engagement from fields every connection already has (instagram_basic). Reach/saves layer
+  // on top, best-effort, per post — one post's insights failing must not blank the other nine.
+  posts = await Promise.all(posts.map(async (p) => {
+    let reach = null, saved = null;
+    try {
+      const ins = await graph("/" + p.id + "/insights", { metric: "reach,saved", access_token: creds.token });
+      for (const row of (ins && ins.data) || []) {
+        const v = row.values && row.values[0] && row.values[0].value;
+        if (row.name === "reach") reach = v; else if (row.name === "saved") saved = v;
+      }
+    } catch (e) { /* pre-instagram_manage_insights connection, or a media type Meta doesn't support insights for */ }
+    const likes = p.like_count || 0, comments = p.comments_count || 0;
+    const engagement = likes + comments + (saved || 0);
+    const metrics = [{ label: "Likes", value: likes }, { label: "Comments", value: comments }];
+    if (reach != null) metrics.push({ label: "Reach", value: reach });
+    if (saved != null) metrics.push({ label: "Saved", value: saved });
+    return {
+      id: p.id,
+      content: String(p.caption || "").slice(0, 200),
+      publishDate: p.timestamp || "",
+      url: p.permalink || "",
+      metrics, engagement,
+    };
+  }));
+
+  posts.sort((a, b) => b.engagement - a.engagement);
+  posts = posts.slice(0, limit);
+
+  // Volt Brain: the SAME table postiz.js's topposts writes into, so real Instagram outcomes
+  // strengthen Studio's Strategy Proxy regardless of which of the two publishing paths posted them.
+  try {
+    const orgId = creds.orgId;
+    if (orgId) {
+      await Promise.all(posts.map((p) => recordMetric(orgId, {
+        platform: "instagram", external_id: p.id, posted_text: p.content, published_at: p.publishDate || null,
+        likes: (p.metrics.find((m) => m.label === "Likes") || {}).value || 0,
+        comments: (p.metrics.find((m) => m.label === "Comments") || {}).value || 0,
+        shares: 0, impressions: (p.metrics.find((m) => m.label === "Reach") || {}).value || 0,
+        engagement: p.engagement,
+      })));
+    }
+  } catch (e) { /* best-effort — never break the report */ }
+
+  return { days, topPosts: posts };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Queue
 // ---------------------------------------------------------------------------------------------
 function svcH() {
@@ -361,6 +474,18 @@ export default async function handler(req, res) {
         quota: err ? null : await quota(creds),
         queue: await queueList(orgId),
       });
+    }
+
+    // ---- Reporting. Same response shapes as api/postiz.js's analytics/topposts (see the two
+    // functions above for why) — this is what lets analytics.html treat the direct connection as
+    // just another channel rather than needing a second dashboard built for it.
+    if (action === "analytics" || action === "topposts") {
+      const creds = await loadCreds(orgId);
+      if (!creds || !creds.token) return res.status(400).json({ error: "Instagram isn't connected yet." });
+      const days = Math.max(1, Math.min(90, parseInt((req.query && req.query.days) || "30", 10) || 30));
+      if (action === "analytics") return res.status(200).json(await accountAnalytics(creds, days));
+      const limit = Math.max(1, Math.min(20, parseInt((req.query && req.query.limit) || "6", 10) || 6));
+      return res.status(200).json(await topPosts(creds, orgId, days, limit));
     }
 
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });

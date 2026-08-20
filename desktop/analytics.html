@@ -364,6 +364,15 @@ function postizSetupHtml(){
     + '<p class="ls-msg" style="margin-top:10px;">Until then, use <b>Manual entry</b> — it works today.</p>'
     + refreshBtnHtml() + '</div>';
 }
+// The direct Instagram connection (api/_routes/instagram.js) is surfaced here as just ANOTHER
+// channel, prefixed 'ig-direct:' so pullLiveDash/pullAllChannels/runTopPosts know to route its
+// three calls (analytics/topposts) to /api/instagram instead of /api/postiz. Both endpoints
+// return the identical {days,metrics}/{days,topPosts} shapes on purpose (see instagram.js's
+// accountAnalytics/topPosts) — this page's whole dashboard, top-posts card and best-time chart
+// needed zero new rendering code to pick it up.
+const IG_DIRECT_PREFIX = 'ig-direct:';
+function isIgDirect(id){ return String(id||'').indexOf(IG_DIRECT_PREFIX) === 0; }
+
 async function fetchChannels(force){
   const status = document.getElementById('liveStatus');
   const controls = document.getElementById('liveControls');
@@ -371,27 +380,36 @@ async function fetchChannels(force){
   if(_channelsLoaded && !force) return;
   status.innerHTML = '<p class="ls-msg"><span class="spinner" style="border-color:rgba(182,255,61,.3);border-top-color:#B6FF3D"></span> Loading channels…</p>';
   controls.style.display = 'none';
+
+  // Postiz and the direct Instagram connection are independent — one being unconfigured must not
+  // hide the other. Each is fetched separately and failures are absorbed into an empty list.
+  let channels = [];
   try{
     const r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=channels');
     let data; try { data = await r.json(); } catch { data = null; }
-    if(!r.ok || (data && data.error === 'NOT_CONFIGURED')){ status.innerHTML = postizSetupHtml(); wireRefresh(); return; }
-    const channels = (data && data.channels) || [];
-    if(!channels.length){
-      status.innerHTML = '<p class="ls-msg">No channels connected in Postiz yet. Connect your accounts in the Postiz dashboard, then retry.</p>' + refreshBtnHtml();
-      wireRefresh(); return;
+    if(r.ok && !(data && data.error === 'NOT_CONFIGURED')) channels = (data && data.channels) || [];
+  }catch(e){ /* Postiz proxy unreachable — direct Instagram can still work */ }
+
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/instagram?action=status');
+    let data; try { data = await r.json(); } catch { data = null; }
+    if(r.ok && data && data.connected && data.account){
+      channels = [{ id: IG_DIRECT_PREFIX + data.account.id, name: '@' + (data.account.username || 'instagram') + ' (direct)', platform: 'instagram' }].concat(channels);
     }
-    state.channels = channels;
-    const allOpt = channels.length > 1 ? '<option value="__ALL__">🌐 All channels — overview</option>' : '';
-    sel.innerHTML = allOpt + channels.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.platform ? (' · ' + esc(c.platform)) : '') + '</option>').join('');
-    status.innerHTML = '';
-    controls.style.display = '';
-    _channelsLoaded = true;
-    syncRun();
-    if(state.mode === 'live') run(); // auto-pull the dashboard — no manual step
-  }catch(e){
-    status.innerHTML = '<p class="ls-msg">Couldn’t reach the Postiz proxy. ' + esc(e.message || '') + '</p>' + refreshBtnHtml();
-    wireRefresh();
+  }catch(e){ /* direct Instagram unreachable — Postiz channels can still work */ }
+
+  if(!channels.length){
+    status.innerHTML = '<p class="ls-msg">No channels connected yet. Connect Instagram directly on the <a href="schedule.html" style="color:var(--accent)">Schedule</a> page, or connect accounts in Postiz.</p>' + refreshBtnHtml();
+    wireRefresh(); return;
   }
+  state.channels = channels;
+  const allOpt = channels.length > 1 ? '<option value="__ALL__">🌐 All channels — overview</option>' : '';
+  sel.innerHTML = allOpt + channels.map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + (c.platform ? (' · ' + esc(c.platform)) : '') + '</option>').join('');
+  status.innerHTML = '';
+  controls.style.display = '';
+  _channelsLoaded = true;
+  syncRun();
+  if(state.mode === 'live') run(); // auto-pull the dashboard — no manual step
 }
 
 async function pullLiveDash(){
@@ -400,16 +418,27 @@ async function pullLiveDash(){
   if(!id) throw new Error('Pick a connected channel first.');
   const days = parseInt((document.getElementById('liveDays') || {}).value || '30', 10) || 30;
   state.liveCtx = { id: id, days: days };
+  const direct = isIgDirect(id);
+  const url = direct
+    ? ('https://tshephos-lab.vercel.app/api/instagram?action=analytics&days=' + days)
+    : ('https://tshephos-lab.vercel.app/api/postiz?action=analytics&id=' + encodeURIComponent(id) + '&days=' + days);
   let r, data;
-  try { r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=analytics&id=' + encodeURIComponent(id) + '&days=' + days); data = await r.json(); }
-  catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
+  try { r = await fetch(url); data = await r.json(); }
+  catch(e){ throw new Error(direct ? 'Could not reach Volt’s Instagram connection.' : 'Could not reach the Postiz proxy.'); }
   if(!r.ok){
     if(data && data.error === 'NOT_CONFIGURED') throw new Error(data.message || 'Postiz isn’t connected yet.');
-    throw new Error((data && (data.message || data.error)) || 'Postiz request failed.');
+    throw new Error((data && (data.message || data.error)) || (direct ? 'Instagram request failed.' : 'Postiz request failed.'));
   }
   const metrics = (data && data.metrics) || [];
-  if(!metrics.length) throw new Error('Postiz returned no analytics for this channel/period yet — some platforms need a few days of data or extra verification.');
-  return dashFromLive(metrics, (data && data.days) || days);
+  if(!metrics.length) throw new Error(direct ? 'No account data yet — Instagram may still be preparing it for a brand-new connection.' : 'Postiz returned no analytics for this channel/period yet — some platforms need a few days of data or extra verification.');
+  const dash = dashFromLive(metrics, (data && data.days) || days);
+  // The direct connection can report follower/reach growth without instagram_manage_insights, but
+  // reach and profile-views specifically need that scope — say so plainly instead of a KPI card
+  // just quietly never appearing, which reads as a bug rather than a permission gap.
+  if(direct && data && data.insightsAvailable === false){
+    dash.summary = (dash.summary ? dash.summary + '\n' : '') + '⚠ Add instagram_manage_insights to your connection for reach and profile-view trends — see SETUP-INSTAGRAM.md.';
+  }
+  return dash;
 }
 function dashFromLive(metrics, days){
   const kpis = metrics.map(m => ({ label:m.label, cur:(m.latest != null ? m.latest : null), delta:(m.percentageChange != null ? m.percentageChange : null), goodUp:true }))
@@ -430,7 +459,10 @@ async function pullAllChannels(){
   const out = [];
   for(const c of chans){
     try{
-      const r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=analytics&id=' + encodeURIComponent(c.id) + '&days=' + days);
+      const url = isIgDirect(c.id)
+        ? ('https://tshephos-lab.vercel.app/api/instagram?action=analytics&days=' + days)
+        : ('https://tshephos-lab.vercel.app/api/postiz?action=analytics&id=' + encodeURIComponent(c.id) + '&days=' + days);
+      const r = await fetch(url);
       const data = await r.json().catch(() => ({}));
       const metrics = (r.ok && data && data.metrics) || [];
       out.push({ id:c.id, name:c.name, platform:c.platform, metrics, ok:metrics.length > 0, err:(!r.ok && data && (data.message || data.error)) || '' });
@@ -615,21 +647,29 @@ function captureMetricsQuietly(ctx){
   const key = ctx.id + ':' + ctx.days;
   if (_captured === key) return;          // once per channel+window per page visit
   _captured = key;
-  fetch('https://tshephos-lab.vercel.app/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=10')
-    .catch(() => {});                     // best-effort by design; the report must not depend on it
+  const url = isIgDirect(ctx.id)
+    ? ('https://tshephos-lab.vercel.app/api/instagram?action=topposts&days=' + ctx.days + '&limit=10')
+    : ('https://tshephos-lab.vercel.app/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=10');
+  fetch(url).catch(() => {});             // best-effort by design; the report must not depend on it
 }
 
 async function runTopPosts(){
   const ctx = state.liveCtx;
   if(!ctx || !ctx.id) return;
+  const direct = isIgDirect(ctx.id);
   state.topLoading = true; state.topError = ''; render();
   try{
+    const url = direct
+      ? ('https://tshephos-lab.vercel.app/api/instagram?action=topposts&days=' + ctx.days + '&limit=6')
+      : ('https://tshephos-lab.vercel.app/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=6');
     let r, data;
-    try { r = await fetch('https://tshephos-lab.vercel.app/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=6'); data = await r.json(); }
-    catch(e){ throw new Error('Could not reach the Postiz proxy.'); }
-    if(!r.ok) throw new Error((data && (data.message || data.error)) || 'Postiz request failed.');
+    try { r = await fetch(url); data = await r.json(); }
+    catch(e){ throw new Error(direct ? 'Could not reach Volt’s Instagram connection.' : 'Could not reach the Postiz proxy.'); }
+    if(!r.ok) throw new Error((data && (data.message || data.error)) || (direct ? 'Instagram request failed.' : 'Postiz request failed.'));
     const posts = (data && data.topPosts) || [];
-    if(!posts.length) throw new Error('No posts published through Postiz in this window. Top Posts ranks posts you schedule or publish via Postiz — content posted directly on the platform isn’t tracked here. Post through Postiz (or widen the look-back) and they’ll appear.');
+    if(!posts.length) throw new Error(direct
+      ? 'No posts on this Instagram account in the selected window — widen the look-back, or this is a brand-new account.'
+      : 'No posts published through Postiz in this window. Top Posts ranks posts you schedule or publish via Postiz — content posted directly on the platform isn’t tracked here. Post through Postiz (or widen the look-back) and they’ll appear.');
     state.topPosts = posts;
     // AI playbook across the winners (optional — cards still show if this fails)
     try{

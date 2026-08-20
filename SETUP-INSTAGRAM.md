@@ -47,15 +47,23 @@ Note the **App ID** and **App Secret** from *App settings → Basic* — step 4 
 1. Open the **Graph API Explorer**: <https://developers.facebook.com/tools/explorer>
 2. Top right: pick your app in **Meta App**.
 3. Click **Generate Access Token** and sign in / grant access.
-4. In **Permissions**, add all four:
+4. In **Permissions**, add all five:
    - `instagram_basic`
    - `instagram_content_publish`
    - `pages_show_list`
    - `pages_read_engagement`
+   - `instagram_manage_insights` — optional for publishing, but **required for the reporting on the
+     Stats page** to show reach and profile-view trends. Without it, Stats still works — likes,
+     comments and follower count don't need this permission at all — it just won't have those two
+     numbers, and says so plainly rather than silently omitting them.
 5. Click **Generate Access Token** again so the token actually carries those scopes.
 6. Copy the token.
 
 > If Instagram doesn't appear in the account picker, go back to step 1 — the Page link is missing.
+
+> **Already connected without `instagram_manage_insights`?** Repeat steps 1–6 with it added, then
+> paste the new token into Schedule → Instagram card → Connect again — reconnecting overwrites the
+> stored one, nothing else needs to change.
 
 ---
 
@@ -131,6 +139,23 @@ post; on a story the image is the message.
 
 Volt converts story images to **JPEG** automatically. Instagram rejects PNG for stories, which is
 the single most common reason a story "just doesn't post" elsewhere.
+
+---
+
+## Reporting
+
+The **Stats** page treats this connection as just another channel — your `@handle (direct)` shows
+up in the same channel picker as any Postiz-connected platform, with the identical dashboard, top
+posts and best-time-to-post chart. Two tiers, deliberately:
+
+- **Likes, comments, follower count, total posts** — work from the moment you connect. No extra
+  permission.
+- **Reach and profile-view trends** — need `instagram_manage_insights` (see step 3 above). Without
+  it, the report says so directly instead of a KPI card just quietly never appearing.
+
+Every post Stats reads is also logged into **Volt Brain** — the same table Postiz's own top-posts
+action writes into — so Studio's Strategy Proxy gets stronger from real Instagram outcomes
+regardless of which of the two publishing paths posted them.
 
 ---
 
