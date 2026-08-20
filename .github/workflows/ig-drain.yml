@@ -1,0 +1,52 @@
+name: Publish due Instagram posts
+
+# THE SCHEDULER'S CLOCK.
+#
+# Vercel's Hobby tier allows one cron invocation per DAY, which cannot honour "post this story at
+# 17:00" — and the whole point of the weekly shape on the Schedule page is hitting 17h instead of
+# the 15h-16h dead window. GitHub Actions runs on a 5-minute floor and is free, so it is the clock.
+#
+# It carries no logic: it pokes one endpoint, which claims each due row atomically and publishes
+# it. Anything that fails is retried on the next run (three attempts, then it is marked errored and
+# shows on the Schedule page) — so a five-minute outage costs five minutes, not a post.
+#
+# Requires one repo secret: CRON_SECRET, matching the CRON_SECRET env var in Vercel.
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+#
+# NOTE ON GITHUB'S CRON: scheduled workflows are queued, not guaranteed to the minute — under load
+# they can run late. Posts go out at or after their time, never before, which is the right
+# direction for a publishing queue.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:        # so a scheduled post can be forced out by hand
+
+# One drain at a time. Two overlapping runs would both be safe (the claim is atomic) but there is
+# no reason to pay for the contention.
+concurrency:
+  group: ig-drain
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Publish anything due
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET repo secret is not set — nothing to do."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' \
+            -H "x-volt-cron: $CRON_SECRET" \
+            "https://tshephos-lab.vercel.app/api/instagram?action=drain")
+          echo "HTTP $code"
+          # The body names which posts went out and why any failed — the only log for a job that
+          # runs while nobody is watching.
+          cat /tmp/out.json || true
+          echo
+          if [ "$code" != "200" ]; then exit 1; fi

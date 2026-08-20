@@ -544,6 +544,13 @@
                         <span>📅</span><span>Send to Scheduler</span>
                     </button>
 
+                    <!-- THE STORY PATH, END TO END. Renders the 9:16 twin whatever is on screen,
+                         converts it to JPEG (Instagram rejects PNG for stories), hosts it, and drops
+                         it in the Scheduler's library ready to publish or schedule. -->
+                    <button onclick="sendToScheduler(true)" id="btn-send-story" class="vt-btn" style="border-color:rgba(182,255,61,.35);" title="Render the 9:16 story, host it as JPEG, and queue it in Schedule for Instagram">
+                        <span>✨</span><span>Send Story → Instagram</span>
+                    </button>
+
                     <!-- THE WAY OUT OF THE TEMPLATE. Until now a Studio design was finished or it was
                          nothing: if the form didn't expose the change you wanted, your options were to
                          rebuild it blank in Freeform or leave for another tool. This hands the actual
@@ -2332,22 +2339,75 @@
     function blobToDataURL(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(blob); }); }
     // Render the current graphic, host it to the media library, and drop the URL into the shared
     // image library so it shows up in the Scheduler ("pull from Studio").
-    async function sendToScheduler() {
+    // Convert a rendered PNG blob to a JPEG data URL. Instagram accepts JPEG ONLY for stories, and
+    // this is the path a story travels: Studio -> hosted URL -> Instagram fetches it. Schedule can
+    // convert too, but converting once here means the hosted file is already the right format and
+    // Instagram is never handed a PNG in the first place.
+    function blobToJpegDataURL(blob) {
+        return new Promise((resolve, reject) => {
+            const im = new Image();
+            im.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = im.naturalWidth; c.height = im.naturalHeight;
+                const x = c.getContext('2d');
+                x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);   // JPEG has no alpha
+                x.drawImage(im, 0, 0);
+                URL.revokeObjectURL(im.src);
+                resolve(c.toDataURL('image/jpeg', 0.92));
+            };
+            im.onerror = () => reject(new Error('Could not convert the graphic.'));
+            im.src = URL.createObjectURL(blob);
+        });
+    }
+
+    // `forStory` renders the 9:16 twin regardless of the format on screen, because a story is the
+    // one destination whose size is not negotiable — and the whole point of the Scheduler work is
+    // getting stories out of Studio and onto Instagram.
+    async function sendToScheduler(forStory) {
         if (state.isExporting) return;
         setExportingUI(true);
         try {
             await ensureLogoBlob(); await ensureDefaultImageBlob();
             const worker = getWorker();
-            const payload = { type: 'render-single', state: buildStatePayload(), brand: brandPayload(), slideIdx: state.campaign === 'carousel' ? state.currentSlide : 0, featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers, scale: 2, filename: buildFilename('png', null) };
+            const isPrem = state.contentType !== 'creative';
+            const dm = forStory ? { w: 1080, h: 1920 } : (isPrem ? premDims() : null);
+            let payload;
+            if (isPrem) {
+                // THE BUG THIS FIXES: this function always sent 'render-single', the CREATIVE
+                // renderer. Every premium design — Funding, Webinars, Glossary, all of them —
+                // therefore uploaded a Creative-mode graphic built from Creative's own state, not
+                // the design on screen. Premium renders through drawPremium ('render-premium').
+                await ensureColorLogoBlob();
+                payload = {
+                    type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers,
+                    logoWhiteBlob: logoBlob, logoColorBlob: colorLogoBlob, featuredBlob: premFeatured(),
+                    premType: state.contentType, dir: state.premiumDir, vals: premVals,
+                    w: dm.w, h: dm.h, scale: 2,
+                    filename: 'SME_' + state.contentType + '_' + state.premiumDir + (forStory ? '_story' : '') + '.png',
+                };
+            } else {
+                const st = buildStatePayload();
+                if (forStory) st.format = 'story';
+                payload = {
+                    type: 'render-single', state: st, brand: brandPayload(),
+                    slideIdx: state.campaign === 'carousel' ? state.currentSlide : 0,
+                    featuredBlob: currentImageBlob, logoBlob: logoBlob, fontBuffers: fontBuffers,
+                    scale: 2, filename: buildFilename('png', null),
+                };
+            }
             const result = await postAndWait(worker, payload);
             showToast('Hosting your graphic…');
-            const dataUrl = await blobToDataURL(result.blob);
-            const r = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataBase64: dataUrl, filename: result.filename, contentType: 'image/png' }) });
+            // Stories go up as JPEG; everything else keeps PNG (lossless, and the feed accepts it).
+            const asJpeg = !!forStory;
+            const dataUrl = asJpeg ? await blobToJpegDataURL(result.blob) : await blobToDataURL(result.blob);
+            const fname = String(result.filename || 'graphic.png').replace(/\.png$/i, asJpeg ? '.jpg' : '.png');
+            const r = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataBase64: dataUrl, filename: fname, contentType: asJpeg ? 'image/jpeg' : 'image/png' }) });
             const d = await r.json().catch(() => ({}));
             if (r.status === 401) throw new Error('Please sign in.');
             if (!r.ok || !d.url) throw new Error((d && (d.message || d.error)) || 'Could not host the image (set up image hosting in Settings).');
             try { let l = JSON.parse(localStorage.getItem('volt_recent_images') || '[]').filter(u => u !== d.url); l.unshift(d.url); localStorage.setItem('volt_recent_images', JSON.stringify(l.slice(0, 24))); } catch (e) {}
-            showToast('✓ Sent to Scheduler — open 📅 Schedule to post it', 'success');
+            showToast(forStory ? '✓ Story sent — open 📅 Schedule to post it to Instagram' : '✓ Sent to Scheduler — open 📅 Schedule to post it', 'success');
+            if (forStory) nudgeStory();
         } catch (err) { showToast("Couldn't send: " + (err.message || err)); }
         finally { setExportingUI(false); }
     }

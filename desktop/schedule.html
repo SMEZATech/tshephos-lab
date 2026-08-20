@@ -108,6 +108,19 @@
     <p class="note" id="shapeNote"></p>
   </div>
 
+  <!-- ================= INSTAGRAM (DIRECT) =================
+       Stories are the whole reason this exists. Postiz can queue a feed post, but the story path
+       has to be Instagram's own Content Publishing API — it is the only thing that actually
+       publishes a story, it costs nothing, and when it fails it tells you why in its own words
+       instead of a scheduler's paraphrase. -->
+  <div class="card" id="igCard" style="margin-bottom:18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <label class="lbl" style="margin:0;">✨ Instagram — direct publishing</label>
+      <span class="lbl" id="igState" style="margin:0;color:var(--faint);">checking…</span>
+    </div>
+    <div id="igBody" style="margin-top:12px;"></div>
+  </div>
+
   <div class="grid">
     <!-- Compose -->
     <div class="card">
@@ -144,6 +157,7 @@
     <div class="card">
       <div class="blk">
         <label class="lbl">Publish to</label>
+        <div class="chips" id="igChip" style="margin-bottom:9px;"></div>
         <div class="chips" id="scChannels"><span class="empty">Loading your channels…</span></div>
       </div>
       <div class="blk">
@@ -264,6 +278,147 @@ $('#scWhen').addEventListener('click', e=>{
   updatePreview();
 });
 
+// =====================================================================
+// INSTAGRAM — DIRECT
+//
+// Everything below talks to /api/instagram, which wraps Instagram's Content Publishing API.
+// Two things about it shape this UI:
+//
+//  • Stories are JPEG ONLY. Studio exports PNG, so a story image has to be converted before it is
+//    handed over. That happens here, in the browser, on a canvas — and the converted file is
+//    re-hosted so Instagram has a public JPEG URL to fetch. Doing it at publish time (rather than
+//    asking the user to export differently) is the difference between this working and this being
+//    a support conversation.
+//
+//  • A story carries no caption. Whatever is in the composer is for the feed post; on a story the
+//    image IS the message. The UI says so rather than silently dropping the text.
+// =====================================================================
+let ig = { connected:false, account:null, queue:[], quota:null, cron:false };
+let igSelected = false;
+
+function igFetch(action, body){
+  const u = API + '/instagram' + (body ? '' : '?action=' + encodeURIComponent(action));
+  return fetch(u, body
+    ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({ action }, body)) }
+    : {}).then(async r => {
+      let d={}; try{ d=await r.json(); }catch(_){}
+      if(!r.ok) throw new Error((d&&(d.error||d.message))||('Instagram request failed ('+r.status+')'));
+      return d;
+    });
+}
+
+async function loadIg(){
+  const st=$('#igState'), body=$('#igBody');
+  try{
+    ig = await igFetch('status');
+  }catch(e){
+    st.textContent='unavailable';
+    body.innerHTML = '<p class="note" style="margin:0;">Couldn’t check Instagram: '+esc(e.message||'')+'</p>';
+    renderIgChip(); return;
+  }
+  if(ig.connected && ig.account){
+    st.textContent = 'connected';
+    st.style.color = 'var(--good)';
+    const q = ig.quota, t = ig.token || {};
+    const exp = t.neverExpires ? 'token does not expire'
+              : (t.expiresAt ? ('token expires ' + new Date(t.expiresAt).toLocaleDateString()) : '');
+    body.innerHTML =
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+      + (ig.account.picture ? '<img src="'+esc(ig.account.picture)+'" alt="" style="width:42px;height:42px;border-radius:50%;border:1px solid var(--border);">' : '')
+      + '<div style="flex:1;min-width:180px;"><div style="font-weight:700;font-size:15px;">@'+esc(ig.account.username||'instagram')+'</div>'
+      + '<div class="prev-when">'+(ig.account.followers!=null?(Number(ig.account.followers).toLocaleString()+' followers · '):'')
+      + (q && q.used!=null ? (q.used+'/'+q.limit+' posts used today') : 'ready')+'</div></div>'
+      + '<button type="button" class="chip" id="igOff">Disconnect</button></div>'
+      + (exp ? '<p class="note">'+esc(exp)+'</p>' : '')
+      + (!ig.cron ? '<p class="note" style="color:var(--low)">Scheduling is off — CRON_SECRET isn’t set in Vercel, so only “Post now” will work.</p>' : '');
+    $('#igOff') && $('#igOff').addEventListener('click', async ()=>{
+      if(!confirm('Disconnect Instagram from Volt? Scheduled posts will stop publishing.')) return;
+      try{ await igFetch('disconnect', {}); }catch(e){}
+      igSelected=false; loadIg(); loadQueue();
+    });
+  } else {
+    st.textContent = 'not connected';
+    st.style.color = 'var(--faint)';
+    body.innerHTML =
+      (ig.error ? '<p class="note" style="color:var(--low);margin:0 0 10px;">'+esc(ig.error)+'</p>' : '')
+      + '<p class="note" style="margin:0 0 10px;">Paste a Meta access token to publish stories, posts and reels straight from Volt. '
+      + 'It’s stored encrypted, per workspace. <b>Setup is a one-off — see SETUP-INSTAGRAM.md in the repo for the five steps.</b></p>'
+      + '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-start;">'
+      + '<input id="igToken" type="password" placeholder="Paste your Meta access token…" style="flex:1;min-width:240px;" autocomplete="off">'
+      + '<button type="button" class="chip" id="igGo" style="padding:13px 16px;">Connect</button></div>'
+      + '<div class="status" id="igStatus"></div>';
+    $('#igGo').addEventListener('click', async ()=>{
+      const tok = ($('#igToken').value||'').trim();
+      const s = $('#igStatus');
+      if(!tok){ s.textContent='Paste the token first.'; s.className='status err'; return; }
+      s.innerHTML='<span class="spinner"></span> Checking with Instagram…'; s.className='status busy';
+      try{
+        const d = await igFetch('connect', { token: tok });
+        s.textContent = '✓ Connected as @' + ((d.account&&d.account.username)||'') + (d.page?(' via '+d.page):'');
+        s.className='status ok';
+        setTimeout(()=>{ loadIg(); loadQueue(); }, 700);
+      }catch(e){ s.textContent = e.message||'Could not connect.'; s.className='status err'; }
+    });
+  }
+  renderIgChip();
+}
+
+function renderIgChip(){
+  const box=$('#igChip'); if(!box) return;
+  if(!ig.connected){ box.innerHTML=''; return; }
+  box.innerHTML = '<button type="button" class="chip'+(igSelected?' on':'')+'" id="igPick">✨ @'
+    + esc((ig.account&&ig.account.username)||'instagram')
+    + ' <span class="pf">instagram · direct</span></button>';
+  $('#igPick').addEventListener('click', ()=>{ igSelected=!igSelected; renderIgChip(); updatePreview(); });
+}
+
+// Stories are JPEG-only. Convert on a canvas and re-host, so Instagram is handed a public JPEG.
+// The source is routed through voltAsset() — the same proxy Studio uses — because a cross-origin
+// image taints the canvas and toDataURL() then throws instead of returning a file.
+async function toHostedJpeg(url){
+  const src = (window.voltAsset ? window.voltAsset(url) : url);
+  const img = await new Promise((res, rej)=>{
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = ()=>res(i);
+    i.onerror = ()=>rej(new Error('Could not load that image to convert it to JPEG.'));
+    i.src = src;
+  });
+  const c = document.createElement('canvas');
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const x = c.getContext('2d');
+  x.fillStyle = '#ffffff'; x.fillRect(0,0,c.width,c.height);   // JPEG has no alpha; flatten first
+  x.drawImage(img, 0, 0);
+  const dataUrl = c.toDataURL('image/jpeg', 0.92);
+  const r = await fetch(API+'/upload', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ dataBase64:dataUrl, filename:'story.jpg', contentType:'image/jpeg' }) });
+  let d={}; try{ d=await r.json(); }catch(_){}
+  if(!r.ok || !d.url) throw new Error((d&&(d.message||d.error))||'Could not host the JPEG.');
+  addLib(d.url);
+  return d.url;
+}
+
+// Instagram needs a JPEG for stories/feed images. Only convert when it isn't already one.
+async function igReadyImage(url, type){
+  if(type === 'reel') return url;
+  if(/\.jpe?g($|\?)/i.test(url)) return url;
+  return toHostedJpeg(url);
+}
+
+async function igSend(){
+  const caption = ($('#scContent').value||'').trim();
+  if(!selectedImage) throw new Error(postType==='reel' ? 'Pick a video first.' : 'A story needs an image — upload one or pick a Studio graphic.');
+  const url = await igReadyImage(selectedImage, postType);
+  if(when==='now'){
+    const d = await igFetch('publish', { type:postType, imageUrl:url, caption });
+    return 'Published to Instagram' + (d.quota && d.quota.used!=null ? (' · '+d.quota.used+'/'+d.quota.limit+' today') : '');
+  }
+  if(when==='draft') throw new Error('Instagram has no drafts over the API — choose “Post now” or “Schedule”.');
+  const at = new Date($('#scDate').value);
+  const d = await igFetch('schedule', { type:postType, imageUrl:url, caption, at: at.toISOString() });
+  return 'Scheduled on Instagram for ' + at.toLocaleString() + (d.cron ? '' : ' (⚠ CRON_SECRET not set — it will not publish)');
+}
+
 async function loadChannels(){
   const box = $('#scChannels');
   try{
@@ -285,24 +440,43 @@ async function loadChannels(){
 $('#scGo').addEventListener('click', async ()=>{
   const content = ($('#scContent').value||'').trim();
   const image = selectedImage;
-  if(!content){ setStatus('Write your post first.','err'); return; }
-  if(!selected.size){ setStatus('Pick at least one channel to publish to.','err'); return; }
+  // A story is an image, not a sentence — requiring caption text before it would publish was the
+  // rule that made the story button useless for the thing stories actually are.
+  const needsText = !(igSelected && postType === 'story' && !selected.size);
+  if(needsText && !content){ setStatus('Write your post first.','err'); return; }
+  if(!selected.size && !igSelected){ setStatus('Pick at least one destination to publish to.','err'); return; }
   let date = null;
   if(when==='schedule'){ const v=$('#scDate').value; if(!v){ setStatus('Choose a date & time.','err'); return; } date = new Date(v).toISOString(); }
-  const btn=$('#scGo'); btn.disabled=true; setStatus('<span class="spinner"></span> Sending to Postiz…','busy');
-  try{
-    const r = await fetch(API+'/postiz', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ content, image, channels:[...selected], when, date, postType }) });
-    let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the scheduler.'); }
-    if(r.status===401) throw new Error('Please sign in.');
-    if(!r.ok) throw new Error((d&&d.error)||'Postiz couldn’t schedule that.');
-    setStatus('✓ '+(when==='now'?'Posted':(when==='draft'?'Saved as draft':'Scheduled'))+' to '+d.channels+' channel'+(d.channels>1?'s':'')+'.','ok');
-    // A story or reel sent from here counts toward the week exactly like one made in Studio.
-    if(when!=='draft' && (postType==='story' || postType==='reel')){
-      logDay(postType==='story'?STORY_LOG_KEY:REEL_LOG_KEY, when==='now'?new Date():new Date($('#scDate').value||Date.now()));
-    }
-    loadQueue();
-  }catch(e){ setStatus((e&&e.message)||'Failed — try again.','err'); }
-  finally{ btn.disabled=false; }
+  const btn=$('#scGo'); btn.disabled=true;
+  const notes = [], fails = [];
+
+  // Instagram first: it is the destination the user came for, and it is the one that can fail on a
+  // real constraint (format, quota) worth reading before anything else scrolls it away.
+  if(igSelected){
+    setStatus('<span class="spinner"></span> Publishing to Instagram…','busy');
+    try{ notes.push('✓ ' + await igSend()); }
+    catch(e){ fails.push('Instagram: ' + ((e&&e.message)||'failed')); }
+  }
+
+  if(selected.size){
+    setStatus('<span class="spinner"></span> Sending to Postiz…','busy');
+    try{
+      const r = await fetch(API+'/postiz', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ content, image, channels:[...selected], when, date, postType }) });
+      let d={}; try{ d=await r.json(); }catch(_){ throw new Error('Could not reach the scheduler.'); }
+      if(r.status===401) throw new Error('Please sign in.');
+      if(!r.ok) throw new Error((d&&d.error)||'Postiz couldn’t schedule that.');
+      notes.push('✓ '+(when==='now'?'Posted':(when==='draft'?'Saved as draft':'Scheduled'))+' to '+d.channels+' channel'+(d.channels>1?'s':'')+'.');
+    }catch(e){ fails.push('Postiz: ' + ((e&&e.message)||'failed')); }
+  }
+
+  // One destination failing must not hide another succeeding — both are reported.
+  setStatus(notes.concat(fails).join('<br>'), fails.length ? (notes.length ? '' : 'err') : 'ok');
+  // A story or reel that actually went out counts toward the week exactly like one made in Studio.
+  if(notes.length && when!=='draft' && (postType==='story' || postType==='reel')){
+    logDay(postType==='story'?STORY_LOG_KEY:REEL_LOG_KEY, when==='now'?new Date():new Date($('#scDate').value||Date.now()));
+  }
+  loadQueue(); if(igSelected) loadIg();
+  btn.disabled=false;
 });
 
 // =====================================================================
@@ -395,6 +569,30 @@ function renderShape(q){
   $('#shapeNote').innerHTML = bits.length ? bits.join('<br>') : 'Shape looks right for the week. Keep the story habit going — it is the only surface with room left in it.';
 }
 
+// Volt's own Instagram queue, shown in the same list as Postiz's so there is ONE place to look at
+// what is going out. Postiz never sees these — they are published by the drain cron.
+function renderIgQueue(){
+  const rows = (ig.queue||[]).filter(i => ['pending','publishing','error'].includes(i.status));
+  if(!rows.length) return '';
+  return rows.map(i=>{
+    const dt = i.run_at ? new Date(i.run_at) : null;
+    const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
+    const st = i.status==='error' ? 'Failed' : (i.status==='publishing' ? 'Publishing' : 'Scheduled');
+    const body = i.error ? '<span style="color:var(--low)">'+esc(i.error)+'</span>' : esc(i.caption || ('Instagram '+i.kind));
+    return '<div class="q-row"><div class="q-when">'+when+'</div>'
+      + '<div class="q-body">'+body+'<div class="q-meta">instagram · '+esc(i.kind)
+      + (i.attempts ? (' · '+i.attempts+' attempt'+(i.attempts>1?'s':'')) : '')+'</div></div>'
+      + '<button type="button" class="chip" data-igcancel="'+esc(i.id)+'" style="padding:4px 9px;font-size:10px;">Cancel</button>'
+      + '<span class="q-state">'+st+'</span></div>';
+  }).join('');
+}
+document.addEventListener('click', async e=>{
+  const b = e.target.closest('[data-igcancel]'); if(!b) return;
+  b.disabled = true;
+  try{ await igFetch('cancel', { id: b.dataset.igcancel }); await loadIg(); loadQueue(); }
+  catch(err){ setStatus((err&&err.message)||'Could not cancel that.','err'); b.disabled=false; }
+});
+
 // ---- Queue / calendar of scheduled + upcoming posts ----
 async function loadQueue(){
   const box=$('#scQueue'); if(!box) return;
@@ -406,8 +604,9 @@ async function loadQueue(){
     if(!r.ok || (d&&d.error==='NOT_CONFIGURED')){ box.innerHTML='<span class="empty">Connect Postiz to see your schedule.</span>'; renderShape([]); return; }
     const q=(d&&d.queue)||[];
     renderShape(q);
-    if(!q.length){ box.innerHTML='<span class="empty">Nothing scheduled yet — compose something above and schedule it.</span>'; return; }
-    box.innerHTML = q.map(p=>{
+    const igRows = renderIgQueue();
+    if(!q.length){ box.innerHTML = igRows || '<span class="empty">Nothing scheduled yet — compose something above and schedule it.</span>'; return; }
+    box.innerHTML = igRows + q.map(p=>{
       const dt = p.publishDate ? new Date(p.publishDate) : null;
       const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
       const st = p.state==='QUEUE'?'Scheduled':(p.state==='DRAFT'?'Draft':(p.state||''));
@@ -432,8 +631,11 @@ $('#scPull').addEventListener('click', ()=>{
   }));
 });
 
-window.addEventListener('volt:ready', ()=>{ loadChannels(); loadQueue(); });
-if(window.voltSession){ loadChannels(); loadQueue(); }
+// loadIg() before loadQueue(), because the queue list renders Volt's own Instagram rows and needs
+// ig.queue populated first.
+async function boot(){ await loadIg(); loadChannels(); loadQueue(); }
+window.addEventListener('volt:ready', boot);
+if(window.voltSession){ boot(); }
 renderLib();
 updatePreview();
 renderShape([]);   // paint from the story ledger immediately; the queue fills in the rest
