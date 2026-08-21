@@ -41,13 +41,34 @@
   .note{font-size:12.5px;color:var(--faint);line-height:1.5;margin:10px 0 0;}
   .status{font-family:var(--fm);font-size:12.5px;margin-top:12px;min-height:16px;}
   .status.err{color:var(--low);} .status.ok{color:var(--good);} .status.busy{color:var(--dim);}
-  /* Live preview */
-  .prev{background:#fff;color:#050608;border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:12px;}
+  /* ============================================================================
+     LIVE PREVIEW — shape follows post type. A Story/Reel is a vertical 9:16
+     frame with the image edge-to-edge, not a horizontal feed card; showing the
+     same card shape for both was actively misleading about what the post will
+     look like. Feed keeps the plain white card; Story/Reel switch to a phone-
+     shaped dark frame via the .vshape modifier below, repositioning the SAME
+     elements (avatar/name/caption/image) rather than duplicating markup. ============================================================================ */
+  .prev{background:#fff;color:#050608;border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:12px;transition:all .18s;}
   .prev-h{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
   .prev-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:var(--fd);object-fit:cover;flex:none;}
   .prev-n{font-weight:700;font-size:14px;color:#050608;} .prev-when{font-family:var(--fm);font-size:10.5px;color:#8a8f98;}
   .prev-body{font-size:14px;line-height:1.55;white-space:pre-wrap;color:#050608;word-break:break-word;}
   .prev-img{width:100%;border-radius:10px;margin-top:11px;display:block;border:1px solid #eee;}
+  .prev-empty{display:none;text-align:center;color:#8a8f98;font-size:12.5px;padding:30px 14px;}
+
+  .prev.vshape{max-width:230px;margin:12px auto 0;aspect-ratio:9/16;position:relative;overflow:hidden;background:#111;padding:0;border-radius:20px;border:1px solid #2a2a2a;}
+  .prev.vshape .prev-h{position:absolute;top:0;left:0;right:0;z-index:2;padding:12px 12px 22px;margin:0;background:linear-gradient(180deg,rgba(0,0,0,.65),transparent);}
+  .prev.vshape .prev-n,.prev.vshape .prev-when{color:#fff;}
+  .prev.vshape .prev-av{width:30px;height:30px;border:1.5px solid #fff;}
+  .prev.vshape .prev-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;margin:0;border:0;border-radius:0;}
+  .prev.vshape .prev-body{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:14px 12px;margin:0;max-height:52%;overflow:hidden;color:#fff;background:linear-gradient(0deg,rgba(0,0,0,.8),transparent 75%);font-size:12.5px;}
+  .prev.vshape .prev-eng{display:none;}
+  .prev.vshape .prev-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#666;}
+  /* A Story carries no caption on the real platform — Volt's own publish rule (igSend) already
+     treats a story's image as the whole message, so the preview says the same thing rather than
+     showing caption text the platform will never actually display. */
+  .prev.vshape.is-story .prev-body{display:none;}
+  .prev.vshape .prev-tag{position:absolute;top:10px;right:12px;z-index:2;font-family:var(--fm);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);padding:3px 7px;border-radius:6px;}
   .prev-eng{display:flex;gap:18px;margin-top:13px;padding-top:11px;border-top:1px solid #eee;font-size:12.5px;font-weight:700;color:#65676b;}
   .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(182,255,61,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
@@ -275,11 +296,13 @@
       <div class="card">
         <label class="lbl">Preview</label>
         <div class="prev" id="scPrev">
+          <span class="prev-tag" id="scPrevTag" style="display:none;"></span>
           <div class="prev-h">
             <img class="prev-av" id="scAvImg" alt="" style="display:none;">
             <div class="prev-av" id="scAv" style="display:none;">V</div>
             <div><div class="prev-n" id="scPrevName">Your channel</div><div class="prev-when" id="scPrevWhen">Draft</div></div>
           </div>
+          <div class="prev-empty" id="scPrevEmpty">Add an image to preview this shape</div>
           <div class="prev-body" id="scPrevBody" style="color:var(--faint)">Your caption preview appears here…</div>
           <img id="scPrevImg" class="prev-img" alt="" style="display:none">
           <div class="prev-eng">
@@ -329,12 +352,34 @@ function takeStudioHandoff(){
 function updatePreview(){
   const txt = ($('#scContent').value||'');
   const img = selectedImage;
+  const hasImg = !!(img && /^https?:\/\//i.test(img));
   $('#scCount').textContent = txt.length + ' characters';
+
+  // SHAPE FOLLOWS POST TYPE. A Story/Reel is a vertical 9:16 frame with the image edge-to-edge on
+  // the real platform, not a horizontal feed card — showing the feed shape for every post type was
+  // actively misleading about what would actually go out. Story additionally carries no caption on
+  // the real platform (Volt's own igSend() already treats the image as the whole message), so the
+  // preview hides caption text there too, via the .is-story CSS rule, rather than showing text the
+  // platform will never display.
+  const vshape = postType==='story' || postType==='reel';
+  const prev = $('#scPrev');
+  prev.classList.toggle('vshape', vshape);
+  prev.classList.toggle('is-story', postType==='story');
+  const tag = $('#scPrevTag');
+  if(vshape){ tag.style.display='block'; tag.textContent = postType==='story' ? 'Story' : 'Reel'; }
+  else tag.style.display='none';
+  // An empty vertical frame with no image is just a black box — say what to do instead of leaving
+  // it looking broken. The feed shape doesn't need this: an empty feed card still reads as a card.
+  $('#scPrevEmpty').style.display = (vshape && !hasImg) ? 'flex' : 'none';
+
   const body = $('#scPrevBody');
   body.textContent = txt || 'Your caption preview appears here…';
-  body.style.color = txt ? '#050608' : '#8a8f98';
+  // Inline color would beat the vshape CSS rule that forces white caption text over a dark image —
+  // only set it in feed mode, where the card is a plain white background.
+  body.style.color = vshape ? '' : (txt ? '#050608' : '#8a8f98');
+
   const im = $('#scPrevImg');
-  if(img && /^https?:\/\//i.test(img)){ im.src = img; im.style.display='block'; } else { im.style.display='none'; }
+  if(hasImg){ im.src = img; im.style.display='block'; } else { im.style.display='none'; }
   const w = when==='now' ? 'Posting now' : (when==='draft' ? 'Saved as draft' : ('Scheduled · ' + ($('#scDate').value ? new Date($('#scDate').value).toLocaleString() : '—')));
   $('#scPrevWhen').textContent = w;
 
@@ -381,6 +426,7 @@ $('#scType').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
   postType = b.dataset.t;
   document.querySelectorAll('#scType button').forEach(x=>x.classList.toggle('on', x===b));
+  updatePreview();   // the preview's whole SHAPE depends on post type — see updatePreview()
 });
 $('#scWhen').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
