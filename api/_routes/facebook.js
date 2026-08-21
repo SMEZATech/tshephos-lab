@@ -46,8 +46,23 @@ async function publishNow(creds, item) {
   }
   const message = String(item.message || "").slice(0, 63206);   // Facebook's own feed post cap
   const imageUrl = String(item.image_url || "");
-  const isPhoto = item.kind === "photo" && !!imageUrl;
 
+  // Page Stories: upload the photo UNPUBLISHED, then hand its id to photo_stories. Two calls, no
+  // caption support (Facebook Stories carry no text overlay via this API) — https://developers.
+  // facebook.com/docs/page-stories-api/. There's no video_stories equivalent here (it's a chunked
+  // upload_phase flow, a materially bigger job) — Story publishing from Volt is photo-only for now.
+  if (item.kind === "story") {
+    if (!imageUrl) throw Object.assign(new Error("A Facebook Story needs an image."), { status: 400 });
+    const bad = await checkImage(imageUrl);
+    if (bad) throw Object.assign(new Error(bad), { status: 400 });
+    const photo = await graph("/" + creds.pageId + "/photos", { url: imageUrl, published: "false", access_token: creds.token }, "POST");
+    const photoId = photo && photo.id;
+    if (!photoId) throw new Error("Facebook did not return a photo id for the story.");
+    const out = await graph("/" + creds.pageId + "/photo_stories", { photo_id: photoId, access_token: creds.token }, "POST");
+    return { postId: (out && (out.post_id || out.id)) || null };
+  }
+
+  const isPhoto = item.kind === "photo" && !!imageUrl;
   if (isPhoto) {
     const bad = await checkImage(imageUrl);
     if (bad) throw Object.assign(new Error(bad), { status: 400 });
@@ -156,8 +171,21 @@ export default async function handler(req, res) {
     const body = (req.body && typeof req.body === "object") ? req.body : JSON.parse(req.body || "{}");
 
     if (action === "publish") {
-      const out = await publishNow(creds, { kind: body.kind, message: body.message, image_url: body.imageUrl });
+      const kind = body.kind === "story" ? "story" : (body.kind === "photo" ? "photo" : "post");
+      const out = await publishNow(creds, { kind, message: body.message, image_url: body.imageUrl });
       try { await recordMetric(orgId, { platform: "facebook", external_id: out.postId, posted_text: String(body.message || ""), published_at: new Date().toISOString() }); } catch (e) {}
+      // Record it exactly like a drained scheduled post so it shows up in Schedule's history too —
+      // "Post now" previously left zero trace here, which is why a published post never appeared.
+      try {
+        await fetch(sbBase() + "/rest/v1/fb_queue", {
+          method: "POST", headers: svcH(),
+          body: JSON.stringify({
+            org_id: orgId, kind, message: String(body.message || "").slice(0, 63206),
+            image_url: kind !== "post" ? String(body.imageUrl || "") : null,
+            run_at: new Date().toISOString(), status: "done", fb_post_id: out.postId,
+          }),
+        });
+      } catch (e) { /* history is best-effort — the publish itself already succeeded */ }
       return res.status(200).json({ ok: true, postId: out.postId });
     }
 
@@ -165,8 +193,8 @@ export default async function handler(req, res) {
       const at = new Date(body.at || 0);
       if (isNaN(at.getTime())) return res.status(400).json({ error: "That date and time isn’t valid." });
       if (at.getTime() < Date.now() - 60000) return res.status(400).json({ error: "That time is in the past." });
-      const kind = body.kind === "photo" ? "photo" : "post";
-      if (kind === "photo") {
+      const kind = body.kind === "story" ? "story" : (body.kind === "photo" ? "photo" : "post");
+      if (kind === "story" || kind === "photo") {
         const bad = await checkImage(String(body.imageUrl || ""));
         if (bad) return res.status(400).json({ error: bad });
       } else if (!String(body.message || "").trim()) {
@@ -176,7 +204,7 @@ export default async function handler(req, res) {
         method: "POST", headers: Object.assign({}, svcH(), { Prefer: "return=representation" }),
         body: JSON.stringify({
           org_id: orgId, kind, message: String(body.message || "").slice(0, 63206),
-          image_url: kind === "photo" ? String(body.imageUrl || "") : null,
+          image_url: kind !== "post" ? String(body.imageUrl || "") : null,
           run_at: at.toISOString(), status: "pending",
         }),
       });

@@ -582,6 +582,20 @@ export default async function handler(req, res) {
         caption: String(body.caption || "").slice(0, 2200),
       });
       try { await recordMetric(orgId, { platform: "instagram", external_id: out.mediaId, posted_text: String(body.caption || ""), published_at: new Date().toISOString() }); } catch (e) {}
+      // Record it exactly like a drained scheduled post so it shows up in Schedule's history too —
+      // "Post now" previously left zero trace in ig_queue, which is why a published post never appeared.
+      try {
+        await fetch(sbBase() + "/rest/v1/ig_queue", {
+          method: "POST", headers: svcH(),
+          body: JSON.stringify({
+            org_id: orgId, kind: out.kind,
+            image_url: out.kind === "reel" ? null : (body.imageUrl || null),
+            video_url: out.kind === "reel" ? (body.videoUrl || null) : null,
+            caption: String(body.caption || "").slice(0, 2200),
+            run_at: new Date().toISOString(), status: "done", ig_media_id: out.mediaId,
+          }),
+        });
+      } catch (e) { /* history is best-effort — the publish itself already succeeded */ }
       return res.status(200).json({ ok: true, mediaId: out.mediaId, kind: out.kind, quota: await quota(creds) });
     }
 

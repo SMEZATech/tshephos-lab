@@ -603,17 +603,23 @@ async function refreshFbLabel(){
   renderFbChip();
 }
 
-// Facebook has no Story/Reel concept here — just a feed post, with or without a photo. The post-
-// type segmented control (Feed/Story/Reel) is Instagram's; Facebook's own kind is decided purely
-// by whether an image is attached, which is why this ignores `postType` entirely.
+// Facebook Stories publish for real (photo_stories, see api/_routes/facebook.js) when the post-type
+// segmented control is set to Story — this used to silently fall through to a normal feed post with
+// no warning at all, which is exactly what looked like a bug. Reels still have no Facebook equivalent
+// here (that's a chunked video upload flow, not built), so that combination is refused up front
+// instead of quietly posting the wrong thing.
 async function fbSend(){
   const message = ($('#scContent').value||'').trim();
-  const kind = selectedImage ? 'photo' : 'post';
-  if(kind === 'photo' && !message){ /* a caption is optional on a photo post — fine either way */ }
+  if(postType === 'reel') throw new Error('Facebook Reels aren’t supported yet — switch post type to Feed or Story, or deselect the Facebook Page.');
+  let kind = selectedImage ? 'photo' : 'post';
+  if(postType === 'story'){
+    if(!selectedImage) throw new Error('A Facebook Story needs an image — pick one first.');
+    kind = 'story';
+  }
   if(kind === 'post' && !message) throw new Error('Write something to post first.');
   if(when==='now'){
     await fbFetch('publish', { kind, message, imageUrl: selectedImage });
-    return 'Published to Facebook';
+    return kind === 'story' ? 'Published to Facebook Story' : 'Published to Facebook';
   }
   if(when==='draft') throw new Error('Facebook has no drafts over the API — choose “Post now” or “Schedule”.');
   const at = new Date($('#scDate').value);

@@ -178,10 +178,14 @@ added, then Admin → Connections → Reconnect with the new token. There's no s
 "Connect Facebook" button — once the scope is on the connection, a **📘 Facebook Page** chip
 appears under *Publish to* automatically.
 
-What it can do today: **feed posts** (text) and **photo posts** (image + optional caption) — the
-two Graph endpoints that publish synchronously, no media-container-and-poll dance like Instagram's
-stories. There's no Facebook Story/Reel support in this build. A caption is optional on a photo
-post; a caption is required on a text-only post (there has to be something to say).
+What it can do today: **feed posts** (text), **photo posts** (image + optional caption), and
+**photo Stories** — a photo uploaded unpublished then handed to `/{page}/photo_stories`, Meta's own
+Page Stories API. A caption is optional on a photo post; a caption is required on a text-only post
+(there has to be something to say); a Story carries no caption at all (Facebook's Story API has no
+text-overlay field). There's still no Facebook **Reel** support in this build — that's a chunked
+video-upload flow, a materially bigger job than the two photo-based paths above, and picking Reel
+as the post type with Facebook selected is refused with a clear message rather than quietly posting
+something else.
 
 Scheduling works the same way as Instagram — same drain cron (`.github/workflows/ig-drain.yml` now
 loops over both `instagram` and `facebook` each run), same atomic per-row claim, same three-attempt
