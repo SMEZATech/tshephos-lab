@@ -78,6 +78,73 @@
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
   .tab:hover{color:var(--text); border-color:var(--accent);}
   .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+
+  /* ============================================================================
+     CALENDAR + MODAL COMPOSER.
+     The page used to be: a big always-open composer, THEN a flat chronological
+     list of everything scheduled, mixed across every platform with no sense of
+     which day was full or empty. That is the "hard to navigate" complaint —
+     composing ate the whole screen, and the list gave no shape to a week at a
+     glance. The composer is now a modal (out of the way until you want it); the
+     list is now a week/month grid, closer to how Meta's own Planner reads.
+     ============================================================================ */
+  .cal-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .cal-nav{display:inline-flex;align-items:center;gap:4px;}
+  .cal-navbtn{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;background:#0D0F15;border:1px solid var(--border-2);border-radius:9px;color:var(--text);cursor:pointer;font-size:14px;}
+  .cal-navbtn:hover{border-color:var(--accent);}
+  .cal-today{font-family:var(--fm);font-size:11px;font-weight:700;padding:8px 12px;border-radius:9px;border:1px solid var(--border-2);background:#0D0F15;color:var(--dim);cursor:pointer;}
+  .cal-today:hover{color:var(--text);border-color:var(--accent);}
+  .cal-range{font-family:var(--fd);font-weight:700;font-size:16px;margin:0 4px;}
+  .cal-view{margin-left:auto;}
+  .cal-newbtn{background:var(--accent);color:#0A0B0F;border:none;border-radius:10px;font-family:var(--fm);font-weight:700;font-size:12.5px;padding:10px 16px;cursor:pointer;white-space:nowrap;}
+  .cal-newbtn:hover{background:var(--accent-press);}
+
+  .cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:9px;}
+  @media(max-width:820px){.cal-week{grid-template-columns:1fr;}}
+  .cal-day{background:#0D0F15;border:1px solid var(--border);border-radius:14px;padding:10px;min-height:130px;display:flex;flex-direction:column;gap:7px;}
+  .cal-day.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
+  .cal-day-h{display:flex;align-items:baseline;justify-content:space-between;padding:0 2px;cursor:pointer;}
+  .cal-day-h .nm{font-family:var(--fm);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);}
+  .cal-day-h .n{font-family:var(--fd);font-weight:800;font-size:16px;color:var(--text);}
+  .cal-day.today .cal-day-h .n{color:var(--accent);}
+  .cal-day-add{align-self:flex-start;font-family:var(--fm);font-size:10px;color:var(--faint);background:none;border:1px dashed var(--border-2);border-radius:8px;padding:5px 8px;cursor:pointer;width:100%;text-align:center;}
+  .cal-day-add:hover{color:var(--accent);border-color:var(--accent);}
+  .cal-card{background:var(--surface);border:1px solid var(--border-2);border-left:3px solid var(--dim);border-radius:9px;padding:7px 9px;font-size:11.5px;line-height:1.4;position:relative;}
+  .cal-card.pf-instagram{border-left-color:#E1306C;} .cal-card.pf-facebook{border-left-color:#1877F2;}
+  .cal-card.pf-linkedin{border-left-color:#0A66C2;} .cal-card.pf-youtube{border-left-color:#FF0000;}
+  .cal-card.st-error{border-left-color:var(--low);background:rgba(255,124,124,.08);}
+  .cal-card.st-publishing{border-left-color:var(--mid,#FFC857);}
+  .cal-card .cc-time{font-family:var(--fm);font-size:9.5px;color:var(--faint);display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px;}
+  .cal-card .cc-pf{text-transform:uppercase;letter-spacing:.03em;}
+  .cal-card .cc-body{color:var(--text);display:flex;gap:7px;align-items:flex-start;}
+  .cal-card .cc-thumb{width:30px;height:30px;border-radius:6px;object-fit:cover;flex:none;background:var(--surface-2);}
+  .cal-card .cc-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .cal-card .cc-err{color:var(--low);font-size:10.5px;margin-top:3px;}
+  .cal-card .cc-cancel{position:absolute;top:6px;right:7px;background:none;border:none;color:var(--faint);cursor:pointer;font-size:12px;padding:1px 3px;line-height:1;display:none;}
+  .cal-card:hover .cc-cancel{display:block;} .cal-card .cc-cancel:hover{color:var(--low);}
+  .cal-day-body{flex:1;display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:340px;}
+
+  .cal-month{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;}
+  .cal-month .cal-mh{font-family:var(--fm);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:center;padding-bottom:4px;}
+  .cal-mcell{background:#0D0F15;border:1px solid var(--border);border-radius:11px;padding:8px;min-height:64px;cursor:pointer;transition:border-color .14s;}
+  .cal-mcell:hover{border-color:var(--accent);}
+  .cal-mcell.today{border-color:var(--accent);}
+  .cal-mcell.out{opacity:.35;}
+  .cal-mcell .n{font-family:var(--fd);font-weight:700;font-size:13px;}
+  .cal-mdots{display:flex;gap:3px;flex-wrap:wrap;margin-top:6px;}
+  .cal-mdot{width:6px;height:6px;border-radius:50%;background:var(--dim);}
+  .cal-mdot.pf-instagram{background:#E1306C;} .cal-mdot.pf-facebook{background:#1877F2;}
+  .cal-mdot.pf-linkedin{background:#0A66C2;} .cal-mdot.pf-youtube{background:#FF0000;}
+  .cal-mcount{font-family:var(--fm);font-size:9.5px;color:var(--faint);margin-top:3px;}
+
+  /* Modal composer */
+  .modal-scrim{position:fixed;inset:0;background:rgba(5,6,9,.72);backdrop-filter:blur(3px);z-index:100;display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:32px 16px;}
+  .modal-scrim.open{display:flex;}
+  .modal-box{width:100%;max-width:900px;margin:auto;}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .modal-head h2{font-family:var(--fd);font-weight:800;font-size:20px;margin:0;}
+  .modal-x{width:34px;height:34px;border-radius:50%;border:1px solid var(--border-2);background:#0D0F15;color:var(--text);font-size:16px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .modal-x:hover{border-color:var(--low);color:var(--low);}
 </style>
 </head>
 <body>
@@ -96,7 +163,7 @@
   </nav>
 
   <h1>📅 Schedule</h1>
-  <p class="sub">Compose once, then choose where it goes. Volt sends your post to the channels you pick and schedules it through your connected Postiz — the same connection Stats reads from.</p>
+  <p class="sub">Compose once, then choose where it goes. Volt sends your post to the channels you pick — direct to Instagram and Facebook, or through your connected Postiz for everything else.</p>
 
   <!-- Weekly shape — see the WEEKLY SHAPE block in the script for where every target comes from. -->
   <div class="card" id="shapeCard" style="margin-bottom:18px;">
@@ -112,88 +179,114 @@
        Stories are the whole reason this exists. Postiz can queue a feed post, but the story path
        has to be Instagram's own Content Publishing API — it is the only thing that actually
        publishes a story, it costs nothing, and when it fails it tells you why in its own words
-       instead of a scheduler's paraphrase. -->
+       instead of a scheduler's paraphrase. Facebook Page posting rides the same connection. -->
   <div class="card" id="igCard" style="margin-bottom:18px;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-      <label class="lbl" style="margin:0;">✨ Instagram — direct publishing</label>
+      <label class="lbl" style="margin:0;">✨ Instagram &amp; Facebook — direct publishing</label>
       <span class="lbl" id="igState" style="margin:0;color:var(--faint);">checking…</span>
     </div>
     <div id="igBody" style="margin-top:12px;"></div>
   </div>
 
-  <div class="grid">
-    <!-- Compose -->
-    <div class="card">
-      <div class="blk">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <label class="lbl" for="scContent" style="margin:0;">Your post</label>
-          <button type="button" class="chip" id="scPull" style="padding:5px 11px;font-size:11px;">📝 Pull a caption</button>
-        </div>
-        <div id="scPullList" style="display:none;margin:10px 0;"></div>
-        <textarea id="scContent" placeholder="Write your caption… pull from Copy, Transcribe or your latest email — then send it everywhere." style="margin-top:9px;"></textarea>
-        <div class="count" id="scCount">0 characters</div>
+  <!-- ================= CALENDAR =================
+       Replaces the old flat chronological list. Three sources (Postiz, Volt's own Instagram
+       queue, Volt's own Facebook queue) are merged into one set of cards bucketed by day — see
+       buildUnifiedItems() — so "what's going out this week" is one glance, not three lists. -->
+  <div class="card">
+    <div class="cal-toolbar">
+      <div class="cal-nav">
+        <button type="button" class="cal-navbtn" id="calPrev" title="Previous">‹</button>
+        <button type="button" class="cal-navbtn" id="calNext" title="Next">›</button>
       </div>
-      <div class="blk">
-        <label class="lbl">Image <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— upload one, or pick from your library (Studio graphics land here too)</span></label>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button type="button" class="chip" id="scUpload">📤 Upload image</button>
-          <input type="file" id="scFile" accept="image/*" hidden>
-          <button type="button" class="chip" id="scImgClear" style="display:none;">✕ Remove image</button>
-          <span class="note" id="scImgStatus" style="margin:0;"></span>
-        </div>
-        <div class="lib" id="scLib"></div>
+      <button type="button" class="cal-today" id="calTodayBtn">Today</button>
+      <span class="cal-range" id="calRange"></span>
+      <div class="seg cal-view" id="calViewSeg">
+        <button data-v="week" class="on">Week</button>
+        <button data-v="month">Month</button>
       </div>
-      <div class="blk">
-        <label class="lbl">Preview</label>
-        <div class="prev" id="scPrev">
-          <div class="prev-h"><div class="prev-av" id="scAv">V</div><div><div class="prev-n">Your channel</div><div class="prev-when" id="scPrevWhen">Draft</div></div></div>
-          <div class="prev-body" id="scPrevBody" style="color:var(--faint)">Your caption preview appears here…</div>
-          <img id="scPrevImg" class="prev-img" alt="" style="display:none">
-        </div>
-      </div>
+      <button type="button" class="cal-navbtn" id="calRefresh" title="Refresh">↻</button>
+      <button type="button" class="cal-newbtn" id="calNewPost">+ New post</button>
     </div>
-
-    <!-- Destinations + schedule -->
-    <div class="card">
-      <div class="blk">
-        <label class="lbl">Publish to</label>
-        <div class="chips" id="igChip" style="margin-bottom:9px;"></div>
-        <div class="chips" id="fbChip" style="margin-bottom:9px;"></div>
-        <div class="chips" id="scChannels"><span class="empty">Loading your channels…</span></div>
-      </div>
-      <div class="blk">
-        <label class="lbl">Post type</label>
-        <div class="seg" id="scType">
-          <button data-t="post" class="on">🖼️ Feed post</button>
-          <button data-t="story">✨ Story</button>
-          <button data-t="reel">🎬 Reel</button>
-        </div>
-      </div>
-      <div class="blk">
-        <label class="lbl">When</label>
-        <div class="seg" id="scWhen">
-          <button data-w="schedule" class="on">🗓️ Schedule</button>
-          <button data-w="now">⚡ Post now</button>
-          <button data-w="draft">📝 Draft</button>
-        </div>
-        <div id="scDateWrap" style="margin-top:12px;">
-          <input id="scDate" type="datetime-local" />
-        </div>
-      </div>
-      <button class="btn" id="scGo">🗓️ Schedule post</button>
-      <div class="status" id="scStatus"></div>
-      <p class="note" id="scNote">Publishing runs through your Postiz instance. Connect channels in Postiz (Settings) and they show up here automatically.</p>
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:18px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <label class="lbl" style="margin:0;">📋 Scheduled &amp; upcoming</label>
-      <button type="button" class="chip" id="scRefreshQueue">↻ Refresh</button>
-    </div>
-    <div id="scQueue" style="margin-top:14px;"><span class="empty">Loading your queue…</span></div>
+    <div id="calBody"><span class="empty">Loading your schedule…</span></div>
   </div>
 </main>
+
+<!-- ================= COMPOSE MODAL =================
+     Everything below is UNCHANGED from the old always-visible composer — same ids, same
+     listeners, same send logic (igSend/fbSend/Postiz) — just shown in an overlay instead of
+     permanently occupying the page. -->
+<div class="modal-scrim" id="composeScrim">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="composeTitle">New post</h2>
+      <button type="button" class="modal-x" id="composeClose">✕</button>
+    </div>
+    <div class="grid">
+      <!-- Compose -->
+      <div class="card">
+        <div class="blk">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <label class="lbl" for="scContent" style="margin:0;">Your post</label>
+            <button type="button" class="chip" id="scPull" style="padding:5px 11px;font-size:11px;">📝 Pull a caption</button>
+          </div>
+          <div id="scPullList" style="display:none;margin:10px 0;"></div>
+          <textarea id="scContent" placeholder="Write your caption… pull from Copy, Transcribe or your latest email — then send it everywhere." style="margin-top:9px;"></textarea>
+          <div class="count" id="scCount">0 characters</div>
+        </div>
+        <div class="blk">
+          <label class="lbl">Image <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— upload one, or pick from your library (Studio graphics land here too)</span></label>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button type="button" class="chip" id="scUpload">📤 Upload image</button>
+            <input type="file" id="scFile" accept="image/*" hidden>
+            <button type="button" class="chip" id="scImgClear" style="display:none;">✕ Remove image</button>
+            <span class="note" id="scImgStatus" style="margin:0;"></span>
+          </div>
+          <div class="lib" id="scLib"></div>
+        </div>
+        <div class="blk">
+          <label class="lbl">Preview</label>
+          <div class="prev" id="scPrev">
+            <div class="prev-h"><div class="prev-av" id="scAv">V</div><div><div class="prev-n">Your channel</div><div class="prev-when" id="scPrevWhen">Draft</div></div></div>
+            <div class="prev-body" id="scPrevBody" style="color:var(--faint)">Your caption preview appears here…</div>
+            <img id="scPrevImg" class="prev-img" alt="" style="display:none">
+          </div>
+        </div>
+      </div>
+
+      <!-- Destinations + schedule -->
+      <div class="card">
+        <div class="blk">
+          <label class="lbl">Publish to</label>
+          <div class="chips" id="igChip" style="margin-bottom:9px;"></div>
+          <div class="chips" id="fbChip" style="margin-bottom:9px;"></div>
+          <div class="chips" id="scChannels"><span class="empty">Loading your channels…</span></div>
+        </div>
+        <div class="blk">
+          <label class="lbl">Post type</label>
+          <div class="seg" id="scType">
+            <button data-t="post" class="on">🖼️ Feed post</button>
+            <button data-t="story">✨ Story</button>
+            <button data-t="reel">🎬 Reel</button>
+          </div>
+        </div>
+        <div class="blk">
+          <label class="lbl">When</label>
+          <div class="seg" id="scWhen">
+            <button data-w="schedule" class="on">🗓️ Schedule</button>
+            <button data-w="now">⚡ Post now</button>
+            <button data-w="draft">📝 Draft</button>
+          </div>
+          <div id="scDateWrap" style="margin-top:12px;">
+            <input id="scDate" type="datetime-local" />
+          </div>
+        </div>
+        <button class="btn" id="scGo">🗓️ Schedule post</button>
+        <div class="status" id="scStatus"></div>
+        <p class="note" id="scNote">Direct posts go to Instagram/Facebook via Volt. Everything else runs through your connected Postiz instance.</p>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -569,6 +662,9 @@ $('#scGo').addEventListener('click', async ()=>{
   }
   loadQueue(); if(igSelected || fbSelected) loadIg();
   btn.disabled=false;
+  // At least one destination actually went out (or scheduled) — close the modal so the calendar
+  // underneath is visible; a total failure leaves it open so the error is right there to fix.
+  if(notes.length && !fails.length) setTimeout(closeCompose, 900);
 });
 
 // =====================================================================
@@ -661,40 +757,106 @@ function renderShape(q){
   $('#shapeNote').innerHTML = bits.length ? bits.join('<br>') : 'Shape looks right for the week. Keep the story habit going — it is the only surface with room left in it.';
 }
 
-// Volt's own Instagram queue, shown in the same list as Postiz's so there is ONE place to look at
-// what is going out. Postiz never sees these — they are published by the drain cron.
-function renderIgQueue(){
-  const rows = (ig.queue||[]).filter(i => ['pending','publishing','error'].includes(i.status));
-  if(!rows.length) return '';
-  return rows.map(i=>{
-    const dt = i.run_at ? new Date(i.run_at) : null;
-    const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
-    const st = i.status==='error' ? 'Failed' : (i.status==='publishing' ? 'Publishing' : 'Scheduled');
-    const body = i.error ? '<span style="color:var(--low)">'+esc(i.error)+'</span>' : esc(i.caption || ('Instagram '+i.kind));
-    return '<div class="q-row"><div class="q-when">'+when+'</div>'
-      + '<div class="q-body">'+body+'<div class="q-meta">instagram · '+esc(i.kind)
-      + (i.attempts ? (' · '+i.attempts+' attempt'+(i.attempts>1?'s':'')) : '')+'</div></div>'
-      + '<button type="button" class="chip" data-igcancel="'+esc(i.id)+'" style="padding:4px 9px;font-size:10px;">Cancel</button>'
-      + '<span class="q-state">'+st+'</span></div>';
-  }).join('');
-}
-// Facebook's own queue — a near-mirror of Instagram's above. Volt owns both (published by the
-// same drain cron, two independent endpoints); Postiz never sees either.
+// =====================================================================
+// CALENDAR
+//
+// Three independent sources — Postiz's queue, Volt's own ig_queue, Volt's own fb_queue — merge
+// into ONE list of {date, platform, text, thumb, status, cancel} items, bucketed by day. This is
+// what replaces the old flat chronological list: a week (or month) grid where an empty day is
+// visibly empty and a full day is visibly full, the actual "hard to navigate" fix.
+// =====================================================================
 let fbQueueData = [];
-function renderFbQueue(){
-  const rows = (fbQueueData||[]).filter(i => ['pending','publishing','error'].includes(i.status));
-  if(!rows.length) return '';
-  return rows.map(i=>{
-    const dt = i.run_at ? new Date(i.run_at) : null;
-    const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
-    const st = i.status==='error' ? 'Failed' : (i.status==='publishing' ? 'Publishing' : 'Scheduled');
-    const body = i.error ? '<span style="color:var(--low)">'+esc(i.error)+'</span>' : esc(i.message || ('Facebook '+i.kind));
-    return '<div class="q-row"><div class="q-when">'+when+'</div>'
-      + '<div class="q-body">'+body+'<div class="q-meta">facebook · '+esc(i.kind)
-      + (i.attempts ? (' · '+i.attempts+' attempt'+(i.attempts>1?'s':'')) : '')+'</div></div>'
-      + '<button type="button" class="chip" data-fbcancel="'+esc(i.id)+'" style="padding:4px 9px;font-size:10px;">Cancel</button>'
-      + '<span class="q-state">'+st+'</span></div>';
-  }).join('');
+let calItems = [];              // unified, rebuilt by loadQueue()
+let calState = { view: 'week', anchor: new Date() };
+
+function buildUnifiedItems(postizQueue){
+  const items = [];
+  (ig.queue||[]).filter(i => ['pending','publishing','error'].includes(i.status)).forEach(i=>{
+    items.push({
+      date: i.run_at ? new Date(i.run_at) : null, platform: 'instagram',
+      text: i.caption || ('Instagram ' + i.kind), thumb: i.image_url || '',
+      status: i.status, statusLabel: i.status==='error'?'Failed':(i.status==='publishing'?'Publishing':'Scheduled'),
+      error: i.error || '', cancelType: 'ig', cancelId: i.id,
+    });
+  });
+  (fbQueueData||[]).filter(i => ['pending','publishing','error'].includes(i.status)).forEach(i=>{
+    items.push({
+      date: i.run_at ? new Date(i.run_at) : null, platform: 'facebook',
+      text: i.message || ('Facebook ' + i.kind), thumb: i.image_url || '',
+      status: i.status, statusLabel: i.status==='error'?'Failed':(i.status==='publishing'?'Publishing':'Scheduled'),
+      error: i.error || '', cancelType: 'fb', cancelId: i.id,
+    });
+  });
+  (postizQueue||[]).forEach(p=>{
+    items.push({
+      date: p.publishDate ? new Date(p.publishDate) : null, platform: (p.platform||'').toLowerCase() || 'postiz',
+      text: p.content || '(no text)', thumb: '',
+      status: (p.state||'').toLowerCase() || 'queue', statusLabel: p.state==='QUEUE'?'Scheduled':(p.state==='DRAFT'?'Draft':(p.state||'')),
+      error: '', cancelType: null, cancelId: null, channel: p.channel || '',
+    });
+  });
+  return items.filter(i => i.date && !isNaN(i.date.getTime())).sort((a,b)=>a.date-b.date);
+}
+
+function calCardHtml(i){
+  const time = i.date.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+  const pfClass = 'pf-' + (i.platform||'').replace(/[^a-z]/g,'');
+  const stClass = i.status==='error' ? ' st-error' : (i.status==='publishing' ? ' st-publishing' : '');
+  return '<div class="cal-card '+pfClass+stClass+'">'
+    + (i.cancelType ? '<button type="button" class="cc-cancel" data-'+(i.cancelType==='ig'?'igcancel':'fbcancel')+'="'+esc(i.cancelId)+'" title="Cancel">✕</button>' : '')
+    + '<div class="cc-time"><span>'+time+'</span><span class="cc-pf">'+esc((i.platform||'').slice(0,12))+(i.channel?(' · '+esc(i.channel)):'')+'</span></div>'
+    + '<div class="cc-body">'
+    + (i.thumb ? '<img class="cc-thumb" src="'+esc(i.thumb)+'" alt="" loading="lazy">' : '')
+    + '<div class="cc-txt">'+esc(i.text)+'</div></div>'
+    + (i.error ? '<div class="cc-err">'+esc(i.error)+'</div>' : '')
+    + '</div>';
+}
+
+function dayKeyLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function sameDay(a,b){ return dayKeyLocal(a)===dayKeyLocal(b); }
+function fmtRange(a,b){ const f=d=>d.toLocaleDateString(undefined,{day:'numeric',month:'short'}); return b?(f(a)+' – '+f(b)):f(a); }
+
+function renderCalendar(){
+  const box=$('#calBody'); if(!box) return;
+  if(calState.view==='month') renderMonth(box); else renderWeek(box);
+}
+function renderWeek(box){
+  const s = weekStart(calState.anchor), days=[];
+  for(let i=0;i<7;i++){ const d=new Date(s); d.setDate(s.getDate()+i); days.push(d); }
+  $('#calRange').textContent = fmtRange(days[0], days[6]);
+  const today = new Date();
+  const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  box.innerHTML = '<div class="cal-week">' + days.map((d,i)=>{
+    const items = calItems.filter(it=>sameDay(it.date,d));
+    const isToday = sameDay(d,today);
+    return '<div class="cal-day'+(isToday?' today':'')+'">'
+      + '<div class="cal-day-h" data-opencompose="'+d.toISOString()+'"><span class="nm">'+DOW[i]+'</span><span class="n">'+d.getDate()+'</span></div>'
+      + '<div class="cal-day-body">' + (items.length ? items.map(calCardHtml).join('') : '') + '</div>'
+      + '<button type="button" class="cal-day-add" data-opencompose="'+d.toISOString()+'">+ Post</button>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+function renderMonth(box){
+  const a = calState.anchor;
+  const first = new Date(a.getFullYear(), a.getMonth(), 1);
+  const gridStart = weekStart(first);
+  const label = first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  $('#calRange').textContent = label;
+  const today = new Date();
+  const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const cells = [];
+  for(let i=0;i<42;i++){
+    const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const items = calItems.filter(it=>sameDay(it.date,d));
+    const out = d.getMonth() !== a.getMonth();
+    const dots = items.slice(0,6).map(it=>'<span class="cal-mdot pf-'+esc((it.platform||'').replace(/[^a-z]/g,''))+'"></span>').join('');
+    cells.push('<div class="cal-mcell'+(out?' out':'')+(sameDay(d,today)?' today':'')+'" data-openweek="'+d.toISOString()+'">'
+      + '<div class="n">'+d.getDate()+'</div>'
+      + (items.length ? ('<div class="cal-mdots">'+dots+'</div><div class="cal-mcount">'+items.length+' post'+(items.length>1?'s':'')+'</div>') : '')
+      + '</div>');
+  }
+  box.innerHTML = '<div class="cal-month">' + DOW.map(d=>'<div class="cal-mh">'+d+'</div>').join('')
+    + cells.join('') + '</div>';
 }
 document.addEventListener('click', async e=>{
   const bi = e.target.closest('[data-igcancel]');
@@ -707,39 +869,67 @@ document.addEventListener('click', async e=>{
   if(bf){ bf.disabled = true;
     try{ await fbFetch('cancel', { id: bf.dataset.fbcancel }); await refreshFbLabel(); loadQueue(); }
     catch(err){ setStatus((err&&err.message)||'Could not cancel that.','err'); bf.disabled=false; }
+    return;
   }
+  const oc = e.target.closest('[data-opencompose]');
+  if(oc){ openCompose(new Date(oc.dataset.opencompose)); return; }
+  const ow = e.target.closest('[data-openweek]');
+  if(ow){ calState.view='week'; calState.anchor=new Date(ow.dataset.openweek); syncViewSeg(); renderCalendar(); return; }
 });
 
-// ---- Queue / calendar of scheduled + upcoming posts ----
+function syncViewSeg(){ document.querySelectorAll('#calViewSeg button').forEach(b=>b.classList.toggle('on', b.dataset.v===calState.view)); }
+$('#calViewSeg').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  calState.view = b.dataset.v; syncViewSeg(); renderCalendar();
+});
+$('#calPrev').addEventListener('click', ()=>{
+  const d=new Date(calState.anchor);
+  if(calState.view==='week') d.setDate(d.getDate()-7); else d.setMonth(d.getMonth()-1);
+  calState.anchor=d; renderCalendar();
+});
+$('#calNext').addEventListener('click', ()=>{
+  const d=new Date(calState.anchor);
+  if(calState.view==='week') d.setDate(d.getDate()+7); else d.setMonth(d.getMonth()+1);
+  calState.anchor=d; renderCalendar();
+});
+$('#calTodayBtn').addEventListener('click', ()=>{ calState.anchor=new Date(); renderCalendar(); });
+$('#calRefresh').addEventListener('click', loadQueue);
+
+// ---- Compose modal open/close ----
+function openCompose(prefillDate){
+  if(prefillDate instanceof Date && !isNaN(prefillDate.getTime())){
+    const d = new Date(prefillDate); d.setHours(Math.max(d.getHours(),9), 0, 0, 0);
+    if(d.getTime() < Date.now()) d.setTime(Date.now() + 3600000);
+    const pad=n=>String(n).padStart(2,'0');
+    $('#scDate').value = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+    updatePreview();
+  }
+  $('#composeScrim').classList.add('open');
+}
+function closeCompose(){ $('#composeScrim').classList.remove('open'); setStatus(''); }
+$('#calNewPost').addEventListener('click', ()=> openCompose());
+$('#composeClose').addEventListener('click', closeCompose);
+$('#composeScrim').addEventListener('click', e=>{ if(e.target.id==='composeScrim') closeCompose(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $('#composeScrim').classList.contains('open')) closeCompose(); });
+
+// ---- Queue: fetch all three sources, feed the shape card + the calendar ----
 async function loadQueue(){
-  const box=$('#scQueue'); if(!box) return;
-  box.innerHTML='<span class="empty">Loading your queue…</span>';
+  const box=$('#calBody'); if(box && !calItems.length) box.innerHTML='<span class="empty">Loading your schedule…</span>';
   // Postiz and Volt's own two direct queues are independent sources — one being unconfigured or
-  // erroring must never hide the other two. This used to return early on ANY Postiz failure,
-  // which hid the Instagram/Facebook rows too even though they had nothing to do with Postiz.
-  let q = [], postizNote = '';
+  // erroring must never hide the other two.
+  let q = [];
   try{
     const r=await fetch(API+'/postiz?action=queue');
     let d={}; try{ d=await r.json(); }catch(_){}
-    if(r.status===401) postizNote = 'Please sign in to see Postiz-scheduled posts.';
-    else if(!r.ok || (d&&d.error==='NOT_CONFIGURED')) postizNote = 'Connect Postiz to see channels scheduled there too.';
-    else q = (d&&d.queue)||[];
-  }catch(e){ postizNote = 'Couldn’t reach Postiz.'; }
+    if(r.ok && !(d&&d.error==='NOT_CONFIGURED')) q = (d&&d.queue)||[];
+  }catch(e){ /* Postiz unreachable — direct items still show */ }
   // ig.queue is kept current by loadIg() itself; Facebook's queue is fetched fresh here since
   // there's no equivalent shared refresh point for it yet.
   try{ const fd = await fbFetch('status'); fbQueueData = (fd && fd.queue) || []; }catch(e){ /* not connected yet, or an error — just show nothing for it */ }
   renderShape(q);
-  const igRows = renderIgQueue(), fbRows = renderFbQueue();
-  const directRows = igRows + fbRows;
-  if(!q.length){ box.innerHTML = directRows || (postizNote ? '<span class="empty">'+esc(postizNote)+'</span>' : '<span class="empty">Nothing scheduled yet — compose something above and schedule it.</span>'); return; }
-  box.innerHTML = directRows + q.map(p=>{
-    const dt = p.publishDate ? new Date(p.publishDate) : null;
-    const when = dt ? ('<b>'+dt.toLocaleDateString(undefined,{day:'numeric',month:'short'})+'</b><br><span class="d">'+dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})+'</span>') : '—';
-    const st = p.state==='QUEUE'?'Scheduled':(p.state==='DRAFT'?'Draft':(p.state||''));
-    return '<div class="q-row"><div class="q-when">'+when+'</div><div class="q-body">'+esc(p.content||'(no text)')+'<div class="q-meta">'+esc(p.channel||'')+(p.platform?(' · '+esc(p.platform)):'')+'</div></div><span class="q-state">'+esc(st)+'</span></div>';
-  }).join('');
+  calItems = buildUnifiedItems(q);
+  renderCalendar();
 }
-$('#scRefreshQueue').addEventListener('click', loadQueue);
 
 // ---- Pull a caption from Copy / Transcribe (shared localStorage, same origin) ----
 function getCaptions(){ try{ return JSON.parse(localStorage.getItem('volt_recent_captions')||'[]'); }catch(e){ return []; } }
