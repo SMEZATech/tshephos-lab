@@ -676,6 +676,12 @@
     // brand-driven) — every other family keeps using Oswald/Roboto exactly as before.
     const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap';
     const WHITE_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png';
+    // Business News SA's real site icon — confirmed live (200, image/png, 512x512) at
+    // businessnewssouthafrica.co.za's own <link rel="apple-touch-icon">. A self-contained square
+    // mark (dark navy tile behind the gold bars), so unlike SME's white-on-transparent logo it
+    // doesn't need a separate light/dark variant — one asset works on both bizsa's paper and ink
+    // backgrounds.
+    const BIZSA_LOGO = 'https://businessnewssouthafrica.co.za/wp-content/uploads/2026/08/bnsa-logo-512.png';
     // External images come back through OUR origin so no cross-origin fetch is needed — that is
     // what lets the desktop shell run with webSecurity ON. Falls back to the raw URL if volt-auth
     // isn't present, so a standalone page still renders.
@@ -912,6 +918,7 @@
     let currentImageBlob = null;
     let currentImageSrc  = DEFAULT_IMG_URL;
     let logoBlob         = null;
+    let _logoSrc         = null;
     let fontBuffers      = {};
     let scrapedDesc      = '';
 
@@ -1000,9 +1007,13 @@
     // 5. ASSET LOADERS (Blob storage for worker handoff)
     // =============================================================
     async function ensureLogoBlob() {
-        if (logoBlob) return logoBlob;
+        // Business News SA carries its own fixed logo, same as its fixed ink/gold/paper palette —
+        // not the active Brand Kit's logo. Cached by source so switching content types (or brands)
+        // correctly refetches instead of reusing whichever logo happened to load first.
+        const src = (state.contentType === 'bizsa') ? BIZSA_LOGO : (currentBrand().logo || WHITE_LOGO);
+        if (logoBlob && _logoSrc === src) return logoBlob;
+        _logoSrc = src;
         try {
-            const src = currentBrand().logo || WHITE_LOGO;
             const r = await fetch(voltAssetUrl(src));
             logoBlob = await r.blob();
         } catch (err) {

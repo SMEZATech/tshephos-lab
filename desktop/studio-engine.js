@@ -1360,6 +1360,19 @@ function bizsaEyebrow(r, x, y, text, color, size) {
     return size || 20;
 }
 function bizsaRule(r, x, y, w, color) { r.rect(x, y, w, Math.max(2, Math.round(r.h * 0.0025)), color || BIZSA.gold); }
+// A real logo + url lockup, not a bare text line — gives the footer actual visual weight instead
+// of a card that reads as unfinished on tall canvases (portrait/story), and puts the brand mark on
+// screen the way every other family's pLogo() already does for the active Brand Kit's logo. logo
+// is assets.logoW, which studio.html's ensureLogoBlob() now points at Business News's own real
+// site icon (bnsa-logo-512.png) whenever this family is active — not the org's Brand Kit logo.
+function bizsaFooter(r, x, y, w, url, logo) {
+    const size = pV(40);
+    if (logo) r.drawContain(logo, x, y, size, size, {});
+    const textX = logo ? x + size + pV(16) : x;
+    const f = { family: 'Inter', weight: '600', size: pT(16) };
+    r.drawLines([String(url || '').toUpperCase()], f, textX, y + (size - f.size) / 2, w - (textX - x), { color: BIZSA.ink400 });
+    return size;
+}
 function drawBizSA(r, dir, v, assets) {
     const pad = pPad(), top = pTop(), W = r.w, H = r.h, innerW = W - pad * 2;
     r.ctx.textBaseline = 'top';
@@ -1384,25 +1397,31 @@ function drawBizSA(r, dir, v, assets) {
             y += r.computeBlockHeight(lines.length, bf.size, 1.28) + pV(34);
         }
         bizsaRule(r, pad, H - pSafeB() - pV(88), innerW, BIZSA.ink200);
-        r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(18) }, pad, H - pSafeB() - pV(60), innerW, { color: BIZSA.ink400 });
+        bizsaFooter(r, pad, H - pSafeB() - pV(66), innerW, v.url, assets.logoW);
         return;
     }
 
-    // ---- Direction C: Pull-quote — Newsreader italic, a decorative gold quotation mark ----
+    // ---- Direction C: Pull-quote — the decorative quotation mark stays pinned near the top (a
+    // fixed masthead-like flourish); the quote/attribution/footer block is vertically centered in
+    // the space below it, same reasoning and same fix as direction A. ----
     if (dir === 'c') {
         r.fillBg(BIZSA.paper);
         r.drawLines(['“'], { family: 'Newsreader', weight: '700', size: pT(140) }, pad - pV(10), top - pV(30), innerW, { color: BIZSA.gold });
-        const quoteTop = top + pV(120);
-        // Bounded by remaining room, but the attribution row below FOLLOWS the quote rather than
-        // pinning to the bottom of the frame — same dead-space fix as direction A.
-        const quoteBoxH = H - pSafeB() - pV(230) - quoteTop;
-        const fit = r.fitFontSize(String(v.quote || ''), { family: 'Newsreader', weight: '500' }, innerW, quoteBoxH, 1.3, { max: pT(58), min: 26 });
+
+        const zoneTop = top + pV(140), zoneBottom = H - pSafeB() - pV(24);
+        const attrBlockH = pV(60) + pV(58) + pT(20);
+        const footerBlockH = pV(50) + pV(40);
+        const maxQuoteH = (zoneBottom - zoneTop) - attrBlockH - footerBlockH;
+        const fit = r.fitFontSize(String(v.quote || ''), { family: 'Newsreader', weight: '500' }, innerW, Math.max(pT(80), maxQuoteH), 1.3, { max: pT(58), min: 26 });
+        const blockH = fit.totalH + attrBlockH + footerBlockH;
+        const quoteTop = zoneTop + Math.max(0, (zoneBottom - zoneTop - blockH) / 2);
+
         r.drawLines(fit.lines, { family: 'Newsreader', weight: '500', size: fit.size }, pad, quoteTop, innerW, { color: BIZSA.ink, lineHeight: 1.3 });
         const attrY = quoteTop + fit.totalH + pV(60);
         bizsaRule(r, pad, attrY, pV(64), BIZSA.gold);
         r.drawLines([String(v.author || '')], { family: 'Inter', weight: '700', size: pT(24) }, pad, attrY + pV(24), innerW, { color: BIZSA.ink });
         r.drawLines([String(v.role || '')], { family: 'Inter', weight: '400', size: pT(20) }, pad, attrY + pV(58), innerW, { color: BIZSA.ink600 });
-        r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(16) }, pad, H - pSafeB() - pV(40), innerW, { color: BIZSA.ink400 });
+        bizsaFooter(r, pad, attrY + pV(58) + pT(20) + pV(50), innerW, v.url, assets.logoW);
         return;
     }
 
@@ -1424,23 +1443,33 @@ function drawBizSA(r, dir, v, assets) {
         const ctxF = { family: 'Inter', weight: '400', size: pT(22) };
         const ctxLines = r.wrap(String(v.context || ''), ctxF, innerW);
         r.drawLines(ctxLines, ctxF, pad, labelY + pV(86), innerW, { color: BIZSA.ink200, lineHeight: 1.4 });
-        r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(16) }, pad, H - pSafeB() - pV(40), innerW, { color: BIZSA.ink400 });
+        bizsaFooter(r, pad, H - pSafeB() - pV(56), innerW, v.url, assets.logoW);
         return;
     }
 
-    // ---- Direction A (default): Headline Card — masthead eyebrow, serif headline, byline.
-    // The byline/rule/url follow directly after the headline rather than pinning to the bottom of
-    // the frame — a short headline used to leave a large dead gap above a bottom-anchored meta row
-    // (worst on the 9:16 story format), caught by actually looking at rendered output, not just the
-    // smoke suite's contrast/dimension checks passing. ----
+    // ---- Direction A (default): Headline Card — masthead pinned at top like a real header; the
+    // eyebrow/headline/byline/footer block is VERTICALLY CENTERED in the space below it, rather
+    // than top-anchored. Top-anchoring left roughly half a tall (portrait/story) canvas empty below
+    // a short-to-medium headline — following the content immediately fixed the case where two
+    // elements collided, but a real headline still doesn't fill a 1080x1350+ frame on its own, so
+    // centering the whole block distributes the remaining space evenly instead of pooling it at the
+    // bottom. Caught by actually looking at rendered output at realistic copy length, twice now —
+    // the smoke suite's short fixture text never has enough content to reveal either problem. ----
     r.fillBg(BIZSA.paperWarm);
     r.drawLines(['BUSINESS NEWS SOUTH AFRICA'], { family: 'Inter', weight: '700', size: pT(15) }, pad, top, innerW, { color: BIZSA.ink400 });
-    bizsaRule(r, pad, top + pV(36), innerW, BIZSA.ink200);
-    let y = top + pV(70);
+    const rule1Y = top + pV(36);
+    bizsaRule(r, pad, rule1Y, innerW, BIZSA.ink200);
+
+    const zoneTop = rule1Y + pV(50), zoneBottom = H - pSafeB() - pV(24);
+    const eyebrowBlockH = pT(22) + pV(56);
+    const footerBlockH = pV(22) + pT(19) + pV(30) + pV(40);
+    const maxHeadlineH = (zoneBottom - zoneTop) - eyebrowBlockH - footerBlockH - pV(22);
+    const fit = r.fitFontSize(String(v.head || ''), { family: 'Newsreader', weight: '700' }, innerW, Math.max(pT(80), maxHeadlineH), 1.08, { max: pT(74), min: 30 });
+    const blockH = eyebrowBlockH + fit.totalH + footerBlockH;
+    let y = zoneTop + Math.max(0, (zoneBottom - zoneTop - blockH) / 2);
+
     bizsaEyebrow(r, pad, y, v.eyebrow || 'News', BIZSA.gold, pT(22));
     y += pV(56);
-    const maxHeadlineH = H - pSafeB() - pV(180) - y;
-    const fit = r.fitFontSize(String(v.head || ''), { family: 'Newsreader', weight: '700' }, innerW, maxHeadlineH, 1.08, { max: pT(74), min: 30 });
     r.drawLines(fit.lines, { family: 'Newsreader', weight: '700', size: fit.size }, pad, y, innerW, { color: BIZSA.ink, lineHeight: 1.08 });
     y += fit.totalH + pV(50);
     bizsaRule(r, pad, y, innerW, BIZSA.ink200);
@@ -1449,7 +1478,7 @@ function drawBizSA(r, dir, v, assets) {
     const metaText = [v.byline, v.readtime].filter(Boolean).join('   ·   ');
     r.drawLines([metaText], metaF, pad, y, innerW, { color: BIZSA.ink600 });
     y += pT(19) + pV(30);
-    r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(16) }, pad, y, innerW, { color: BIZSA.ink400 });
+    bizsaFooter(r, pad, y, innerW, v.url, assets.logoW);
 }
 
 function drawPremium(r, type, dir, v, assets) {
@@ -1478,10 +1507,29 @@ function drawPremium(r, type, dir, v, assets) {
 // what section this is) and a CTA (one clear ask, once, at the end). Deliberately NOT per-family
 // authored copy — the entire point of this feature is reusing content already written and
 // render-checked. Only the wrapper is new.
-function drawCarouselHook(r, label, v, assets) {
+function drawCarouselHook(r, label, v, assets, premType) {
     v = v || {}; assets = assets || {};
     pGeom(r.w, r.h);
     const W = r.w, H = r.h, pad = pPad();
+    // Business News carries its own fixed identity, not the active Brand Kit's navy/red — a
+    // bookend rendered in PC.navy would visually clash with the four ink/gold/paper slides it
+    // wraps. assets.logoW is already BNSA's own logo here (see ensureLogoBlob() in studio.html),
+    // drawn directly rather than through pLogoC/pLogoPick, which would reach for the active
+    // brand's colour logo (assets.logoC) on a light background — untouched by that swap.
+    if (premType === 'bizsa') {
+        r.fillBg(BIZSA.ink);
+        if (assets.logoW) r.drawContain(assets.logoW, pad, pTop() - pV(8), pV(50), pV(50), {});
+        const eyebrowY = pTop() + pV(66);
+        bizsaEyebrow(r, pad, eyebrowY, label || 'Business News', BIZSA.gold, pT(22));
+        const headFont = { family: 'Newsreader', weight: '700', size: pT(64) };
+        const lines = r.wrap(String(v.head || label || 'Read the full story').toUpperCase(), headFont, W - pad * 2);
+        const totalH = lines.length * headFont.size * 1.1;
+        const top2 = eyebrowY + pV(56);
+        const startY = Math.max(top2, top2 + (H - pSafeB() - pV(120) - top2 - totalH) / 2);
+        r.drawLines(lines, headFont, pad, startY, W - pad * 2, { color: '#fff', lineHeight: 1.1 });
+        r.drawLines(['SWIPE →'], { family: 'Inter', weight: '600', size: pT(20) }, pad, H - pSafeB() - pT(70), W - pad * 2, { color: BIZSA.gold });
+        return;
+    }
     r.fillBg(PC.navy);
     pLogoC(r, assets, PC.navy);
     // A pill, not plain coloured text: brand red on navy is well under the 3:1 minimum for text,
@@ -1495,10 +1543,25 @@ function drawCarouselHook(r, label, v, assets) {
     r.drawLines(lines, headFont, pad, Math.round((H - totalH) / 2), W - pad * 2, { color: '#fff', lineHeight: 1.06 });
     r.drawLines(['SWIPE →'], { family: 'Oswald', weight: '700', size: pT(28) }, pad, H - pSafeB() - pT(70), W - pad * 2, { color: PC.f8 });
 }
-function drawCarouselCTA(r, label, v, assets) {
+function drawCarouselCTA(r, label, v, assets, premType) {
     v = v || {}; assets = assets || {};
     pGeom(r.w, r.h);
     const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2;
+    if (premType === 'bizsa') {
+        r.fillBg(BIZSA.ink);
+        if (assets.logoW) r.drawContain(assets.logoW, (W - pV(56)) / 2, pTop() - pV(8), pV(56), pV(56), {});
+        const y0 = Math.round(H * 0.26);
+        r.drawLines([String(label || 'Business News').toUpperCase()], { family: 'Inter', weight: '700', size: pT(20) }, pad, y0, iW, { color: BIZSA.gold, align: 'center' });
+        const headFont = { family: 'Newsreader', weight: '700', size: pT(52) };
+        const lines = r.wrap(String(v.head || 'Read the full story').toUpperCase(), headFont, iW);
+        r.drawLines(lines, headFont, pad, y0 + pT(64), iW, { color: '#fff', align: 'center', lineHeight: 1.15 });
+        const btnH = pBtnH(), btnY = H - pSafeB() - btnH;
+        r.drawLines([String(v.url || 'businessnewssouthafrica.co.za')], { family: 'Inter', weight: '500', size: pT(20) }, pad, btnY - pT(40), iW, { color: BIZSA.ink200, align: 'center' });
+        const btnF = { family: 'Inter', weight: '700', size: pT(24) };
+        r.fillRoundRect(pad, btnY, iW, btnH, 6, BIZSA.gold);
+        r.drawLines([String(v.cta || 'Read more').toUpperCase()], btnF, pad, btnY + (btnH - btnF.size) / 2, iW, { color: BIZSA.ink, align: 'center' });
+        return;
+    }
     r.fillBg(PC.navy);
     pLogoC(r, assets, PC.navy);
     const y0 = Math.round(H * 0.24);
@@ -3112,8 +3175,8 @@ self.onmessage = async (e) => {
                 self.postMessage({ type: 'progress', percent: pct, label: 'Rendering slide ' + (i + 1) + '/' + slides.length });
                 const r = new CanvasRenderer(W, H, msg.scale || 2);
                 if (msg.trace) r.trace = [];
-                if (s.kind === 'hook') drawCarouselHook(r, msg.label, s.vals, assets);
-                else if (s.kind === 'cta') drawCarouselCTA(r, msg.label, s.vals, assets);
+                if (s.kind === 'hook') drawCarouselHook(r, msg.label, s.vals, assets, msg.premType);
+                else if (s.kind === 'cta') drawCarouselCTA(r, msg.label, s.vals, assets, msg.premType);
                 else drawPremium(r, msg.premType, s.dir, s.vals, assets);
                 if (traces) traces.push({ kind: s.kind || s.dir, trace: r.trace });
                 const blob = await r.toBlob('image/png', 1.0);
