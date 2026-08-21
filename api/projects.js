@@ -13,9 +13,16 @@ import { setCors, rateLimit, requireSession, db, workspaceInfo } from "./_guard.
 const enc = (v) => encodeURIComponent(String(v));
 
 // Org settings are owner-only to WRITE (everyone reads them — that is how enforcement works).
-const isAdmin = (s) =>
-  String((s && s.user && s.user.email) || "").toLowerCase() ===
-  (process.env.VOLT_ADMIN_EMAIL || "joel@smesouthafrica.co.za").toLowerCase();
+// VOLT_ADMIN_EMAIL is comma-separated so the same person can own settings in more than one org
+// (e.g. a private per-person workspace alongside the shared team one — see ALLOWED_EMAIL_EXTRA in
+// _guard.js) without this ever granting cross-org access: each email still only ever resolves to
+// its OWN org via resolveOrg(), so listing a second address here can't let it touch someone else's.
+const isAdmin = (s) => {
+  const email = String((s && s.user && s.user.email) || "").toLowerCase();
+  const list = String(process.env.VOLT_ADMIN_EMAIL || "joel@smesouthafrica.co.za")
+    .toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
+  return list.includes(email);
+};
 
 export default async function handler(req, res) {
   setCors(req, res, "GET, POST, OPTIONS");

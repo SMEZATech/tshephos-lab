@@ -120,7 +120,11 @@
 
 <script>
 const API = 'https://tshephos-lab.vercel.app/api';
-const ADMIN_EMAIL = 'joel@smesouthafrica.co.za';
+// Two identities, ONE person: the shared-org work email and the personal email used to sign into
+// the private, colleague-invisible workspace (see BLUEPRINT.html's 2026-08-21 entry). Each resolves
+// to its own separate org, so there's no cross-org access implied by listing both here — just
+// letting the same human manage whichever workspace they're currently signed into.
+const ADMIN_EMAILS = ['joel@smesouthafrica.co.za', 'joelbosega@gmail.com'];
 const $ = s => document.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -360,7 +364,7 @@ function boot(){
     $('#gateMsg').textContent = 'Admin is only available to the account owner. Sign in to continue.';
     return;
   }
-  if(email !== ADMIN_EMAIL){
+  if(!ADMIN_EMAILS.includes(email)){
     $('#gate').style.display = 'block';
     $('#gateTitle').textContent = '🔒 Owner only';
     $('#gateMsg').innerHTML = 'This page is restricted to the account owner.<br><br>You are signed in as <b>' + esc(email) + '</b>. The server enforces this too — module settings can only be changed by the owner.';
