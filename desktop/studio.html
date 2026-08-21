@@ -704,20 +704,31 @@
     // ---- Phase B: sync the Brand Kit to the account so the whole org shares brands ----
     const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
     let _brandKitId = null, _bkPushT = null;
+    // A brand-new workspace (or the first time THIS browser signs into one) has no saved Brand Kit
+    // yet — clearing local cache rather than leaving whatever a PREVIOUS account left in localStorage
+    // is what stops one shared browser from making two separate, org-isolated workspaces look
+    // identical. BRANDS_KEY/ACTIVE_BRAND_KEY are plain localStorage keys with no org/user in them,
+    // so they persist across a sign-out/sign-in on the same browser unless something clears them.
+    function resetBrandKitLocal() {
+        try { localStorage.removeItem(BRANDS_KEY); } catch (e) {}
+        try { localStorage.removeItem(ACTIVE_BRAND_KEY); } catch (e) {}
+    }
     async function pullBrandKit() {
         try {
             const r = await fetch(PROJECTS_URL + '?type=brandkit');
-            if (!r.ok) return;
+            if (!r.ok) return;   // couldn't check — leave local state alone rather than guess
             const list = (await r.json()).projects || [];
-            if (!list[0]) return;
+            if (!list[0]) { resetBrandKitLocal(); if (typeof applyBrand === 'function') applyBrand(); return; }
             _brandKitId = list[0].id;
             const full = await (await fetch(PROJECTS_URL + '?id=' + _brandKitId)).json();
             const d = full.project && full.project.data;
             if (d && Array.isArray(d.brands) && d.brands.length) {
                 try { localStorage.setItem(BRANDS_KEY, JSON.stringify(d.brands)); } catch (e) {}
-                if (d.active) { try { localStorage.setItem(ACTIVE_BRAND_KEY, d.active); } catch (e) {} }
-                if (typeof applyBrand === 'function') applyBrand();
+                try { localStorage.setItem(ACTIVE_BRAND_KEY, d.active || 'sme'); } catch (e) {}
+            } else {
+                resetBrandKitLocal();
             }
+            if (typeof applyBrand === 'function') applyBrand();
         } catch (e) {}
     }
     function pushBrandKit() {

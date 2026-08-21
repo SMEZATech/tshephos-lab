@@ -3273,19 +3273,27 @@ window.addEventListener('focus', refreshBrand);
 
 // Phase B: pull the org's shared Brand Kit from the account once signed in.
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
+// See studio.html's identical comment: a workspace with no saved Brand Kit yet must clear stale
+// localStorage left by a PREVIOUS account on this browser, not leave it sitting there looking valid.
+function resetBrandKitLocal(){
+  try{ localStorage.removeItem(BRANDS_KEY); }catch(e){}
+  try{ localStorage.removeItem(ACTIVE_BRAND_KEY); }catch(e){}
+}
 async function pullBrandKit(){
   try{
     const r = await fetch(PROJECTS_URL + '?type=brandkit');
     if(!r.ok) return;
     const list = (await r.json()).projects || [];
-    if(!list[0]) return;
+    if(!list[0]){ resetBrandKitLocal(); refreshBrand(); return; }
     const full = await (await fetch(PROJECTS_URL + '?id=' + list[0].id)).json();
     const d = full.project && full.project.data;
     if(d && Array.isArray(d.brands) && d.brands.length){
       try{ localStorage.setItem(BRANDS_KEY, JSON.stringify(d.brands)); }catch(e){}
-      if(d.active){ try{ localStorage.setItem(ACTIVE_BRAND_KEY, d.active); }catch(e){} }
-      refreshBrand();
+      try{ localStorage.setItem(ACTIVE_BRAND_KEY, d.active || 'sme'); }catch(e){}
+    } else {
+      resetBrandKitLocal();
     }
+    refreshBrand();
   }catch(e){}
 }
 window.addEventListener('volt:ready', pullBrandKit);

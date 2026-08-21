@@ -286,20 +286,28 @@ function activeBrandId(){ try { return localStorage.getItem('volt_active_brand')
 function currentBrand(){ const a = loadBrands(); return a.find(b => b.id === activeBrandId()) || a[0] || SME_BRAND; }
 function brandPayload(){ const b = currentBrand(); return { primary:b.primary, secondary:b.secondary, cta:b.cta, url:b.url }; }
 // Pull the account's Brand Kit (Studio pushes it here) so Campaign matches Studio exactly.
+// See studio.html's identical comment: a workspace with no saved Brand Kit yet must clear stale
+// localStorage left by a PREVIOUS account on this browser, not leave it sitting there looking valid.
+function resetBrandKitLocal(){
+  try { localStorage.removeItem('volt_brands_v1'); } catch(e){}
+  try { localStorage.removeItem('volt_active_brand'); } catch(e){}
+}
 async function pullBrandKit(){
   try {
     const r = await fetch(API_BASE + '/api/projects?type=brandkit');
     if (!r.ok) return;
     const list = (await r.json()).projects || [];
-    if (!list[0]) return;
+    if (!list[0]) { resetBrandKitLocal(); _logoW = null; _assetsReady = null; showBrandChip(); return; }
     const full = await (await fetch(API_BASE + '/api/projects?id=' + list[0].id)).json();
     const d = full.project && full.project.data;
     if (d && Array.isArray(d.brands) && d.brands.length) {
       try { localStorage.setItem('volt_brands_v1', JSON.stringify(d.brands)); } catch(e){}
-      if (d.active) { try { localStorage.setItem('volt_active_brand', d.active); } catch(e){} }
-      _logoW = null; _assetsReady = null;   // brand logo changed → re-fetch
-      showBrandChip();
+      try { localStorage.setItem('volt_active_brand', d.active || 'sme'); } catch(e){}
+    } else {
+      resetBrandKitLocal();
     }
+    _logoW = null; _assetsReady = null;   // brand logo changed → re-fetch
+    showBrandChip();
   } catch(e){}
 }
 function showBrandChip(){
