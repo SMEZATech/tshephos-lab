@@ -101,8 +101,36 @@ async function clearCreds(orgId) {
 // Accepts a Page token or a User token and finds the Instagram account itself, because "which of
 // these four tokens do I paste" is the single most common way this setup goes wrong.
 // ---------------------------------------------------------------------------------------------
-async function resolveAccount(token, explicitIgId) {
+async function resolveAccount(token, explicitIgId, explicitPageId) {
+  // THE ROBUST OVERRIDE. Proven twice on a real account: /me/accounts AND the /me/businesses walk
+  // can both come back empty for a Page the token can nonetheless query directly by id without any
+  // trouble at all — the access was granted in a shape neither enumeration endpoint surfaces. Once
+  // you know the Page id works (Explorer will tell you), asking Volt to enumerate anything is
+  // strictly worse than just handing it the id. This is also the ONLY path that reliably returns
+  // the Page's own access_token — `?fields=access_token` on a Page node the user token can act on
+  // returns it directly, sidestepping discovery instead of hoping some other endpoint surfaces it.
+  if (explicitPageId) {
+    const page = await graph("/" + encodeURIComponent(explicitPageId), {
+      fields: "id,name,access_token,instagram_business_account{id,username}", access_token: token,
+    });
+    if (!page || !page.instagram_business_account || !page.instagram_business_account.id) {
+      throw Object.assign(new Error(
+        "That Page doesn't have an Instagram Business account linked (or this token can't see it). Check Page Settings → Linked accounts → Instagram."
+      ), { status: 400 });
+    }
+    return {
+      igUserId: String(page.instagram_business_account.id),
+      username: page.instagram_business_account.username || "",
+      page: page.name || "", pageId: String(page.id),
+      pageToken: page.access_token || "",   // may be absent if this token itself lacks admin rights on the Page
+      via: "explicit-page",
+    };
+  }
   if (explicitIgId) {
+    // NOTE: this path cannot discover a Page id or a Page token — Instagram's own node has no
+    // reverse link back to the Facebook Page that owns it. It stores exactly the token you pasted,
+    // which is fine for Instagram alone but means Facebook Page posting stays unavailable until a
+    // Page id is supplied too (via explicitPageId, above — the one to reach for if you want both).
     const me = await graph("/" + encodeURIComponent(explicitIgId), { fields: "id,username,name", access_token: token });
     return { igUserId: String(me.id), username: me.username || me.name || "", via: "explicit" };
   }
@@ -508,7 +536,7 @@ export default async function handler(req, res) {
     if (action === "connect") {
       const token = String(body.token || "").trim();
       if (!token) return res.status(400).json({ error: "Paste your access token." });
-      const acct = await resolveAccount(token, String(body.igUserId || "").trim() || null);
+      const acct = await resolveAccount(token, String(body.igUserId || "").trim() || null, String(body.pageId || "").trim() || null);
       // Prefer the Page token when we found one — see resolveAccount: it is the one that lasts.
       const keep = acct.pageToken || token;
       // Prove it can actually see the account with the token we are about to store, so "Connected"

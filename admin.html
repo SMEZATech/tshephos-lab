@@ -266,17 +266,25 @@ function renderConnectForm(reconnecting){
     + '<input id="connToken" type="password" placeholder="Paste your Meta access token…" class="bk-in" style="flex:1;min-width:240px;" autocomplete="off">'
     + '<button class="btn" id="connGo" style="padding:11px 18px;font-size:13px;">'+(reconnecting?'Reconnect':'Connect')+'</button>'
     + '</div>'
-    + '<details style="margin-top:9px;"><summary style="cursor:pointer;font-size:12px;color:var(--faint);">Know the exact Instagram account ID? (optional)</summary>'
+    + '<details style="margin-top:9px;" open><summary style="cursor:pointer;font-size:12px;color:var(--faint);">Know the exact Facebook Page ID? (recommended if Connect can’t find it automatically)</summary>'
+    + '<p class="h-note" style="margin:8px 0 6px;">The most reliable option — skips searching entirely and pulls the Page’s own token directly, which is what Facebook posting needs. Find it in Graph API Explorer: query your Page’s name and copy the numeric <code>id</code> next to it.</p>'
+    + '<input id="connPageId" type="text" placeholder="e.g. 216733318360455" class="bk-in" autocomplete="off"></details>'
+    + '<details style="margin-top:9px;"><summary style="cursor:pointer;font-size:12px;color:var(--faint);">Or know the exact Instagram account ID instead? (Instagram only, no Facebook)</summary>'
     + '<input id="connIdOverride" type="text" placeholder="e.g. 17841404968795368" class="bk-in" style="margin-top:8px;" autocomplete="off"></details>'
     + '<div class="status" id="connStatus"></div>';
   $('#connGo').addEventListener('click', async ()=>{
     const tok = ($('#connToken').value||'').trim();
+    const pageId = ($('#connPageId') && $('#connPageId').value || '').trim();
     const igUserId = ($('#connIdOverride') && $('#connIdOverride').value || '').trim();
     const s = $('#connStatus');
     if(!tok){ s.textContent='Paste the token first.'; s.className='status err'; return; }
     s.textContent='Checking with Instagram…'; s.className='status busy';
     try{
-      const d = await connFetch('instagram','connect', igUserId?{token:tok,igUserId}:{token:tok});
+      // Page ID wins if both are filled — it is the one path that also captures a real Page
+      // token, which the Instagram-ID-only override never could (Instagram's own node has no
+      // link back to the Page that owns it).
+      const body = pageId ? {token:tok,pageId} : (igUserId ? {token:tok,igUserId} : {token:tok});
+      const d = await connFetch('instagram','connect', body);
       s.textContent = '✓ Connected as @' + ((d.account&&d.account.username)||'') + (d.page?(' via '+d.page):'');
       s.className='status ok';
       setTimeout(loadConnections, 700);
