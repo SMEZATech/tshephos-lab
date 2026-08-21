@@ -82,6 +82,12 @@
   </div>
 
   <div class="card">
+    <h2>🎵 TikTok</h2>
+    <p class="h-note" id="ttNote">Publish videos straight to TikTok — same pattern as Instagram/Facebook above, but TikTok requires signing in with your TikTok account rather than pasting a token.</p>
+    <div id="ttBody"><p class="h-note">Checking…</p></div>
+  </div>
+
+  <div class="card">
     <h2>Modules</h2>
     <p class="h-note">Hide a tool from the navigation and the desktop rail. Anyone who has it open keeps working; it just stops being offered.</p>
     <div id="modList"></div>
@@ -292,6 +298,60 @@ function renderConnectForm(reconnecting){
   });
 }
 
+// ============================================================================
+// TikTok — OAuth, not a pasted token. TikTok has no equivalent of Meta's Graph API Explorer, so
+// Volt itself is the OAuth client: authstart hands back a URL to TikTok's own consent screen, the
+// browser navigates there, and TikTok redirects back to api/_routes/tiktok.js's callback (which
+// redirects here again with ?tiktok=connected|error once it has stored the token). See
+// SETUP-TIKTOK.md for the one-time app registration TikTok itself requires before this can work.
+// ============================================================================
+async function loadTikTok(){
+  const box = $('#ttBody');
+  let tt;
+  try{ tt = await connFetch('tiktok','status'); }
+  catch(e){ box.innerHTML = '<p class="h-note" style="color:var(--low)">Couldn’t check: '+esc(e.message||'')+'</p>'; return; }
+
+  if(tt.connected && tt.account){
+    const auditNote = tt.auditApproved === false
+      ? 'Posting now, but every video is <b>private</b> until TikTok approves the app for public posting — see SETUP-TIKTOK.md.'
+      : (tt.auditApproved === true ? 'Approved for public posting.' : '');
+    box.innerHTML =
+      '<div class="row"><span class="emoji">🎵</span><span class="grow"><span class="nm">'+esc(tt.account.username||'TikTok')+'</span>'
+      + (auditNote ? '<div class="ds">'+auditNote+'</div>' : '')+'</span>'
+      + '<span class="pill '+(tt.auditApproved===false?'retired':'live')+'">'+(tt.auditApproved===false?'Private only':'Connected')+'</span></div>'
+      + '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">'
+      + '<button class="btn ghost" id="ttOff" style="padding:9px 16px;font-size:13px;color:var(--low);border-color:rgba(255,124,124,.3);">Disconnect</button>'
+      + '</div>';
+    $('#ttOff').addEventListener('click', async ()=>{
+      if(!confirm('Disconnect TikTok from Volt? Scheduled TikTok posts will stop publishing.')) return;
+      try{ await connFetch('tiktok','disconnect',{}); }catch(e){}
+      loadTikTok();
+    });
+  } else {
+    box.innerHTML = (tt.error ? '<p class="h-note" style="color:var(--low)">'+esc(tt.error)+'</p>' : '')
+      + '<button class="btn" id="ttGo" style="padding:11px 18px;font-size:13px;">Connect with TikTok</button>'
+      + '<div class="status" id="ttStatus"></div>';
+    $('#ttGo').addEventListener('click', async ()=>{
+      const s = $('#ttStatus');
+      s.textContent = 'Opening TikTok…'; s.className = 'status busy';
+      try{
+        const d = await connFetch('tiktok','authstart', {});
+        window.location.href = d.url;
+      }catch(e){ s.textContent = e.message || 'Could not start TikTok sign-in.'; s.className = 'status err'; }
+    });
+  }
+}
+// The OAuth callback lands back here as a plain redirect (?tiktok=connected|error&msg=...) — this
+// is the ONLY way that page can hand back a result, since it's a server-side 302, not a fetch.
+(function handleTikTokRedirect(){
+  const p = new URLSearchParams(window.location.search);
+  if(!p.has('tiktok')) return;
+  const ok = p.get('tiktok') === 'connected';
+  const msg = p.get('msg') || (ok ? 'TikTok connected.' : 'Could not connect TikTok.');
+  history.replaceState(null, '', window.location.pathname);
+  window.__ttRedirectMsg = { ok, msg };
+})();
+
 function boot(){
   const email = String((window.voltSession && window.voltSession.user && window.voltSession.user.email) || '').toLowerCase();
   if(!email){
@@ -311,6 +371,11 @@ function boot(){
   $('#resetBtn').addEventListener('click', ()=>{ settings = { modules:{}, themes:{}, premium:{} }; render(); setStatus('All modules and designs back on — hit Save.', 'busy'); });
   load();
   loadConnections();
+  loadTikTok();
+  if(window.__ttRedirectMsg){
+    const m = window.__ttRedirectMsg;
+    setStatus(m.msg, m.ok ? 'ok' : 'err');
+  }
 }
 window.addEventListener('volt:ready', boot);
 if(window.voltSession) boot();

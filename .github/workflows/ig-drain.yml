@@ -49,7 +49,7 @@ jobs:
             exit 0
           fi
           fail=0
-          for platform in instagram facebook; do
+          for platform in instagram facebook tiktok; do
             echo "== $platform =="
             code=$(curl -sS -o /tmp/out.json -w '%{http_code}' \
               -H "x-volt-cron: $CRON_SECRET" \

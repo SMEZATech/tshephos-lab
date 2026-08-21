@@ -248,6 +248,7 @@
           <label class="lbl">Publish to</label>
           <div class="chips" id="igChip" style="margin-bottom:9px;"></div>
           <div class="chips" id="fbChip" style="margin-bottom:9px;"></div>
+          <div class="chips" id="ttChip" style="margin-bottom:9px;"></div>
           <div class="chips" id="scChannels"><span class="empty">Loading your channels…</span></div>
         </div>
         <div class="blk">
@@ -391,6 +392,7 @@ function updatePreview(){
   let name = 'Your channel', pic = '';
   if(igSelected && ig.account){ name = '@' + (ig.account.username||'instagram'); pic = ig.account.picture||''; }
   else if(fbSelected){ name = window.__fbPageName || 'Facebook Page'; pic = window.__fbPagePicture || ''; }
+  else if(ttSelected && tt.account){ name = tt.account.username || 'TikTok'; pic = tt.account.picture || ''; }
   else if(postizFirst){ name = postizFirst.name; pic = postizFirst.picture || ''; }
   else if(ig && ig.account && ig.account.picture){ pic = ig.account.picture; name = ig.account.username ? ('@'+ig.account.username) : name; }
   $('#scPrevName').textContent = name;
@@ -603,6 +605,49 @@ async function refreshFbLabel(){
   renderFbChip();
 }
 
+// =====================================================================
+// TIKTOK — its own OAuth connection (Admin → Connections), its own credential row. Only posts
+// video, and every post is private-only until TikTok approves the app for public posting — see
+// SETUP-TIKTOK.md. The chip label says so up front rather than surprising you after "Post now".
+// =====================================================================
+let ttSelected = false, tt = { connected: false };
+
+function ttFetch(action, body){
+  const u = API + '/tiktok' + (body ? '' : '?action=' + encodeURIComponent(action));
+  return fetch(u, body
+    ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({ action }, body)) }
+    : {}).then(async r => {
+      let d={}; try{ d=await r.json(); }catch(_){}
+      if(!r.ok) throw new Error((d&&(d.error||d.message))||('TikTok request failed ('+r.status+')'));
+      return d;
+    });
+}
+async function loadTt(){
+  try{ tt = await ttFetch('status'); }
+  catch(e){ tt = { connected: false }; }
+  renderTtChip();
+}
+function renderTtChip(){
+  const box=$('#ttChip'); if(!box) return;
+  if(!tt.connected){ ttSelected = false; box.innerHTML=''; return; }
+  const pf = tt.auditApproved === false ? 'tiktok · private only' : 'tiktok · direct';
+  box.innerHTML = '<button type="button" class="chip'+(ttSelected?' on':'')+'" id="ttPick">🎵 '
+    + esc((tt.account&&tt.account.username)||'TikTok') + ' <span class="pf">'+esc(pf)+'</span></button>';
+  $('#ttPick').addEventListener('click', ()=>{ ttSelected=!ttSelected; renderTtChip(); updatePreview(); });
+}
+async function ttSend(){
+  if(!selectedImage) throw new Error('Pick a video first — TikTok only posts video.');
+  const caption = ($('#scContent').value||'').trim();
+  if(when==='now'){
+    const d = await ttFetch('publish', { videoUrl: selectedImage, caption });
+    return 'Published to TikTok' + (d.note ? ' — ' + d.note : '');
+  }
+  if(when==='draft') throw new Error('TikTok has no drafts over the API — choose “Post now” or “Schedule”.');
+  const at = new Date($('#scDate').value);
+  const d = await ttFetch('schedule', { videoUrl: selectedImage, caption, at: at.toISOString() });
+  return 'Scheduled on TikTok for ' + at.toLocaleString() + (d.cron ? '' : ' (⚠ CRON_SECRET not set — it will not publish)');
+}
+
 // Facebook Stories publish for real (photo_stories, see api/_routes/facebook.js) when the post-type
 // segmented control is set to Story — this used to silently fall through to a normal feed post with
 // no warning at all, which is exactly what looked like a bug. Reels still have no Facebook equivalent
@@ -652,9 +697,9 @@ $('#scGo').addEventListener('click', async ()=>{
   // rule that made the story button useless for the thing stories actually are.
   // A story is an image, not a sentence; a Facebook photo post's caption is optional too — neither
   // should be blocked by the "write something" rule that makes sense for a plain feed/Postiz post.
-  const needsText = !((igSelected && postType === 'story' && !selected.size) || (fbSelected && selectedImage && !selected.size && !igSelected));
+  const needsText = !((igSelected && postType === 'story' && !selected.size) || (fbSelected && selectedImage && !selected.size && !igSelected) || (ttSelected && selectedImage && !selected.size && !igSelected && !fbSelected));
   if(needsText && !content){ setStatus('Write your post first.','err'); return; }
-  if(!selected.size && !igSelected && !fbSelected){ setStatus('Pick at least one destination to publish to.','err'); return; }
+  if(!selected.size && !igSelected && !fbSelected && !ttSelected){ setStatus('Pick at least one destination to publish to.','err'); return; }
   let date = null;
   if(when==='schedule'){ const v=$('#scDate').value; if(!v){ setStatus('Choose a date & time.','err'); return; } date = new Date(v).toISOString(); }
   const btn=$('#scGo'); btn.disabled=true;
@@ -674,6 +719,12 @@ $('#scGo').addEventListener('click', async ()=>{
     catch(e){ fails.push('Facebook: ' + ((e&&e.message)||'failed')); }
   }
 
+  if(ttSelected){
+    setStatus('<span class="spinner"></span> Publishing to TikTok…','busy');
+    try{ notes.push('✓ ' + await ttSend()); }
+    catch(e){ fails.push('TikTok: ' + ((e&&e.message)||'failed')); }
+  }
+
   if(selected.size){
     setStatus('<span class="spinner"></span> Sending to Postiz…','busy');
     try{
@@ -691,7 +742,7 @@ $('#scGo').addEventListener('click', async ()=>{
   if(notes.length && when!=='draft' && (postType==='story' || postType==='reel')){
     logDay(postType==='story'?STORY_LOG_KEY:REEL_LOG_KEY, when==='now'?new Date():new Date($('#scDate').value||Date.now()));
   }
-  loadQueue(); if(igSelected || fbSelected) loadIg();
+  loadQueue(); if(igSelected || fbSelected) loadIg(); if(ttSelected) loadTt();
   btn.disabled=false;
   // At least one destination actually went out (or scheduled) — close the modal so the calendar
   // underneath is visible; a total failure leaves it open so the error is right there to fix.
@@ -797,6 +848,7 @@ function renderShape(q){
 // visibly empty and a full day is visibly full, the actual "hard to navigate" fix.
 // =====================================================================
 let fbQueueData = [];
+let ttQueueData = [];
 let calItems = [];              // unified, rebuilt by loadQueue()
 let calState = { view: 'week', anchor: new Date() };
 
@@ -822,6 +874,14 @@ function buildUnifiedItems(postizQueue){
       error: i.error || '', cancelType: i.status==='done'?null:'fb', cancelId: i.id,
     });
   });
+  (ttQueueData||[]).filter(i => CAL_STATUSES.includes(i.status)).forEach(i=>{
+    items.push({
+      date: i.run_at ? new Date(i.run_at) : null, platform: 'tiktok',
+      text: i.caption || 'TikTok video', thumb: '',
+      status: i.status, statusLabel: i.status==='error'?'Failed':(i.status==='publishing'?'Publishing':(i.status==='done'?'Published':'Scheduled')),
+      error: i.error || '', cancelType: i.status==='done'?null:'tt', cancelId: i.id,
+    });
+  });
   (postizQueue||[]).forEach(p=>{
     items.push({
       date: p.publishDate ? new Date(p.publishDate) : null, platform: (p.platform||'').toLowerCase() || 'postiz',
@@ -838,7 +898,7 @@ function calCardHtml(i){
   const pfClass = 'pf-' + (i.platform||'').replace(/[^a-z]/g,'');
   const stClass = i.status==='error' ? ' st-error' : (i.status==='publishing' ? ' st-publishing' : (i.status==='done' ? ' st-done' : ''));
   return '<div class="cal-card '+pfClass+stClass+'">'
-    + (i.cancelType ? '<button type="button" class="cc-cancel" data-'+(i.cancelType==='ig'?'igcancel':'fbcancel')+'="'+esc(i.cancelId)+'" title="Cancel">✕</button>' : '')
+    + (i.cancelType ? '<button type="button" class="cc-cancel" data-'+(i.cancelType==='ig'?'igcancel':(i.cancelType==='fb'?'fbcancel':'ttcancel'))+'="'+esc(i.cancelId)+'" title="Cancel">✕</button>' : '')
     + '<div class="cc-time"><span>'+time+'</span><span class="cc-pf">'+esc((i.platform||'').slice(0,12))+(i.channel?(' · '+esc(i.channel)):'')+'</span></div>'
     + '<div class="cc-body">'
     + (i.thumb ? '<img class="cc-thumb" src="'+esc(i.thumb)+'" alt="" loading="lazy">' : '')
@@ -906,6 +966,12 @@ document.addEventListener('click', async e=>{
     catch(err){ setStatus((err&&err.message)||'Could not cancel that.','err'); bf.disabled=false; }
     return;
   }
+  const bt = e.target.closest('[data-ttcancel]');
+  if(bt){ bt.disabled = true;
+    try{ await ttFetch('cancel', { id: bt.dataset.ttcancel }); loadQueue(); }
+    catch(err){ setStatus((err&&err.message)||'Could not cancel that.','err'); bt.disabled=false; }
+    return;
+  }
   const oc = e.target.closest('[data-opencompose]');
   if(oc){ openCompose(new Date(oc.dataset.opencompose)); return; }
   const ow = e.target.closest('[data-openweek]');
@@ -964,6 +1030,7 @@ async function loadQueue(){
   // ig.queue is kept current by loadIg() itself; Facebook's queue is fetched fresh here since
   // there's no equivalent shared refresh point for it yet.
   try{ const fd = await fbFetch('status'); fbQueueData = (fd && fd.queue) || []; }catch(e){ /* not connected yet, or an error — just show nothing for it */ }
+  try{ const td = await ttFetch('status'); ttQueueData = (td && td.queue) || []; }catch(e){ /* not connected yet, or an error — just show nothing for it */ }
   renderShape(q);
   calItems = buildUnifiedItems(q);
   renderCalendar();
@@ -986,7 +1053,7 @@ $('#scPull').addEventListener('click', ()=>{
 
 // loadIg() before loadQueue(), because the queue list renders Volt's own Instagram rows and needs
 // ig.queue populated first.
-async function boot(){ await loadIg(); loadChannels(); loadQueue(); }
+async function boot(){ await loadIg(); loadTt(); loadChannels(); loadQueue(); }
 window.addEventListener('volt:ready', boot);
 if(window.voltSession){ boot(); }
 updatePreview();
