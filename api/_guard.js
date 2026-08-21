@@ -251,8 +251,14 @@ async function requireSession(req) {
   if (!user || !user.id) return { error: "INVALID_SESSION" };
   // Only org-domain accounts may use the API — protects the shared provider keys / budget.
   // Configurable via ALLOWED_EMAIL_DOMAIN (set to "" to allow any, e.g. when commercialising).
+  const email = String(user.email || "").toLowerCase();
   const allow = (process.env.ALLOWED_EMAIL_DOMAIN != null ? process.env.ALLOWED_EMAIL_DOMAIN : "smesouthafrica.co.za").toLowerCase();
-  if (allow && !String(user.email || "").toLowerCase().endsWith("@" + allow)) return { error: "NOT_AUTHORIZED" };
+  // A handful of individually-named personal addresses can also sign in, on top of the domain
+  // gate above — not instead of it. Each one lands on a FREEMAIL key (see orgKeyFor) and gets its
+  // own private, single-person workspace, invisible to the domain's shared org — the mechanism a
+  // private client's work is kept separate from the shared team workspace without a second app.
+  const extra = new Set(String(process.env.ALLOWED_EMAIL_EXTRA || "").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean));
+  if (allow && !email.endsWith("@" + allow) && !extra.has(email)) return { error: "NOT_AUTHORIZED" };
   const orgId = await resolveOrg(user); // domain-keyed shared workspace (team sees each other's work)
   if (!orgId) return { error: "NO_ORG" };
   return { user, orgId };
