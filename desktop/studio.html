@@ -1177,6 +1177,12 @@
                 set('t3', s[2] && s[2].t); set('d3', s[2] && s[2].d);
             }
             // url is left alone — every glossary CTA points at the full glossary, not one term.
+        } else if (state.contentType === 'bizsa') {
+            if (dir === 'a') { set('head', d.head); set('byline', d.byline); set('readtime', d.readtime); }
+            else if (dir === 'b') { set('i1', d.takeaways[0]); set('i2', d.takeaways[1]); set('i3', d.takeaways[2]); }
+            else if (dir === 'c') { set('quote', d.quote); set('author', d.author); set('role', d.authorRole); }
+            else if (dir === 'd') { set('big', d.big); set('label', d.bigLabel); set('context', d.sub); }
+            set('url', d.url);
         }
     }
 
@@ -1207,6 +1213,12 @@
             if (gr.status === 401) throw new Error('Please sign in.');
             if (!gr.ok || !data.insight) throw new Error((data && data.error) || 'Could not read that page.');
             premAutofill = data.insight;
+            // Read time is pure arithmetic off the article text already in hand — no reason to ask
+            // the model for something a word count answers exactly.
+            if (state.contentType === 'bizsa') {
+                const words = text.trim().split(/\s+/).filter(Boolean).length;
+                premAutofill.readtime = Math.max(1, Math.round(words / 200)) + ' min read';
+            }
             applyAutofillToDir(); renderPremFields(); renderPremiumPreview();
             // Say plainly what came back empty. A silent gap looks like a bug; "no figure in this
             // article" is information, and it tells you B isn't the direction to use.
@@ -1222,6 +1234,12 @@
                 if (!premAutofill.myth) gaps.push('no common misconception to correct');
                 if (!(premAutofill.subterms && premAutofill.subterms.length)) gaps.push('no related terms on this page');
                 say(gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '.' : 'Filled all three directions ✓');
+            } else if (state.contentType === 'bizsa') {
+                if (!premAutofill.quote) gaps.push('no quotable line for Pull-Quote');
+                if (!premAutofill.big) gaps.push('no figure for Market Bulletin');
+                if (!premAutofill.takeaways.length) gaps.push('no takeaways for The Short Version');
+                if (!premAutofill.head) gaps.push('nothing beyond the headline');
+                say((gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '. ' : 'Filled all four directions ✓ ') + 'Category and market movement are yours to set.');
             }
             // The page's hero image is deliberately NOT pulled. It is the same picture the link
             // preview already shows; restyling it is the copy-paste look we're moving away from.
@@ -1640,7 +1658,15 @@
       feature:  { task: 'insightcards', label: 'Auto-fill from the article', placeholder: 'Paste the article link…',
                   hint: 'Pulls a verbatim quote, a real figure and three takeaways — and fills every direction at once, so you can pick whichever the article actually supports.' },
       glossary: { task: 'glossaryfill', label: 'Auto-fill from the glossary page', placeholder: 'Paste the glossary term link…',
-                  hint: 'Pulls the definition, a myth it corrects and any related terms the page itself defines — and fills every direction at once, so you can pick whichever the page actually supports.' }
+                  hint: 'Pulls the definition, a myth it corrects and any related terms the page itself defines — and fills every direction at once, so you can pick whichever the page actually supports.' },
+      // Reuses the SAME insightcards task as Feature — it already extracts exactly what Business
+      // News needs (a verbatim quote, three takeaways, a lead figure), no separate backend task
+      // required. Category (eyebrow) and market movement (up/down) are deliberately left for you
+      // to fill by hand: neither is something the article text can honestly answer, and this
+      // brand's own editorial rules are explicit about never inventing a fact the source doesn't
+      // state — see docs/editorial-style.md's "Accuracy rules".
+      bizsa: { task: 'insightcards', label: 'Auto-fill from the article', placeholder: 'Paste the article link…',
+                  hint: 'Pulls a verbatim quote, three takeaways and a lead figure, plus a read-time estimate — fills every direction at once. Category and market movement are left for you, since the article can’t honestly answer either.' }
     };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
