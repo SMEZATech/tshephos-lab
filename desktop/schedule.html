@@ -42,19 +42,16 @@
   .status{font-family:var(--fm);font-size:12.5px;margin-top:12px;min-height:16px;}
   .status.err{color:var(--low);} .status.ok{color:var(--good);} .status.busy{color:var(--dim);}
   /* Live preview */
-  .prev{background:#0D0F15;border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:12px;}
+  .prev{background:#fff;color:#050608;border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:12px;}
   .prev-h{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-  .prev-av{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:var(--fd);}
-  .prev-n{font-weight:700;font-size:14px;} .prev-when{font-family:var(--fm);font-size:10.5px;color:var(--faint);}
-  .prev-body{font-size:14px;line-height:1.55;white-space:pre-wrap;color:var(--text);word-break:break-word;}
-  .prev-img{width:100%;border-radius:10px;margin-top:11px;display:block;border:1px solid var(--border);}
+  .prev-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:var(--fd);object-fit:cover;flex:none;}
+  .prev-n{font-weight:700;font-size:14px;color:#050608;} .prev-when{font-family:var(--fm);font-size:10.5px;color:#8a8f98;}
+  .prev-body{font-size:14px;line-height:1.55;white-space:pre-wrap;color:#050608;word-break:break-word;}
+  .prev-img{width:100%;border-radius:10px;margin-top:11px;display:block;border:1px solid #eee;}
+  .prev-eng{display:flex;gap:18px;margin-top:13px;padding-top:11px;border-top:1px solid #eee;font-size:12.5px;font-weight:700;color:#65676b;}
   .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(182,255,61,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .empty{color:var(--faint);font-size:13px;padding:8px 0;}
-  .lib{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px;}
-  .lib-thumb{width:66px;height:66px;border-radius:10px;border:2px solid var(--border);object-fit:cover;cursor:pointer;transition:border-color .14s;background:#0D0F15;}
-  .lib-thumb:hover{border-color:var(--dim);}
-  .lib-thumb.on{border-color:var(--accent);}
   .q-row{display:flex;align-items:flex-start;gap:14px;padding:13px 0;border-top:1px solid var(--border);}
   .q-row:first-child{border-top:0;}
   .q-when{flex:none;width:120px;font-family:var(--fm);font-size:11.5px;color:var(--accent);line-height:1.4;}
@@ -114,6 +111,8 @@
   .cal-card.pf-linkedin{border-left-color:#0A66C2;} .cal-card.pf-youtube{border-left-color:#FF0000;}
   .cal-card.st-error{border-left-color:var(--low);background:rgba(255,124,124,.08);}
   .cal-card.st-publishing{border-left-color:var(--mid,#FFC857);}
+  .cal-card.st-done{opacity:.72;}
+  .cal-card.st-done .cc-pf::after{content:' ✓';color:var(--good);}
   .cal-card .cc-time{font-family:var(--fm);font-size:9.5px;color:var(--faint);display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px;}
   .cal-card .cc-pf{text-transform:uppercase;letter-spacing:.03em;}
   .cal-card .cc-body{color:var(--text);display:flex;gap:7px;align-items:flex-start;}
@@ -225,37 +224,6 @@
       <!-- Compose -->
       <div class="card">
         <div class="blk">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-            <label class="lbl" for="scContent" style="margin:0;">Your post</label>
-            <button type="button" class="chip" id="scPull" style="padding:5px 11px;font-size:11px;">📝 Pull a caption</button>
-          </div>
-          <div id="scPullList" style="display:none;margin:10px 0;"></div>
-          <textarea id="scContent" placeholder="Write your caption… pull from Copy, Transcribe or your latest email — then send it everywhere." style="margin-top:9px;"></textarea>
-          <div class="count" id="scCount">0 characters</div>
-        </div>
-        <div class="blk">
-          <label class="lbl">Image <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— upload one, or pick from your library (Studio graphics land here too)</span></label>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <button type="button" class="chip" id="scUpload">📤 Upload image</button>
-            <input type="file" id="scFile" accept="image/*" hidden>
-            <button type="button" class="chip" id="scImgClear" style="display:none;">✕ Remove image</button>
-            <span class="note" id="scImgStatus" style="margin:0;"></span>
-          </div>
-          <div class="lib" id="scLib"></div>
-        </div>
-        <div class="blk">
-          <label class="lbl">Preview</label>
-          <div class="prev" id="scPrev">
-            <div class="prev-h"><div class="prev-av" id="scAv">V</div><div><div class="prev-n">Your channel</div><div class="prev-when" id="scPrevWhen">Draft</div></div></div>
-            <div class="prev-body" id="scPrevBody" style="color:var(--faint)">Your caption preview appears here…</div>
-            <img id="scPrevImg" class="prev-img" alt="" style="display:none">
-          </div>
-        </div>
-      </div>
-
-      <!-- Destinations + schedule -->
-      <div class="card">
-        <div class="blk">
           <label class="lbl">Publish to</label>
           <div class="chips" id="igChip" style="margin-bottom:9px;"></div>
           <div class="chips" id="fbChip" style="margin-bottom:9px;"></div>
@@ -268,6 +236,24 @@
             <button data-t="story">✨ Story</button>
             <button data-t="reel">🎬 Reel</button>
           </div>
+        </div>
+        <div class="blk">
+          <label class="lbl">Media</label>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button type="button" class="chip" id="scUpload">📤 Upload image</button>
+            <input type="file" id="scFile" accept="image/*" hidden>
+            <button type="button" class="chip" id="scImgClear" style="display:none;">✕ Remove image</button>
+            <span class="note" id="scImgStatus" style="margin:0;"></span>
+          </div>
+        </div>
+        <div class="blk">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <label class="lbl" for="scContent" style="margin:0;">Your post</label>
+            <button type="button" class="chip" id="scPull" style="padding:5px 11px;font-size:11px;">📝 Pull a caption</button>
+          </div>
+          <div id="scPullList" style="display:none;margin:10px 0;"></div>
+          <textarea id="scContent" placeholder="Write your caption… pull from Copy, Transcribe or your latest email — then send it everywhere." style="margin-top:9px;"></textarea>
+          <div class="count" id="scCount">0 characters</div>
         </div>
         <div class="blk">
           <label class="lbl">When</label>
@@ -284,6 +270,23 @@
         <div class="status" id="scStatus"></div>
         <p class="note" id="scNote">Direct posts go to Instagram/Facebook via Volt. Everything else runs through your connected Postiz instance.</p>
       </div>
+
+      <!-- Preview — on the right, like a real feed card, not a bottom-of-form afterthought. -->
+      <div class="card">
+        <label class="lbl">Preview</label>
+        <div class="prev" id="scPrev">
+          <div class="prev-h">
+            <img class="prev-av" id="scAvImg" alt="" style="display:none;">
+            <div class="prev-av" id="scAv" style="display:none;">V</div>
+            <div><div class="prev-n" id="scPrevName">Your channel</div><div class="prev-when" id="scPrevWhen">Draft</div></div>
+          </div>
+          <div class="prev-body" id="scPrevBody" style="color:var(--faint)">Your caption preview appears here…</div>
+          <img id="scPrevImg" class="prev-img" alt="" style="display:none">
+          <div class="prev-eng">
+            <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -298,17 +301,22 @@ let channels = [], selected = new Set(), when = 'schedule', selectedImage = '', 
 function setStatus(m,k){ const s=$('#scStatus'); if(s){ s.innerHTML=m||''; s.className='status'+(k?' '+k:''); } }
 function imgStatus(m,k){ const s=$('#scImgStatus'); if(s){ s.innerHTML=m||''; s.style.color = k==='err'?'var(--low)':(k==='ok'?'var(--good)':'var(--faint)'); } }
 
-// Shared image library (same origin across pages, so Studio graphics land here too).
-function getLib(){ try{ return JSON.parse(localStorage.getItem('volt_recent_images')||'[]'); }catch(e){ return []; } }
-function addLib(url){ if(!url) return; let l=getLib().filter(u=>u!==url); l.unshift(url); l=l.slice(0,24); try{ localStorage.setItem('volt_recent_images', JSON.stringify(l)); }catch(e){} }
-function renderLib(){
-  const box=$('#scLib'); if(!box) return;
-  const lib=getLib();
-  if(!lib.length){ box.innerHTML=''; return; }
-  box.innerHTML = lib.map(u=>'<img class="lib-thumb'+(u===selectedImage?' on':'')+'" src="'+esc(u)+'" data-u="'+esc(u)+'" alt="" loading="lazy">').join('');
-  box.querySelectorAll('.lib-thumb').forEach(t=>t.addEventListener('click', ()=>{ selectImage(t.dataset.u); }));
+// No persistent image history is kept here on purpose — Volt used to log every image anyone ever
+// used into a growing localStorage list and show it as a thumbnail row, which is a "record" nobody
+// asked for. selectedImage holds only the ONE image for THIS post.
+function selectImage(url){ selectedImage = url||''; $('#scImgClear').style.display = selectedImage?'inline-flex':'none'; updatePreview(); }
+// The one-time handoff from Studio's "Send to Scheduler" / "Send Story" buttons — a single slot,
+// not a history. Consumed (and cleared) the first time the composer opens after Studio wrote it,
+// so it does not keep re-appearing on every later post.
+function takeStudioHandoff(){
+  try{
+    const raw = localStorage.getItem('volt_schedule_handoff'); if(!raw) return null;
+    localStorage.removeItem('volt_schedule_handoff');
+    const h = JSON.parse(raw);
+    if(h && h.url && (Date.now() - (h.at||0)) < 30*60000) return h.url;   // ignore a stale, hours-old slot
+  }catch(e){}
+  return null;
 }
-function selectImage(url){ selectedImage = url||''; $('#scImgClear').style.display = selectedImage?'inline-flex':'none'; renderLib(); updatePreview(); }
 
 // Default the schedule time to the next round hour, +1h.
 (function initDate(){
@@ -324,15 +332,26 @@ function updatePreview(){
   $('#scCount').textContent = txt.length + ' characters';
   const body = $('#scPrevBody');
   body.textContent = txt || 'Your caption preview appears here…';
-  body.style.color = txt ? 'var(--text)' : 'var(--faint)';
+  body.style.color = txt ? '#050608' : '#8a8f98';
   const im = $('#scPrevImg');
   if(img && /^https?:\/\//i.test(img)){ im.src = img; im.style.display='block'; } else { im.style.display='none'; }
   const w = when==='now' ? 'Posting now' : (when==='draft' ? 'Saved as draft' : ('Scheduled · ' + ($('#scDate').value ? new Date($('#scDate').value).toLocaleString() : '—')));
   $('#scPrevWhen').textContent = w;
-  // preview name = first selected channel
-  const first = channels.find(c => selected.has(String(c.id)));
-  $('.prev-n') && ($('.prev-n').textContent = first ? first.name : 'Your channel');
-  $('#scAv').textContent = ((first && first.name) || 'V').charAt(0).toUpperCase();
+
+  // The preview's identity: whichever destination is actually selected, in the order a person
+  // would expect to see it (Instagram/Facebook first since they're what's highlighted at the top),
+  // falling back to the brand's own connected picture rather than a plain "V" — there is always a
+  // real logo to show once ANYTHING is connected.
+  const postizFirst = channels.find(c => selected.has(String(c.id)));
+  let name = 'Your channel', pic = '';
+  if(igSelected && ig.account){ name = '@' + (ig.account.username||'instagram'); pic = ig.account.picture||''; }
+  else if(fbSelected){ name = window.__fbPageName || 'Facebook Page'; pic = window.__fbPagePicture || ''; }
+  else if(postizFirst){ name = postizFirst.name; pic = postizFirst.picture || ''; }
+  else if(ig && ig.account && ig.account.picture){ pic = ig.account.picture; name = ig.account.username ? ('@'+ig.account.username) : name; }
+  $('#scPrevName').textContent = name;
+  const avImg = $('#scAvImg'), avTxt = $('#scAv');
+  if(pic){ avImg.src = pic; avImg.style.display='block'; avTxt.style.display='none'; }
+  else { avImg.style.display='none'; avTxt.style.display='flex'; avTxt.textContent = name.replace('@','').charAt(0).toUpperCase() || 'V'; }
 }
 $('#scContent').addEventListener('input', updatePreview);
 $('#scDate').addEventListener('input', updatePreview);
@@ -351,7 +370,7 @@ $('#scFile').addEventListener('change', e=>{
       let d={}; try{ d=await r.json(); }catch(_){}
       if(r.status===401) throw new Error('Please sign in.');
       if(!r.ok || !d.url) throw new Error((d&&(d.message||d.error))||'Upload failed.');
-      addLib(d.url); selectImage(d.url); imgStatus('Uploaded ✓','ok');
+      selectImage(d.url); imgStatus('Uploaded ✓','ok');
     }catch(err){ imgStatus((err&&err.message)||'Upload failed.','err'); }
   };
   rd.readAsDataURL(f);
@@ -401,74 +420,35 @@ function igFetch(action, body){
     });
 }
 
+// Connect/disconnect now lives in Admin → Connections (a one-time setup, not something that
+// belongs on screen every time you're composing) — Schedule only reads status and links there.
 async function loadIg(){
   const st=$('#igState'), body=$('#igBody');
   try{
     ig = await igFetch('status');
   }catch(e){
     st.textContent='unavailable';
-    body.innerHTML = '<p class="note" style="margin:0;">Couldn’t check Instagram: '+esc(e.message||'')+'</p>';
+    body.innerHTML = '';
     renderIgChip(); renderFbChip(); return;
   }
   if(ig.connected && ig.account){
     st.textContent = 'connected';
     st.style.color = 'var(--good)';
-    const q = ig.quota, t = ig.token || {};
-    const exp = t.neverExpires ? 'token does not expire'
-              : (t.expiresAt ? ('token expires ' + new Date(t.expiresAt).toLocaleDateString()) : '');
+    const parts = ['✨ @'+esc(ig.account.username||'instagram')];
+    if(ig.facebook && ig.facebook.ready) parts.push('📘 Facebook ready');
     body.innerHTML =
-      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
-      + (ig.account.picture ? '<img src="'+esc(ig.account.picture)+'" alt="" style="width:42px;height:42px;border-radius:50%;border:1px solid var(--border);">' : '')
-      + '<div style="flex:1;min-width:180px;"><div style="font-weight:700;font-size:15px;">@'+esc(ig.account.username||'instagram')+'</div>'
-      + '<div class="prev-when">'+(ig.account.followers!=null?(Number(ig.account.followers).toLocaleString()+' followers · '):'')
-      + (q && q.used!=null ? (q.used+'/'+q.limit+' posts used today') : 'ready')+'</div>'
-      + '<a href="analytics.html" class="chip" style="text-decoration:none;">📊 View report</a>'
-      + '<button type="button" class="chip" id="igOff">Disconnect</button></div>'
-      + (exp ? '<p class="note">'+esc(exp)+'</p>' : '')
-      + (!ig.cron ? '<p class="note" style="color:var(--low)">Scheduling is off — CRON_SECRET isn’t set in Vercel, so only “Post now” will work.</p>' : '')
-      // Facebook Page posting is the SAME Meta connection, one more scope — no separate "Connect
-      // Facebook" button asking for a token Volt already has. Shown here, not as its own card, so
-      // it never implies a second setup step that doesn't exist.
-      + (ig.facebook && ig.facebook.ready
-          ? '<p class="note" style="color:var(--good);margin-top:10px;">✓ Facebook Page posting is also ready on this connection.</p>'
-          : '<p class="note" style="margin-top:10px;">Want to post to your Facebook Page too? Reconnect above with <code>pages_manage_posts</code> added to the token’s permissions — same connection, one more scope. See SETUP-INSTAGRAM.md.</p>');
-    $('#igOff') && $('#igOff').addEventListener('click', async ()=>{
-      if(!confirm('Disconnect Instagram from Volt? Scheduled posts will stop publishing.')) return;
-      try{ await igFetch('disconnect', {}); }catch(e){}
-      igSelected=false; loadIg(); loadQueue();
-    });
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+      + (ig.account.picture ? '<img src="'+esc(ig.account.picture)+'" alt="" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);">' : '')
+      + '<span style="font-size:13.5px;">'+parts.join(' &nbsp;·&nbsp; ')+'</span>'
+      + '<a href="analytics.html" class="chip" style="text-decoration:none;padding:6px 11px;font-size:12px;">📊 View report</a>'
+      + '<a href="admin.html" class="chip" style="text-decoration:none;padding:6px 11px;font-size:12px;">⚙️ Manage connection</a>'
+      + '</div>'
+      + (!ig.cron ? '<p class="note" style="color:var(--low);margin-top:8px;">Scheduling is off — CRON_SECRET isn’t set in Vercel, so only “Post now” will work.</p>' : '');
   } else {
     st.textContent = 'not connected';
     st.style.color = 'var(--faint)';
-    body.innerHTML =
-      (ig.error ? '<p class="note" style="color:var(--low);margin:0 0 10px;">'+esc(ig.error)+'</p>' : '')
-      + '<p class="note" style="margin:0 0 10px;">Paste a Meta access token to publish stories, posts and reels straight from Volt. '
-      + 'It’s stored encrypted, per workspace. <b>Setup is a one-off — see SETUP-INSTAGRAM.md in the repo for the five steps.</b></p>'
-      + '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-start;">'
-      + '<input id="igToken" type="password" placeholder="Paste your Meta access token…" style="flex:1;min-width:240px;" autocomplete="off">'
-      + '<button type="button" class="chip" id="igGo" style="padding:13px 16px;">Connect</button></div>'
-      // Volt walks your Pages (and Business Portfolios) to find the linked Instagram account
-      // automatically — this is only for the rare case where that walk still can't see it (a Page
-      // shared into a Business a different way, or one your token can list but not fully read). If
-      // you know the numeric Instagram Business Account ID (Graph API Explorer: query your Page's
-      // id with fields=instagram_business_account and it's the id inside that object), paste it
-      // here to skip the search entirely.
-      + '<details style="margin-top:9px;"><summary style="cursor:pointer;font-size:12px;color:var(--faint);">Know the exact Instagram account ID? (optional, only needed if Connect can’t find it)</summary>'
-      + '<input id="igIdOverride" type="text" placeholder="e.g. 17841404968795368" style="margin-top:8px;" autocomplete="off"></details>'
-      + '<div class="status" id="igStatus"></div>';
-    $('#igGo').addEventListener('click', async ()=>{
-      const tok = ($('#igToken').value||'').trim();
-      const igUserId = ($('#igIdOverride') && $('#igIdOverride').value || '').trim();
-      const s = $('#igStatus');
-      if(!tok){ s.textContent='Paste the token first.'; s.className='status err'; return; }
-      s.innerHTML='<span class="spinner"></span> Checking with Instagram…'; s.className='status busy';
-      try{
-        const d = await igFetch('connect', igUserId ? { token: tok, igUserId } : { token: tok });
-        s.textContent = '✓ Connected as @' + ((d.account&&d.account.username)||'') + (d.page?(' via '+d.page):'');
-        s.className='status ok';
-        setTimeout(()=>{ loadIg(); loadQueue(); }, 700);
-      }catch(e){ s.textContent = e.message||'Could not connect.'; s.className='status err'; }
-    });
+    body.innerHTML = '<p class="note" style="margin:0 0 8px;">Connect once in Admin to publish stories, posts and Facebook Page updates straight from Volt.</p>'
+      + '<a href="admin.html" class="chip" style="text-decoration:none;">⚙️ Connect in Admin</a>';
   }
   renderIgChip();
   refreshFbLabel();   // populates ig.facebook.ready-gated chip; no-op until Facebook scope is added
@@ -516,7 +496,6 @@ async function toHostedJpeg(url){
     body: JSON.stringify({ dataBase64:dataUrl, filename:'story.jpg', contentType:'image/jpeg' }) });
   let d={}; try{ d=await up.json(); }catch(_){}
   if(!up.ok || !d.url) throw new Error((d&&(d.message||d.error))||'Could not host the JPEG.');
-  addLib(d.url);
   return d.url;
 }
 
@@ -572,9 +551,9 @@ async function refreshFbLabel(){
   // ALWAYS re-render, even when not ready — a ready-to-not-ready transition (disconnect, or a
   // reconnect without the new scope) must clear a chip that was showing from a previous state,
   // not leave a stale, still-clickable button behind.
-  if(!ig.facebook || !ig.facebook.ready){ fbSelected = false; renderFbChip(); return; }
-  try{ const d = await fbFetch('status'); window.__fbPageName = (d.page && d.page.name) || 'Facebook Page'; }
-  catch(e){ window.__fbPageName = 'Facebook Page'; }
+  if(!ig.facebook || !ig.facebook.ready){ fbSelected = false; window.__fbPagePicture=''; renderFbChip(); return; }
+  try{ const d = await fbFetch('status'); window.__fbPageName = (d.page && d.page.name) || 'Facebook Page'; window.__fbPagePicture = (d.page && d.page.picture) || ''; }
+  catch(e){ window.__fbPageName = 'Facebook Page'; window.__fbPagePicture=''; }
   renderFbChip();
 }
 
@@ -769,22 +748,26 @@ let fbQueueData = [];
 let calItems = [];              // unified, rebuilt by loadQueue()
 let calState = { view: 'week', anchor: new Date() };
 
+// Volt's own queues keep every row after it publishes (status 'done'), not just what's pending —
+// that IS the record of past published content. It was being filtered out here purely for
+// display; nothing extra needs to be fetched or stored to show it, just not thrown away.
+const CAL_STATUSES = ['pending','publishing','error','done'];
 function buildUnifiedItems(postizQueue){
   const items = [];
-  (ig.queue||[]).filter(i => ['pending','publishing','error'].includes(i.status)).forEach(i=>{
+  (ig.queue||[]).filter(i => CAL_STATUSES.includes(i.status)).forEach(i=>{
     items.push({
       date: i.run_at ? new Date(i.run_at) : null, platform: 'instagram',
       text: i.caption || ('Instagram ' + i.kind), thumb: i.image_url || '',
-      status: i.status, statusLabel: i.status==='error'?'Failed':(i.status==='publishing'?'Publishing':'Scheduled'),
-      error: i.error || '', cancelType: 'ig', cancelId: i.id,
+      status: i.status, statusLabel: i.status==='error'?'Failed':(i.status==='publishing'?'Publishing':(i.status==='done'?'Published':'Scheduled')),
+      error: i.error || '', cancelType: i.status==='done'?null:'ig', cancelId: i.id,
     });
   });
-  (fbQueueData||[]).filter(i => ['pending','publishing','error'].includes(i.status)).forEach(i=>{
+  (fbQueueData||[]).filter(i => CAL_STATUSES.includes(i.status)).forEach(i=>{
     items.push({
       date: i.run_at ? new Date(i.run_at) : null, platform: 'facebook',
       text: i.message || ('Facebook ' + i.kind), thumb: i.image_url || '',
-      status: i.status, statusLabel: i.status==='error'?'Failed':(i.status==='publishing'?'Publishing':'Scheduled'),
-      error: i.error || '', cancelType: 'fb', cancelId: i.id,
+      status: i.status, statusLabel: i.status==='error'?'Failed':(i.status==='publishing'?'Publishing':(i.status==='done'?'Published':'Scheduled')),
+      error: i.error || '', cancelType: i.status==='done'?null:'fb', cancelId: i.id,
     });
   });
   (postizQueue||[]).forEach(p=>{
@@ -801,7 +784,7 @@ function buildUnifiedItems(postizQueue){
 function calCardHtml(i){
   const time = i.date.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
   const pfClass = 'pf-' + (i.platform||'').replace(/[^a-z]/g,'');
-  const stClass = i.status==='error' ? ' st-error' : (i.status==='publishing' ? ' st-publishing' : '');
+  const stClass = i.status==='error' ? ' st-error' : (i.status==='publishing' ? ' st-publishing' : (i.status==='done' ? ' st-done' : ''));
   return '<div class="cal-card '+pfClass+stClass+'">'
     + (i.cancelType ? '<button type="button" class="cc-cancel" data-'+(i.cancelType==='ig'?'igcancel':'fbcancel')+'="'+esc(i.cancelId)+'" title="Cancel">✕</button>' : '')
     + '<div class="cc-time"><span>'+time+'</span><span class="cc-pf">'+esc((i.platform||'').slice(0,12))+(i.channel?(' · '+esc(i.channel)):'')+'</span></div>'
@@ -902,8 +885,11 @@ function openCompose(prefillDate){
     if(d.getTime() < Date.now()) d.setTime(Date.now() + 3600000);
     const pad=n=>String(n).padStart(2,'0');
     $('#scDate').value = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
-    updatePreview();
   }
+  // A graphic just sent from Studio takes the empty image slot, once, the first time the composer
+  // opens after it landed — it never overwrites an image you've already picked for THIS post.
+  if(!selectedImage){ const h = takeStudioHandoff(); if(h) selectImage(h); }
+  updatePreview();
   $('#composeScrim').classList.add('open');
 }
 function closeCompose(){ $('#composeScrim').classList.remove('open'); setStatus(''); }
@@ -951,7 +937,6 @@ $('#scPull').addEventListener('click', ()=>{
 async function boot(){ await loadIg(); loadChannels(); loadQueue(); }
 window.addEventListener('volt:ready', boot);
 if(window.voltSession){ boot(); }
-renderLib();
 updatePreview();
 renderShape([]);   // paint from the story ledger immediately; the queue fills in the rest
 

@@ -65,7 +65,7 @@ Note the **App ID** and **App Secret** from *App settings → Basic* — step 4 
 > If Instagram doesn't appear in the account picker, go back to step 1 — the Page link is missing.
 
 > **Already connected without `instagram_manage_insights`?** Repeat steps 1–6 with it added, then
-> paste the new token into Schedule → Instagram card → Connect again — reconnecting overwrites the
+> paste the new token into Admin → Connections → Reconnect — it overwrites the
 > stored one, nothing else needs to change.
 
 ---
@@ -81,7 +81,7 @@ The Explorer gives you a token that dies in about an hour. Two clicks fix it:
 **You do not need to repeat this every 60 days.** When you paste this token into Volt, Volt reads
 your Pages, finds the Instagram account, and stores the **Page** access token instead — Page tokens
 derived from a long-lived user token do not expire. Volt shows you which one it kept
-("token does not expire") on the Schedule page.
+("token does not expire") on the Admin → Connections card.
 
 ---
 
@@ -120,11 +120,11 @@ tell you when you press Connect rather than silently failing.
 
 This is what makes **scheduled** posting work. `.github/workflows/ig-drain.yml` runs every 5
 minutes and publishes anything due. Skip this and "Post now" still works, but scheduled stories
-never go out — the Schedule page says so in red when it detects this.
+never go out — Admin → Connections says so in red when it detects this.
 
 ### 5d. Connect
 
-Open **Volt → Schedule**. The Instagram card is at the top. Paste the token from step 4 → **Connect**.
+Open **Volt → Admin → Connections**. Paste the token from step 4 → **Connect**. (Admin is owner-only — this is a one-time setup, done once by whoever owns the Meta app, not something every teammate needs to see.)
 
 It should immediately show `@yourhandle`, your follower count, `0/100 posts used today`, and
 `token does not expire`.
@@ -133,8 +133,10 @@ It should immediately show `@yourhandle`, your follower count, `0/100 posts used
 
 ## Using it
 
-1. **Studio** → make a design → **Story (9:16)** → **Send to Scheduler**
-2. **Schedule** → pick the graphic from the library
+1. **Studio** → make a design → **✨ Send Story → Instagram** (or **Send to Scheduler** for a feed
+   graphic) — the image lands in the composer automatically the next time it opens, no library to
+   dig through.
+2. **Schedule** → **+ New post**
 3. Select the **✨ @yourhandle** chip under *Publish to*
 4. Post type **✨ Story**
 5. **⚡ Post now**, or **🗓️ Schedule** for a time
@@ -172,7 +174,7 @@ LinkedIn-style partner gating turned out NOT to apply here: posting to a Page yo
 Standard Access, self-serve, exactly like Instagram's own publishing permission.
 
 **If you already connected Instagram before adding `pages_manage_posts`:** repeat step 3 with it
-added, then Schedule → Instagram card → Connect again with the new token. There's no separate
+added, then Admin → Connections → Reconnect with the new token. There's no separate
 "Connect Facebook" button — once the scope is on the connection, a **📘 Facebook Page** chip
 appears under *Publish to* automatically.
 
@@ -196,7 +198,7 @@ show as a quota number here the way the Instagram card does.
 - **100 API posts per rolling 24 hours**, stories included. The card shows your usage.
 - **Scheduled posts publish at or after their time**, never before. GitHub's cron is a 5-minute
   floor and can run late under load.
-- **A failed scheduled post retries twice**, then shows as *Failed* on the Schedule page with
+- **A failed scheduled post retries twice**, then shows as *Failed* on the Schedule calendar with
   Instagram's own reason. It is never silently dropped.
 - **Reels need a public video URL** and take longer to process; Volt waits up to 40 seconds.
 - Volt validates the image **when you schedule**, not at 6am the next morning — a bad URL is
@@ -204,11 +206,11 @@ show as a quota number here the way the Instagram card does.
 
 ## If something breaks
 
-The Schedule page shows Instagram's own error text. The two you are most likely to see:
+Admin → Connections shows Instagram's own error text when a connection fails. The two you are most likely to see:
 
 | Message | Fix |
 |---|---|
-| *No Instagram Business account is attached to any Page…* | Volt checks `/me/accounts` first, then walks your Business Portfolios (`/me/businesses` → each one's owned/client Pages) — most real accounts are set up this second way, so this should resolve on its own. If it still can't find it: confirm in Meta Business Suite that the Page really has an Instagram account under **Page Settings → Linked accounts** (this is a different toggle from Instagram's own "Connect a Facebook Page"), and that the account is Business/Creator. As a last resort, paste the numeric Instagram account ID directly into the optional field under the token box on the Connect screen — find it via Graph API Explorer: query your Page's `id` with `fields=instagram_business_account` and use the `id` inside that object. |
+| *No Instagram Business account is attached to any Page…* | Volt checks `/me/accounts` first, then walks your Business Portfolios (`/me/businesses` → each one's owned/client Pages) — most real accounts are set up this second way, so this should resolve on its own. If it still can't find it: confirm in Meta Business Suite that the Page really has an Instagram account under **Page Settings → Linked accounts** (this is a different toggle from Instagram's own "Connect a Facebook Page"), and that the account is Business/Creator. As a last resort, paste the numeric Instagram account ID directly into the optional field under the token box in Admin → Connections — find it via Graph API Explorer: query your Page's `id` with `fields=instagram_business_account` and use the `id` inside that object. |
 | *Instagram only accepts JPEG for stories* | Shouldn't happen (Volt converts), but re-send from Studio if it does |
 | *The 24-hour publishing limit is used up* | Wait — it is a rolling window |
 | *Please sign in* / 401 | Your token was revoked or the app was switched to Live mode without review; redo steps 3–4 |

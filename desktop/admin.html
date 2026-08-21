@@ -46,6 +46,10 @@
   .gate h2{font-family:var(--fd);font-size:20px;margin:0 0 10px;}
   .gate p{color:var(--dim);font-size:14px;line-height:1.6;margin:0;}
   .hint{background:rgba(127,200,255,.07);border:1px solid rgba(127,200,255,.25);border-radius:11px;padding:12px 15px;font-size:13px;line-height:1.6;color:#cfe6ff;margin-top:6px;}
+  .bk-in{background:#0D0F15;border:1px solid var(--border-2);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:14px;padding:11px 13px;outline:none;}
+  .bk-in:focus{border-color:var(--accent);}
+  .status{font-family:var(--fm);font-size:12.5px;margin-top:10px;min-height:16px;}
+  .status.err{color:var(--low);} .status.ok{color:var(--good);} .status.busy{color:var(--dim);}
 </style>
 </head>
 <body>
@@ -65,6 +69,17 @@
 
   <h1>Admin</h1>
   <p class="sub">Owner-only control of what your team can use. Turning something off <b>retires</b> it — nothing is deleted, work made with it is untouched, and you can bring it back any time. Changes apply to everyone in the org.</p>
+
+  <!-- ================= CONNECTIONS =================
+       Was a big always-visible card on the Schedule page — wrong home for something done once
+       and then left alone. This is the one-time setup; Schedule just shows a one-line status and
+       links here. -->
+  <div class="card">
+    <h2>✨ Instagram &amp; Facebook</h2>
+    <p class="h-note" id="connNote">Publish directly from Volt — stories, feed posts, Facebook Page
+      posts — no third-party scheduler in between. One connection covers both platforms.</p>
+    <div id="connBody"><p class="h-note">Checking…</p></div>
+  </div>
 
   <div class="card">
     <h2>Modules</h2>
@@ -193,6 +208,82 @@ async function save(){
   finally{ btn.disabled = false; }
 }
 
+// ============================================================================
+// CONNECTIONS — Instagram + Facebook. Moved here from Schedule: this is a one-time setup, not
+// something that belongs on screen every time you're composing a post. Schedule now shows a
+// one-line status and links back here.
+// ============================================================================
+function connFetch(path, action, body){
+  const u = API + '/' + path + (body ? '' : '?action=' + encodeURIComponent(action));
+  return fetch(u, body
+    ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({ action }, body)) }
+    : {}).then(async r => {
+      let d={}; try{ d=await r.json(); }catch(_){}
+      if(!r.ok) throw new Error((d&&(d.error||d.message))||('Request failed ('+r.status+')'));
+      return d;
+    });
+}
+async function loadConnections(){
+  const box = $('#connBody');
+  let ig;
+  try{ ig = await connFetch('instagram','status'); }
+  catch(e){ box.innerHTML = '<p class="h-note" style="color:var(--low)">Couldn’t check: '+esc(e.message||'')+'</p>'; return; }
+
+  if(ig.connected && ig.account){
+    const q = ig.quota, t = ig.token || {};
+    const exp = t.neverExpires ? 'Token does not expire' : (t.expiresAt ? ('Token expires '+new Date(t.expiresAt).toLocaleDateString()) : '');
+    box.innerHTML =
+      '<div class="row"><span class="emoji">📸</span><span class="grow"><span class="nm">@'+esc(ig.account.username||'instagram')+'</span>'
+      + '<div class="ds">'+(ig.account.followers!=null?(Number(ig.account.followers).toLocaleString()+' followers · '):'')+(q&&q.used!=null?(q.used+'/'+q.limit+' posts used today'):'ready')+(exp?(' · '+exp):'')+'</div></span>'
+      + '<span class="pill live">Connected</span></div>'
+      + '<div class="row'+(ig.facebook&&ig.facebook.ready?'':' off')+'"><span class="emoji">📘</span><span class="grow"><span class="nm">Facebook Page posting</span>'
+      + '<div class="ds">'+(ig.facebook&&ig.facebook.ready?'Ready — same connection as Instagram.':'Add pages_manage_posts to the token’s permissions and reconnect below to turn this on.')+'</div></span>'
+      + '<span class="pill '+(ig.facebook&&ig.facebook.ready?'live':'retired')+'">'+(ig.facebook&&ig.facebook.ready?'Ready':'Off')+'</span></div>'
+      + (!ig.cron ? '<div class="hint" style="border-color:rgba(255,124,124,.3);background:rgba(255,124,124,.07);color:#ffb3b3;">Scheduling is off — CRON_SECRET isn’t set in Vercel, so only publishing right away will work, not scheduling for later.</div>' : '')
+      + '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">'
+      + '<button class="btn ghost" id="connReconnect" style="padding:9px 16px;font-size:13px;">Reconnect / add a permission</button>'
+      + '<button class="btn ghost" id="connOff" style="padding:9px 16px;font-size:13px;color:var(--low);border-color:rgba(255,124,124,.3);">Disconnect</button>'
+      + '</div><div id="connForm" style="display:none;margin-top:14px;"></div>';
+    $('#connOff').addEventListener('click', async ()=>{
+      if(!confirm('Disconnect Instagram and Facebook from Volt? Scheduled posts will stop publishing.')) return;
+      try{ await connFetch('instagram','disconnect',{}); }catch(e){}
+      loadConnections();
+    });
+    $('#connReconnect').addEventListener('click', ()=> renderConnectForm(true));
+  } else {
+    box.innerHTML = (ig.error ? '<p class="h-note" style="color:var(--low)">'+esc(ig.error)+'</p>' : '')
+      + '<div id="connForm"></div>';
+    renderConnectForm(false);
+  }
+}
+function renderConnectForm(reconnecting){
+  const host = $('#connForm'); host.style.display='block';
+  host.innerHTML =
+    '<p class="h-note" style="margin-bottom:10px;">Paste a Meta access token — it’s stored encrypted. '
+    + 'Graph API Explorer → your app → permissions (<code>instagram_basic</code>, <code>instagram_content_publish</code>, '
+    + '<code>pages_show_list</code>, <code>pages_read_engagement</code>, and <code>pages_manage_posts</code> if you also want Facebook) → Generate Access Token.</p>'
+    + '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:flex-start;">'
+    + '<input id="connToken" type="password" placeholder="Paste your Meta access token…" class="bk-in" style="flex:1;min-width:240px;" autocomplete="off">'
+    + '<button class="btn" id="connGo" style="padding:11px 18px;font-size:13px;">'+(reconnecting?'Reconnect':'Connect')+'</button>'
+    + '</div>'
+    + '<details style="margin-top:9px;"><summary style="cursor:pointer;font-size:12px;color:var(--faint);">Know the exact Instagram account ID? (optional)</summary>'
+    + '<input id="connIdOverride" type="text" placeholder="e.g. 17841404968795368" class="bk-in" style="margin-top:8px;" autocomplete="off"></details>'
+    + '<div class="status" id="connStatus"></div>';
+  $('#connGo').addEventListener('click', async ()=>{
+    const tok = ($('#connToken').value||'').trim();
+    const igUserId = ($('#connIdOverride') && $('#connIdOverride').value || '').trim();
+    const s = $('#connStatus');
+    if(!tok){ s.textContent='Paste the token first.'; s.className='status err'; return; }
+    s.textContent='Checking with Instagram…'; s.className='status busy';
+    try{
+      const d = await connFetch('instagram','connect', igUserId?{token:tok,igUserId}:{token:tok});
+      s.textContent = '✓ Connected as @' + ((d.account&&d.account.username)||'') + (d.page?(' via '+d.page):'');
+      s.className='status ok';
+      setTimeout(loadConnections, 700);
+    }catch(e){ s.textContent = e.message||'Could not connect.'; s.className='status err'; }
+  });
+}
+
 function boot(){
   const email = String((window.voltSession && window.voltSession.user && window.voltSession.user.email) || '').toLowerCase();
   if(!email){
@@ -211,6 +302,7 @@ function boot(){
   $('#saveBtn').addEventListener('click', save);
   $('#resetBtn').addEventListener('click', ()=>{ settings = { modules:{}, themes:{}, premium:{} }; render(); setStatus('All modules and designs back on — hit Save.', 'busy'); });
   load();
+  loadConnections();
 }
 window.addEventListener('volt:ready', boot);
 if(window.voltSession) boot();

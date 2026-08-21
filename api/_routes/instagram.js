@@ -373,10 +373,15 @@ function svcH() {
   const svc = process.env.SUPABASE_SERVICE_KEY;
   return { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json" };
 }
+// A TIME window, not a row-count cap. Schedule now shows published history alongside what's
+// upcoming (see buildUnifiedItems() in schedule.html) — a plain "most recent 60 rows, oldest
+// first" would let old published posts silently crowd out something scheduled further ahead once
+// total volume passed 60. Bounding by date means both sides of "now" are always represented.
 async function queueList(orgId) {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
   return (await sbRest(
     "ig_queue?select=id,kind,image_url,caption,run_at,status,attempts,ig_media_id,error&org_id=eq." +
-    encodeURIComponent(orgId) + "&order=run_at.asc&limit=60"
+    encodeURIComponent(orgId) + "&run_at=gte." + encodeURIComponent(since) + "&order=run_at.asc&limit=300"
   )) || [];
 }
 // ATOMIC CLAIM. The drain runs every 5 minutes and a publish can take longer than one run, so a

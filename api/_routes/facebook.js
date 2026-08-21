@@ -63,10 +63,12 @@ async function publishNow(creds, item) {
 // Queue — a near-exact mirror of ig_queue's atomic-claim pattern (see instagram.js for the "why":
 // two overlapping drain runs must not both publish the same row).
 // ---------------------------------------------------------------------------------------------
+// Time-bounded, not row-count-bounded — see the matching comment in instagram.js's queueList().
 async function queueList(orgId) {
+  const since = new Date(Date.now() - 30 * 86400000).toISOString();
   return (await sbRest(
     "fb_queue?select=id,kind,message,image_url,run_at,status,attempts,fb_post_id,error&org_id=eq." +
-    encodeURIComponent(orgId) + "&order=run_at.asc&limit=60"
+    encodeURIComponent(orgId) + "&run_at=gte." + encodeURIComponent(since) + "&order=run_at.asc&limit=300"
   )) || [];
 }
 async function claim(id) {

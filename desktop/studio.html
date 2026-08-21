@@ -2405,7 +2405,10 @@
             const d = await r.json().catch(() => ({}));
             if (r.status === 401) throw new Error('Please sign in.');
             if (!r.ok || !d.url) throw new Error((d && (d.message || d.error)) || 'Could not host the image (set up image hosting in Settings).');
-            try { let l = JSON.parse(localStorage.getItem('volt_recent_images') || '[]').filter(u => u !== d.url); l.unshift(d.url); localStorage.setItem('volt_recent_images', JSON.stringify(l.slice(0, 24))); } catch (e) {}
+            // A single ephemeral handoff, not a growing history — Schedule picks this ONE graphic
+            // up the next time its composer opens and clears the slot, rather than Volt silently
+            // keeping a permanent log of every image anyone has ever sent there.
+            try { localStorage.setItem('volt_schedule_handoff', JSON.stringify({ url: d.url, at: Date.now() })); } catch (e) {}
             showToast(forStory ? '✓ Story sent — open 📅 Schedule to post it to Instagram' : '✓ Sent to Scheduler — open 📅 Schedule to post it', 'success');
             if (forStory) nudgeStory();
         } catch (err) { showToast("Couldn't send: " + (err.message || err)); }
