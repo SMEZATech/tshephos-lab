@@ -1343,6 +1343,115 @@ function pBullet(r, x, y, text, boxColor, txtColor) {
     r.drawLines(lines, font, x + s + 28, y + Math.max(0, (s - th) / 2), boxW, { color: txtColor, lineHeight: 1.3 });
     return Math.max(s, th);
 }
+// ===================== BUSINESS NEWS SA — fixed editorial identity =====================
+// Deliberately does NOT read PC/BRAND — every other family renders through the active Brand
+// Kit (applyBrandToWorker overwrites PC on every render), but this one carries its own real,
+// specific identity (ink/gold/paper, Newsreader + Inter) regardless of which org's Brand Kit is
+// active. See studio.html's PREMIUM.bizsa registry entry for where this decision is explained.
+const BIZSA = {
+    ink: '#0E1116', ink800: '#1C2128', ink600: '#4A5158', ink400: '#767E86', ink200: '#D8DCE0', ink100: '#EDEFF2',
+    paper: '#FFFFFF', paperWarm: '#FAF8F4',
+    gold: '#B8912F', goldLift: '#D9B45C', goldWash: '#FBF6E9',
+    up: '#0B7A4B', down: '#C0392B',
+};
+function bizsaEyebrow(r, x, y, text, color, size) {
+    const f = { family: 'Inter', weight: '700', size: size || 20 };
+    r.drawLines([String(text || '').toUpperCase()], f, x, y, r.w - x * 2, { color: color || BIZSA.gold });
+    return size || 20;
+}
+function bizsaRule(r, x, y, w, color) { r.rect(x, y, w, Math.max(2, Math.round(r.h * 0.0025)), color || BIZSA.gold); }
+function drawBizSA(r, dir, v, assets) {
+    const pad = pPad(), top = pTop(), W = r.w, H = r.h, innerW = W - pad * 2;
+    r.ctx.textBaseline = 'top';
+
+    // ---- Direction B: The Short Version — a scannable digest, gold-accented on paper ----
+    if (dir === 'b') {
+        r.fillBg(BIZSA.paperWarm);
+        r.rect(0, 0, pV(14), H, BIZSA.gold);   // full-height accent spine, the one un-editorial flourish
+        const x = pad + pV(20);
+        let y = top;
+        bizsaEyebrow(r, x, y, v.label || 'The short version', BIZSA.gold, pT(22));
+        y += pV(52);
+        r.rect(x, y, pV(64), 4, BIZSA.ink200); y += pV(28);
+        const items = [v.i1, v.i2, v.i3, v.i4].filter(Boolean);
+        const limitY = H - pSafeB() - pBtnH() - pV(30);
+        const bf = { family: 'Newsreader', weight: '500', size: pT(30) };
+        for (const it of items) {
+            if (y > limitY) break;
+            r.rect(x, y + pT(14), 10, 10, BIZSA.gold);
+            const lines = r.wrap(String(it), bf, innerW - x + pad - pV(40));
+            r.drawLines(lines, bf, x + pV(28), y, innerW - x + pad - pV(40), { color: BIZSA.ink, lineHeight: 1.28 });
+            y += r.computeBlockHeight(lines.length, bf.size, 1.28) + pV(34);
+        }
+        bizsaRule(r, pad, H - pSafeB() - pV(88), innerW, BIZSA.ink200);
+        r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(18) }, pad, H - pSafeB() - pV(60), innerW, { color: BIZSA.ink400 });
+        return;
+    }
+
+    // ---- Direction C: Pull-quote — Newsreader italic, a decorative gold quotation mark ----
+    if (dir === 'c') {
+        r.fillBg(BIZSA.paper);
+        r.drawLines(['“'], { family: 'Newsreader', weight: '700', size: pT(140) }, pad - pV(10), top - pV(30), innerW, { color: BIZSA.gold });
+        const quoteTop = top + pV(120);
+        // Bounded by remaining room, but the attribution row below FOLLOWS the quote rather than
+        // pinning to the bottom of the frame — same dead-space fix as direction A.
+        const quoteBoxH = H - pSafeB() - pV(230) - quoteTop;
+        const fit = r.fitFontSize(String(v.quote || ''), { family: 'Newsreader', weight: '500' }, innerW, quoteBoxH, 1.3, { max: pT(58), min: 26 });
+        r.drawLines(fit.lines, { family: 'Newsreader', weight: '500', size: fit.size }, pad, quoteTop, innerW, { color: BIZSA.ink, lineHeight: 1.3 });
+        const attrY = quoteTop + fit.totalH + pV(60);
+        bizsaRule(r, pad, attrY, pV(64), BIZSA.gold);
+        r.drawLines([String(v.author || '')], { family: 'Inter', weight: '700', size: pT(24) }, pad, attrY + pV(24), innerW, { color: BIZSA.ink });
+        r.drawLines([String(v.role || '')], { family: 'Inter', weight: '400', size: pT(20) }, pad, attrY + pV(58), innerW, { color: BIZSA.ink600 });
+        r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(16) }, pad, H - pSafeB() - pV(40), innerW, { color: BIZSA.ink400 });
+        return;
+    }
+
+    // ---- Direction D: Market Bulletin — dark, data-forward. Green/red ONLY for the movement,
+    // exactly the brand rule: functional colour, never decorative. ----
+    if (dir === 'd') {
+        r.fillBg(BIZSA.ink);
+        bizsaEyebrow(r, pad, top, v.eyebrow || 'Markets & Finance', BIZSA.gold, pT(22));
+        const isDown = String(v.movement || '').toLowerCase() === 'down';
+        const moveColor = isDown ? BIZSA.down : BIZSA.up;
+        const arrow = isDown ? '▼ ' : '▲ ';
+        const bigY = top + pV(90);
+        const bigBoxH = pV(240);
+        const fit = r.fitFontSize(arrow + String(v.big || ''), { family: 'Newsreader', weight: '700' }, innerW, bigBoxH, 1.0, { max: pT(150), min: 40 });
+        r.drawLines(fit.lines, { family: 'Newsreader', weight: '700', size: fit.size }, pad, bigY, innerW, { color: moveColor });
+        const labelY = bigY + fit.totalH + pV(20);
+        r.drawLines([String(v.label || '')], { family: 'Inter', weight: '600', size: pT(26) }, pad, labelY, innerW, { color: '#fff' });
+        bizsaRule(r, pad, labelY + pV(56), pV(64), BIZSA.gold);
+        const ctxF = { family: 'Inter', weight: '400', size: pT(22) };
+        const ctxLines = r.wrap(String(v.context || ''), ctxF, innerW);
+        r.drawLines(ctxLines, ctxF, pad, labelY + pV(86), innerW, { color: BIZSA.ink200, lineHeight: 1.4 });
+        r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(16) }, pad, H - pSafeB() - pV(40), innerW, { color: BIZSA.ink400 });
+        return;
+    }
+
+    // ---- Direction A (default): Headline Card — masthead eyebrow, serif headline, byline.
+    // The byline/rule/url follow directly after the headline rather than pinning to the bottom of
+    // the frame — a short headline used to leave a large dead gap above a bottom-anchored meta row
+    // (worst on the 9:16 story format), caught by actually looking at rendered output, not just the
+    // smoke suite's contrast/dimension checks passing. ----
+    r.fillBg(BIZSA.paperWarm);
+    r.drawLines(['BUSINESS NEWS SOUTH AFRICA'], { family: 'Inter', weight: '700', size: pT(15) }, pad, top, innerW, { color: BIZSA.ink400 });
+    bizsaRule(r, pad, top + pV(36), innerW, BIZSA.ink200);
+    let y = top + pV(70);
+    bizsaEyebrow(r, pad, y, v.eyebrow || 'News', BIZSA.gold, pT(22));
+    y += pV(56);
+    const maxHeadlineH = H - pSafeB() - pV(180) - y;
+    const fit = r.fitFontSize(String(v.head || ''), { family: 'Newsreader', weight: '700' }, innerW, maxHeadlineH, 1.08, { max: pT(74), min: 30 });
+    r.drawLines(fit.lines, { family: 'Newsreader', weight: '700', size: fit.size }, pad, y, innerW, { color: BIZSA.ink, lineHeight: 1.08 });
+    y += fit.totalH + pV(50);
+    bizsaRule(r, pad, y, innerW, BIZSA.ink200);
+    y += pV(22);
+    const metaF = { family: 'Inter', weight: '500', size: pT(19) };
+    const metaText = [v.byline, v.readtime].filter(Boolean).join('   ·   ');
+    r.drawLines([metaText], metaF, pad, y, innerW, { color: BIZSA.ink600 });
+    y += pT(19) + pV(30);
+    r.drawLines([String(v.url || '').toUpperCase()], { family: 'Inter', weight: '600', size: pT(16) }, pad, y, innerW, { color: BIZSA.ink400 });
+}
+
 function drawPremium(r, type, dir, v, assets) {
     r.ctx.textBaseline = 'top';
     v = v || {}; assets = assets || {};
@@ -1359,6 +1468,7 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'hub')       return drawHub(r, dir, v, assets);
     if (type === 'glossary')  return drawGlossary(r, dir, v, assets);
     if (type === 'webinar')   return drawWebinar(r, dir, v, assets);
+    if (type === 'bizsa')     return drawBizSA(r, dir, v, assets);
     r.fillBg(PC.navy); // safety fallback
 }
 
@@ -2939,7 +3049,12 @@ self.onmessage = async (e) => {
             const r = new CanvasRenderer(W, H, scale);
             if (msg.trace) r.trace = [];      // render tests ask for the draw log; production never does
             if (msg.textless) r.suppressText = true;   // plate for the editable handoff (see drawLines)
-            if (W > H * 1.2) {
+            if (msg.premType === 'bizsa') {
+                // Its own fixed identity, not brand-driven — drawBizSA handles every aspect ratio
+                // itself (via pGeom's dimension-awareness) rather than the shared, brand-colored
+                // drawLandscape() every other family's landscape format goes through.
+                drawPremium(r, msg.premType, msg.dir, msg.vals, { logoW, logoC, featured });
+            } else if (W > H * 1.2) {
                 drawLandscape(r, msg.premType, msg.dir, msg.vals, { logoW, logoC, featured });
             } else {
                 // Square AND portrait both render NATIVELY at the real canvas size. Portrait used to

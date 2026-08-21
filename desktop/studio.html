@@ -16,7 +16,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -284,6 +284,7 @@
                         <button onclick="setContentType('hub')"        id="ct-hub"        class="vt-opt ct-btn">🏛️ SME Hub</button>
                         <button onclick="setContentType('glossary')"   id="ct-glossary"   class="vt-opt ct-btn">📖 Glossary</button>
                         <button onclick="setContentType('webinar')"    id="ct-webinar"    class="vt-opt ct-btn">🎟️ Webinars</button>
+                        <button onclick="setContentType('bizsa')"      id="ct-bizsa"      class="vt-opt ct-btn">🗞️ Business News</button>
                     </div>
                     </div>
                     <p class="vt-note mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
@@ -671,7 +672,9 @@
     // =============================================================
     const BRAND = { red: '#9c1c1f', navy: '#0a2c3d', black: '#000000', white: '#ffffff', gray: '#f8fafc' };
 
-    const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&display=swap';
+    // Newsreader/Inter added for the 'bizsa' family only (its own fixed editorial identity, not
+    // brand-driven) — every other family keeps using Oswald/Roboto exactly as before.
+    const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap';
     const WHITE_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png';
     // External images come back through OUR origin so no cross-origin fetch is needed — that is
     // what lets the desktop shell run with webSecurity ON. Falls back to the raw URL if volt-auth
@@ -1563,6 +1566,18 @@
         e:{ name:'The Takeaway (quote)', fields:{ eyebrow:'From the session', quote:'Most founders do not have a funding problem. They have a record-keeping problem that shows up when they ask for funding.', speaker:'Thabo Mokoena', role:'Founder & CEO, Fundrr', runtime:'48 min', cta:'Watch the full session →', url:'smesouthafrica.co.za/events' } },
         f:{ name:'Missed It?', fields:{ pill:'Missed it?', head:'The SME Funding Summit is up on demand', sub:'The full session is up. Nothing gated, nothing expired.', coveredLabel:'What it covered', i1:'What lenders check before they read your numbers', i2:'The three documents that decide the answer', i3:'What to fix first if you were declined', runtime:'1 hr 12 min', recorded:'18 June 2026', cta:'Watch it now →', url:'smesouthafrica.co.za/events' } }
       }},
+      // ---- BUSINESS NEWS SA — a fixed editorial identity (ink/gold/paper, Newsreader + Inter),
+      // NOT the active Brand Kit. Built for editorial/news-style client brands run from the private
+      // per-person workspace — see BLUEPRINT.html's 2026-08 entries. Drawn by drawBizSA() in
+      // studio-engine.js, which ignores PC/BRAND entirely and uses its own palette constants —
+      // every other family in this file is untouched. Kept OFF by default for every org via
+      // volt-auth.js's applyOrgSettings(); an org turns it on itself in Admin → Premium content types.
+      bizsa: { label:'Business News', dirs:{
+        a:{ name:'Headline Card', fields:{ eyebrow:'Markets & Finance', head:'Reserve Bank fines forex dealer', byline:'By Karabo Kgophane', readtime:'3 min read', url:'businessnewssouthafrica.co.za' } },
+        b:{ name:'The Short Version', fields:{ label:'The short version', i1:'NEC Money is a foreign-exchange dealer, not a lender', i2:'Fined R75,000 for anti-money-laundering control gaps', i3:'Comparable bank penalties have run into the millions', url:'businessnewssouthafrica.co.za' } },
+        c:{ name:'Pull-Quote', fields:{ quote:'You do not need more funding. You need a business a funder can actually say yes to.', author:'Jenna Sprenger', role:'Founder & CEO, Fundrr', url:'businessnewssouthafrica.co.za' } },
+        d:{ name:'Market Bulletin', fields:{ eyebrow:'Markets & Finance', big:'+3.2%', label:'JSE All Share', context:'Financials led gains after Absa beat earnings estimates.', movement:'up', url:'businessnewssouthafrica.co.za' } }
+      }},
       resources: { label:'Resources', dirs:{
         a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
         b:{ name:'Checklist Preview', fields:{ eyebrow:'Free Resource', head:'Funding readiness checklist', i1:'Up-to-date management accounts', i2:'Clean, separate bank statements', i3:'Tax & CIPC compliance sorted', locked:'+ 9 more inside…', cta:'Get the full checklist →' } },
@@ -1572,7 +1587,8 @@
     const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count', i4:'Benefit 4', price:'Price line', term:'Term', definition:'Definition', why:'Why it matters', whyLabel:'Why-it-matters label', myth:'What people think', mythLabel:'Myth label', truth:'What it actually means', truthLabel:'Truth label', t1:'Term 1', d1:'Definition 1', t2:'Term 2', d2:'Definition 2', t3:'Term 3', d3:'Definition 3', date:'Date', time:'Time', format:'Format (Online / In person)', speaker:'Speaker', seats:'Seats line', runtime:'Runtime', recorded:'Recorded on', coveredLabel:'Covered-in label',
       show:'Show name', tagline:'Show tagline', ep:'Episode number', role:'Guest role', guest:'Guest name', quote:'Quote', platforms:'Available on',
       authorRole:'Author role', byline:'Byline', i1:'Takeaway 1', i2:'Takeaway 2', i3:'Takeaway 3',
-      kicker:'Kicker', price:'Price (blank = drive clicks)', p1:'Product 1 (add | price to show it)', p2:'Product 2 (add | price to show it)', p3:'Product 3 (add | price to show it)' };
+      kicker:'Kicker', price:'Price (blank = drive clicks)', p1:'Product 1 (add | price to show it)', p2:'Product 2 (add | price to show it)', p3:'Product 3 (add | price to show it)',
+      readtime:'Read time', label:'Label', movement:"Movement ('up' or 'down')", context:'Context line' };
 
     let premVals = {}; // live editable values for the current type+dir
     function currentPremDir(){ const t = PREMIUM[state.contentType]; return t ? t.dirs[state.premiumDir] : null; }

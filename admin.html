@@ -154,12 +154,22 @@ const PREM = [
   { k:'solutions',  n:'Solutions & Reviews', d:'3 directions' },
   { k:'newsletter', n:'Newsletter',          d:'3 directions' },
   { k:'resources',  n:'Resources',           d:'3 directions' },
+  { k:'bizsa',      n:'Business News',       d:'4 directions · its own fixed ink/gold identity, not the active Brand Kit — off by default for every org' },
 ];
+// Every OTHER premium type defaults ON (opt-out — isOn below). Business News is the one
+// deliberate exception: default OFF everywhere, opt-IN only, matching volt-auth.js's gate — see
+// its 2026-08 comment. Kept as a named exception rather than changing isOn's shared default,
+// which would flip every other family's behaviour too.
+const PREMIUM_DEFAULT_OFF = new Set(['bizsa']);
 
 let settings = { modules:{}, themes:{}, premium:{} };
 let settingsId = null;
 
-function isOn(group, key){ const v = settings[group] && settings[group][key]; return v !== false; }
+function isOn(group, key){
+  const v = settings[group] && settings[group][key];
+  if (group === 'premium' && PREMIUM_DEFAULT_OFF.has(key)) return v === true;
+  return v !== false;
+}
 function setOn(group, key, on){ settings[group] = settings[group] || {}; settings[group][key] = !!on; }
 
 function rowHtml(group, item){
