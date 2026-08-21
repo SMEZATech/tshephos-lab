@@ -191,18 +191,31 @@ async function resolveAccount(token, explicitIgId, explicitPageId) {
 
 // How long has this token got? Surfaced in the UI so an expiry is something you SEE coming.
 async function tokenInfo(token) {
-  try {
-    const app = process.env.FB_APP_ID, sec = process.env.FB_APP_SECRET;
-    if (!app || !sec) return { expiresAt: null, note: "Set FB_APP_ID + FB_APP_SECRET to monitor token expiry." };
-    const d = await graph("/debug_token", { input_token: token, access_token: app + "|" + sec });
-    const x = (d && d.data) || {};
-    return {
-      expiresAt: x.expires_at ? new Date(x.expires_at * 1000).toISOString() : null,  // 0 = never
-      neverExpires: x.expires_at === 0,
-      scopes: x.scopes || [],
-      valid: !!x.is_valid,
-    };
-  } catch (e) { return { expiresAt: null, note: (e && e.message) || "Could not read token info." }; }
+  // FB_APP_ID/FB_APP_SECRET were only ever meant to be optional — a nicer way to show token expiry.
+  // But this function's `scopes` list is also what decides whether Facebook posting reports itself
+  // "Ready", and returning early with no scopes at all whenever those two env vars are unset silently
+  // pinned Facebook's readiness to false forever, regardless of what the token could actually do.
+  // Meta's own docs allow debug_token's access_token parameter to be either the app's own
+  // app_id|app_secret OR a valid access token belonging to an app developer of the SAME app — which
+  // the token being checked already is, here. So it's tried first when configured (unchanged
+  // behaviour), and the token checks itself otherwise, rather than the check simply not happening.
+  const app = process.env.FB_APP_ID, sec = process.env.FB_APP_SECRET;
+  const attempts = [];
+  if (app && sec) attempts.push(app + "|" + sec);
+  attempts.push(token);
+  for (const authToken of attempts) {
+    try {
+      const d = await graph("/debug_token", { input_token: token, access_token: authToken });
+      const x = (d && d.data) || {};
+      return {
+        expiresAt: x.expires_at ? new Date(x.expires_at * 1000).toISOString() : null,  // 0 = never
+        neverExpires: x.expires_at === 0,
+        scopes: x.scopes || [],
+        valid: !!x.is_valid,
+      };
+    } catch (e) { /* try the next credential shape before giving up */ }
+  }
+  return { expiresAt: null, scopes: [], note: "Could not read token info." };
 }
 
 // ---------------------------------------------------------------------------------------------
