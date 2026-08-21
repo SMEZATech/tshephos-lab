@@ -1178,7 +1178,7 @@
             }
             // url is left alone — every glossary CTA points at the full glossary, not one term.
         } else if (state.contentType === 'bizsa') {
-            if (dir === 'a') { set('head', d.head); set('byline', d.byline); set('readtime', d.readtime); }
+            if (dir === 'a') { set('head', d.title || d.head); set('byline', d.byline); set('readtime', d.readtime); }
             else if (dir === 'b') { set('i1', d.takeaways[0]); set('i2', d.takeaways[1]); set('i3', d.takeaways[2]); }
             else if (dir === 'c') { set('quote', d.quote); set('author', d.author); set('role', d.authorRole); }
             else if (dir === 'd') { set('big', d.big); set('label', d.bigLabel); set('context', d.sub); }
@@ -1214,10 +1214,15 @@
             if (!gr.ok || !data.insight) throw new Error((data && data.error) || 'Could not read that page.');
             premAutofill = data.insight;
             // Read time is pure arithmetic off the article text already in hand — no reason to ask
-            // the model for something a word count answers exactly.
+            // the model for something a word count answers exactly. The real, full page title is
+            // stashed too: insightcards' own `head` field is a deliberately-different "fresh claim"
+            // for Feature's card (see its prompt — explicitly NOT the headline reworded), clipped to
+            // 70 chars there, which truncated real news headlines mid-word when reused for Business
+            // News's Headline Card. A news headline card needs the actual headline, unclipped.
             if (state.contentType === 'bizsa') {
                 const words = text.trim().split(/\s+/).filter(Boolean).length;
                 premAutofill.readtime = Math.max(1, Math.round(words / 200)) + ' min read';
+                premAutofill.title = title;
             }
             applyAutofillToDir(); renderPremFields(); renderPremiumPreview();
             // Say plainly what came back empty. A silent gap looks like a bug; "no figure in this
