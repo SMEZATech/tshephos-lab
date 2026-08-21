@@ -238,7 +238,12 @@
       });
       upB.addEventListener("click", function () {
         if (!sb) return;
-        if (!/@smesouthafrica\.co\.za$/i.test(email.value.trim())) { fail("Please use your @smesouthafrica.co.za work email."); return; }
+        // A handful of individually-named personal addresses get their own private workspace (see
+        // ALLOWED_EMAIL_EXTRA in api/_guard.js, which is the real enforcement — this is just the
+        // matching client-side message so sign-up doesn't reject an address the server would accept).
+        var EXTRA_ALLOWED = ["joelbosega@gmail.com"];
+        var typed = email.value.trim().toLowerCase();
+        if (!/@smesouthafrica\.co\.za$/i.test(typed) && EXTRA_ALLOWED.indexOf(typed) === -1) { fail("Please use your @smesouthafrica.co.za work email."); return; }
         busy(true); err.textContent = "Creating account…";
         sb.auth.signUp({ email: email.value.trim(), password: pw.value })
           .then(function (r) { if (r.error) fail(r.error.message); else if (!r.data.session) fail("Account made — now click Sign in."); })
