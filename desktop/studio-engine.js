@@ -1494,6 +1494,7 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'podcast')   return drawPodcast(r, dir, v, assets);
     if (type === 'merch')     return drawMerch(r, dir, v, assets);
     if (type === 'feature')   return drawFeature(r, dir, v, assets);
+    if (type === 'founder')   return drawFounder(r, dir, v, assets);
     if (type === 'hub')       return drawHub(r, dir, v, assets);
     if (type === 'glossary')  return drawGlossary(r, dir, v, assets);
     if (type === 'webinar')   return drawWebinar(r, dir, v, assets);
@@ -2398,6 +2399,126 @@ function drawFeature(r, dir, v, a) {
     pButton(r, pad, btnY, iW, v.cta || 'Read the full story', acc.fill, acc.on);
 }
 
+// ===================== FOUNDER FOCUS =====================
+// smesouthafrica.co.za's own "Founder Focus" interview vertical. Unlike drawFeature (which
+// deliberately DEMOTES photography — a generic article has no natural face to lead with, so
+// leading with one reads as a lazy auto-generated OG card), a profile piece's entire job is
+// making a reader recognise a human being. Direction A leans all the way into that — a full-bleed
+// portrait, Forbes/LinkedIn-profile style — while B and C stay closer to the house's restrained
+// editorial treatment for when the photo is more supporting than headline.
+function drawFounder(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
+    const hasPic = !!a.featured;
+    const person = (name, role, x, y, w, nameC, roleC, nameSize, roleSize) => {
+        const nf = { family: 'Oswald', weight: '700', size: nameSize };
+        if (name) r.drawLines([String(name).toUpperCase()], nf, x, y, w, { color: nameC });
+        const ry = y + (name ? nameSize * 1.25 : 0);
+        if (role) r.drawLines([String(role)], { family: 'Roboto', weight: '500', size: roleSize }, x, ry, w, { color: roleC });
+        return (name ? nameSize * 1.25 : 0) + (role ? roleSize * 1.3 : 0);
+    };
+
+    if (dir === 'a') { // THE COVER — the founder's face IS the post.
+        if (hasPic) r.drawCover(a.featured, 0, 0, W, H, 0.5, 0.28, 0, 1);   // focal favours the face over the chest
+        else r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        // Bottom scrim so name/headline stay legible over any photo, without flattening the frame
+        // the way a full dark overlay would.
+        const scrimH = Math.round(H * 0.64);
+        const g = r.ctx.createLinearGradient(0, H - scrimH, 0, H);
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.58)'); g.addColorStop(1, 'rgba(0,0,0,0.88)');
+        r.ctx.save(); r.ctx.fillStyle = g; r.ctx.fillRect(0, H - scrimH, W, scrimH); r.ctx.restore();
+        // Logo shadowed so it survives sitting directly on a bright photo.
+        { const lg = a.logoW; if (lg) { r.ctx.save(); r.ctx.shadowColor = 'rgba(0,0,0,0.6)'; r.ctx.shadowBlur = 16; r.drawContain(lg, pad, pTop() - 8, 176, 50, {}); r.ctx.restore(); } }
+        const acc = pSolid('#0b0b0d', PC.red, PC.paper);   // the pill always sits on the dark scrim, brand-safe against it specifically
+        pPill(r, pad, pTop() + pV(64), v.eyebrow || 'Founder Focus', acc.fill, acc.on);
+        const nameY = btnY - pV(30);
+        const roleSize = pT(34), nameSize = pT(50);
+        const headBottom = nameY - roleSize * 1.3 - nameSize * 1.25 - pV(18);
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '900' }, iW, Math.max(pV(140), headBottom - (pTop() + pV(64) + (PG ? PG.pill : 64) + pV(30))), 1.05, { max: pT(72), min: 34 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '900', size: hf.size }, pad, headBottom - hf.totalH, iW, { color: '#fff', lineHeight: 1.05 });
+        person(v.name, v.authorRole, pad, nameY - roleSize * 1.3 - nameSize * 1.25, iW, '#fff', 'rgba(255,255,255,0.82)', nameSize, roleSize);
+        pButton(r, pad, btnY, iW, v.cta || 'Read the full story', PC.red, '#fff');
+        return;
+    }
+
+    if (dir === 'b') { // THE PROFILE SPLIT — a real photo panel (bigger than Feature's), type beside it.
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.red, PC.navy);
+        const wide = W > H * 1.2;
+        const picW = wide ? Math.round(W * 0.46) : W;
+        // 36%, not the 46% the wide column uses: this direction carries headline + sub + name/role
+        // + byline + CTA, five text elements, above the band — a first pass at 42% left too little
+        // height for that much copy and the name ran straight into the photo. The wide layout has a
+        // full column's height to work with, so it keeps the bigger, more "Forbes" proportion.
+        const picH = wide ? H : Math.round(H * 0.36);
+        const picX = wide ? W - picW : 0, picY = wide ? 0 : H - picH;
+        if (hasPic) r.drawCover(a.featured, picX, picY, picW, picH, 0.5, 0.32, 0, 1);
+        else {
+            r.linearGradient(picX, picY, picW, picH, [[0, PC.navy], [1, PC.navy2]], 'br');
+            const initials = String(v.name || '').trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+            if (initials) r.drawLines([initials], { family: 'Oswald', weight: '900', size: pT(120) }, picX, picY + picH / 2 - pT(70), picW, { color: 'rgba(255,255,255,0.5)', align: 'center' });
+        }
+        const colW = wide ? W - picW - pad * 2 - pV(24) : iW;
+        const bottomLimit = wide ? H - pad - pSafeB() : picY - pV(34);
+        let y = pLogo(r, a, PC.paper) + pV(6);
+        r.rect(pad, y, 96, 10, acc.fill); y += pV(30);
+        pPill(r, pad, y, v.eyebrow || 'Founder Focus', acc.fill, acc.on); y += (PG ? PG.pill : 64) + pV(34);
+        // Measure EVERYTHING below the headline before fitting it — sub, name+role and CTA all have
+        // to come out of the same budget, or (as shipped once) a two-line sub alone was enough to
+        // push the name block straight into the photo panel with nothing left to stop it. Capped to
+        // 2 lines: unlike Feature's equivalent direction this one also carries a name+role block, so
+        // an uncapped sub has less room to spend before it starts fighting that block for space.
+        const subSize = 34, subLines = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: subSize }, colW).slice(0, 2);
+        const nameSize = pT(40), roleSize = pT(28);
+        const nameH = (v.name ? nameSize * 1.25 : 0) + (v.authorRole ? roleSize * 1.3 : 0);
+        const ctaH = pV(56);
+        const headBox = Math.max(pV(90), bottomLimit - y - subLines.length * subSize * 1.4 - pV(20) - nameH - ctaH - pV(20));
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, colW, headBox, 1.03, { max: pT(76), min: 30 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, colW, { color: pInk(PC.paper), lineHeight: 1.03 });
+        y += hf.totalH + pV(22);
+        r.drawLines(subLines, { family: 'Roboto', weight: '400', size: subSize }, pad, y, colW, { color: pSubInk(PC.paper), lineHeight: 1.4 });
+        y += subLines.length * subSize * 1.4 + pV(20);
+        y += person(v.name, v.authorRole, pad, y, colW, pInk(PC.paper), pSubInk(PC.paper), nameSize, roleSize);
+        // Byline is the least essential line here (Feature's own version treats it the same way) —
+        // draw it ONLY if it still fits above the CTA, rather than reserve fixed room for it up
+        // front and risk it being what starves the headline on a long name+role+sub combination.
+        if (v.byline && y + pV(10) + 30 <= bottomLimit - ctaH - pV(14)) {
+            y += pV(10); r.drawLines([String(v.byline)], { family: 'Roboto', weight: '600', size: 26 }, pad, y, colW, { color: pSubInk(PC.paper) }); y += pV(40);
+        }
+        r.drawLines([String(v.cta || 'Read the interview').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(32) }, pad, Math.min(y + pV(10), bottomLimit - pV(38)), colW, { color: acc.text });
+        pUrlTop(r, v.url, PC.paper);
+        return;
+    }
+
+    // C: THE INTERVIEW QUOTE — the founder's own words, attributed with a real portrait.
+    r.fillBg(PC.paper);
+    const acc = pSolid(PC.paper, PC.red, PC.navy);
+    r.rect(0, 0, 26, H, acc.fill);
+    const top = pLogo(r, a, PC.paper) + pV(6);
+    const ds = pV(128);                                    // a bigger circle than Feature's — here the person IS the subject
+    const attrH = ds + pV(30);
+    const quoteMarkS = pT(150);
+    const qBox = Math.max(pV(200), btnY - pV(46) - attrH - (top + quoteMarkS * 0.62 + pV(56)));
+    const qf = r.fitFontSize(String(v.quote || ''), { family: 'Oswald', weight: '700' }, iW, qBox, 1.16, { max: pT(78), min: 32 });
+    let y = top;
+    pPill(r, pad, y, v.eyebrow || 'Founder Focus · Interview', acc.fill, acc.on); y += (PG ? PG.pill : 64) + pV(30);
+    r.drawLines(['“'], { family: 'Oswald', weight: '900', size: quoteMarkS }, pad - pV(12), y, iW, { color: acc.fill, lineHeight: 1 });
+    y += quoteMarkS * 0.62;
+    r.drawLines(qf.lines, { family: 'Oswald', weight: '700', size: qf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.16 });
+    const ay = btnY - pV(46) - attrH + pV(20);
+    if (hasPic) {
+        r.ctx.save(); r.roundRectPath(pad, ay, ds, ds, ds / 2); r.ctx.clip();
+        r.drawCover(a.featured, pad, ay, ds, ds, 0.5, 0.3, 0, 1); r.ctx.restore();
+    } else {
+        r.ctx.save(); r.roundRectPath(pad, ay, ds, ds, ds / 2); r.ctx.fillStyle = pOn(PC.paper, PC.navy2, PC.f8 || '#f1f5f9'); r.ctx.fill(); r.ctx.restore();
+        const initials = String(v.name || '').trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+        if (initials) r.drawLines([initials], { family: 'Oswald', weight: '900', size: Math.round(ds * 0.38) }, pad, ay + ds * 0.28, ds, { color: pInk(PC.paper), align: 'center' });
+    }
+    r.drawLines([String(v.name || '').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(38) }, pad + ds + 30, ay + pV(18), iW - ds - 30, { color: pInk(PC.paper) });
+    r.drawLines([String(v.authorRole || '')], { family: 'Roboto', weight: '400', size: 30 }, pad + ds + 30, ay + pV(62), iW - ds - 30, { color: pSubInk(PC.paper) });
+    pUrlTop(r, v.url, PC.paper);
+    pButton(r, pad, btnY, iW, v.cta || 'Read the full interview', acc.fill, acc.on);
+}
+
 // ===================== MERCH / STORE =====================
 // Built from smesouthafrica.co.za/shop — product, price, and the two things that close a sale
 // online in SA: shipping reach and payment trust.
@@ -2641,7 +2762,7 @@ function drawLandscape(r, type, dir, v, a) {
     pGeom(W, H);
     const pad = 70;
     r.ctx.textBaseline = 'top';
-    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d'].indexOf(key) !== -1;
+    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d', 'founder.b', 'founder.c'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
     // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
     // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
@@ -2705,7 +2826,7 @@ function drawLandscape(r, type, dir, v, a) {
     const LS_LAYOUT = {
         funding: 'panel', solutions: 'spine', newsletter: 'band', resources: 'spine',
         providers: 'panel', findpros: 'band', podcast: 'panel', merch: 'spine',
-        feature: 'band', hub: 'panel', glossary: 'spine', webinar: 'band'
+        feature: 'band', hub: 'panel', glossary: 'spine', webinar: 'band', founder: 'band'
     };
     const sub2 = pSolid(bgRef, PC.red);          // a block colour that is legible against this bg
 

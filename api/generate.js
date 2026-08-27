@@ -743,6 +743,45 @@ export default async function handler(req, res) {
       return res.status(200).json({ insight });
     }
 
+    // ---- Founder Focus autofill: a smesouthafrica.co.za/founder-focus-tagged profile piece is
+    // ABOUT one named person, unlike insightcards' generic article — so this needs its own
+    // extraction shape (name/role/company as first-class fields) rather than reusing author/
+    // authorRole and hoping the "quote attribution" happens to be the founder. Same extraction
+    // principle as insightcards/glossaryfill: pull what is genuinely on the page, never invent.
+    if (task === "founderinsight") {
+      const text = String(body.article || "").trim().slice(0, 12000);
+      if (text.length < 300) return res.status(400).json({ error: "Couldn't find enough article text on that page." });
+      const title = String(body.title || "").slice(0, 200);
+      const url = String(body.url || "").slice(0, 80);
+      const prompt =
+        "You are a publication's social editor building a founder-profile card from ONE article about a named founder/entrepreneur.\n\n" +
+        (title ? "HEADLINE (context only — do NOT reuse or paraphrase it): " + title + "\n\n" : "") +
+        "ARTICLE:\n" + text + "\n\n" +
+        "- name: the founder/entrepreneur the article is ABOUT (not the journalist who wrote it, not another person merely mentioned). If the article does not clearly centre on one named founder, return \"\" for every field.\n" +
+        "- role: their role AND company as it would read on a business card, e.g. \"Founder & CEO, HäusHub\". Use the actual title used in the article (Founder, Co-founder, CEO...) and the actual company name — never invent either.\n" +
+        "- company: the company name alone (a subset of role, kept separate so a design can use just the name).\n" +
+        "- quote: a sentence VERBATIM from the article, attributed to the founder — trimmed only at its edges, never paraphrased. Choose the most human, specific line (how they think, what they noticed, what surprised them) over a generic mission statement.\n" +
+        "- head: a fresh claim or tension the article reveals about this founder or their business, written new. It is NOT the headline reworded — if all you can produce is a rewording, return \"\".\n" +
+        "- sub: one sentence of context — what the company does and the problem it solves, in plain language, grounded in the article.\n" +
+        "- byline: the journalist's name if credited, else \"\".\n\n" +
+        "South African context and spelling. Hard limits: name <=50, role <=70, company <=40, quote <=180, head <=70, sub <=150, byline <=60.\n" +
+        'Return JSON only: {"name":"","role":"","company":"","quote":"","head":"","sub":"","byline":""}';
+      const raw = await callProvider(prompt, { system: "You extract founder-profile card copy from an article about a named entrepreneur. Never invent a name, title, company or quote. Return JSON only.", temperature: 0.35, maxTokens: 700 });
+      const d = safeParse(raw);
+      if (!d) return res.status(502).json({ error: "Could not read that article — try again." });
+      const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+      const insight = {
+        name: clip(d.name, 50), role: clip(d.role, 70), company: clip(d.company, 40),
+        quote: clip(d.quote, 180), head: clip(d.head, 70), sub: clip(d.sub, 150),
+        byline: clip(d.byline, 60), url: clip(url, 80),
+      };
+      if (!insight.name) {
+        return res.status(502).json({ error: "Could not find a named founder in that article — try a different link, or fill in the details by hand." });
+      }
+      await logContent(req.volt && req.volt.orgId, { tool: "founderinsight", input: { len: text.length, title: clip(title, 120) }, output: { hasName: !!insight.name, hasQuote: !!insight.quote }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ insight });
+    }
+
     // ---- Glossary autofill: same principle as insightcards, for a smesouthafrica.co.za/glossary
     // term page. A glossary page is reference material, not a narrative article — so unlike
     // insightcards this is allowed to WRITE plain-English phrasing rather than only lift verbatim

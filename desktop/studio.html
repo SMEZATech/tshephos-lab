@@ -262,7 +262,7 @@
 
                 <div class="vt-sec">
                     <div class="vt-lbl">Post type</div>
-                    <!-- Thirteen buttons is the right menu and the wrong permanent fixture: once you
+                    <!-- Fourteen buttons is the right menu and the wrong permanent fixture: once you
                          have chosen, it is 200px of answered question sitting above the controls you
                          actually came to use. Collapses to what you picked, one click from the menu. -->
                     <button type="button" id="ct-current" class="vt-opt wide hidden w-full" style="justify-content:space-between;" onclick="openTypePicker()">
@@ -280,6 +280,7 @@
                         <button onclick="setContentType('findpros')"   id="ct-findpros"   class="vt-opt ct-btn">🔎 Find Providers</button>
                         <button onclick="setContentType('podcast')"    id="ct-podcast"    class="vt-opt ct-btn">🎙️ Podcast</button>
                         <button onclick="setContentType('feature')"    id="ct-feature"    class="vt-opt ct-btn">📰 Latest Insight</button>
+                        <button onclick="setContentType('founder')"    id="ct-founder"    class="vt-opt ct-btn">🧑‍💼 Founder Focus</button>
                         <button onclick="setContentType('merch')"      id="ct-merch"      class="vt-opt ct-btn">🛍️ Merch</button>
                         <button onclick="setContentType('hub')"        id="ct-hub"        class="vt-opt ct-btn">🏛️ SME Hub</button>
                         <button onclick="setContentType('glossary')"   id="ct-glossary"   class="vt-opt ct-btn">📖 Glossary</button>
@@ -1194,6 +1195,13 @@
             else if (dir === 'c') { set('quote', d.quote); set('author', d.author); set('role', d.authorRole); }
             else if (dir === 'd') { set('big', d.big); set('label', d.bigLabel); set('context', d.sub); }
             set('url', d.url);
+        } else if (state.contentType === 'founder') {
+            // Every direction wants name + role, so set both regardless of dir before the per-dir extras.
+            set('name', d.name); set('authorRole', d.role);
+            if (dir === 'a') { set('head', d.head); }
+            else if (dir === 'b') { set('head', d.head); set('sub', d.sub); set('byline', d.byline); }
+            else if (dir === 'c') { set('quote', d.quote); }
+            set('url', d.url);
         }
     }
 
@@ -1256,6 +1264,11 @@
                 if (!premAutofill.takeaways.length) gaps.push('no takeaways for The Short Version');
                 if (!premAutofill.head) gaps.push('nothing beyond the headline');
                 say((gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '. ' : 'Filled all four directions ✓ ') + 'Category and market movement are yours to set.');
+            } else if (state.contentType === 'founder') {
+                if (!premAutofill.name) gaps.push('no named founder found on that page');
+                if (!premAutofill.quote) gaps.push('no quotable line for the Interview direction');
+                if (!premAutofill.head) gaps.push('nothing beyond the headline');
+                say((gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '. ' : 'Filled all three directions ✓ ') + 'Add the founder’s photo above.');
             }
             // The page's hero image is deliberately NOT pulled. It is the same picture the link
             // preview already shows; restyling it is the copy-paste look we're moving away from.
@@ -1552,6 +1565,18 @@
         c:{ name:'The Stack — 3 takeaways', fields:{ eyebrow:'What you need to know', head:'Getting funding-ready in 2026', i1:'Separate your business and personal banking first', i2:'Management accounts beat a business plan every time', i3:'Apply to three lenders, not one — terms vary wildly', cta:'Read all seven →', url:'smesouthafrica.co.za' } },
         d:{ name:'Editorial Split — type led, photo earned', fields:{ eyebrow:'Feature', head:'The funding mistake that costs founders millions', sub:'Most SA founders raise for the wrong reason at the wrong time. Here is what the lenders actually see.', byline:'By Karabo Kgophane', cta:'Read the story →', url:'smesouthafrica.co.za' } }
       }},
+      // ---- FOUNDER FOCUS (smesouthafrica.co.za's own "Founder Focus" vertical — real founder
+      // interviews/profiles). Unlike Feature Story (which deliberately DEMOTES photography — see
+      // that family's own comment), a profile piece's whole job is making a reader recognise a
+      // human being, so direction A leads with a full-bleed portrait on purpose. B and C stay
+      // closer to the restrained editorial house style for when the photo is more supporting than
+      // headline. Load a Featured Image to get the founder photo; every direction degrades to a
+      // clean typographic layout without one.
+      founder: { label:'Founder Focus', dirs:{
+        a:{ name:'The Cover — portrait leads, Forbes-style', fields:{ eyebrow:'Founder Focus', name:'Naledi Cele', authorRole:'Founder & CEO, Kasi Wash', head:'Built the laundromat network she wished existed in her own township.', cta:'Read the full story →', url:'smesouthafrica.co.za' } },
+        b:{ name:'The Profile Split — photo panel + type', fields:{ eyebrow:'Founder Focus', name:'Naledi Cele', authorRole:'Founder & CEO, Kasi Wash', head:'From one machine in a backyard to twelve sites in three provinces', sub:'She built the compliance and payments layer first — everything else, she says, was the easy part.', byline:'By Maryna Steyn', cta:'Read the interview →', url:'smesouthafrica.co.za' } },
+        c:{ name:'The Interview Quote — attributed, human', fields:{ eyebrow:'Founder Focus · Interview', quote:'I built it selfishly. I built it first and foremost for a problem I had myself.', name:'Naledi Cele', authorRole:'Founder & CEO, Kasi Wash', cta:'Read the full interview →', url:'smesouthafrica.co.za' } }
+      }},
       // ---- Podcast (smesouthafrica.co.za/podcast). Episode card / guest pull-quote / audiogram.
       // Load a Featured Image to get the guest photo; without one each direction stays typographic.
       podcast: { label:'Podcast', dirs:{
@@ -1667,7 +1692,7 @@
     const premPhotos = {};          // contentType -> Blob | null
     const premPhotoURLs = {};       // contentType -> object URL for the thumbnail
     function premFeatured(){ return premPhotos[state.contentType] || null; }
-    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)' };
+    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)', founder: 'Founder photo (used by every direction)' };
     // Which content types can auto-fill from a live page, what page they read, and the copy for
     // each — one small config instead of a second copy-pasted button+handler per family.
     const AUTOFILL = {
@@ -1682,7 +1707,12 @@
       // brand's own editorial rules are explicit about never inventing a fact the source doesn't
       // state — see docs/editorial-style.md's "Accuracy rules".
       bizsa: { task: 'insightcards', label: 'Auto-fill from the article', placeholder: 'Paste the article link…',
-                  hint: 'Pulls a verbatim quote, three takeaways and a lead figure, plus a read-time estimate — fills every direction at once. Category and market movement are left for you, since the article can’t honestly answer either.' }
+                  hint: 'Pulls a verbatim quote, three takeaways and a lead figure, plus a read-time estimate — fills every direction at once. Category and market movement are left for you, since the article can’t honestly answer either.' },
+      // Its own task, not a reuse of insightcards: a profile piece needs name/role/company as
+      // first-class fields, not a guess at whether insightcards' quote-attribution happens to be
+      // the founder rather than someone else quoted in passing.
+      founder:  { task: 'founderinsight', label: 'Auto-fill from the profile', placeholder: 'Paste the Founder Focus article link…',
+                  hint: 'Pulls the founder’s name, role & company, a verbatim quote and a fresh headline — fills every direction at once. Add the founder’s photo above for the full effect.' }
     };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
@@ -2161,7 +2191,7 @@
       if(isCreative){ syncPremImage(); renderLayout(); return; }
       if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
       if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction, then write the copy in Content.'
-        + ((type === 'podcast' || type === 'merch') ? ' A ' + (type === 'podcast' ? 'guest photo' : 'product shot') + ' can be loaded there too.' : '');
+        + ((type === 'podcast' || type === 'merch' || type === 'founder') ? ' A ' + (type === 'podcast' ? 'guest photo' : type === 'founder' ? 'founder photo' : 'product shot') + ' can be loaded there too.' : '');
       state.premiumDir = 'a'; setPremiumDir('a');
     }
 
