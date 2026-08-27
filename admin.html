@@ -88,6 +88,12 @@
   </div>
 
   <div class="card">
+    <h2>🔌 AI Tools (MCP)</h2>
+    <p class="h-note">Connect Claude Desktop, Claude Code or any other MCP-compatible AI tool to Volt so it can generate on-brand copy for you. <b>Generate-only</b> — a connected tool can draft ad copy, newsletter sections and read your Brand Kit, but it can never publish anything or change a setting.</p>
+    <div id="mcpBody"><p class="h-note">Checking…</p></div>
+  </div>
+
+  <div class="card">
     <h2>Modules</h2>
     <p class="h-note">Hide a tool from the navigation and the desktop rail. Anyone who has it open keeps working; it just stops being offered.</p>
     <div id="modList"></div>
@@ -313,6 +319,67 @@ function renderConnectForm(reconnecting){
 }
 
 // ============================================================================
+// MCP — a personal API key an AI tool authenticates with instead of a browser session. window.fetch
+// is already patched by volt-auth.js to attach the Supabase Bearer token, exactly like connFetch
+// above, so a plain fetch() here is enough to hit the key-management side of api/_routes/mcp.js.
+// ============================================================================
+const MCP_URL = '/api/mcp';
+async function mcpFetch(body){
+  return fetch(MCP_URL, body
+    ? { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }
+    : {}).then(async r => {
+      let d={}; try{ d=await r.json(); }catch(_){}
+      if(!r.ok) throw new Error((d&&(d.error||d.message))||('Request failed ('+r.status+')'));
+      return d;
+    });
+}
+async function loadMcp(){
+  const box = $('#mcpBody');
+  let d;
+  try{ d = await mcpFetch(); }
+  catch(e){ box.innerHTML = '<p class="h-note" style="color:var(--low)">Couldn’t check: '+esc(e.message||'')+'</p>'; return; }
+  renderMcp(d.key);
+}
+function renderMcp(key, revealed){
+  const box = $('#mcpBody');
+  const rows = [];
+  if (key) {
+    rows.push('<div class="row"><span class="emoji">🔑</span><span class="grow"><span class="nm">'+esc(key.label||'Default')+'</span>'
+      + '<div class="ds">Created '+new Date(key.created_at).toLocaleDateString()+(key.last_used_at?(' · last used '+new Date(key.last_used_at).toLocaleDateString()):' · never used yet')+'</div></span>'
+      + '<span class="pill live">Active</span></div>');
+  }
+  box.innerHTML = rows.join('')
+    + (revealed ? '<div class="hint" style="border-color:rgba(120,255,150,.3);background:rgba(120,255,150,.07);">'
+        + '<p class="h-note" style="margin-bottom:8px;">Your new key — <b>shown once, copy it now</b>. Set it as an <code>Authorization: Bearer</code> header (or your MCP client\'s "API key" field) pointed at <code>'+esc(MCP_URL)+'</code>.</p>'
+        + '<div style="display:flex;gap:8px;align-items:center;"><code id="mcpKeyRaw" style="flex:1;padding:9px 10px;background:rgba(0,0,0,.25);border-radius:8px;font-size:12px;word-break:break-all;">'+esc(revealed)+'</code>'
+        + '<button class="btn ghost" id="mcpCopy" style="padding:9px 14px;font-size:13px;">Copy</button></div></div>'
+      : '')
+    + '<p class="h-note" style="margin-top:10px;">See <a href="https://github.com/SMEZATech/tshephos-lab/blob/main/SETUP-MCP.md" target="_blank" rel="noopener">SETUP-MCP.md</a> for exact client setup (Claude Desktop, Claude Code, …).</p>'
+    + '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">'
+    + '<button class="btn ghost" id="mcpRotate" style="padding:9px 16px;font-size:13px;">'+(key?'Rotate key':'Generate key')+'</button>'
+    + (key ? '<button class="btn ghost" id="mcpRevoke" style="padding:9px 16px;font-size:13px;color:var(--low);border-color:rgba(255,124,124,.3);">Revoke</button>' : '')
+    + '</div><div class="status" id="mcpStatus"></div>';
+
+  if (revealed) $('#mcpCopy').addEventListener('click', () => {
+    navigator.clipboard.writeText(revealed).then(() => { $('#mcpCopy').textContent = 'Copied ✓'; setTimeout(() => { const b=$('#mcpCopy'); if(b) b.textContent='Copy'; }, 1500); });
+  });
+  $('#mcpRotate').addEventListener('click', async () => {
+    if (key && !confirm('Generate a new key? The current one stops working immediately — update it in any connected AI tool.')) return;
+    const s = $('#mcpStatus'); s.textContent = 'Generating…'; s.className = 'status busy';
+    try{
+      const d = await mcpFetch({ op: key ? 'rotate' : 'create' });
+      renderMcp({ label:'Default', created_at:d.created_at, last_used_at:null }, d.key);
+    }catch(e){ s.textContent = e.message||'Could not generate a key.'; s.className='status err'; }
+  });
+  const rv = $('#mcpRevoke');
+  if (rv) rv.addEventListener('click', async () => {
+    if (!confirm('Revoke this key? Every connected AI tool stops working until you generate a new one.')) return;
+    try{ await mcpFetch({ op:'revoke' }); }catch(e){}
+    loadMcp();
+  });
+}
+
+// ============================================================================
 // TikTok — OAuth, not a pasted token. TikTok has no equivalent of Meta's Graph API Explorer, so
 // Volt itself is the OAuth client: authstart hands back a URL to TikTok's own consent screen, the
 // browser navigates there, and TikTok redirects back to api/_routes/tiktok.js's callback (which
@@ -385,6 +452,7 @@ function boot(){
   $('#resetBtn').addEventListener('click', ()=>{ settings = { modules:{}, themes:{}, premium:{} }; render(); setStatus('All modules and designs back on — hit Save.', 'busy'); });
   load();
   loadConnections();
+  loadMcp();
   loadTikTok();
   if(window.__ttRedirectMsg){
     const m = window.__ttRedirectMsg;

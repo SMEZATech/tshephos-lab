@@ -1017,3 +1017,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: (err && err.message) || "Server error" });
   }
 }
+
+// Named exports (additive — the default export/handler above is untouched) so api/_routes/mcp.js
+// can reuse the SAME prompt builders and system prompts an MCP tool call goes through, instead of
+// forking a second copy that quietly drifts from this one.
+export { SYSTEM, SYSTEM_EMAIL, buildPrompt, buildEmailPrompt, safeParse };
