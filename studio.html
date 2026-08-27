@@ -262,7 +262,7 @@
 
                 <div class="vt-sec">
                     <div class="vt-lbl">Post type</div>
-                    <!-- Fourteen buttons is the right menu and the wrong permanent fixture: once you
+                    <!-- Fifteen buttons is the right menu and the wrong permanent fixture: once you
                          have chosen, it is 200px of answered question sitting above the controls you
                          actually came to use. Collapses to what you picked, one click from the menu. -->
                     <button type="button" id="ct-current" class="vt-opt wide hidden w-full" style="justify-content:space-between;" onclick="openTypePicker()">
@@ -281,6 +281,7 @@
                         <button onclick="setContentType('podcast')"    id="ct-podcast"    class="vt-opt ct-btn">🎙️ Podcast</button>
                         <button onclick="setContentType('feature')"    id="ct-feature"    class="vt-opt ct-btn">📰 Latest Insight</button>
                         <button onclick="setContentType('founder')"    id="ct-founder"    class="vt-opt ct-btn">🧑‍💼 Founder Focus</button>
+                        <button onclick="setContentType('roundup')"    id="ct-roundup"    class="vt-opt ct-btn">📚 Roundup</button>
                         <button onclick="setContentType('merch')"      id="ct-merch"      class="vt-opt ct-btn">🛍️ Merch</button>
                         <button onclick="setContentType('hub')"        id="ct-hub"        class="vt-opt ct-btn">🏛️ SME Hub</button>
                         <button onclick="setContentType('glossary')"   id="ct-glossary"   class="vt-opt ct-btn">📖 Glossary</button>
@@ -378,6 +379,13 @@
                         <div class="flex gap-2">
                             <input type="url" id="prem-url" placeholder="Paste the article link…" class="vt-in flex-1 min-w-0">
                             <button id="prem-autofill" type="button" class="vt-btn vt-btn-accent shrink-0" style="width:auto;padding-left:14px;padding-right:14px;">✨ Fill</button>
+                        </div>
+                        <!-- Roundup only: several links at once, one per line, instead of the single-URL
+                             box every other family uses — the whole point is bundling separate articles
+                             into one post instead of one post per article. -->
+                        <div id="prem-url-multi-wrap" class="hidden">
+                            <textarea id="prem-url-multi" rows="3" placeholder="Paste 2–5 article links, one per line…" class="vt-in w-full"></textarea>
+                            <button id="prem-autofill-multi" type="button" class="vt-btn vt-btn-accent w-full mt-2">✨ Fill from these links</button>
                         </div>
                         <p id="prem-autofill-status" class="vt-note mt-2">Pulls a verbatim quote, a real figure and three takeaways — and fills every direction at once, so you can pick whichever the article actually supports.</p>
                     </div>
@@ -1276,6 +1284,58 @@
         finally { btn.disabled = false; }
     }
 
+    // Roundup's own autofill: several links, one AI call, not autofillInsight()'s one-link-one-call
+    // shape. Each article is fetched the SAME way (fetchWithProxy + extractArticleText) so a broken
+    // link fails on its own instead of taking the whole batch down with it.
+    async function autofillRoundup() {
+        const cfg = AUTOFILL.roundup;
+        const urlEl = document.getElementById('prem-url-multi');
+        const btn = document.getElementById('prem-autofill-multi');
+        const st = document.getElementById('prem-autofill-status');
+        const say = m => { if (st) st.textContent = m; };
+        const urls = ((urlEl && urlEl.value) || '').split(/\n+/).map(s => s.trim()).filter(Boolean).slice(0, 5);
+        if (urls.length < 2) { say('Paste at least 2 links, one per line.'); return; }
+        btn.disabled = true; say('Reading ' + urls.length + ' pages…');
+        try {
+            const articles = [];
+            const failed = [];
+            for (const url of urls) {
+                try {
+                    const r = await fetchWithProxy(url);
+                    const html = await r.text();
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const t = doc.querySelector('meta[property="og:title"]');
+                    const title = ((t && t.content) || doc.title || '').replace(' - SME South Africa', '').trim();
+                    const text = extractArticleText(doc);
+                    if (!text) { failed.push(url); continue; }
+                    articles.push({ title, url, text });
+                } catch (e) { failed.push(url); }
+            }
+            if (articles.length < 2) throw new Error('Could not read enough of those pages to build a roundup — check the links.');
+            say('Pulling the details for ' + articles.length + ' stories…');
+            const gr = await fetch('/api/generate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task: cfg.task, articles: articles.map(a => ({ title: a.title, text: a.text })) })
+            });
+            let data = {}; try { data = await gr.json(); } catch (e) {}
+            if (gr.status === 401) throw new Error('Please sign in.');
+            if (!gr.ok || !data.items) throw new Error((data && data.error) || 'Could not read those pages.');
+            // i1/i2/i3 as "Headline|Hook" — the same bold|text convention This Week Inside already
+            // uses, so it renders through the same proven row layout rather than a new field shape.
+            const items = data.items;
+            premVals.i1 = items[0] ? (items[0].headline + '|' + items[0].hook) : '';
+            premVals.i2 = items[1] ? (items[1].headline + '|' + items[1].hook) : '';
+            premVals.i3 = items[2] ? (items[2].headline + '|' + items[2].hook) : '';
+            premVals.url = (new URL(urls[0])).hostname.replace(/^www\./, '');
+            renderPremFields(); renderPremiumPreview();
+            const gaps = [];
+            if (failed.length) gaps.push(failed.length + ' link' + (failed.length > 1 ? 's' : '') + " couldn't be read");
+            if (items.length < urls.length && !failed.length) gaps.push('one article had nothing usable');
+            say(gaps.length ? 'Filled ' + items.length + ' of ' + urls.length + ' — ' + gaps.join(', ') + '.' : 'Filled all ' + items.length + ' stories ✓');
+        } catch (e) { say((e && e.message) || 'Auto-fill failed.'); }
+        finally { btn.disabled = false; }
+    }
+
     async function fetchArticleData() {
         const urlInput = document.getElementById('in-url');
         const btn = document.getElementById('btn-fetch');
@@ -1577,6 +1637,17 @@
         b:{ name:'The Profile Split — photo panel + type', fields:{ eyebrow:'Founder Focus', name:'Naledi Cele', authorRole:'Founder & CEO, Kasi Wash', head:'From one machine in a backyard to twelve sites in three provinces', sub:'She built the compliance and payments layer first — everything else, she says, was the easy part.', byline:'By Maryna Steyn', cta:'Read the interview →', url:'smesouthafrica.co.za' } },
         c:{ name:'The Interview Quote — attributed, human', fields:{ eyebrow:'Founder Focus · Interview', quote:'I built it selfishly. I built it first and foremost for a problem I had myself.', name:'Naledi Cele', authorRole:'Founder & CEO, Kasi Wash', cta:'Read the full interview →', url:'smesouthafrica.co.za' } }
       }},
+      // ---- ROUNDUP — bundle 2-5 separate articles into ONE post instead of posting each on its
+      // own. The gap this fills: a social manager stepping in for the day tends to post every new
+      // article one at a time, which floods the feed for what's really one week's worth of reading.
+      // All three directions share the exact same i1/i2/i3 "Headline|Hook" shape (the same bold|text
+      // convention Newsletter's "This Week Inside" already uses) — only the VISUAL treatment differs,
+      // so switching direction never loses filled-in copy the way a field-shape change would.
+      roundup: { label:'Roundup', dirs:{
+        a:{ name:'The Digest List — clean numbered list', fields:{ eyebrow:'This week’s reads', head:'Worth your time this week', i1:'Cut the fat, keep the margin|Three cost levers most manufacturers overlook until cash gets tight.', i2:'Stop paying for five tools that do one job|A head-to-head on the workflow platforms actually worth switching to.', i3:'Lean isn’t just for factories|How one SME retailer cut order errors 40% in six weeks.', cta:'Read them all →', url:'smesouthafrica.co.za' } },
+        b:{ name:'Three Up — a card for each story', fields:{ eyebrow:'This week’s reads', head:'3 stories worth your time', i1:'Cut the fat, keep the margin|Three cost levers most manufacturers overlook until cash gets tight.', i2:'Stop paying for five tools that do one job|A head-to-head on the workflow platforms actually worth switching to.', i3:'Lean isn’t just for factories|How one SME retailer cut order errors 40% in six weeks.', cta:'Read them all →', url:'smesouthafrica.co.za' } },
+        c:{ name:'The Lead + Two — one story leads, two follow', fields:{ eyebrow:'This week’s reads', head:'3 stories worth your time', i1:'Cut the fat, keep the margin|Three cost levers most manufacturers overlook until cash gets tight.', i2:'Stop paying for five tools that do one job|A head-to-head on the workflow platforms actually worth switching to.', i3:'Lean isn’t just for factories|How one SME retailer cut order errors 40% in six weeks.', cta:'Read them all →', url:'smesouthafrica.co.za' } }
+      }},
       // ---- Podcast (smesouthafrica.co.za/podcast). Episode card / guest pull-quote / audiogram.
       // Load a Featured Image to get the guest photo; without one each direction stays typographic.
       podcast: { label:'Podcast', dirs:{
@@ -1712,7 +1783,11 @@
       // first-class fields, not a guess at whether insightcards' quote-attribution happens to be
       // the founder rather than someone else quoted in passing.
       founder:  { task: 'founderinsight', label: 'Auto-fill from the profile', placeholder: 'Paste the Founder Focus article link…',
-                  hint: 'Pulls the founder’s name, role & company, a verbatim quote and a fresh headline — fills every direction at once. Add the founder’s photo above for the full effect.' }
+                  hint: 'Pulls the founder’s name, role & company, a verbatim quote and a fresh headline — fills every direction at once. Add the founder’s photo above for the full effect.' },
+      // multi:true swaps the single-URL box for the multi-line one (see syncPremImage) and routes
+      // through autofillRoundup() instead of autofillInsight() — several links, one AI call, one post.
+      roundup:  { task: 'roundupinsight', multi: true, label: 'Auto-fill from several links',
+                  hint: 'Paste 2–5 article links below, one per line — pulls a fresh headline and a one-line "why read it" for each, so you can post the week’s reads once instead of one at a time.' }
     };
     function syncPremImage(){
         const box = document.getElementById('premium-image'); if (!box) return;
@@ -1725,6 +1800,13 @@
                 const urlEl = document.getElementById('prem-url'); if (urlEl) urlEl.placeholder = afCfg.placeholder;
                 const st = document.getElementById('prem-autofill-status'); if (st) st.textContent = afCfg.hint;
             }
+            // Roundup swaps the single-link box for the multi-line one; every other family keeps
+            // the box every existing screenshot/habit already expects.
+            const single = document.getElementById('prem-url');
+            const multiWrap = document.getElementById('prem-url-multi-wrap');
+            const isMulti = !!(afCfg && afCfg.multi);
+            if (single) single.closest('.flex').classList.toggle('hidden', isMulti);
+            if (multiWrap) multiWrap.classList.toggle('hidden', !isMulti);
         }
         const wants = !!PREM_PHOTO[state.contentType];
         box.classList.toggle('hidden', !wants);
@@ -1764,6 +1846,8 @@
         if (f) f.addEventListener('change', e => { const file = e.target.files[0]; if (file) setPremPhoto(file); });
         const afb = document.getElementById('prem-autofill');
         if (afb) afb.addEventListener('click', autofillInsight);
+        const afm = document.getElementById('prem-autofill-multi');
+        if (afm) afm.addEventListener('click', autofillRoundup);
         const clr = document.getElementById('prem-image-clear');
         if (clr) clr.addEventListener('click', () => setPremPhoto(null));
         const btn = document.getElementById('prem-ai-btn');

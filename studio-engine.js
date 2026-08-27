@@ -1494,6 +1494,7 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'podcast')   return drawPodcast(r, dir, v, assets);
     if (type === 'merch')     return drawMerch(r, dir, v, assets);
     if (type === 'feature')   return drawFeature(r, dir, v, assets);
+    if (type === 'roundup')   return drawRoundup(r, dir, v, assets);
     if (type === 'founder')   return drawFounder(r, dir, v, assets);
     if (type === 'hub')       return drawHub(r, dir, v, assets);
     if (type === 'glossary')  return drawGlossary(r, dir, v, assets);
@@ -2399,6 +2400,167 @@ function drawFeature(r, dir, v, a) {
     pButton(r, pad, btnY, iW, v.cta || 'Read the full story', acc.fill, acc.on);
 }
 
+// ===================== ROUNDUP =====================
+// Bundles 2-3 SEPARATE articles into one post instead of one post per article — the gap a social
+// manager stepping in for the day tends to fall into (every new article gets its own post and the
+// feed floods for what is really one week's worth of reading). All three directions read the SAME
+// i1/i2/i3 "Headline|Hook" fields (see the PREMIUM registry) — only the visual treatment differs,
+// so switching direction never discards filled-in copy.
+function roundupItems(v) {
+    return [v.i1, v.i2, v.i3]
+        .map(x => String(x || '').split('|'))
+        .map(p => ({ h: (p[0] || '').trim(), s: (p[1] || '').trim() }))
+        .filter(it => it.h);
+}
+// One measured row: headline (bold, capped 2 lines) + hook (capped 2 lines) beside a number chip.
+// Returns {h, draw(y)} so callers can sum real heights BEFORE committing to a layout — the exact
+// discipline Founder Focus direction B learned the hard way (a fixed per-row height estimate is
+// how a two-line headline ends up overlapping the next row or the CTA).
+function roundupRow(r, num, it, w, numD, headSize, hookSize, numBg, numFg, headC, hookC) {
+    const textW = w - numD - pV(20);
+    const hLines = r.wrap(it.h.toUpperCase(), { family: 'Oswald', weight: '700', size: headSize }, textW).slice(0, 2);
+    const sLines = it.s ? r.wrap(it.s, { family: 'Roboto', weight: '400', size: hookSize }, textW).slice(0, 2) : [];
+    const headH = hLines.length * headSize * 1.16;
+    const hookH = sLines.length * hookSize * 1.32;
+    const rowH = Math.max(numD, headH + (sLines.length ? pV(6) + hookH : 0));
+    return { h: rowH, draw(x, y) {
+        r.fillRoundRect(x, y, numD, numD, numD / 2, numBg);
+        r.drawLines([String(num)], { family: 'Oswald', weight: '900', size: Math.round(numD * 0.46) }, x, y + numD * 0.24, numD, { color: numFg, align: 'center' });
+        const tx = x + numD + pV(20);
+        r.drawLines(hLines, { family: 'Oswald', weight: '700', size: headSize }, tx, y, textW, { color: headC, lineHeight: 1.16 });
+        if (sLines.length) r.drawLines(sLines, { family: 'Roboto', weight: '400', size: hookSize }, tx, y + headH + pV(6), textW, { color: hookC, lineHeight: 1.32 });
+    } };
+}
+function drawRoundup(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
+    const items = roundupItems(v);
+
+    if (dir === 'b') { // THREE UP — a bordered card per story, more visual separation than a plain list.
+        r.fillBg(PC.paper);
+        const acc = pSolid(PC.paper, PC.red, PC.navy);
+        let y = pLogo(r, a, PC.paper) + pV(6);
+        y += pPill(r, pad, y, v.eyebrow || 'This week’s reads', acc.fill, acc.on) + pV(30);
+        if (v.head) {
+            const hf = r.fitFontSize(String(v.head).toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(140), 1.04, { max: pT(56), min: 30 });
+            r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.04 });
+            y += hf.totalH + pV(26);
+        }
+        // Cards are measured top to bottom, each sized to what its OWN copy needs — a short hook and
+        // a two-line one don't have to pretend to be the same height.
+        const cardPad = pV(24), numD = pV(52), gap = pV(16);
+        const headSize = pT(32), hookSize = pT(26);
+        const rows = items.map((it, i) => roundupRow(r, i + 1, it, iW - cardPad * 2, numD, headSize, hookSize, acc.fill, acc.on, pInk(PC.paper), pSubInk(PC.paper)));
+        let totalH = rows.reduce((s, row) => s + row.h + cardPad * 2, 0) + Math.max(0, rows.length - 1) * gap;
+        // If three real stories genuinely don't fit above the CTA (long headlines, small canvas),
+        // shrink uniformly rather than let the last card run under the button — the one thing this
+        // family must never do, since it exists specifically to replace three separate posts.
+        const room = btnY - pV(30) - y;
+        if (totalH > room && rows.length) {
+            const scale = Math.max(0.72, room / totalH);
+            const rows2 = items.map((it, i) => roundupRow(r, i + 1, it, iW - cardPad * 2, numD * scale, Math.round(headSize * scale), Math.round(hookSize * scale), acc.fill, acc.on, pInk(PC.paper), pSubInk(PC.paper)));
+            rows.length = 0; rows.push(...rows2);
+            totalH = rows.reduce((s, row) => s + row.h + cardPad * 2, 0) + Math.max(0, rows.length - 1) * gap;
+        }
+        rows.forEach(row => {
+            const cardH = row.h + cardPad * 2;
+            r.fillRoundRect(pad, y, iW, cardH, pV(16), pOn(PC.paper, 'rgba(255,255,255,0.05)', PC.f8));
+            row.draw(pad + cardPad, y + cardPad);
+            y += cardH + gap;
+        });
+        pButton(r, pad, btnY, iW, v.cta || 'Read them all', acc.fill, acc.on);
+        pUrlTop(r, v.url, PC.paper);
+        return;
+    }
+
+    if (dir === 'c') { // THE LEAD + TWO — the first story leads, the other two follow smaller.
+        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        let y = pLogo(r, a, false);
+        y += pPill(r, pad, y, v.eyebrow || 'This week’s reads', PC.red, pInk(PC.red)) + pV(32);
+        const lead = items[0], rest = items.slice(1, 3);
+        const restSize = pT(30), restHookSize = 26;
+        // Measure the "also this week" rows BEFORE sizing the lead headline — drawLines has its own
+        // overflow safety net (auto-wraps a too-long line rather than let it run off-canvas), but
+        // that only stops OVERFLOW; it says nothing about how far to advance y afterward. Assuming
+        // every hook was one line here undercounted a two-line hook's real height, so the next row
+        // started drawing before the previous one had finished — this measures the real wrap first.
+        const measureRest = (hs, ss) => rest.map(it => ({
+            hLines: r.wrap(it.h, { family: 'Oswald', weight: '700', size: hs }, iW).slice(0, 2),
+            sLines: it.s ? r.wrap(it.s, { family: 'Roboto', weight: '400', size: ss }, iW).slice(0, 2) : [],
+        }));
+        const sumRest = (rows, hs, ss) => rows.reduce((s, row) => s + row.hLines.length * hs * 1.2 + (row.sLines.length ? row.sLines.length * ss * 1.3 : 0), 0) + Math.max(0, rows.length - 1) * pV(18);
+        let restRows = measureRest(restSize, restHookSize);
+        let restH = sumRest(restRows, restSize, restHookSize);
+        const dividerH = rest.length ? pV(66) : 0;
+        if (lead) {
+            // The lead gets fitFontSize (it's the one headline in this design that has to look like
+            // a real headline); reserve room for the measured "also this week" block + CTA first.
+            const headBox = Math.max(pV(140), btnY - pV(30) - y - restH - dividerH - pV(30));
+            const hf = r.fitFontSize(lead.h.toUpperCase(), { family: 'Oswald', weight: '900' }, iW, headBox, 1.06, { max: pT(72), min: 34 });
+            r.drawLines(hf.lines, { family: 'Oswald', weight: '900', size: hf.size }, pad, y, iW, { color: '#fff', lineHeight: 1.06 });
+            y += hf.totalH + pV(16);
+            if (lead.s) {
+                const sl = r.wrap(lead.s, { family: 'Roboto', weight: '400', size: 32 }, iW).slice(0, 2);
+                r.drawLines(sl, { family: 'Roboto', weight: '400', size: 32 }, pad, y, iW, { color: PC.cbd, lineHeight: 1.35 });
+                y += sl.length * 32 * 1.35;
+            }
+            y += pV(30);
+        }
+        // fitFontSize has a floor (min:34) it won't shrink past, so a very long lead headline can
+        // still push y further than the headBox reservation assumed. Re-check the real remaining
+        // room now and shrink the rest rows uniformly if they'd still run under the CTA — same
+        // safety net direction B already applies, just triggered by the lead's actual height instead
+        // of the estimate.
+        const room = btnY - pV(30) - y - dividerH;
+        let finalHeadSize = restSize, finalHookSize = restHookSize;
+        if (restRows.length && restH > room) {
+            const scale = Math.max(0.62, room / restH);
+            finalHeadSize = Math.round(restSize * scale);
+            finalHookSize = Math.round(restHookSize * scale);
+            restRows = measureRest(finalHeadSize, finalHookSize);
+        }
+        if (restRows.length) {
+            r.strokeLine(pad, y, W - pad, y, 'rgba(255,255,255,0.14)', 2); y += pV(28);
+            r.drawLines(['ALSO THIS WEEK'], { family: 'Oswald', weight: '700', size: 24 }, pad, y, iW, { color: PC.red }); y += pV(38);
+            restRows.forEach(row => {
+                r.drawLines(row.hLines, { family: 'Oswald', weight: '700', size: finalHeadSize }, pad, y, iW, { color: '#fff', lineHeight: 1.2 });
+                y += row.hLines.length * finalHeadSize * 1.2;
+                if (row.sLines.length) { r.drawLines(row.sLines, { family: 'Roboto', weight: '400', size: finalHookSize }, pad, y, iW, { color: PC.cbd, lineHeight: 1.3 }); y += row.sLines.length * finalHookSize * 1.3; }
+                y += pV(18);
+            });
+        }
+        pButton(r, pad, btnY, iW, v.cta || 'Read them all', PC.red, pInk(PC.red));
+        // pUrlTop, not pFoot: pFoot's default y lands INSIDE a bottom-anchored CTA (see that
+        // function's own comment) — this design's CTA is always pinned to btnY, so the url line
+        // goes top-right instead, same fix Founder Focus direction A already uses.
+        pUrlTop(r, v.url, PC.navy);
+        return;
+    }
+
+    // A: THE DIGEST LIST — a clean numbered list. The safe, versatile default.
+    r.fillBg(PC.paper);
+    const acc = pSolid(PC.paper, PC.red, PC.navy);
+    r.rect(0, 0, 26, H, acc.fill);
+    let y = pLogo(r, a, PC.paper) + pV(6);
+    y += pPill(r, pad, y, v.eyebrow || 'This week’s reads', acc.fill, acc.on) + pV(30);
+    if (v.head) {
+        const hf = r.fitFontSize(String(v.head).toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(140), 1.04, { max: pT(58), min: 30 });
+        r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.04 });
+        y += hf.totalH + pV(26);
+    }
+    const numD = pV(58), rowGap = pV(30);
+    const headSize = pT(34), hookSize = pT(28);
+    let rows = items.map((it, i) => roundupRow(r, i + 1, it, iW, numD, headSize, hookSize, acc.fill, acc.on, pInk(PC.paper), pSubInk(PC.paper)));
+    let totalH = rows.reduce((s, row) => s + row.h, 0) + Math.max(0, rows.length - 1) * rowGap;
+    const room = btnY - pV(30) - y;
+    if (totalH > room && rows.length) {
+        const scale = Math.max(0.7, room / totalH);
+        rows = items.map((it, i) => roundupRow(r, i + 1, it, iW, numD * scale, Math.round(headSize * scale), Math.round(hookSize * scale), acc.fill, acc.on, pInk(PC.paper), pSubInk(PC.paper)));
+    }
+    rows.forEach(row => { row.draw(pad, y); y += row.h + rowGap; });
+    pButton(r, pad, btnY, iW, v.cta || 'Read them all', acc.fill, acc.on);
+    pUrlTop(r, v.url, PC.paper);
+}
+
 // ===================== FOUNDER FOCUS =====================
 // smesouthafrica.co.za's own "Founder Focus" interview vertical. Unlike drawFeature (which
 // deliberately DEMOTES photography — a generic article has no natural face to lead with, so
@@ -2762,7 +2924,7 @@ function drawLandscape(r, type, dir, v, a) {
     pGeom(W, H);
     const pad = 70;
     r.ctx.textBaseline = 'top';
-    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d', 'founder.b', 'founder.c'].indexOf(key) !== -1;
+    const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d', 'founder.b', 'founder.c', 'roundup.a', 'roundup.b'].indexOf(key) !== -1;
     const red = ['funding.b', 'newsletter.c'].indexOf(key) !== -1;
     // The background colour comes from the BRAND (PC.navy === brand secondary), so it is not safe
     // to assume it's dark — a brand with a light secondary produced white-on-white. Text colour is
@@ -2826,7 +2988,7 @@ function drawLandscape(r, type, dir, v, a) {
     const LS_LAYOUT = {
         funding: 'panel', solutions: 'spine', newsletter: 'band', resources: 'spine',
         providers: 'panel', findpros: 'band', podcast: 'panel', merch: 'spine',
-        feature: 'band', hub: 'panel', glossary: 'spine', webinar: 'band', founder: 'band'
+        feature: 'band', hub: 'panel', glossary: 'spine', webinar: 'band', founder: 'band', roundup: 'spine'
     };
     const sub2 = pSolid(bgRef, PC.red);          // a block colour that is legible against this bg
 
@@ -2835,7 +2997,12 @@ function drawLandscape(r, type, dir, v, a) {
     // thing. A photo still takes the right third, so a photo direction keeps the type-left form.
     const bigT = String(v.big || v.price || v.count || '').trim();
     const quoteT = String(v.quote || '').trim();
-    const items = [v.i1, v.i2, v.i3].map(function (x) { return String(x == null ? '' : x).trim(); });
+    // Some families (newsletter.b, roundup) store i1/i2/i3 as "Bold headline|Regular detail" —
+    // their own draw functions split on '|' before rendering, but this generic landscape fallback
+    // never did, so a pipe-convention family landing here (any direction with both a headline AND
+    // all three items filled) printed the raw "headline|detail" string with the pipe on-canvas.
+    // The list card is compact, so only the punchier half (before the pipe) belongs here.
+    const items = [v.i1, v.i2, v.i3].map(function (x) { return String(x == null ? '' : x).trim().split('|')[0].trim(); });
     const hasList = items.filter(Boolean).length === 3;
     const ctx = {
         W: W, H: H, pad: pad, bgRef: bgRef, txt: txt, subC: subC, barC: barC, btnBg: btnBg, sub2: sub2,

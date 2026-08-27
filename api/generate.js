@@ -782,6 +782,42 @@ export default async function handler(req, res) {
       return res.status(200).json({ insight });
     }
 
+    // ---- Roundup autofill: 2-5 SEPARATE articles -> one short "headline + why read it" line each,
+    // for a single "this week's reads" post instead of one post per article. One AI call for the
+    // whole batch (not one per article) — cheaper, and lets the model see all the articles together
+    // so it can naturally vary the phrasing instead of every line reading like a template filled in
+    // five times.
+    if (task === "roundupinsight") {
+      const raw = Array.isArray(body.articles) ? body.articles : [];
+      const articles = raw.slice(0, 5).map((a) => ({
+        title: String((a && a.title) || "").slice(0, 200),
+        // Capped tighter than a single-article task (4000 vs 12000): up to five of these go into
+        // one prompt, and a one-line "why read it" needs far less source text than a full card.
+        text: String((a && a.text) || "").trim().slice(0, 4000),
+      })).filter((a) => a.text.length >= 200);
+      if (articles.length < 2) return res.status(400).json({ error: "Need at least 2 readable articles to build a roundup." });
+      const prompt =
+        "You are a publication's social editor building a \"this week's reads\" roundup post that bundles " + articles.length + " separate articles into one card.\n\n" +
+        articles.map((a, i) => "ARTICLE " + (i + 1) + (a.title ? " (\"" + a.title + "\")" : "") + ":\n" + a.text).join("\n\n---\n\n") + "\n\n" +
+        "For EACH article, in the SAME order given, return:\n" +
+        "- headline: a fresh, punchy headline for THIS article — not the original headline reworded if you can do better, but never misleading. <=60 chars.\n" +
+        "- hook: ONE sentence on why someone should click THIS article specifically — the concrete payoff or the surprising bit, not a generic \"learn more about X\". <=90 chars.\n\n" +
+        "Vary the sentence construction across the " + articles.length + " hooks — five hooks that all start the same way read as a template, not a real editor's picks.\n" +
+        "South African context and spelling. Never invent a fact not in the article text.\n" +
+        'Return JSON only: {"items":[{"headline":"","hook":""}, ...]} — exactly ' + articles.length + " items, same order as the articles above.";
+      const raw2 = await callProvider(prompt, { system: "You write short, punchy social-roundup copy for several articles at once. Never invent facts. Return JSON only.", temperature: 0.5, maxTokens: 900 });
+      const d = safeParse(raw2);
+      if (!d || !Array.isArray(d.items)) return res.status(502).json({ error: "Could not read those articles — try again." });
+      const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
+      const items = d.items.slice(0, articles.length).map((it) => ({
+        headline: clip(it && it.headline, 60),
+        hook: clip(it && it.hook, 90),
+      })).filter((it) => it.headline);
+      if (items.length < 2) return res.status(502).json({ error: "Could not pull usable headlines from those articles — try again." });
+      await logContent(req.volt && req.volt.orgId, { tool: "roundupinsight", input: { count: articles.length }, output: { filled: items.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ items });
+    }
+
     // ---- Glossary autofill: same principle as insightcards, for a smesouthafrica.co.za/glossary
     // term page. A glossary page is reference material, not a narrative article — so unlike
     // insightcards this is allowed to WRITE plain-English phrasing rather than only lift verbatim
