@@ -2583,10 +2583,12 @@ function drawFounder(r, dir, v, a) {
         if (hasPic) r.drawCover(a.featured, 0, 0, W, H, 0.5, 0.28, 0, 1);   // focal favours the face over the chest
         else r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         // Bottom scrim so name/headline stay legible over any photo, without flattening the frame
-        // the way a full dark overlay would.
-        const scrimH = Math.round(H * 0.64);
+        // the way a full dark overlay would. The fade starts well above where the text is allowed to
+        // sit (see textTop below) so nothing ever prints on the barely-darkened part of the photo —
+        // a long headline used to be able to grow tall enough to land across the founder's own face.
+        const scrimH = Math.round(H * 0.62);
         const g = r.ctx.createLinearGradient(0, H - scrimH, 0, H);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.58)'); g.addColorStop(1, 'rgba(0,0,0,0.88)');
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.42, 'rgba(0,0,0,0.62)'); g.addColorStop(1, 'rgba(0,0,0,0.92)');
         r.ctx.save(); r.ctx.fillStyle = g; r.ctx.fillRect(0, H - scrimH, W, scrimH); r.ctx.restore();
         // Logo shadowed so it survives sitting directly on a bright photo.
         { const lg = a.logoW; if (lg) { r.ctx.save(); r.ctx.shadowColor = 'rgba(0,0,0,0.6)'; r.ctx.shadowBlur = 16; r.drawContain(lg, pad, pTop() - 8, 176, 50, {}); r.ctx.restore(); } }
@@ -2595,7 +2597,14 @@ function drawFounder(r, dir, v, a) {
         const nameY = btnY - pV(30);
         const roleSize = pT(34), nameSize = pT(50);
         const headBottom = nameY - roleSize * 1.3 - nameSize * 1.25 - pV(18);
-        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '900' }, iW, Math.max(pV(140), headBottom - (pTop() + pV(64) + (PG ? PG.pill : 64) + pV(30))), 1.05, { max: pT(72), min: 34 });
+        // Hard ceiling tied to the scrim, not to the pill: the old box let the headline claim almost
+        // the whole frame (down from just below the eyebrow pill near the TOP), so long copy grew
+        // tall enough to print straight over the photo's least-darkened area — i.e. the face, which
+        // for a "face IS the post" design is the one place text must never touch. The headline's top
+        // edge is now capped to stay inside the solidly-scrimmed lower part of the frame.
+        const textTop = H - scrimH * 0.68;
+        const headBox = Math.max(pV(90), headBottom - textTop);
+        const hf = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '900' }, iW, headBox, 1.05, { max: pT(60), min: 30 });
         r.drawLines(hf.lines, { family: 'Oswald', weight: '900', size: hf.size }, pad, headBottom - hf.totalH, iW, { color: '#fff', lineHeight: 1.05 });
         person(v.name, v.authorRole, pad, nameY - roleSize * 1.3 - nameSize * 1.25, iW, '#fff', 'rgba(255,255,255,0.82)', nameSize, roleSize);
         pButton(r, pad, btnY, iW, v.cta || 'Read the full story', PC.red, '#fff');
