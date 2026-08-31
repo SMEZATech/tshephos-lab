@@ -486,6 +486,7 @@
         <button class="mini" id="playBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4l12 6-12 6z"/></svg> Play</button>
         <button class="mini" id="pauseBtn"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4h3v12H5zM12 4h3v12h-3z"/></svg> Pause</button>
         <button class="mini" id="resetBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg> Restart</button>
+        <button class="mini" id="muteBtn" title="Mute/unmute the preview — export always has sound regardless of this"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg> <span id="muteLbl">Sound on</span></button>
         <button class="btn" id="exportBtn" disabled style="width:auto; flex:1 1 200px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
           <span id="exportLbl">Export short (.webm)</span>
@@ -618,6 +619,12 @@ const state = {
   hookOn:false, hookDur:5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
   brand:null, exportFmt:'mp4', upscale:1, layers:[], transition:'cross',
+  // Preview audio. Defaults ON — trimming a clip you can't hear makes it near-impossible to find
+  // the exact word to cut on. The one moment sound is still suppressed is the auto-triggered
+  // playback the instant a file loads (see loadVideoSrc) — that one stays silent so choosing a
+  // file never blasts sound with zero warning; the mute toggle button reflects THIS field, not
+  // that one-off safety measure.
+  muted:false,
   // Format templates. `template` is a PRESET over the fields above plus a few draw branches — the
   // tool used to be silently webinar-shaped (title card, name tag, "FOLLOW FOR MORE"), which is a
   // long way from what a podcast clip or a Q&A answer needs.
@@ -888,6 +895,15 @@ function syncTransport(){
 { const pb=$('#pauseBtn'); if(pb) pb.onclick = () => { if(state.playing) pausePlayback(); else { const p=$('#playBtn'); if(p && p.onclick) p.onclick(); } }; }
 $('#resetBtn').onclick = () => restart();
 function restart(){ t=0; mainPlaying=false; try{ videoEl.pause(); videoEl.currentTime = state.trimStart; }catch(e){} }
+function syncMuteBtn(){
+  const l = $('#muteLbl'); if(l) l.textContent = state.muted ? 'Sound off' : 'Sound on';
+  const b = $('#muteBtn'); if(b) b.classList.toggle('on', !state.muted);
+}
+{ const mb=$('#muteBtn'); if(mb) mb.onclick = () => {
+  state.muted = !state.muted;
+  if(!state.recording && !state.capturing) videoEl.muted = state.muted; // export/capture force their own mute state regardless
+  syncMuteBtn();
+}; syncMuteBtn(); }
 
 // ---- scrubbing / seek (rewind + fast-forward) ----
 const seekBar = $('#seekBar');
@@ -1213,6 +1229,23 @@ function rowKicker(p, P, text){
     ctx.restore();
   } };
 }
+// Small-print row: the brand's own site + a copyright line, one on top of the other. Used on the
+// Webinar intro so a clip that gets re-shared off-platform still carries where it came from and
+// whose it is — the outro already has the URL via its pill, but the intro had neither before.
+function rowFooter(p, P, url, name){
+  if(!url && !name) return null;
+  const size = Math.round(W*0.024), lh = size*1.35;
+  const year = new Date().getFullYear();
+  const lines = [url, name ? ('© '+year+' '+name+'. All rights reserved.') : null].filter(Boolean);
+  return { h: lines.length*lh, draw(y){
+    const e = eoc(segT(p,0.6,0.94));
+    ctx.save(); ctx.globalAlpha = e*0.8; ctx.fillStyle = P.dim;
+    ctx.font = '600 '+size+'px "JetBrains Mono", monospace';
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    lines.forEach((l,i)=> ctx.fillText(l, W/2, y + i*lh));
+    ctx.restore();
+  } };
+}
 
 // Platform badges for the Podcast outro. Drawn as vectors, not fetched logo images — this runs
 // through the exact same code in the live preview, the real-time recorder AND fast export, so a
@@ -1371,17 +1404,27 @@ function drawIntroCard(p){
 
   // WEBINAR (default) — a session clip is chosen deliberately, so a title card earns its 2.5s:
   // what the session was, who ran it, and the brand that held it.
+  //
+  // The kicker is a fixed "SME WEBINARS", NOT brandTag() (the Brand Kit's generic `tag` field,
+  // e.g. "SME Knowledge HUB" — right for an article/insight post, wrong here). The Webinar format
+  // is specifically SME South Africa's own session recordings, so the label names THAT program
+  // rather than reusing whatever generic identity string the active Brand Kit happens to carry —
+  // same reasoning the Podcast branch already applies with its own 'PODCAST' fallback, just
+  // unconditional here instead of a fallback, since this format only ever means one thing.
   const title = (v('introTitle') || 'Your Short').toUpperCase();
   const f = fitLines(title, '900', 'Oswald, sans-serif', W*0.84, H*0.34, W*0.088, W*0.040);
   const sp = v('nameName'), role = v('nameTitle');
+  const b = state.brand || {};
   cardStack([
-    rowKicker(p,P, brandTag()), G,
+    rowKicker(p,P, brandOff() ? '' : 'SME WEBINARS'), G,
     rowLogo(p,P,W*0.40), G*1.3,
     rowText(f.lines, f.size, '900', 'Oswald, sans-serif', P.ink, fade(0.26,0.72)),
     sp ? G*1.2 : null,
     sp ? rowText([sp.toUpperCase()], Math.round(W*0.042), '700', 'Oswald, sans-serif', P.ink, fade(0.52,0.86)) : null,
     (sp && role) ? G*0.35 : null,
-    (sp && role) ? rowText([role], Math.round(W*0.032), '400', 'Roboto, sans-serif', P.dim, fade(0.56,0.9)) : null
+    (sp && role) ? rowText([role], Math.round(W*0.032), '400', 'Roboto, sans-serif', P.dim, fade(0.56,0.9)) : null,
+    !brandOff() ? G*1.4 : null,
+    !brandOff() ? rowFooter(p,P, b.url, b.name||'SME South Africa') : null
   ]);
   ctx.restore();
 }
@@ -1693,7 +1736,18 @@ function frame(now){
         // an element that has ENDED refuses some seeks — nudge it back before seeking
         if(el.ended){ try{ el.currentTime = 0; }catch(e){} }
         try{ el.currentTime = clipSrcTime(seg, seg.local); }catch(e){}
+        // Real playback (not export, which always forces sound on separately) honours the Sound
+        // on/off toggle — this is the one place actual continuous preview audio starts, so it's
+        // where the toggle has to take effect, not just on the Play button click.
+        if(!state.recording) el.muted = state.muted;
         if(state.playing || state.recording) el.play().catch(()=>{});
+      } else if((state.playing || state.recording) && el.paused){
+        // Same clip, same segment, but paused: this is Pause → Resume, not a fresh entry into the
+        // clip, so the block above (which reseeks + snapshots for a transition) never runs for it.
+        // Without this, `t` keeps advancing on Resume — the scrub bar and clock move — but the
+        // <video> element itself stays frozen, since nothing ever called .play() on it again.
+        if(!state.recording) el.muted = state.muted;
+        el.play().catch(()=>{});
       }
       // tightened pauses (primary clip only): jump past dead air and resync the clock
       if(seg.idx === -1 && state.skips && state.skips.length){
@@ -1797,7 +1851,7 @@ function stopExport(){
   if(!state.recording) return;
   state.recording = false;
   try{ mediaRecorder.stop(); }catch(e){}
-  videoEl.pause(); videoEl.muted = true;
+  videoEl.pause(); videoEl.muted = state.muted; // restore the preview's own sound preference, not a hardcoded mute
   if(musicEl.src) musicEl.pause();
 }
 
@@ -2126,7 +2180,7 @@ function captureSegmentAudio(){
       function cleanup(){
         if(iv) clearInterval(iv); if(hard) clearTimeout(hard);
         try{ videoEl.pause(); }catch(e){}
-        videoEl.muted = true; state.capturing = false;
+        videoEl.muted = state.muted; state.capturing = false; // restore the preview's own sound preference
       }
       state.capturing = true; state.playing = false; mainPlaying = false;
       videoEl.muted = false;
@@ -3241,15 +3295,29 @@ function syncBrandUI(){
   // freshen the default placeholders so they reflect the brand
   const os=$('#outroSub'); if(os && state.brand) os.placeholder='Outro sub-line — e.g. '+(state.brand.url||'@yourhandle');
 }
+let _brandLogoObjUrl = null;
 function refreshBrand(){
   const b=activeBrand(); state.brand=b;
   C_RED=b.primary||'#9c1c1f'; C_NAVY=b.secondary||'#0a2c3d'; C_REDLT=shade(C_RED,0.62);
   if(b.logo && b.logo!==brandLogoSrc){
-    // Loaded through OUR origin with crossOrigin set: this logo is drawn onto the export canvas,
-    // and a cross-origin image taints it — which is what made MP4/WebM export depend on the
-    // desktop shell running with webSecurity off.
-    brandLogoSrc=b.logo; const im=new Image(); im.crossOrigin='anonymous';
-    im.onload=()=>{ brandLogoImg=im; }; im.onerror=()=>{ brandLogoImg=null; }; im.src=voltAssetUrl(b.logo);
+    brandLogoSrc=b.logo;
+    // fetch → blob → object URL, the same technique Studio uses, rather than
+    // `img.crossOrigin='anonymous'; img.src=<remote url>`. The old way drew onto the export
+    // canvas fine ONLY when the remote host happened to send permissive CORS headers on that
+    // exact image — anything else silently failed (onerror fires, brandLogoImg stays null, no
+    // logo ever appears, no console noise a normal user would notice). A blob URL is same-origin
+    // by construction, so the canvas is never tainted and there's no dependency on the remote
+    // host's headers at all.
+    fetch(voltAssetUrl(b.logo)).then(r => { if(!r.ok) throw new Error('HTTP '+r.status); return r.blob(); })
+      .then(blob => {
+        if(_brandLogoObjUrl) URL.revokeObjectURL(_brandLogoObjUrl);
+        _brandLogoObjUrl = URL.createObjectURL(blob);
+        const im = new Image();
+        im.onload = () => { brandLogoImg = im; };
+        im.onerror = () => { brandLogoImg = null; };
+        im.src = _brandLogoObjUrl;
+      })
+      .catch(() => { brandLogoImg = null; });
   } else if(!b.logo){ brandLogoImg=null; brandLogoSrc=''; }
   syncBrandUI();
 }
