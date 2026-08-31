@@ -440,6 +440,16 @@
             <button data-p="middle">Middle</button>
             <button data-p="bottom" class="on">Bottom</button>
           </div>
+          <!-- Top/Middle/Bottom aren't always enough — some source footage already has its own
+               burned-in text (a lower third from an earlier export, on-screen graphics) that one of
+               the three presets happens to sit right on top of. This nudges the caption block up or
+               down from whichever preset is picked, so it can be moved clear of whatever's already
+               in THAT clip instead of only choosing between three fixed heights. -->
+          <div style="display:flex; align-items:center; gap:9px; margin-top:10px;">
+            <span class="lbl" style="margin:0; white-space:nowrap;">Fine-tune</span>
+            <input type="range" id="capOffset" min="-25" max="25" value="0" step="1" style="flex:1;" title="Nudge the caption block up or down — useful when it lands on top of something already in the footage" />
+            <span class="opt" id="capOffsetLbl" style="min-width:34px; text-align:right;">0%</span>
+          </div>
         </div>
         <div id="capStyleRow" style="display:none; margin-top:12px;">
           <span class="lbl">Size</span>
@@ -615,7 +625,7 @@ const state = {
   trimStart:0, trimEnd:0, duration:0,
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
-  words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', busy:false, capturing:false,
+  words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', capOffset:0, busy:false, capturing:false,
   hookOn:false, hookDur:5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
   brand:null, exportFmt:'mp4', upscale:1, layers:[], transition:'cross',
@@ -2295,7 +2305,10 @@ function drawCaptions(ct){
     rows[rows.length-1].push({ w, txt, ww }); rowW += ww + sp;
   }
   const lh = fs*1.18, blockH = rows.length*lh;
-  const baseY = state.capPos==='top' ? H*0.16 : state.capPos==='middle' ? H*0.50 : H*0.80;
+  const presetY = state.capPos==='top' ? H*0.16 : state.capPos==='middle' ? H*0.50 : H*0.80;
+  // Fine-tune nudge on top of the preset, clamped so an extreme slider value at either preset edge
+  // can never push the block fully off-canvas.
+  const baseY = Math.max(H*0.10, Math.min(H*0.94, presetY + (state.capOffset||0)/100*H));
   const topY = baseY - blockH/2;
   // optional background bar behind the whole block
   if(state.capBg==='bar'){
@@ -2685,6 +2698,10 @@ $('#capPosSeg').addEventListener('click', e => {
   state.capPos = b.dataset.p;
   document.querySelectorAll('#capPosSeg button').forEach(x=>x.classList.toggle('on', x===b));
 });
+{ const co=$('#capOffset'); if(co) co.addEventListener('input', e => {
+  state.capOffset = parseInt(e.target.value,10) || 0;
+  const l=$('#capOffsetLbl'); if(l) l.textContent = (state.capOffset>0?'+':'')+state.capOffset+'%';
+}); }
 $('#capSizeSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   state.capSize = b.dataset.sz;
@@ -3376,7 +3393,7 @@ function serializeLook(){
   return {
     template:state.template, outroDur:state.outroDur, qaDur:state.qaDur, qaFrame:state.qaFrame, brandOff:!!state.brandOffOn,
     format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
-    capColor:state.capColor, capPos:state.capPos, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
+    capColor:state.capColor, capPos:state.capPos, capOffset:state.capOffset, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
     layers: (state.layers||[]).map(function(L){ var c=Object.assign({},L); delete c._img; return c; }),
     toggles:{ intro:state.introOn, outro:state.outroOn, hook:state.hookOn, progress:state.progressOn, name:state.nameOn,
               brandFlash:state.brandFlashOn, mark:state.markOn, wave:state.waveOn, qa:state.qaOn },
@@ -3399,6 +3416,7 @@ function restoreLook(d){
   if(d.focus){ state.focus=d.focus; syncSeg('#focusSeg', d.focus); }
   if(d.capColor!=null){ state.capColor=d.capColor; const cc=$('#capCustom'); if(cc) cc.value=d.capColor; }
   if(d.capPos){ state.capPos=d.capPos; syncSeg('#capPosSeg', d.capPos); }
+  if(d.capOffset!=null){ state.capOffset=d.capOffset; const co=$('#capOffset'); if(co) co.value=d.capOffset; const l=$('#capOffsetLbl'); if(l) l.textContent=(d.capOffset>0?'+':'')+d.capOffset+'%'; }
   if(d.capSize){ state.capSize=d.capSize; syncSeg('#capSizeSeg', d.capSize); }
   if(d.capBg){ state.capBg=d.capBg; syncSeg('#capBgSeg', d.capBg); }
   if(d.hookDur!=null){ state.hookDur=d.hookDur; syncSeg('#hookDurSeg', d.hookDur); }
