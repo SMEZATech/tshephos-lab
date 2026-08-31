@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-08-27</strong> (Studio only — see "Known gap in this file" below for what wasn't re-verified this pass).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-08-31</strong> (Video + MCP + Studio only — see "Known gap in this file" below for what wasn't re-verified this pass).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -171,6 +171,11 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <p style="color:var(--faint); font-size:13px; margin-top:-2px; margin-bottom:14px;"><i>Newest first — this entry is prepended above the note that was already at the top of this section.</i></p>
+  <div class="log-entry">
+    <span class="log-date">2026-08-31</span>
+    <strong>Video: preview sound, a real Pause→Resume playback freeze, Webinar clip branding</strong> — Joel flagged that editing without sound made trimming a real guess: no way to hear exactly where to cut. Preview now plays with sound by default (still silent for the one auto-triggered play-on-load, so opening a file never blasts sound with zero warning), with a Sound on/off toggle for when silence is actually wanted; export's own audio path was untouched, it always forced sound regardless. While verifying playback, found and fixed a related bug not in the original report: Pause → Resume never actually resumed the <code>&lt;video&gt;</code> element — only the JS clock kept advancing (scrub bar moving, picture and audio frozen) — because the resume path only called <code>.play()</code> when entering a NEW clip segment, never when un-pausing mid-segment. Also fixed: Webinar clip's title card was pulling its pill text from the Brand Kit's generic <code>tag</code> field ("SME Knowledge HUB" — right for an article post, wrong for a webinar recording); now a fixed "SME Webinars" for this format specifically, plus a new footer row (brand URL + copyright line) the intro card never had before. Brand-logo loading switched from <code>img.crossOrigin='anonymous'</code> against the raw remote URL (silently failed whenever the host didn't send CORS headers — no console error, no logo, nothing to notice) to the same fetch-then-blob pattern Studio already uses, same-origin by construction. No test credentials were available for this auth-gated tool, so verified by driving the actual render loop and draw functions directly in a live browser session and capturing real canvas output — not just trusting the code read cleanly.
+  </div>
   <p style="color:var(--faint); font-size:13px; margin-top:-6px;">Newest first. Prepend a short entry after any session that changes behaviour, fixes a non-obvious bug, or ships a new surface. Routine copy/config tweaks don't need an entry.</p>
 
   <div class="log-entry">
