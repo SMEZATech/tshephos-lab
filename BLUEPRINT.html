@@ -171,6 +171,12 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-08-31</span>
+    <strong>Video → Copy Lab → Schedule funnel — a real hand-off chain, not three disconnected tools</strong> — Joel wanted export → write copy → schedule to be one flow instead of three separate visits with manual re-uploading between them. Wired using the same one-shot <code>sessionStorage</code> pattern already proven for SmartClip→Video and Campaign→Studio/Video/Email/Schedule (write payload, navigate, receiver reads-and-clears once). Video's "Send to Copy Lab" appears once an export finishes; Copy Lab detects the hand-off, pre-fills the offer, and each generated angle gets a "Schedule with clip →" button carrying the winning copy AND the clip forward together; Schedule detects the combined hand-off and opens the composer pre-filled, ready to review and publish.
+    <p style="margin-top:8px;">The real new backend piece: <code>api/_routes/upload.js</code> (image-only, 5MB cap, base64 JSON body) can't carry a 20-30MB video export — Vercel's own request-body ceiling (~4.5MB) rules out just raising the limit too. Added a <code>sign-video</code> action: asks Supabase Storage (service role, server-side) for a signed upload URL; the browser PUTs the video bytes DIRECTLY to Supabase, bypassing this function's body entirely. Own bucket (<code>volt-video</code>, 100MB/file) alongside the existing image bucket.</p>
+    <p style="margin-top:8px;"><strong>Known gap, not silently omitted:</strong> the desktop app's Fast Export path (the DEFAULT export path whenever the native ffmpeg bridge is available) saves straight to disk and never hands JS the export bytes back — "Send to Copy Lab" only works for WebM export and the web app today, where a real Blob exists in the page to upload. Also: only the copy/media hand-off chain and the signed-upload mechanism were verified against the live deployment (confirmed the auth gate and full client-side chain for real) — the actual sign→PUT→publicly-readable round trip needs a real signed-in session to test, which wasn't available in the build environment; ask before assuming it's been exercised end-to-end.</p>
+  </div>
   <p style="color:var(--faint); font-size:13px; margin-top:-2px; margin-bottom:14px;"><i>Newest first — this entry is prepended above the note that was already at the top of this section.</i></p>
   <div class="log-entry">
     <span class="log-date">2026-08-31</span>
