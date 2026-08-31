@@ -143,6 +143,9 @@
   </header>
 
   <section class="console">
+    <div id="videoHandoffBanner" style="display:none; margin-bottom:14px; padding:10px 14px; border-radius:10px; background:rgba(182,255,61,.08); border:1px solid rgba(182,255,61,.3); font-size:13px; align-items:center; gap:8px;">
+      🎬 <span id="videoHandoffText"></span>
+    </div>
     <label class="lbl" for="offer">The offer</label>
     <textarea id="offer" rows="3" placeholder="e.g. 20% off the SME Funding Summit on 18 June 2026 — early-stage founders, limited seats."></textarea>
 
@@ -206,10 +209,15 @@ const ICON = {
   wand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>',
   studio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><circle cx="12" cy="12" r="10"/></svg>',
   film:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.55-2.27A1 1 0 0 1 21 8.62v6.76a1 1 0 0 1-1.45.89L15 14M5 18h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2z"/></svg>',
+  calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
 };
 const COLORS = { good:'#57E39A', mid:'#FFC857', low:'#FF7C7C' };
 let _id = 0;
 const state = { offer:'', audience:'', platform:'Meta', variations:[], loading:false, moreFor:null };
+// A clip handed off from Video (see video.html's "Send to Copy Lab") — set once, near the bottom
+// of this script, before anything renders. Riding invisibly through every generated angle until
+// "Send to Schedule" is clicked, which is where it finally gets attached to a real post.
+let videoHandoff = null;
 // Stash a caption so the Scheduler's "Pull a caption" can reuse it (same origin → shared localStorage).
 function stashCaption(text, src){
   try{
@@ -314,6 +322,25 @@ function sendToVideo(v){
   }catch(e){}
   window.location.href = 'video.html';
 }
+// A video sent here from Video (see video.html's "Send to Copy Lab") carries its export's public
+// URL through this page invisibly — this button is where it finally lands somewhere it can be
+// scheduled: the SAME sessionStorage handoff shape Campaign already uses for schedule.html, plus
+// the media URL riding along, which Campaign's own text-only version never carried.
+function sendToSchedule(v){
+  logUsedCopy(v);
+  window.voltEvent && window.voltEvent(state.contentId, 'handed_off', { to:'schedule', headline: v.headline });
+  const post = `${v.headline}\n\n${v.body}\n\n${v.cta}${tagText(v)}`;
+  try{
+    sessionStorage.setItem('tl_schedule_content_handoff', JSON.stringify({
+      url: (videoHandoff && videoHandoff.url) || '',
+      caption: post,
+      platform: state.platform,
+      postType: (videoHandoff && videoHandoff.postType) || 'post',
+      at: Date.now(),
+    }));
+  }catch(e){}
+  window.location.href = 'schedule.html';
+}
 
 const warnSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF7C7C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
 function showErr(msg){
@@ -353,6 +380,7 @@ function cardHtml(v, i){
       ${moreBtn}
       <button class="mini go-studio studio" data-id="${v._id}">${ICON.studio} Design in Studio →</button>
       <button class="mini go-studio video" data-id="${v._id}">${ICON.film} Make a video →</button>
+      <button class="mini go-studio schedule" data-id="${v._id}">${ICON.calendar} ${videoHandoff ? 'Schedule with clip →' : 'Send to Schedule →'}</button>
     </div>
   </article>`;
 }
@@ -408,6 +436,12 @@ elRes.addEventListener('click', e => {
   if(videoBtn){
     const v = state.variations.find(x=>x._id==videoBtn.dataset.id);
     if(v) sendToVideo(v);
+    return;
+  }
+  const scheduleBtn = e.target.closest('.schedule');
+  if(scheduleBtn){
+    const v = state.variations.find(x=>x._id==scheduleBtn.dataset.id);
+    if(v) sendToSchedule(v);
     return;
   }
   const moreBtn = e.target.closest('.more');
@@ -543,6 +577,33 @@ async function loadBrain(force){
 window.addEventListener('volt:ready', ()=>loadBrain(false));
 if(window.voltSession) loadBrain(false);
 { const rb=$('#brainRefresh'); if(rb) rb.addEventListener('click', ()=>{ $('#brainBody').innerHTML='<p class="go-note" style="margin:0;">Recomputing from your latest posts…</p>'; loadBrain(true); }); }
+
+// ===================== ← VIDEO HAND-OFF =====================
+// Video's "Send to Copy Lab" writes this once, right before navigating here — same one-shot
+// sessionStorage pattern as every other cross-page hand-off in Volt (SmartClip -> Video,
+// Campaign -> Studio/Video/Email/Schedule). videoHandoff then rides along through every
+// generated angle so "Send to Schedule" (see cardHtml/sendToSchedule above) can carry the actual
+// clip forward, not just text.
+(function(){
+  let raw; try{ raw = sessionStorage.getItem('tl_video_handoff'); }catch(e){ return; }
+  if(!raw) return;
+  try{ sessionStorage.removeItem('tl_video_handoff'); }catch(e){}
+  let d; try{ d = JSON.parse(raw); }catch(e){ return; }
+  if(!d || (Date.now() - (d.at||0)) > 30*60000) return; // ignore a stale, hours-old hand-off
+  videoHandoff = d;
+  const seed = (d.caption || '').trim();
+  if(seed){ state.offer = seed; elOffer.value = seed; }
+  if(d.platform){
+    state.platform = d.platform;
+    [...$('#seg').children].forEach(x => x.classList.toggle('on', x.dataset.p === d.platform));
+  }
+  syncGen();
+  const banner = $('#videoHandoffBanner'), text = $('#videoHandoffText');
+  if(banner && text){
+    text.textContent = 'Video attached (' + (d.name || 'clip') + ') — write the copy below, then hit "Schedule with clip →" on the angle you want. The clip carries straight through.';
+    banner.style.display = 'flex';
+  }
+})();
 
 restoreCopy();
 render();

@@ -1086,6 +1086,34 @@ renderShape([]);   // paint from the story ledger immediately; the queue fills i
   document.body.appendChild(n);
   setTimeout(() => n.remove(), 4200);
 })();
+
+// Copy Lab "Schedule with clip →" (or "Send to Schedule →") → one specific post, media and
+// copy together — unlike the Studio hand-off above (media only, no caption) or the Campaign one
+// (caption only, no media), this one carries both, because it's the video-export funnel: Video's
+// "Send to Copy Lab" attaches the clip, Copy Lab writes the copy, this is where they land as one
+// ready-to-publish post. Opens the composer directly since it's a single focused post, not a
+// batch to browse later.
+(function(){
+  let raw; try { raw = sessionStorage.getItem('tl_schedule_content_handoff'); } catch(e){ return; }
+  if (!raw) return;
+  try { sessionStorage.removeItem('tl_schedule_content_handoff'); } catch(e){}
+  let d; try { d = JSON.parse(raw); } catch(e){ return; }
+  if (!d || (Date.now() - (d.at || 0)) > 30*60000) return; // ignore a stale, hours-old hand-off
+  if (d.url) selectImage(d.url);
+  if (d.postType) {
+    const b = [...document.querySelectorAll('#scType button')].find(x => x.dataset.t === d.postType);
+    if (b) { postType = d.postType; document.querySelectorAll('#scType button').forEach(x => x.classList.toggle('on', x === b)); }
+  }
+  const box = $('#scContent');
+  if (box && d.caption) { box.value = d.caption; }
+  updatePreview();
+  openCompose();
+  const n2 = document.createElement('div');
+  n2.style.cssText = 'position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:1000;background:#14171F;color:#ECEEF3;border:1px solid #23262E;border-radius:9px;padding:13px 18px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.5);';
+  n2.textContent = (d.url ? 'Clip + copy' : 'Copy') + ' loaded from Copy Lab — review and post.';
+  document.body.appendChild(n2);
+  setTimeout(() => n2.remove(), 4200);
+})();
 </script>
 </body>
 </html>

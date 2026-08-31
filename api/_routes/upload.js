@@ -9,6 +9,56 @@
 import { blocked, sbBase } from "../_guard.js";
 
 const BUCKET = "volt-media";
+const VIDEO_BUCKET = "volt-video";
+const VIDEO_MAX_BYTES = 100 * 1024 * 1024; // Supabase free tier is 1GB total — 100MB/file is generous for a 20-45s short
+
+// ---- Video export hand-off (Video -> Copy Lab -> Schedule) --------------------------------
+// A video export can easily be 20-30MB (8-20 Mbps for a 20-45s short) — routing that through
+// THIS function's own request body, the way the image upload above does, doesn't work: Vercel's
+// serverless functions cap the incoming request body around 4.5MB on our tier, base64 JSON
+// encoding on top of that makes it worse, and the image path above explicitly rejects anything
+// that isn't image/*. So video does NOT proxy through this function's body at all. Instead this
+// endpoint asks Supabase Storage for a SIGNED UPLOAD URL (using the service role, kept server-
+// side) and the browser PUTs the actual video bytes DIRECTLY to Supabase, bypassing this
+// function's body limit entirely. Same free-tier storage as the image bucket, just a different
+// bucket (its own, bigger file-size cap) and a different upload mechanism.
+async function ensureVideoBucket() {
+  const svc = process.env.SUPABASE_SERVICE_KEY;
+  const base = sbBase();
+  if (!svc || !base) return false;
+  try {
+    await fetch(base + "/storage/v1/bucket", {
+      method: "POST",
+      headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: VIDEO_BUCKET, name: VIDEO_BUCKET, public: true, file_size_limit: VIDEO_MAX_BYTES }),
+    });
+  } catch (e) {}
+  return true;
+}
+async function signVideoUpload(filename, orgId) {
+  const svc = process.env.SUPABASE_SERVICE_KEY;
+  const base = sbBase();
+  if (!svc || !base) return null;
+  await ensureVideoBucket();
+  const safe = filename.replace(/[^\w.\-]+/g, "_").slice(-60) || "clip.webm";
+  const path = (orgId ? String(orgId).slice(0, 40) : "shared") + "/" +
+    Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8) + "-" + safe;
+  const r = await fetch(base + "/storage/v1/object/upload/sign/" + VIDEO_BUCKET + "/" + encodeURI(path), {
+    method: "POST",
+    headers: { apikey: svc, Authorization: "Bearer " + svc, "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error("Could not prepare the upload (" + r.status + ")" + (t ? ": " + t.slice(0, 160) : ""));
+  }
+  const d = await r.json();
+  if (!d || !d.url) throw new Error("Storage did not return an upload URL.");
+  return {
+    uploadUrl: base + "/storage/v1" + d.url, // the browser PUTs the video bytes straight here
+    publicUrl: base + "/storage/v1/object/public/" + VIDEO_BUCKET + "/" + encodeURI(path),
+  };
+}
 
 // Free image hosting on the Supabase project we already run — no extra service, no WordPress
 // required. Public bucket so Postiz/Gmail can fetch the URL. Auto-creates the bucket once.
@@ -44,15 +94,28 @@ async function supabaseUpload(buf, filename, contentType, orgId) {
 export default async function handler(req, res) {
   if (await blocked(req, res, { id: "upload", limit: 15, windowSec: 60 })) return;
 
-  // Personal creds win when supplied; otherwise the org's env creds — a desktop user without
-  // personal WP creds was silently skipping the org's WordPress and landing on Supabase.
-  const wpUrl = (req.headers["x-wp-url"] || process.env.WP_URL || "").toString().trim();
-  const wpUser = (req.headers["x-wp-user"] || process.env.WP_USER || "").toString().trim();
-  const wpKey = (req.headers["x-wp-key"] || process.env.WP_APP_PASSWORD || "").toString().trim();
-  const wpReady = !!(wpUrl && wpUser && wpKey);
-
   try {
     const body = (req.body && typeof req.body === "object") ? req.body : JSON.parse(req.body || "{}");
+
+    if (body.action === "sign-video") {
+      const contentType = String(body.contentType || "video/webm");
+      if (!/^video\//i.test(contentType)) return res.status(400).json({ error: "Only video files can be signed here." });
+      try {
+        const signed = await signVideoUpload(String(body.filename || "clip.webm"), req.volt && req.volt.orgId);
+        if (!signed) return res.status(503).json({ error: "NOT_CONFIGURED", message: "Video hosting isn’t available — set SUPABASE_SERVICE_KEY in Vercel." });
+        return res.status(200).json({ ok: true, ...signed });
+      } catch (err) {
+        return res.status(502).json({ error: (err && err.message) || "Could not prepare the video upload." });
+      }
+    }
+
+    // Personal creds win when supplied; otherwise the org's env creds — a desktop user without
+    // personal WP creds was silently skipping the org's WordPress and landing on Supabase.
+    const wpUrl = (req.headers["x-wp-url"] || process.env.WP_URL || "").toString().trim();
+    const wpUser = (req.headers["x-wp-user"] || process.env.WP_USER || "").toString().trim();
+    const wpKey = (req.headers["x-wp-key"] || process.env.WP_APP_PASSWORD || "").toString().trim();
+    const wpReady = !!(wpUrl && wpUser && wpKey);
+
     const dataBase64 = String(body.dataBase64 || "").replace(/^data:[^;]+;base64,/, "");
     const filename = String(body.filename || "image.png").replace(/[^\w.\-]+/g, "_").slice(-80) || "image.png";
     const contentType = String(body.contentType || "image/png");

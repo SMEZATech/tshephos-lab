@@ -503,6 +503,14 @@
         </button>
         <button class="mini" id="fxCancel" style="display:none;">✕ Cancel</button>
       </div>
+      <!-- Appears once an export finishes. The clip you just made is one browser tab away from
+           being lost the moment you close it — this carries it forward to Copy Lab so you can
+           write the post for it, and from there straight into Schedule, without re-uploading
+           anything by hand. -->
+      <div id="handoffRow" style="display:none; margin-top:10px; text-align:center;">
+        <button class="mini" id="toCopyBtn">✍️ Send to Copy Lab →</button>
+        <p class="note" id="handoffNote" style="margin-top:6px;"></p>
+      </div>
       <p class="note" id="ctrlHint" style="display:none; text-align:center; margin-top:6px;">Spacebar play / pause · ← → arrows jump 2s · drag the bar to scrub.</p>
       <div class="status" id="status"></div>
       </div><!-- /.player -->
@@ -740,6 +748,7 @@ $('#videoFile').addEventListener('change', e => {
 function loadVideoSrc(src){
   videoEl.src = src;
   videoEl.muted = true; // muted until export, so preview doesn't autoblast
+  hideHandoffButton(); // a fresh clip invalidates any earlier export sitting in memory
   videoEl.addEventListener('loadedmetadata', () => {
     state.duration = videoEl.duration || 0;
     state.trimStart = 0;
@@ -2110,6 +2119,10 @@ function exportDone(ok){
 }
 function finalizeExport(){
   const blob = new Blob(chunks, { type:'video/webm' });
+  // Captured here regardless of which download format the user ends up with — MP4 conversion
+  // below only ever returns a saved file PATH, never bytes, so this webm Blob is the one chance
+  // to keep something in JS memory that can actually be uploaded for the Copy Lab hand-off.
+  showHandoffButton(blob, _exportName || ('sme-short-' + state.format));
   applyRenderScale(1); // restore preview resolution now that recording is captured
   // Desktop + MP4 selected → convert locally via bundled ffmpeg. Otherwise download WebM (web path).
   if(canMp4() && state.exportFmt !== 'webm'){ exportToMp4(blob); return; }
@@ -3052,6 +3065,62 @@ $('#pcResults').addEventListener('click', e => {
   const hk = e.target.closest('.pc-hook');
   if(hk){ const i=parseInt(hk.dataset.hook,10); useAsHook((postCopyData && postCopyData.hooks || [])[i] || ''); }
 });
+
+// ===================== → COPY LAB HAND-OFF =====================
+// Uploads the export directly to Supabase Storage — bypassing this app's own request-body limits
+// via a signed upload URL (api/_routes/upload.js's sign-video action) — then carries the resulting
+// URL forward through Copy Lab and into Schedule: the video-and-copy version of the same one-shot
+// sessionStorage pattern SmartClip -> Video and Campaign -> Schedule already use.
+//
+// Only available when the export left a real Blob sitting in this tab. The desktop app's Fast
+// Export path (canFastExport(), the DEFAULT export path when it's available) saves straight to
+// disk through the native ffmpeg bridge and never hands JS the bytes back — there is currently no
+// way to read that file back into this page, so that path can't offer this yet. Choosing WebM
+// export, or using the web app, always leaves a Blob here and unlocks it.
+let lastExportBlob = null, lastExportLabel = '';
+function showHandoffButton(blob, label){
+  lastExportBlob = blob; lastExportLabel = label || 'clip';
+  const row = $('#handoffRow'); if(row) row.style.display = 'block';
+  const note = $('#handoffNote'); if(note) note.textContent = '';
+  const btn = $('#toCopyBtn'); if(btn) btn.disabled = false;
+}
+function hideHandoffButton(){
+  lastExportBlob = null; lastExportLabel = '';
+  const row = $('#handoffRow'); if(row) row.style.display = 'none';
+}
+async function sendToCopyLab(){
+  if(!lastExportBlob) return;
+  const btn = $('#toCopyBtn'), note = $('#handoffNote');
+  btn.disabled = true; note.textContent = 'Preparing the upload…';
+  try{
+    const filename = (lastExportLabel || 'clip') + '.webm';
+    const signRes = await fetch('/api/upload', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sign-video', filename, contentType: 'video/webm' })
+    });
+    let signData = {}; try{ signData = await signRes.json(); }catch(e){}
+    if(signRes.status === 401) throw new Error('Please sign in to hand this off.');
+    if(!signRes.ok || !signData.uploadUrl) throw new Error((signData && (signData.message || signData.error)) || 'Could not prepare the upload.');
+    note.textContent = 'Uploading… (' + (lastExportBlob.size / 1024 / 1024).toFixed(1) + 'MB)';
+    const putRes = await fetch(signData.uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'video/webm' }, body: lastExportBlob });
+    if(!putRes.ok) throw new Error('Upload failed (' + putRes.status + ') — try again.');
+    const caption = (postCopyData && postCopyData.caption) || ($('#hookText') && $('#hookText').value.trim()) || ($('#introTitle') && $('#introTitle').value.trim()) || '';
+    const hashtags = (postCopyData && postCopyData.hashtags) || [];
+    const payload = {
+      url: signData.publicUrl, caption, hashtags,
+      platform: state.postPlatform || 'LinkedIn',
+      postType: (state.format === '9x16') ? 'reel' : 'post',
+      name: lastExportLabel, at: Date.now()
+    };
+    sessionStorage.setItem('tl_video_handoff', JSON.stringify(payload));
+    note.textContent = 'Opening Copy Lab…';
+    location.href = 'index.html';
+  }catch(err){
+    note.textContent = (err && err.message) || 'Hand-off failed — try again.';
+    btn.disabled = false;
+  }
+}
+{ const tb = $('#toCopyBtn'); if(tb) tb.addEventListener('click', sendToCopyLab); }
 
 // ===================== ← SMARTCLIP HAND-OFF =====================
 // SmartClip picks the moments; this page styles and exports them. The clip FILE cannot travel in
