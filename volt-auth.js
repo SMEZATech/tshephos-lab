@@ -188,21 +188,51 @@
     '#va-refresh,#va-gear{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#0D0F15;color:#B6FF3D;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;}' +
     '#va-refresh:hover{background:#B6FF3D;color:#0A0B0F;transform:rotate(90deg);}#va-gear:hover{background:#B6FF3D;color:#0A0B0F;}' +
     '#va-toast{position:fixed;top:58px;right:16px;z-index:99999;background:#14171F;border:1px solid rgba(182,255,61,.4);color:#ECEEF3;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;transition:opacity .2s;}#va-toast.show{opacity:1;}' +
-    // ---- Volt left rail (Canva-style module switcher) — replaces the top tabs + account pill,
-    // centrally, so every page gets it. body padding-left clears the fixed rail; the three
-    // layout archetypes (Studio flex, centered .wrap, Email) all reflow cleanly. ----
-    'body{padding-left:76px !important;}' +
+    // ---- Volt left rail — the app's only navigation surface. Collapsed it is 72px of icons;
+    // hovering expands it to 232px AS AN OVERLAY (position:fixed, so the page never reflows),
+    // revealing group headers and full labels. Two real problems drove this shape:
+    //   1. HEIGHT. The old 50px labelled tiles + 4 footer tiles needed 928px of vertical space.
+    //      A 1366x768 laptop has ~660px, so ~5 modules sat below the fold — and because the
+    //      scrollbar was hidden (width:0) nothing on screen hinted they existed. Now ~570px.
+    //   2. SCENT. 11 modules in one flat column said nothing about which tool did what; they are
+    //      now grouped Create / Design / Video / Publish / Measure.
+    // Guide, Settings and Check-for-updates moved into the account menu, where people look for
+    // them anyway — that is what bought the height back without hiding any module.
+    'body{padding-left:72px !important;}' +
     '.topbar,.nav-tabs,#va-badge{display:none !important;}' +
-    '#va-rail{position:fixed;left:0;top:0;bottom:0;width:76px;z-index:90000;background:linear-gradient(180deg,#0d0f15,#0a0b0f);border-right:1px solid rgba(255,255,255,.09);display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:4px;overflow-y:auto;overflow-x:hidden;font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
+    '#va-rail{position:fixed;left:0;top:0;bottom:0;width:72px;z-index:90000;background:linear-gradient(180deg,#0e1016,#0a0b0f);border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;padding:12px 10px 10px;overflow-y:auto;overflow-x:hidden;transition:width .18s cubic-bezier(.2,.7,.2,1);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
+    '#va-rail:hover{width:232px;box-shadow:24px 0 60px -30px rgba(0,0,0,.9);}' +
     '#va-rail::-webkit-scrollbar{width:0;}' +
-    '#va-rail .r-logo{font-family:"Unbounded","Segoe UI",system-ui;font-weight:800;font-size:21px;color:#ECEEF3;margin-bottom:8px;text-decoration:none;}#va-rail .r-logo b{color:#B6FF3D;}' +
-    '.r-tile{width:52px;height:50px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#8A91A0;cursor:pointer;text-decoration:none;transition:background .15s,color .15s,box-shadow .15s;border:1px solid transparent;flex:none;}' +
-    '.r-tile .ic{font-size:18px;line-height:1;}.r-tile .lb{font-family:"JetBrains Mono",monospace;font-size:8px;letter-spacing:.02em;text-transform:uppercase;}' +
+    '#va-rail .r-logo{display:flex;align-items:center;gap:10px;height:32px;padding:0 7px;margin-bottom:8px;text-decoration:none;flex:none;overflow:hidden;}' +
+    '#va-rail .r-logo .m{width:30px;height:30px;flex:none;border-radius:9px;background:#B6FF3D;color:#0A0B0F;display:grid;place-items:center;font-family:"Unbounded",system-ui;font-weight:800;font-size:16px;}' +
+    '#va-rail .r-logo .lb{font-family:"Unbounded",system-ui;font-weight:800;font-size:16px;color:#ECEEF3;white-space:nowrap;opacity:0;transition:opacity .14s;}' +
+    '#va-rail:hover .r-logo .lb{opacity:1;}' +
+    '.r-grp{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#4E5563;padding:0 9px;white-space:nowrap;opacity:0;height:0;overflow:hidden;transition:opacity .14s;flex:none;}' +
+    '#va-rail:hover .r-grp{opacity:1;height:22px;line-height:26px;}' +
+    '.r-gap{height:8px;flex:none;}#va-rail:hover .r-gap{height:2px;}' +
+    '.r-tile{position:relative;display:flex;align-items:center;gap:12px;height:36px;padding:0 9px;border-radius:10px;color:#8C93A2;cursor:pointer;text-decoration:none;flex:none;transition:background .13s,color .13s;}' +
+    '.r-tile .ic{width:20px;height:20px;flex:none;display:block;}.r-tile .ic svg{width:20px;height:20px;display:block;}' +
+    '.r-tile .lb{font-size:13.5px;font-weight:600;white-space:nowrap;opacity:0;transition:opacity .14s;}' +
+    '.r-tile .lb em{font-style:normal;font-weight:400;color:#5B616D;}' +
+    '#va-rail:hover .r-tile .lb{opacity:1;}' +
     '.r-tile:hover{background:rgba(255,255,255,.06);color:#ECEEF3;}' +
-    '.r-tile.on{background:#B6FF3D;color:#0A0B0F;box-shadow:0 6px 16px -6px rgba(182,255,61,.5);}.r-tile.on .lb{color:#0A0B0F;}' +
-    '#va-rail .r-spacer{flex:1;min-height:8px;}' +
-    '#va-rail .r-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;font-weight:800;font-family:"Unbounded",sans-serif;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;margin-top:4px;flex:none;}' +
-    '@media(max-width:640px){body{padding-left:0 !important;}#va-rail{flex-direction:row;top:auto;bottom:0;width:100%;height:58px;padding:0 8px;border-right:none;border-top:1px solid rgba(255,255,255,.09);gap:2px;overflow-x:auto;}#va-rail .r-logo,#va-rail .r-spacer{display:none;}.r-tile{height:46px;width:48px;}}';
+    '.r-tile.on{background:rgba(182,255,61,.13);color:#B6FF3D;}' +
+    '.r-tile.on::before{content:"";position:absolute;left:-10px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:#B6FF3D;}' +
+    '#va-rail .r-spacer{flex:1;min-height:6px;}' +
+    '#va-rail .r-av{display:flex;align-items:center;gap:11px;height:40px;padding:0 6px;border-radius:10px;cursor:pointer;flex:none;}' +
+    '#va-rail .r-av:hover{background:rgba(255,255,255,.06);}' +
+    '#va-rail .r-av .cir{width:30px;height:30px;flex:none;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;display:grid;place-items:center;font-weight:800;font-size:12.5px;font-family:"Unbounded",sans-serif;}' +
+    '#va-rail .r-av .lb{font-size:12.5px;font-weight:600;color:#B9BFCB;white-space:nowrap;opacity:0;transition:opacity .14s;}' +
+    '#va-rail:hover .r-av .lb{opacity:1;}' +
+    // The account menu is appended to BODY, not into the rail: the rail is a scrolling box, and a
+    // popover nested inside one gets clipped by its own overflow.
+    '#va-pop{position:fixed;left:8px;z-index:90001;width:212px;background:#161A22;border:1px solid rgba(255,255,255,.13);border-radius:13px;padding:6px;box-shadow:0 20px 50px -14px rgba(0,0,0,.85);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
+    '#va-pop .em{font-size:11px;color:#5B616D;padding:5px 10px 7px;font-family:"JetBrains Mono",monospace;overflow:hidden;text-overflow:ellipsis;}' +
+    '#va-pop a,#va-pop button{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:9px 10px;border-radius:9px;color:#C3C9D4;font-size:13px;font-weight:600;text-decoration:none;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;}' +
+    '#va-pop a svg,#va-pop button svg{width:17px;height:17px;flex:none;}' +
+    '#va-pop a:hover,#va-pop button:hover{background:rgba(255,255,255,.07);color:#ECEEF3;}' +
+    '#va-pop .sep{height:1px;background:rgba(255,255,255,.09);margin:5px 4px;}' +
+    '@media(max-width:640px){body{padding-left:0 !important;padding-bottom:62px !important;}#va-rail{flex-direction:row;align-items:center;top:auto;bottom:0;width:100% !important;height:62px;padding:0 6px;border-right:none;border-top:1px solid rgba(255,255,255,.08);overflow-x:auto;overflow-y:hidden;box-shadow:none !important;}#va-rail .r-logo,#va-rail .r-spacer,.r-grp,.r-gap{display:none !important;}.r-tile{height:48px;min-width:54px;justify-content:center;padding:0 10px;}.r-tile .lb,#va-rail .r-av .lb{display:none;}.r-tile.on::before{left:8px;right:8px;top:auto;bottom:2px;width:auto;height:3px;border-radius:3px 3px 0 0;}#va-pop{left:8px;right:8px;width:auto;}}';
 
   function injectCSS() { if (document.getElementById("va-style")) return; var st = document.createElement("style"); st.id = "va-style"; st.textContent = CSS; document.head.appendChild(st); }
 
@@ -301,43 +331,97 @@
     setTimeout(function () { np.focus(); }, 50);
   }
 
-  /* ---------- badge + toast ---------- */
+  /* ---------- left rail + account menu ---------- */
+  // Inline SVG, not emoji: emoji render at different weights/colours per OS and font, so the rail
+  // looked like a different product on every machine. These inherit currentColor, so the active
+  // and hover states actually apply to the icon.
+  var RAIL_ICON = {
+    search:'<circle cx="10.8" cy="10.8" r="6.8"/><path d="M15.8 15.8l4.4 4.4"/>',
+    create:'<path d="M12 3l1.8 4.9L18.7 9.7l-4.9 1.8L12 16.4l-1.8-4.9L5.3 9.7l4.9-1.8z"/><path d="M18.5 15.5l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z"/>',
+    copy:'<path d="M14.5 4.5l5 5M4 20l1-4.2L15.6 5.2a1.7 1.7 0 012.4 0l.8.8a1.7 1.7 0 010 2.4L8.2 19 4 20z"/>',
+    campaign:'<path d="M13 2.5L4.5 13.2h6.2L10 21.5l8.9-11H12z"/>',
+    studio:'<path d="M12 2.8l8.5 4.6L12 12 3.5 7.4z"/><path d="M3.5 12L12 16.6 20.5 12M3.5 16.4L12 21l8.5-4.6"/>',
+    freeform:'<path d="M9.5 14.5c-1.6.6-2 2.4-2.6 3.6-.5.9-1.3 1.2-2.4 1.3.9-.6 1-1.6 1.4-2.5.5-1.3 1.4-2.6 3.1-2.9z"/><path d="M11 13.2L19.4 4.8a1.9 1.9 0 012.7 2.7l-8.4 8.4"/>',
+    video:'<rect x="2.8" y="5.2" width="18.4" height="13.6" rx="2.4"/><path d="M10 9.6l4.8 2.7-4.8 2.7z"/>',
+    smartclip:'<circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="3.2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>',
+    transcribe:'<rect x="3.5" y="3" width="17" height="18" rx="2.3"/><path d="M7.5 8.5h9M7.5 12.5h9M7.5 16.5h5"/>',
+    email:'<rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.3"/><path d="M3.4 6.6l8.6 6 8.6-6"/>',
+    schedule:'<rect x="3.2" y="5" width="17.6" height="16" rx="2.3"/><path d="M3.2 10h17.6M8.5 3v4M15.5 3v4"/>',
+    stats:'<path d="M3.5 20.5h17"/><path d="M6.8 20.5v-6.2M11.6 20.5V7.4M16.4 20.5v-9.4"/>',
+    guide:'<path d="M4 5.2A2.2 2.2 0 016.2 3H19v15.6H6.2A2.2 2.2 0 004 20.8z"/><path d="M4 18.6h15"/>',
+    gear:'<circle cx="12" cy="12" r="3"/><path d="M19.1 14.9a1.5 1.5 0 00.3 1.7l.1.1a1.9 1.9 0 11-2.7 2.7l-.1-.1a1.5 1.5 0 00-2.6 1.1v.2a1.9 1.9 0 01-3.8 0v-.1a1.5 1.5 0 00-2.6-1.1l-.1.1a1.9 1.9 0 11-2.7-2.7l.1-.1a1.5 1.5 0 00-1.1-2.6H3.8a1.9 1.9 0 010-3.8h.1a1.5 1.5 0 001.1-2.6l-.1-.1a1.9 1.9 0 112.7-2.7l.1.1a1.5 1.5 0 002.6-1.1V3.8a1.9 1.9 0 013.8 0v.1a1.5 1.5 0 002.6 1.1l.1-.1a1.9 1.9 0 112.7 2.7l-.1.1a1.5 1.5 0 001.1 2.6h.2a1.9 1.9 0 010 3.8h-.1a1.5 1.5 0 00-1.4.8z"/>',
+    refresh:'<path d="M20.4 12a8.4 8.4 0 11-2.5-6"/><path d="M20.5 4.3v5.1h-5.1"/>',
+    exit:'<path d="M9.5 20.5H5.2A2.2 2.2 0 013 18.3V5.7a2.2 2.2 0 012.2-2.2h4.3"/><path d="M16 16.5l4.5-4.5L16 7.5M20.5 12H9.5"/>'
+  };
+  function railSvg(k) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + (RAIL_ICON[k] || "") + '</svg>';
+  }
+  // GROUPED, but note the name. build-sync.cjs regexes for this exact declaration and fails the
+  // build if a routable page's href is missing from inside it, so: keep the variable named
+  // RAIL_TILES, keep every href a literal here, and do NOT repeat that declaration's opening
+  // text anywhere above this line — the guard's match is non-greedy, so an earlier copy of it
+  // (in a comment, say) captures a few characters instead of this array and the check silently
+  // passes for every page. That exact mistake was made and caught while writing this rail.
   var RAIL_TILES = [
-    { t: "Create", e: "✦", href: "home.html" },
-    { t: "Copy", e: "✍️", href: "index.html" },
-    { t: "Campaign", e: "⚡", href: "campaign.html" },
-    { t: "Studio", e: "🎨", href: "studio.html" },
-    { t: "Freeform", e: "🖌️", href: "freeform.html" },
-    { t: "Video", e: "🎬", href: "video.html" },
-    { t: "SmartClip", e: "🎯", href: "smartclip.html" },
-    { t: "Transcribe", e: "📝", href: "videotok.html" },
-    { t: "Email", e: "✉️", href: "email.html" },
-    { t: "Schedule", e: "📅", href: "schedule.html" },
-    { t: "Stats", e: "📊", href: "analytics.html" },
+    { h: "Create",  items: [ { t: "Create", i: "create", href: "home.html" }, { t: "Copy", i: "copy", href: "index.html" }, { t: "Campaign", i: "campaign", href: "campaign.html" } ] },
+    { h: "Design",  items: [ { t: "Studio", i: "studio", href: "studio.html" }, { t: "Freeform", i: "freeform", href: "freeform.html" } ] },
+    { h: "Video",   items: [ { t: "Video", i: "video", href: "video.html" }, { t: "SmartClip", i: "smartclip", href: "smartclip.html" }, { t: "Transcribe", i: "transcribe", href: "videotok.html" } ] },
+    { h: "Publish", items: [ { t: "Email", i: "email", href: "email.html" }, { t: "Schedule", i: "schedule", href: "schedule.html" } ] },
+    { h: "Measure", items: [ { t: "Stats", i: "stats", href: "analytics.html" } ] }
   ];
-  function showBadge() { // now builds the left rail (the Canva-style module switcher)
+  function closeRailPop() { var p = document.getElementById("va-pop"); if (p) p.remove(); }
+  function toggleRailPop(anchor) {
+    if (document.getElementById("va-pop")) { closeRailPop(); return; }
+    var mail = (session && session.user && session.user.email) || "";
+    var p = document.createElement("div"); p.id = "va-pop";
+    p.innerHTML =
+      '<div class="em">' + esc(mail) + "</div>" +
+      '<a href="guide.html">' + railSvg("guide") + "Guide</a>" +
+      '<button type="button" id="vp-set">' + railSvg("gear") + "Settings</button>" +
+      '<button type="button" id="vp-upd">' + railSvg("refresh") + "Check for updates</button>" +
+      '<div class="sep"></div>' +
+      '<button type="button" id="vp-out">' + railSvg("exit") + "Sign out</button>";
+    document.body.appendChild(p);
+    // Anchor above the avatar, but never off the top of a short window.
+    var r = anchor.getBoundingClientRect(), h = p.offsetHeight;
+    p.style.top = Math.max(8, Math.min(r.top - h - 6, window.innerHeight - h - 8)) + "px";
+    var b = function (id) { return document.getElementById(id); };
+    if (b("vp-set")) b("vp-set").addEventListener("click", function () { closeRailPop(); showSettings(); });
+    if (b("vp-upd")) b("vp-upd").addEventListener("click", function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); });
+    if (b("vp-out")) b("vp-out").addEventListener("click", function () { closeRailPop(); if (sb) sb.auth.signOut(); });
+    setTimeout(function () {
+      document.addEventListener("mousedown", function onDoc(e) {
+        var pop = document.getElementById("va-pop");
+        if (!pop) { document.removeEventListener("mousedown", onDoc); return; }
+        if (!pop.contains(e.target) && !anchor.contains(e.target)) { closeRailPop(); document.removeEventListener("mousedown", onDoc); }
+      });
+    }, 0);
+  }
+  function showBadge() { // builds the left rail — the app's only navigation surface
     injectCSS();
     var old = document.getElementById("va-rail"); if (old) old.remove();
+    closeRailPop();
     var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     if (here === "") here = "index.html";
+    var kbd = isMac() ? "⌘K" : "Ctrl K";
     var rail = document.createElement("aside"); rail.id = "va-rail";
-    var tiles = RAIL_TILES.map(function (x) {
-      return '<a class="r-tile' + (x.href.toLowerCase() === here ? " on" : "") + '" href="' + x.href + '"><span class="ic">' + x.e + '</span><span class="lb">' + x.t + '</span></a>';
-    }).join("");
-    rail.innerHTML =
-      '<a class="r-logo" href="home.html" title="Volt">V<b>.</b></a>' + tiles +
-      '<div class="r-spacer"></div>' +
-      '<div class="r-tile" id="r-cmdk" title="Command menu (' + (isMac() ? "⌘K" : "Ctrl K") + ')"><span class="ic">⌘</span><span class="lb">Menu</span></div>' +
-      '<a class="r-tile' + ("guide.html" === here ? " on" : "") + '" href="guide.html"><span class="ic">📖</span><span class="lb">Guide</span></a>' +
-      '<div class="r-tile" id="r-refresh" title="Check for updates"><span class="ic">↻</span><span class="lb">Update</span></div>' +
-      '<div class="r-tile" id="r-settings" title="Settings"><span class="ic">⚙️</span><span class="lb">Set</span></div>' +
-      '<div class="r-av" id="r-av" title="' + esc(session && session.user && session.user.email) + '">' + esc((firstName(session && session.user && session.user.email) || "?").charAt(0).toUpperCase()) + '</div>';
+    var html =
+      '<a class="r-logo" href="home.html" title="Volt"><span class="m">V</span><span class="lb">Volt.</span></a>' +
+      '<div class="r-tile" id="r-cmdk" title="Command menu (' + kbd + ')"><span class="ic">' + railSvg("search") + '</span><span class="lb">Search <em>' + kbd + "</em></span></div>";
+    RAIL_TILES.forEach(function (g) {
+      html += '<div class="r-gap"></div><div class="r-grp">' + g.h + "</div>";
+      g.items.forEach(function (x) {
+        html += '<a class="r-tile' + (x.href.toLowerCase() === here ? " on" : "") + '" href="' + x.href + '" title="' + x.t + '"><span class="ic">' + railSvg(x.i) + '</span><span class="lb">' + x.t + "</span></a>";
+      });
+    });
+    var who = firstName(session && session.user && session.user.email) || "Account";
+    html += '<div class="r-spacer"></div>' +
+      '<div class="r-av" id="r-av" title="Account"><span class="cir">' + esc(who.charAt(0).toUpperCase()) + '</span><span class="lb">' + esc(who) + "</span></div>";
+    rail.innerHTML = html;
     document.body.appendChild(rail);
     var byId = function (id) { return document.getElementById(id); };
-    if (byId("r-settings")) byId("r-settings").addEventListener("click", showSettings);
-    if (byId("r-av")) byId("r-av").addEventListener("click", showSettings);
+    if (byId("r-av")) byId("r-av").addEventListener("click", function (e) { e.stopPropagation(); toggleRailPop(byId("r-av")); });
     if (byId("r-cmdk")) byId("r-cmdk").addEventListener("click", function () { if (window.voltOpenCommand) window.voltOpenCommand(); });
-    if (byId("r-refresh")) byId("r-refresh").addEventListener("click", function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); });
   }
   function showToast(msg) {
     injectCSS();
@@ -375,7 +459,7 @@
     if (!document.getElementById("va-ub-style")) {
       var st = document.createElement("style"); st.id = "va-ub-style";
       st.textContent =
-        "#va-update-bar{position:fixed;top:0;left:76px;right:0;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;background:linear-gradient(90deg,#1A1E28,#14171F);border-bottom:1px solid var(--border-2,rgba(255,255,255,.14));font-family:var(--fb,system-ui);font-size:13px;color:var(--text,#ECEEF3)}" +
+        "#va-update-bar{position:fixed;top:0;left:72px;right:0;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;background:linear-gradient(90deg,#1A1E28,#14171F);border-bottom:1px solid var(--border-2,rgba(255,255,255,.14));font-family:var(--fb,system-ui);font-size:13px;color:var(--text,#ECEEF3)}" +
         "body.va-has-update{padding-top:42px}" +
         "#va-update-bar .va-ub-cur{color:var(--faint,#5B616D)}" +
         "#va-update-bar .va-ub-actions{display:flex;align-items:center;gap:8px;flex:none}" +
@@ -427,7 +511,7 @@
       // reaches an update before that one ever has.
       var st = document.createElement("style"); st.id = "va-ub-style";
       st.textContent =
-        "#va-update-bar{position:fixed;top:0;left:76px;right:0;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;background:linear-gradient(90deg,#1A1E28,#14171F);border-bottom:1px solid var(--border-2,rgba(255,255,255,.14));font-family:var(--fb,system-ui);font-size:13px;color:var(--text,#ECEEF3)}" +
+        "#va-update-bar{position:fixed;top:0;left:72px;right:0;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;background:linear-gradient(90deg,#1A1E28,#14171F);border-bottom:1px solid var(--border-2,rgba(255,255,255,.14));font-family:var(--fb,system-ui);font-size:13px;color:var(--text,#ECEEF3)}" +
         "body.va-has-update{padding-top:42px}" +
         "#va-update-bar .va-ub-cur{color:var(--faint,#5B616D)}" +
         "#va-update-bar .va-ub-actions{display:flex;align-items:center;gap:8px;flex:none}" +
