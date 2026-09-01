@@ -103,6 +103,62 @@ async function finish(id, patch) {
   });
 }
 
+// ---------------------------------------------------------------------------------------------
+// Reporting. Same shapes as instagram.js's accountAnalytics/topPosts (which themselves mirror
+// api/postiz.js) for the identical reason: analytics.html already knows how to render exactly
+// this shape for a Postiz or direct-Instagram channel, so a direct-Facebook channel needs zero
+// new rendering code — just another entry in fetchChannels()'s list.
+// ---------------------------------------------------------------------------------------------
+async function accountAnalytics(creds, days) {
+  const metrics = [];
+  const since = Math.floor((Date.now() - days * 86400000) / 1000);
+  const until = Math.floor(Date.now() / 1000);
+  for (const [name, label] of [["page_impressions_unique", "Reach"], ["page_post_engagements", "Engagements"]]) {
+    try {
+      const d = await graph("/" + creds.pageId + "/insights", { metric: name, period: "day", since: String(since), until: String(until), access_token: creds.token }, "GET");
+      const row = (d && d.data && d.data[0]) || {};
+      const points = (row.values || []).map((v) => ({ date: v.end_time, total: Number(v.value) })).filter((p) => Number.isFinite(p.total));
+      if (!points.length) continue;
+      const latest = points[points.length - 1].total, first = points[0].total;
+      metrics.push({ label, latest, first, percentageChange: first ? ((latest - first) / first) * 100 : null, points });
+    } catch (e) { /* Page Insights needs read_insights on the token — omit rather than fail the report */ }
+  }
+  try {
+    const page = await graph("/" + creds.pageId, { fields: "fan_count", access_token: creds.token });
+    if (page.fan_count != null) metrics.push({ label: "Followers", latest: page.fan_count, first: null, percentageChange: null, points: [] });
+  } catch (e) { /* token check itself failing — status action already surfaces that */ }
+  return { days, metrics, insightsAvailable: metrics.some((m) => m.label === "Reach" || m.label === "Engagements") };
+}
+
+async function topPosts(creds, days, limit) {
+  const since = Math.floor((Date.now() - days * 86400000) / 1000);
+  const list = await graph("/" + creds.pageId + "/posts", {
+    fields: "id,message,created_time,permalink_url,likes.summary(true).limit(0),comments.summary(true).limit(0),shares",
+    limit: "50", access_token: creds.token,
+  });
+  let posts = ((list && list.data) || []).filter((p) => p && p.created_time && new Date(p.created_time).getTime() / 1000 >= since);
+
+  posts = await Promise.all(posts.map(async (p) => {
+    let impressions = null, engaged = null;
+    try {
+      const ins = await graph("/" + p.id + "/insights", { metric: "post_impressions,post_engaged_users", access_token: creds.token });
+      for (const row of (ins && ins.data) || []) {
+        const v = row.values && row.values[0] && row.values[0].value;
+        if (row.name === "post_impressions") impressions = v; else if (row.name === "post_engaged_users") engaged = v;
+      }
+    } catch (e) { /* older posts / token without read_insights — omit, don't fail the other posts */ }
+    const likes = (p.likes && p.likes.summary && p.likes.summary.total_count) || 0;
+    const comments = (p.comments && p.comments.summary && p.comments.summary.total_count) || 0;
+    const shares = (p.shares && p.shares.count) || 0;
+    const engagement = engaged != null ? engaged : likes + comments + shares;
+    const metrics = [{ label: "Likes", value: likes }, { label: "Comments", value: comments }, { label: "Shares", value: shares }];
+    if (impressions != null) metrics.push({ label: "Reach", value: impressions });
+    return { id: p.id, content: p.message || "", publishDate: p.created_time, url: p.permalink_url || "", metrics, engagement };
+  }));
+  posts.sort((a, b) => b.engagement - a.engagement);
+  return { days, topPosts: posts.slice(0, limit) };
+}
+
 export default async function handler(req, res) {
   const action = String((req.query && req.query.action) || (req.body && req.body.action) || "status").toLowerCase();
 
@@ -164,6 +220,16 @@ export default async function handler(req, res) {
         page: page ? { id: page.id, name: page.name, picture: (page.picture && page.picture.data && page.picture.data.url) || "", followers: page.fan_count } : { id: creds.pageId },
         queue: await queueList(orgId),
       });
+    }
+
+    // ---- Reporting. Same response shapes as instagram.js's analytics/topposts (see the two
+    // functions above for why) — lets analytics.html treat direct Facebook as just another channel.
+    if (action === "analytics" || action === "topposts") {
+      if (!creds || !creds.token || !creds.pageId) return res.status(400).json({ error: "Facebook isn't connected yet." });
+      const days = Math.max(1, Math.min(90, parseInt((req.query && req.query.days) || "30", 10) || 30));
+      if (action === "analytics") return res.status(200).json(await accountAnalytics(creds, days));
+      const limit = Math.max(1, Math.min(20, parseInt((req.query && req.query.limit) || "6", 10) || 6));
+      return res.status(200).json(await topPosts(creds, days, limit));
     }
 
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });

@@ -214,7 +214,7 @@
     <label class="lbl">Data source</label>
     <div class="seg" id="modeSeg">
       <button class="on" data-m="manual">✍️ Manual entry</button>
-      <button data-m="live">🔌 Live (Postiz)</button>
+      <button data-m="live">🔌 Live</button>
     </div>
 
     <label class="lbl" style="margin-top:18px;">Platform</label>
@@ -243,7 +243,7 @@
     </div>
 
     <div id="liveBlock" style="display:none;">
-      <label class="lbl" style="margin-top:22px;">Connected channel <span class="opt">— pulled live from your Postiz instance</span></label>
+      <label class="lbl" style="margin-top:22px;">Connected channel <span class="opt">— direct Instagram/Facebook connections, plus anything connected via Postiz</span></label>
       <div id="liveStatus"></div>
       <div id="liveControls" class="row" style="display:none; margin-top:0;">
         <div class="field"><label class="lbl">Channel</label><select id="liveChannel"></select></div>
@@ -372,6 +372,14 @@ function postizSetupHtml(){
 // needed zero new rendering code to pick it up.
 const IG_DIRECT_PREFIX = 'ig-direct:';
 function isIgDirect(id){ return String(id||'').indexOf(IG_DIRECT_PREFIX) === 0; }
+// Facebook Page posting rides the same Meta connection as Instagram (see api/_routes/facebook.js) —
+// same 'just another channel' treatment, prefixed 'fb-direct:' so the routing below knows to hit
+// /api/facebook instead of /api/postiz. TikTok is deliberately NOT wired in here yet: every post is
+// forced private (SELF_ONLY) until TikTok's app review clears, so there's no real reach/engagement
+// to report — adding a channel that always reads empty would look like a bug, not a limitation.
+const FB_DIRECT_PREFIX = 'fb-direct:';
+function isFbDirect(id){ return String(id||'').indexOf(FB_DIRECT_PREFIX) === 0; }
+function directBase(id){ return isIgDirect(id) ? '/api/instagram' : isFbDirect(id) ? '/api/facebook' : null; }
 
 async function fetchChannels(force){
   const status = document.getElementById('liveStatus');
@@ -396,10 +404,18 @@ async function fetchChannels(force){
     if(r.ok && data && data.connected && data.account){
       channels = [{ id: IG_DIRECT_PREFIX + data.account.id, name: '@' + (data.account.username || 'instagram') + ' (direct)', platform: 'instagram' }].concat(channels);
     }
-  }catch(e){ /* direct Instagram unreachable — Postiz channels can still work */ }
+  }catch(e){ /* direct Instagram unreachable — Postiz/Facebook channels can still work */ }
+
+  try{
+    const r = await fetch('/api/facebook?action=status');
+    let data; try { data = await r.json(); } catch { data = null; }
+    if(r.ok && data && data.connected && data.page){
+      channels = [{ id: FB_DIRECT_PREFIX + data.page.id, name: (data.page.name || 'Facebook Page') + ' (direct)', platform: 'facebook' }].concat(channels);
+    }
+  }catch(e){ /* direct Facebook unreachable — Postiz/Instagram channels can still work */ }
 
   if(!channels.length){
-    status.innerHTML = '<p class="ls-msg">No channels connected yet. Connect Instagram directly on the <a href="schedule.html" style="color:var(--accent)">Schedule</a> page, or connect accounts in Postiz.</p>' + refreshBtnHtml();
+    status.innerHTML = '<p class="ls-msg">No channels connected yet. Connect Instagram or Facebook directly on the <a href="schedule.html" style="color:var(--accent)">Schedule</a> page, or connect accounts in Postiz.</p>' + refreshBtnHtml();
     wireRefresh(); return;
   }
   state.channels = channels;
@@ -418,25 +434,28 @@ async function pullLiveDash(){
   if(!id) throw new Error('Pick a connected channel first.');
   const days = parseInt((document.getElementById('liveDays') || {}).value || '30', 10) || 30;
   state.liveCtx = { id: id, days: days };
-  const direct = isIgDirect(id);
+  const base = directBase(id), direct = !!base;
+  const platLabel = isIgDirect(id) ? 'Instagram' : isFbDirect(id) ? 'Facebook' : '';
   const url = direct
-    ? ('/api/instagram?action=analytics&days=' + days)
+    ? ('https://tshephos-lab.vercel.app' + base + '?action=analytics&days=' + days)
     : ('/api/postiz?action=analytics&id=' + encodeURIComponent(id) + '&days=' + days);
   let r, data;
   try { r = await fetch(url); data = await r.json(); }
-  catch(e){ throw new Error(direct ? 'Could not reach Volt’s Instagram connection.' : 'Could not reach the Postiz proxy.'); }
+  catch(e){ throw new Error(direct ? ('Could not reach Volt’s ' + platLabel + ' connection.') : 'Could not reach the Postiz proxy.'); }
   if(!r.ok){
     if(data && data.error === 'NOT_CONFIGURED') throw new Error(data.message || 'Postiz isn’t connected yet.');
-    throw new Error((data && (data.message || data.error)) || (direct ? 'Instagram request failed.' : 'Postiz request failed.'));
+    throw new Error((data && (data.message || data.error)) || (direct ? (platLabel + ' request failed.') : 'Postiz request failed.'));
   }
   const metrics = (data && data.metrics) || [];
-  if(!metrics.length) throw new Error(direct ? 'No account data yet — Instagram may still be preparing it for a brand-new connection.' : 'Postiz returned no analytics for this channel/period yet — some platforms need a few days of data or extra verification.');
+  if(!metrics.length) throw new Error(direct ? ('No account data yet — ' + platLabel + ' may still be preparing it for a brand-new connection.') : 'Postiz returned no analytics for this channel/period yet — some platforms need a few days of data or extra verification.');
   const dash = dashFromLive(metrics, (data && data.days) || days);
-  // The direct connection can report follower/reach growth without instagram_manage_insights, but
-  // reach and profile-views specifically need that scope — say so plainly instead of a KPI card
-  // just quietly never appearing, which reads as a bug rather than a permission gap.
+  // The direct connection can report follower growth without the insights scope, but reach/
+  // engagement specifically need it — say so plainly instead of a KPI card just quietly never
+  // appearing, which reads as a bug rather than a permission gap.
   if(direct && data && data.insightsAvailable === false){
-    dash.summary = (dash.summary ? dash.summary + '\n' : '') + '⚠ Add instagram_manage_insights to your connection for reach and profile-view trends — see SETUP-INSTAGRAM.md.';
+    dash.summary = (dash.summary ? dash.summary + '\n' : '') + (isIgDirect(id)
+      ? '⚠ Add instagram_manage_insights to your connection for reach and profile-view trends — see SETUP-INSTAGRAM.md.'
+      : '⚠ This Facebook connection needs read_insights for reach and engagement trends — reconnect on the Schedule page.');
   }
   return dash;
 }
@@ -459,8 +478,9 @@ async function pullAllChannels(){
   const out = [];
   for(const c of chans){
     try{
-      const url = isIgDirect(c.id)
-        ? ('/api/instagram?action=analytics&days=' + days)
+      const cbase = directBase(c.id);
+      const url = cbase
+        ? ('https://tshephos-lab.vercel.app' + cbase + '?action=analytics&days=' + days)
         : ('/api/postiz?action=analytics&id=' + encodeURIComponent(c.id) + '&days=' + days);
       const r = await fetch(url);
       const data = await r.json().catch(() => ({}));
@@ -647,8 +667,9 @@ function captureMetricsQuietly(ctx){
   const key = ctx.id + ':' + ctx.days;
   if (_captured === key) return;          // once per channel+window per page visit
   _captured = key;
-  const url = isIgDirect(ctx.id)
-    ? ('/api/instagram?action=topposts&days=' + ctx.days + '&limit=10')
+  const cbase = directBase(ctx.id);
+  const url = cbase
+    ? ('https://tshephos-lab.vercel.app' + cbase + '?action=topposts&days=' + ctx.days + '&limit=10')
     : ('/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=10');
   fetch(url).catch(() => {});             // best-effort by design; the report must not depend on it
 }
@@ -656,19 +677,20 @@ function captureMetricsQuietly(ctx){
 async function runTopPosts(){
   const ctx = state.liveCtx;
   if(!ctx || !ctx.id) return;
-  const direct = isIgDirect(ctx.id);
+  const base = directBase(ctx.id), direct = !!base;
+  const platLabel = isIgDirect(ctx.id) ? 'Instagram' : isFbDirect(ctx.id) ? 'Facebook' : '';
   state.topLoading = true; state.topError = ''; render();
   try{
     const url = direct
-      ? ('/api/instagram?action=topposts&days=' + ctx.days + '&limit=6')
+      ? ('https://tshephos-lab.vercel.app' + base + '?action=topposts&days=' + ctx.days + '&limit=6')
       : ('/api/postiz?action=topposts&id=' + encodeURIComponent(ctx.id) + '&days=' + ctx.days + '&limit=6');
     let r, data;
     try { r = await fetch(url); data = await r.json(); }
-    catch(e){ throw new Error(direct ? 'Could not reach Volt’s Instagram connection.' : 'Could not reach the Postiz proxy.'); }
-    if(!r.ok) throw new Error((data && (data.message || data.error)) || (direct ? 'Instagram request failed.' : 'Postiz request failed.'));
+    catch(e){ throw new Error(direct ? ('Could not reach Volt’s ' + platLabel + ' connection.') : 'Could not reach the Postiz proxy.'); }
+    if(!r.ok) throw new Error((data && (data.message || data.error)) || (direct ? (platLabel + ' request failed.') : 'Postiz request failed.'));
     const posts = (data && data.topPosts) || [];
     if(!posts.length) throw new Error(direct
-      ? 'No posts on this Instagram account in the selected window — widen the look-back, or this is a brand-new account.'
+      ? ('No posts on this ' + platLabel + ' account in the selected window — widen the look-back, or this is a brand-new account.')
       : 'No posts published through Postiz in this window. Top Posts ranks posts you schedule or publish via Postiz — content posted directly on the platform isn’t tracked here. Post through Postiz (or widen the look-back) and they’ll appear.');
     state.topPosts = posts;
     // AI playbook across the winners (optional — cards still show if this fails)
