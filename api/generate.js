@@ -887,6 +887,56 @@ export default async function handler(req, res) {
       return res.status(200).json({ email });
     }
 
+    // ---- Transcribe: YouTube titles/description/tags/chapters ----
+    // buildYtMetaPrompt/SYSTEM_YTMETA existed but were never wired to a task branch here — every
+    // "YouTube" generation on the Transcribe page fell through to the "copy" task's own offer
+    // validation at the bottom of this function, which is why it failed with "Missing offer"
+    // instead of ever reaching this prompt.
+    if (task === "ytmeta") {
+      const { transcript } = body;
+      if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
+      const text = await callProvider(
+        buildYtMetaPrompt({ transcript: String(transcript).slice(0, 14000) }) + promptExtras,
+        { system: SYSTEM_YTMETA, temperature: 0.6, maxTokens: 1600 }
+      );
+      const m = safeParse(text);
+      if (!m) return res.status(502).json({ error: "Model returned unusable metadata — try again." });
+      const ytmeta = {
+        titles: strList(m.titles, 3, 100),
+        description: String(m.description || "").slice(0, 2000),
+        tags: strList(m.tags, 15, 40),
+        chapters: Array.isArray(m.chapters)
+          ? m.chapters.slice(0, 20).map((c) => ({ time: String((c && c.time) || "").slice(0, 12), title: String((c && c.title) || "").slice(0, 80) })).filter((c) => c.time && c.title)
+          : [],
+      };
+      if (!ytmeta.titles.length && !ytmeta.description) return res.status(502).json({ error: "YouTube metadata came back empty — try again." });
+      await logContent(req.volt && req.volt.orgId, { tool: "ytmeta", input: { len: String(transcript).length }, output: { titles: ytmeta.titles.length, chapters: ytmeta.chapters.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ ytmeta });
+    }
+
+    // ---- Transcribe: full article from a transcript ----
+    // Same gap as ytmeta above: buildArticlePrompt/SYSTEM_ARTICLE existed, unreachable until now.
+    if (task === "article") {
+      const { transcript } = body;
+      if (!transcript || !String(transcript).trim()) return res.status(400).json({ error: "Add a transcript first." });
+      const text = await callProvider(
+        buildArticlePrompt({ transcript: String(transcript).slice(0, 14000) }) + promptExtras,
+        { system: SYSTEM_ARTICLE, temperature: 0.7, maxTokens: 3000 }
+      );
+      const a = safeParse(text);
+      if (!a) return res.status(502).json({ error: "Model returned an unusable article — try again." });
+      const cleanBody = (h) => String(h || "").replace(/```[a-z]*|```/gi, "").replace(/<(?!\/?(?:p|h2)\b)[^>]*>/gi, "").trim();
+      const article = {
+        title: String(a.title || "").slice(0, 120),
+        dek: String(a.dek || "").slice(0, 220),
+        body: cleanBody(a.body).slice(0, 16000),
+        tags: strList(a.tags, 8, 40),
+      };
+      if (!article.body) return res.status(502).json({ error: "Article came back empty — try again." });
+      await logContent(req.volt && req.volt.orgId, { tool: "article", input: { len: String(transcript).length }, output: { title: article.title, words: article.body.split(/\s+/).length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash", userId: req.volt && req.volt.user && req.volt.user.id });
+      return res.status(200).json({ article });
+    }
+
     // ---- SmartClip titling: name moments whose BOUNDARIES were already measured ----
     // Deliberately separate from `highlights`. That task asks the model where the good bits are,
     // and a model will happily answer with times that are plausible and wrong — off by thirty
