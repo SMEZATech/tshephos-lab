@@ -5,8 +5,57 @@
 (function () {
   "use strict";
 
-  var SUPABASE_URL = "https://ltnjjsadcvqmtczbtxii.supabase.co";
-  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bmpqc2FkY3ZxbXRjemJ0eGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDgyODIsImV4cCI6MjA5NzcyNDI4Mn0.3sUeA0nITk1BqPQZGrgluHqQNHm9jP6KlrRrsZG3Tps";
+  /* ---------- brand config (Volt / Vantly) ----------
+     ONE deployed codebase, TWO commercial identities. Which brand is active is decided at RUNTIME
+     from the hostname this script is running on — never a build step, since these are plain static
+     files served as-is (no bundler). Volt is the unconditional default: any hostname that isn't
+     recognised as Vantly's falls straight through to today's exact Volt config, so Volt's own
+     install (web + desktop, which serves pages from a local 127.0.0.1 origin, never this hostname)
+     is byte-for-byte unaffected by any of this.
+     Everything brand-specific lives HERE — visual chrome (gate/rail/settings text), which Supabase
+     project owns the account data, and which deployment answers /api calls (see the fetch patch
+     below) — so bringing up a new commercial brand is "add a row here", not "edit 15 files".
+     VANTLY IS NOT LIVE YET: supabaseUrl/supabaseAnon/apiHost are deliberately blank placeholders
+     until the Vantly Supabase + Vercel projects exist (Joel's own account-level steps — this repo
+     has no ability to create either). Left blank on purpose rather than falling back to Volt's
+     credentials: silently authenticating Vantly signups against VOLT's Supabase project would mix
+     a future paying customer's data into Joel's own internal org — the one thing this whole
+     multi-brand approach exists to avoid. Blank creds show a clear "not configured" gate instead of
+     a broken or (worse) silently-wrong one. Fill in the three blanks below once those exist.
+  */
+  var BRANDS = {
+    volt: {
+      name: "Volt", wordmark: "Volt.", mark: "V",
+      tagline: "SME South Africa’s marketing suite.",
+      emailPlaceholder: "you@smesouthafrica.co.za",
+      favicon: "", // unset = keep whatever <link rel=icon> each page already declares
+      supabaseUrl: "https://ltnjjsadcvqmtczbtxii.supabase.co",
+      supabaseAnon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bmpqc2FkY3ZxbXRjemJ0eGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDgyODIsImV4cCI6MjA5NzcyNDI4Mn0.3sUeA0nITk1BqPQZGrgluHqQNHm9jP6KlrRrsZG3Tps",
+      apiHost: "https://tshephos-lab.vercel.app",
+    },
+    vantly: {
+      name: "Vantly", wordmark: "Vantly", mark: "V",
+      tagline: "Your vantage point.",
+      emailPlaceholder: "you@yourcompany.com",
+      favicon: "",
+      supabaseUrl: "",   // TODO: fill in once the Vantly Supabase project exists
+      supabaseAnon: "",  // TODO: fill in (Settings -> API -> anon/public key)
+      apiHost: "",       // TODO: fill in once the Vantly Vercel project's domain is live
+    },
+  };
+  function detectBrand() {
+    try {
+      var h = String(location.hostname || "").toLowerCase();
+      if (h.indexOf("vantly") !== -1) return BRANDS.vantly;
+    } catch (e) {}
+    return BRANDS.volt;
+  }
+  var BRAND = detectBrand();
+  // Deliberately NOT "|| BRANDS.volt.supabaseUrl" — an unconfigured Vantly must fail closed with a
+  // clear message (see init()), never silently authenticate against Volt's real production project.
+  var SUPABASE_URL = BRAND.supabaseUrl;
+  var SUPABASE_ANON = BRAND.supabaseAnon;
+  var BRAND_READY = !!(SUPABASE_URL && SUPABASE_ANON);
   var KEYS_LS = "volt_keys_v1";
   var sb = null, session = null;
 
@@ -125,7 +174,28 @@
       if (task !== "copy" && task !== "email") return null; // v1: only these run locally
       return runOllama(input, init, body, cfg);
     };
+    // Every page on this codebase hardcodes its API calls as an ABSOLUTE
+    // "https://tshephos-lab.vercel.app/api/..." URL rather than a relative "/api/...". That's
+    // deliberate, not an oversight — the desktop app serves these same pages from a local
+    // 127.0.0.1 server (see webSecurity's own comment elsewhere), where a relative path would hit
+    // the wrong origin entirely. So a brand-aware deployment can't fix this by editing 15 files'
+    // worth of URL constants to be relative; it has to rewrite the HOST at the one place every one
+    // of those calls already passes through on its way out. A no-op for Volt (its apiHost equals
+    // the literal already baked into every page) and for desktop (never Vantly's hostname).
+    var API_REWRITE_FROM = BRANDS.volt.apiHost;
+    var API_REWRITE_TO = (BRAND !== BRANDS.volt && BRAND.apiHost) ? BRAND.apiHost : null;
+    function rewriteApiHost(input) {
+      if (!API_REWRITE_TO) return input;
+      if (typeof input === "string" && input.indexOf(API_REWRITE_FROM) === 0) {
+        return API_REWRITE_TO + input.slice(API_REWRITE_FROM.length);
+      }
+      if (input && typeof input === "object" && typeof input.url === "string" && input.url.indexOf(API_REWRITE_FROM) === 0) {
+        return new Request(API_REWRITE_TO + input.url.slice(API_REWRITE_FROM.length), input);
+      }
+      return input;
+    }
     window.fetch = function (input, init) {
+      input = rewriteApiHost(input);
       var url = (typeof input === "string") ? input : ((input && input.url) || "");
       if (/\/api\//.test(url)) {
         init = init || {};
@@ -236,25 +306,46 @@
 
   function injectCSS() { if (document.getElementById("va-style")) return; var st = document.createElement("style"); st.id = "va-style"; st.textContent = CSS; document.head.appendChild(st); }
 
+  // The one page-chrome detail volt-auth.js doesn't itself draw: each page's own <title>Volt —
+  // X</title>. Rewriting it here (rather than editing every page's <head>) keeps this file the
+  // single place a new brand gets wired up. Zero-op for Volt — every page's title already reads
+  // "Volt — X", so the replace is a no-op string-for-itself swap, and the early return skips it
+  // entirely anyway. BRAND.favicon is blank for both brands today (no icon asset made yet for
+  // either); the hook is wired and ready for whenever one is supplied.
+  function applyBrandChrome() {
+    if (BRAND === BRANDS.volt) return;
+    try {
+      if (document.title && /^Volt\b/.test(document.title)) document.title = document.title.replace(/^Volt\b/, BRAND.name);
+    } catch (e) {}
+    if (BRAND.favicon) {
+      try {
+        var link = document.querySelector('link[rel="icon"]') || document.createElement("link");
+        link.rel = "icon"; link.href = BRAND.favicon;
+        if (!link.parentNode) document.head.appendChild(link);
+      } catch (e) {}
+    }
+  }
+
   /* ---------- sign-in gate ---------- */
   function showGate(errMsg) {
     injectCSS();
+    if (errMsg === "SETUP_INCOMPLETE") errMsg = BRAND.name + " isn’t fully set up yet — its Supabase project hasn’t been connected. Expected before launch, not a bug.";
     document.documentElement.style.overflow = "hidden";
     var g = document.getElementById("va-gate");
     if (!g) {
       g = document.createElement("div"); g.id = "va-gate";
       g.innerHTML =
         '<div class="va-card">' +
-          '<p class="va-logo">Volt<span class="d">.</span></p>' +
-          '<p class="va-sub">SME South Africa’s marketing suite. Sign in, or create an account to continue.</p>' +
+          '<p class="va-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
+          '<p class="va-sub">' + esc(BRAND.tagline) + ' Sign in, or create an account to continue.</p>' +
           '<label class="va-lbl" for="va-email">Email</label>' +
-          '<input class="va-input" id="va-email" type="email" autocomplete="username" placeholder="you@smesouthafrica.co.za" />' +
+          '<input class="va-input" id="va-email" type="email" autocomplete="username" placeholder="' + esc(BRAND.emailPlaceholder) + '" />' +
           '<label class="va-lbl" for="va-pw">Password</label>' +
           '<input class="va-input" id="va-pw" type="password" autocomplete="current-password" placeholder="6+ characters" />' +
           '<div class="va-err" id="va-err"></div>' +
           '<div class="va-row"><button class="va-btn va-primary" id="va-in">Sign in</button><button class="va-btn va-ghost" id="va-up">Create account</button></div>' +
           '<button class="va-forgot" id="va-forgot">Forgot password?</button>' +
-          '<p class="va-foot">For SME South Africa internal use.</p>' +
+          '<p class="va-foot">' + (BRAND === BRANDS.volt ? "For SME South Africa internal use." : "Powered by " + esc(BRAND.name) + ".") + '</p>' +
         '</div>';
       document.body.appendChild(g);
       var email = document.getElementById("va-email"), pw = document.getElementById("va-pw"), err = document.getElementById("va-err");
@@ -271,9 +362,14 @@
         // A handful of individually-named personal addresses get their own private workspace (see
         // ALLOWED_EMAIL_EXTRA in api/_guard.js, which is the real enforcement — this is just the
         // matching client-side message so sign-up doesn't reject an address the server would accept).
-        var EXTRA_ALLOWED = ["joelbosega@gmail.com"];
-        var typed = email.value.trim().toLowerCase();
-        if (!/@smesouthafrica\.co\.za$/i.test(typed) && EXTRA_ALLOWED.indexOf(typed) === -1) { fail("Please use your @smesouthafrica.co.za work email."); return; }
+        // Volt-only: Vantly is a commercial product open to any email, so this pre-flight check (a
+        // nicer message, not the real gate — that's ALLOWED_EMAIL_DOMAIN server-side) only applies
+        // to Volt's own domain-restricted internal deployment.
+        if (BRAND === BRANDS.volt) {
+          var EXTRA_ALLOWED = ["joelbosega@gmail.com"];
+          var typed = email.value.trim().toLowerCase();
+          if (!/@smesouthafrica\.co\.za$/i.test(typed) && EXTRA_ALLOWED.indexOf(typed) === -1) { fail("Please use your @smesouthafrica.co.za work email."); return; }
+        }
         busy(true); err.textContent = "Creating account…";
         sb.auth.signUp({ email: email.value.trim(), password: pw.value })
           .then(function (r) { if (r.error) fail(r.error.message); else if (!r.data.session) fail("Account made — now click Sign in."); })
@@ -308,7 +404,7 @@
     var m = document.createElement("div"); m.id = "va-reset";
     m.innerHTML =
       '<div class="va-card">' +
-        '<p class="va-logo">Volt<span class="d">.</span></p>' +
+        '<p class="va-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
         '<p class="va-sub">Set a new password for your account.</p>' +
         '<label class="va-lbl" for="va-newpw">New password</label>' +
         '<input class="va-input" id="va-newpw" type="password" autocomplete="new-password" placeholder="6+ characters" />' +
@@ -406,7 +502,7 @@
     var kbd = isMac() ? "⌘K" : "Ctrl K";
     var rail = document.createElement("aside"); rail.id = "va-rail";
     var html =
-      '<a class="r-logo" href="home.html" title="Volt"><span class="m">V</span><span class="lb">Volt.</span></a>' +
+      '<a class="r-logo" href="home.html" title="' + esc(BRAND.name) + '"><span class="m">' + esc(BRAND.mark) + '</span><span class="lb">' + esc(BRAND.wordmark) + '</span></a>' +
       '<div class="r-tile" id="r-cmdk" title="Command menu (' + kbd + ')"><span class="ic">' + railSvg("search") + '</span><span class="lb">Search <em>' + kbd + "</em></span></div>";
     RAIL_TILES.forEach(function (g) {
       html += '<div class="r-gap"></div><div class="r-grp">' + g.h + "</div>";
@@ -471,7 +567,7 @@
     }
     var bar = document.createElement("div"); bar.id = "va-update-bar";
     bar.innerHTML =
-      '<span class="va-ub-txt">✨ Volt <b>' + esc(latest) + "</b> is available" + (notes ? " — " + esc(notes) : "") + ' <span class="va-ub-cur">(you have ' + esc(cur) + ")</span></span>" +
+      '<span class="va-ub-txt">✨ ' + esc(BRAND.name) + ' <b>' + esc(latest) + "</b> is available" + (notes ? " — " + esc(notes) : "") + ' <span class="va-ub-cur">(you have ' + esc(cur) + ")</span></span>" +
       '<span class="va-ub-actions">' +
         (url ? '<a class="va-ub-btn" href="' + esc(url) + '" target="_blank" rel="noopener">Download update ↗</a>' : "") +
         '<button class="va-ub-x" id="va-ub-x">Later</button>' +
@@ -523,7 +619,7 @@
     }
     var bar = document.createElement("div"); bar.id = "va-update-bar";
     bar.innerHTML =
-      '<span class="va-ub-txt">✨ Volt has been updated since you opened this page</span>' +
+      '<span class="va-ub-txt">✨ ' + esc(BRAND.name) + ' has been updated since you opened this page</span>' +
       '<span class="va-ub-actions">' +
         '<button class="va-ub-btn" id="va-ub-refresh">Refresh now</button>' +
         '<button class="va-ub-x" id="va-ub-x">Later</button>' +
@@ -703,7 +799,7 @@
   /* ---------- settings (keys on desktop + sign out) ---------- */
   function keyFieldsHTML() {
     var k = getKeys();
-    var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Add as many AI keys as you like — Volt tries them top-to-bottom and auto-falls-over to the next when one is rate-limited or out of quota. More keys = fewer interruptions.</p>';
+    var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Add as many AI keys as you like — ' + esc(BRAND.name) + ' tries them top-to-bottom and auto-falls-over to the next when one is rate-limited or out of quota. More keys = fewer interruptions.</p>';
     ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai", "postiz", "kit", "wpUrl", "wpUser", "wpKey"].forEach(function (id) {
       var i = KEYS[id];
       var link = i.url ? '<a class="va-get" href="' + i.url + '" target="_blank" rel="noopener">' + (/wordpress|postiz/i.test(i.url) ? "Guide ↗" : "Get key ↗") + '</a>' : "";
@@ -806,7 +902,7 @@
     var cfg = getSleepCfg();
     var opts = [1, 2, 5, 10, 15, 30].map(function (n) { return '<option value="' + n + '"' + ((parseInt(cfg.mins, 10) || 5) === n ? " selected" : "") + '>' + n + " minute" + (n > 1 ? "s" : "") + "</option>"; }).join("");
     return '<p class="va-pane-h">🌙 Sleep mode</p>' +
-      '<p class="va-pane-sub">When you go idle, Volt drops into an ambient standby screen — a live clock and glowing reactor, great as a desk display. Any mouse move or key press wakes it instantly.</p>' +
+      '<p class="va-pane-sub">When you go idle, ' + esc(BRAND.name) + ' drops into an ambient standby screen — a live clock and glowing reactor, great as a desk display. Any mouse move or key press wakes it instantly.</p>' +
       '<label class="va-toggle-row"><span>Enable sleep mode</span><input type="checkbox" id="va-sleep-on"' + (cfg.on ? " checked" : "") + ' style="width:18px;height:18px;accent-color:#B6FF3D;cursor:pointer;"></label>' +
       '<div class="va-field" style="margin-top:6px;"><span class="nm">Sleep after</span><select class="va-input" id="va-sleep-mins" style="margin-top:6px;cursor:pointer;">' + opts + "</select></div>" +
       '<button class="va-btn va-ghost" id="va-sleep-preview" style="margin-top:14px;">▶ Preview standby screen</button>';
@@ -815,7 +911,7 @@
     var org = (session && session.user && (session.user.user_metadata && session.user.user_metadata.org)) || "";
     var appv = (isDesktop() && window.voltNative && window.voltNative.isDesktop) ? "Desktop app" : "Web";
     return '<p class="va-pane-h">👤 Account</p>' +
-      '<p class="va-pane-sub">You\'re signed in to Volt. Manage your keys, sleep mode and usage from the tabs on the left.</p>' +
+      '<p class="va-pane-sub">You\'re signed in to ' + esc(BRAND.name) + '. Manage your keys, sleep mode and usage from the tabs on the left.</p>' +
       '<div class="va-info-row"><span class="l">Email</span><span class="r">' + esc(email) + '</span></div>' +
       (org ? '<div class="va-info-row"><span class="l">Organisation</span><span class="r">' + esc(org) + '</span></div>' : "") +
       '<div class="va-info-row"><span class="l">Running on</span><span class="r">' + appv + '</span></div>' +
@@ -955,7 +1051,7 @@
       { t: "Stats", s: "Performance & insights", e: "📊", href: "analytics.html" },
       { t: "Email", s: "Build a newsletter", e: "✉️", href: "email.html" },
       { t: "Video", s: "Make a short", e: "🎬", href: "video.html" },
-      { t: "Guide", s: "How to use Volt", e: "📖", href: "guide.html" }
+      { t: "Guide", s: "How to use " + BRAND.name, e: "📖", href: "guide.html" }
     ];
     var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     var cmds = tools.filter(function (x) { return x.href.toLowerCase() !== here; })
@@ -977,7 +1073,7 @@
     if (cmdkReady) return; cmdkReady = true;
     var st = document.createElement("style"); st.id = "va-cmdk-style"; st.textContent = CMDK_CSS; document.head.appendChild(st);
     var ov = document.createElement("div"); ov.id = "vk-ov";
-    ov.innerHTML = '<div id="vk"><input id="vk-in" type="text" placeholder="Search Volt — jump to a tool or run an action…" autocomplete="off" spellcheck="false" /><div id="vk-list"></div><div id="vk-foot"><span><b>↑↓</b> move</span><span><b>↵</b> open</span><span><b>esc</b> close</span></div></div>';
+    ov.innerHTML = '<div id="vk"><input id="vk-in" type="text" placeholder="Search ' + esc(BRAND.name) + ' — jump to a tool or run an action…" autocomplete="off" spellcheck="false" /><div id="vk-list"></div><div id="vk-foot"><span><b>↑↓</b> move</span><span><b>↵</b> open</span><span><b>esc</b> close</span></div></div>';
     document.body.appendChild(ov);
     var inp = document.getElementById("vk-in"), list = document.getElementById("vk-list");
     function closeK() { ov.classList.remove("open"); }
@@ -1290,7 +1386,7 @@
     injectCSS();
     var m = document.createElement("div"); m.id = "va-welcome";
     m.innerHTML = '<div class="va-card">' +
-      '<p class="va-logo">Volt<span class="d">.</span></p>' +
+      '<p class="va-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
       '<p class="va-sub" style="margin-bottom:18px;">Welcome, ' + esc(firstName(session && session.user && session.user.email)) + '. Your AI marketing suite — copy, graphics, video, email and the numbers, all in one place.</p>' +
       '<div class="va-tips">' +
         vaTip("🎨", "Set your brand once", "Do it in Studio — every tool then uses your colours, logo and voice.") +
@@ -1386,7 +1482,7 @@
         '<circle class="dot" cx="100" cy="100" r="6"></circle>' +
       '</svg>' +
       '<div class="vj-boot">' +
-        '<div class="vj-line" style="animation-delay:.25s">◇ Volt Intelligence — Online</div>' +
+        '<div class="vj-line" style="animation-delay:.25s">◇ ' + esc(BRAND.name) + ' Intelligence — Online</div>' +
         '<div class="vj-line" style="animation-delay:.65s">▸ Calibrating modules … OK</div>' +
         '<div class="vj-line" style="animation-delay:1.05s">▸ Secure session verified</div>' +
       '</div>' +
@@ -1429,6 +1525,8 @@
   }
   function init() {
     injectCSS();
+    applyBrandChrome();
+    if (!BRAND_READY) { showGate("SETUP_INCOMPLETE"); return; } // fail closed, never touch Volt's real project
     showGate(); // show immediately so nothing flashes unauthenticated
     loadSb(function () {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
