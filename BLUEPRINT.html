@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-08-31</strong> (Video + MCP + Studio only — see "Known gap in this file" below for what wasn't re-verified this pass).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-09-03</strong> (multi-brand foundation + Video + MCP + Studio — see "Known gap in this file" below for what wasn't re-verified this pass).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -171,6 +171,12 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-09-03</span>
+    <strong>Multi-brand foundation: Vantly, the commercial product, alongside Volt</strong> — Joel bought a domain for a commercial spin-off of Volt (volt.co.za was taken; the new name is <b>Vantly</b>, coined from "vantage"). Rather than forking the codebase — double the maintenance, every fix landing twice, forever — <code>volt-auth.js</code> (loaded on every single page) now detects which brand is running from the HOSTNAME at runtime and resolves everything brand-specific from one <code>BRANDS</code> table: visual chrome (gate modal, rail logo, settings pane, welcome/reset modals, update banners, command palette, sleep screen), which Supabase project owns the account data, and which deployment answers <code>/api</code> calls. That last one needed a real trick: every page hardcodes an ABSOLUTE <code>https://tshephos-lab.vercel.app/api/...</code> URL rather than a relative one — deliberately, since the desktop app serves pages from a local 127.0.0.1 origin where a relative path would resolve to the wrong place — so a brand-aware deployment can't fix this by editing the 15 files that declare one; it rewrites the HOST at the one choke point every one of those calls already passes through, this file's existing <code>window.fetch</code> patch (used for attaching the auth token).
+    <p style="margin-top:8px;">Volt is the unconditional default: any hostname that isn't recognised as Vantly's falls straight through to today's exact Volt config — verified byte-identical against the live gate/rail text, not just read by eye. <strong>Vantly is NOT live</strong> — its Supabase project and API host are deliberately blank placeholders (Joel's own account-creation steps, outside what this repo can do) until he sets them up; an unconfigured Vantly hostname fails CLOSED with a clear message rather than silently authenticating against Volt's real production Supabase project, which would mix a future paying customer's data into Joel's own internal org.</p>
+    <p style="margin-top:8px;">Also shipped this session: <a href="https://claude.ai/code/artifact/621b626f-288c-4573-bd5d-e9f8646126ce" target="_blank" rel="noopener">Vantly's full brand identity</a> — coined meaning, logomark, colour system, type pairing, voice, application mockup. Not yet wired into the actual app as real assets (favicon/logo image files) — <code>BRAND.favicon</code> is a ready-but-inert hook waiting on those.</p>
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-08-31</span>
     <strong>Fix: Transcribe's YouTube and Article buttons both hit "Missing offer"</strong> — the same class of generate.js task-routing gap noted before in this file: <code>buildYtMetaPrompt()</code>/<code>SYSTEM_YTMETA</code> and <code>buildArticlePrompt()</code>/<code>SYSTEM_ARTICLE</code> were both fully written but neither had an <code>if (task === "...")</code> branch wired up, so both tasks fell through every handler to the default "copy" task's own <code>offer</code> validation at the bottom of the function — a confusing, unrelated error for a page that has no offer field at all. Added both missing branches, response shapes verified against what <code>videotok.html</code>'s <code>renderYT()</code>/<code>renderArticle()</code> already expected (a pure wiring gap, not a design mismatch — the prompts already declared the right JSON shapes). Cross-checked every other <code>SYSTEM_*</code>/<code>build*Prompt()</code> pair in the file against the dispatcher — no other orphaned handler found.
