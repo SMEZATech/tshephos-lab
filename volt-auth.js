@@ -46,6 +46,20 @@
       apiHost: "https://vantly-xi.vercel.app", // update this once the real vantly.* domain is connected
       // Vantly's own admin — nothing to do with the SME South Africa list above.
       adminEmails: ["joelbosega@gmail.com"],
+      // Full visual identity — see the Vantly Brand Identity artifact for the reasoning (dusk-to-
+      // dawn palette, Fraunces + Public Sans, "vantage point" as two ridgelines meeting at first
+      // light). Volt has no `theme` field at all, which is what keeps this whole block a no-op for
+      // Volt's own deployment (see injectBrandStyles() below) rather than something to keep in sync.
+      theme: {
+        fontLink: "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,440;0,9..144,600;0,9..144,800;1,9..144,440&family=Public+Sans:wght@400;500;600;700;800&display=swap",
+        fd: "'Fraunces',Georgia,serif", fb: "'Public Sans',system-ui,sans-serif",
+        bg: "#12162a", surface: "#191d36", surface2: "#212752",
+        border: "rgba(244,239,230,.09)", border2: "rgba(244,239,230,.17)",
+        text: "#f4efe6", dim: "#a29cc2", faint: "#6d688a",
+        accent: "#e2924a", accentPress: "#c97a35", accentHi: "#f4c88b",
+        good: "#6bd39a", mid: "#f0b95e", low: "#e8746f", info: "#8ab4d8",
+        glow1: "rgba(226,146,74,.14)", glow2: "rgba(58,64,112,.22)", glow3: "rgba(226,146,74,.06)",
+      },
     },
   };
   function detectBrand() {
@@ -330,6 +344,67 @@
         if (!link.parentNode) document.head.appendChild(link);
       } catch (e) {}
     }
+    injectBrandStyles();
+  }
+
+  // Full visual reskin, driven entirely by BRAND.theme — a no-op whenever that field is absent
+  // (Volt has none). Two layers, because the app's colour system has two layers:
+  //   1. Every page (Copy Lab, Campaign, SmartClip — Studio uses a different system, not covered
+  //      here yet) already defines its OWN `:root{ --bg / --accent / --fd / ... }` tokens. Redefining
+  //      those with `!important` re-skins all of them from this one file, with zero per-page edits.
+  //   2. volt-auth.js's OWN injected CSS (the rail, the sign-in gate, popovers, the command palette)
+  //      only threads a handful of rules through `var(--accent, #B6FF3D)` — most of it hardcodes the
+  //      lime hex directly, since the rail predates this file having any notion of a second brand.
+  //      Those need their OWN explicit overrides, listed out below rather than guessed at.
+  // `!important` throughout is load-bearing, not decoration: this script runs and can inject before
+  // the page's own <style> block has even been parsed (it's the first thing in <head>), so without
+  // it a later same-specificity rule from the page would simply win the cascade and silently undo
+  // this whole block.
+  function injectBrandStyles() {
+    var t = BRAND.theme; if (!t) return;
+    if (t.fontLink && !document.querySelector('link[data-brand-font]')) {
+      var fl = document.createElement("link"); fl.rel = "stylesheet"; fl.href = t.fontLink; fl.setAttribute("data-brand-font", "1");
+      document.head.appendChild(fl);
+    }
+    if (document.getElementById("va-brand-theme")) return;
+    var css =
+      ":root{" +
+        "--bg:" + t.bg + " !important;--surface:" + t.surface + " !important;--surface-2:" + t.surface2 + " !important;" +
+        "--border:" + t.border + " !important;--border-2:" + t.border2 + " !important;" +
+        "--text:" + t.text + " !important;--dim:" + t.dim + " !important;--faint:" + t.faint + " !important;" +
+        "--accent:" + t.accent + " !important;--accent-press:" + t.accentPress + " !important;" +
+        "--good:" + t.good + " !important;--mid:" + t.mid + " !important;--low:" + t.low + " !important;--info:" + t.info + " !important;" +
+        "--fd:" + t.fd + " !important;--fb:" + t.fb + " !important;" +
+      "}" +
+      // the decorative ambient glow every one of these pages paints behind .wrap — hardcoded lime/
+      // blue rgba literals, not tokens, so it needs its own rule rather than riding the block above.
+      ".bg{background:" +
+        "radial-gradient(820px 540px at 8% -6%," + t.glow1 + ",transparent 60%)," +
+        "radial-gradient(720px 520px at 102% 4%," + t.glow2 + ",transparent 58%)," +
+        "radial-gradient(600px 600px at 50% 120%," + t.glow3 + ",transparent 60%) !important;" +
+      "}" +
+      // volt-auth.js's own chrome — the rail, gate, popovers — hardcodes lime rather than reading
+      // the tokens above (see the comment on injectBrandStyles). Explicit per-selector overrides.
+      ".va-tip-i{color:" + t.accent + " !important;}" +
+      ".va-forgot:hover{color:" + t.accent + " !important;}" +
+      ".va-logo{font-family:" + t.fd + " !important;}.va-logo .d{color:" + t.accent + " !important;}" +
+      ".va-input:focus{border-color:" + t.accent + " !important;}" +
+      ".va-primary{background:" + t.accent + " !important;}" +
+      ".va-get{color:" + t.accent + " !important;}" +
+      "#va-refresh,#va-gear{color:" + t.accent + " !important;}" +
+      "#va-refresh:hover,#va-gear:hover{background:" + t.accent + " !important;}" +
+      "#va-rail .r-logo .m{background:" + t.accent + " !important;}" +
+      ".r-tile.on{background:" + t.glow1 + " !important;color:" + t.accentHi + " !important;}" +
+      ".r-tile.on::before{background:" + t.accent + " !important;}" +
+      ".r-tile:hover{color:" + t.text + " !important;}" +
+      "#va-rail .r-av .cir{background:linear-gradient(135deg," + t.accent + "," + t.good + ") !important;}" +
+      ".va-acct-av{background:linear-gradient(135deg," + t.accent + "," + t.good + ") !important;}" +
+      ".va-tab.active{background:" + t.glow1 + " !important;color:" + t.accentHi + " !important;}" +
+      ".vk-item.sel{background:" + t.glow1 + " !important;}.vk-item.sel .vk-t{color:" + t.accentHi + " !important;}" +
+      "#va-cmdk:hover{background:" + t.accent + " !important;border-color:" + t.accent + " !important;}" +
+      "#va-rail .r-tile.on{color:" + t.accentHi + " !important;}";
+    var st = document.createElement("style"); st.id = "va-brand-theme"; st.textContent = css;
+    document.head.appendChild(st);
   }
 
   /* ---------- sign-in gate ---------- */
