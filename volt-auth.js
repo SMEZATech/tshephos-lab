@@ -32,15 +32,20 @@
       supabaseUrl: "https://ltnjjsadcvqmtczbtxii.supabase.co",
       supabaseAnon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bmpqc2FkY3ZxbXRjemJ0eGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDgyODIsImV4cCI6MjA5NzcyNDI4Mn0.3sUeA0nITk1BqPQZGrgluHqQNHm9jP6KlrRrsZG3Tps",
       apiHost: "https://tshephos-lab.vercel.app",
+      // admin.html reads this (window.voltBrandAdmins) instead of its own hardcoded list, so
+      // "who can write org settings" lives in exactly one place per brand, same as everything else.
+      adminEmails: ["joel@smesouthafrica.co.za", "joelbosega@gmail.com"],
     },
     vantly: {
       name: "Vantly", wordmark: "Vantly", mark: "V",
       tagline: "Your vantage point.",
       emailPlaceholder: "you@yourcompany.com",
       favicon: "",
-      supabaseUrl: "https://wxiaumhgjzysivzaryuu3.supabase.co",
+      supabaseUrl: "https://wxiaumhgjzysivzaryuu.supabase.co",
       supabaseAnon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4aWF1bWhnanp5c2l2emFyeXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0OTEzODQsImV4cCI6MjEwNDA2NzM4NH0.EqmA8lDopq9ElNjnt2x5webSTueJ77FEyyiHrq9G-E8",
       apiHost: "https://vantly-xi.vercel.app", // update this once the real vantly.* domain is connected
+      // Vantly's own admin — nothing to do with the SME South Africa list above.
+      adminEmails: ["joelbosega@gmail.com"],
     },
   };
   function detectBrand() {
@@ -56,6 +61,7 @@
   var SUPABASE_URL = BRAND.supabaseUrl;
   var SUPABASE_ANON = BRAND.supabaseAnon;
   var BRAND_READY = !!(SUPABASE_URL && SUPABASE_ANON);
+  window.voltBrandAdmins = BRAND.adminEmails || []; // admin.html's owner check reads this
   var KEYS_LS = "volt_keys_v1";
   var sb = null, session = null;
 

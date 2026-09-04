@@ -13,14 +13,21 @@ import { setCors, rateLimit, requireSession, db, workspaceInfo } from "./_guard.
 const enc = (v) => encodeURIComponent(String(v));
 
 // Org settings are owner-only to WRITE (everyone reads them — that is how enforcement works).
-// VOLT_ADMIN_EMAIL is comma-separated so the same person can own settings in more than one org
-// (e.g. a private per-person workspace alongside the shared team one — see ALLOWED_EMAIL_EXTRA in
-// _guard.js) without this ever granting cross-org access: each email still only ever resolves to
-// its OWN org via resolveOrg(), so listing a second address here can't let it touch someone else's.
+// VOLT_ADMIN_EMAIL (or VANTLY_ADMIN_EMAIL, whichever this deployment set — see below) is
+// comma-separated so the same person can own settings in more than one org (e.g. a private
+// per-person workspace alongside the shared team one — see ALLOWED_EMAIL_EXTRA in _guard.js)
+// without this ever granting cross-org access: each email still only ever resolves to its OWN org
+// via resolveOrg(), so listing a second address here can't let it touch someone else's.
+//
+// VANTLY_ADMIN_EMAIL checked first, not VOLT_ADMIN_EMAIL || VANTLY_ADMIN_EMAIL: this is one
+// shared codebase running as two brands (see volt-auth.js's BRANDS table), and "VOLT_" in a
+// variable name Vantly's own Vercel project depends on reads as exactly the leftover coupling
+// this whole multi-brand approach exists to avoid — Vantly's deployment gets its own cleanly
+// named variable, full stop, not a brand-specific override bolted onto Volt's name.
 const isAdmin = (s) => {
   const email = String((s && s.user && s.user.email) || "").toLowerCase();
-  const list = String(process.env.VOLT_ADMIN_EMAIL || "joel@smesouthafrica.co.za")
-    .toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
+  const raw = process.env.VANTLY_ADMIN_EMAIL || process.env.VOLT_ADMIN_EMAIL || "joel@smesouthafrica.co.za";
+  const list = String(raw).toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
   return list.includes(email);
 };
 

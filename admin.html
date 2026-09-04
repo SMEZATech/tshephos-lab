@@ -126,11 +126,13 @@
 
 <script>
 const API = 'https://tshephos-lab.vercel.app/api';
-// Two identities, ONE person: the shared-org work email and the personal email used to sign into
-// the private, colleague-invisible workspace (see BLUEPRINT.html's 2026-08-21 entry). Each resolves
-// to its own separate org, so there's no cross-org access implied by listing both here — just
-// letting the same human manage whichever workspace they're currently signed into.
-const ADMIN_EMAILS = ['joel@smesouthafrica.co.za', 'joelbosega@gmail.com'];
+// The admin list is per-BRAND now (volt-auth.js's BRANDS table, exposed as window.voltBrandAdmins)
+// — Vantly is a separate commercial product with its own owner, not another Volt workspace, and a
+// hardcoded Volt-specific list here would have been wrong for it even though joelbosega@gmail.com
+// happened to already appear on Volt's list for an unrelated reason (the private per-person
+// workspace — see BLUEPRINT.html's 2026-08-21 entry — not Vantly). The fallback below only matters
+// if this ever loads before volt-auth.js has run, which shouldn't happen in practice.
+const ADMIN_EMAILS = window.voltBrandAdmins || ['joel@smesouthafrica.co.za', 'joelbosega@gmail.com'];
 const $ = s => document.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
