@@ -38,9 +38,9 @@
       tagline: "Your vantage point.",
       emailPlaceholder: "you@yourcompany.com",
       favicon: "",
-      supabaseUrl: "",   // TODO: fill in once the Vantly Supabase project exists
-      supabaseAnon: "",  // TODO: fill in (Settings -> API -> anon/public key)
-      apiHost: "",       // TODO: fill in once the Vantly Vercel project's domain is live
+      supabaseUrl: "https://wxiaumhgjzysivzaryuu3.supabase.co",
+      supabaseAnon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4aWF1bWhnanp5c2l2emFyeXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0OTEzODQsImV4cCI6MjEwNDA2NzM4NH0.EqmA8lDopq9ElNjnt2x5webSTueJ77FEyyiHrq9G-E8",
+      apiHost: "https://vantly-xi.vercel.app", // update this once the real vantly.* domain is connected
     },
   };
   function detectBrand() {
