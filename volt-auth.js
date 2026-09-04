@@ -1170,13 +1170,16 @@
       var bizEl = document.getElementById("ct-bizsa"); if (bizEl) bizEl.style.display = "none";
     }
     if (!s || (!s.modules && !s.themes && !s.premium)) return;
-    // nav tabs + rail entries for retired modules
+    // nav tabs + rail entries for retired modules. Used to only hide an <a> carrying one of three
+    // class names (tab / nav-tab / r-t) — leftover from the old per-page topbar this app no longer
+    // uses (see "Nav lives in the rail"). The rail's real tile class is "r-tile", which matched
+    // NONE of those, so retiring a module in Admin never actually removed it from the sidebar —
+    // the one place every page's nav lives today. Hide any matching link, full stop; there's no
+    // real case where a link to a retired module's page should stay visible somewhere.
     Object.keys(s.modules || {}).forEach(function (k) {
       if (s.modules[k] !== false) return;
       var sel = 'a[href="' + k + '.html"]';
-      [].forEach.call(document.querySelectorAll(sel), function (a) {
-        if (a.classList.contains("tab") || a.classList.contains("nav-tab") || a.classList.contains("r-t")) a.style.display = "none";
-      });
+      [].forEach.call(document.querySelectorAll(sel), function (a) { a.style.display = "none"; });
     });
     // Studio theme buttons (#theme-classic…) and premium content types (#ct-funding…)
     Object.keys(s.themes || {}).forEach(function (k) {
