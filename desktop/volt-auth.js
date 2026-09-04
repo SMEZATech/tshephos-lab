@@ -336,6 +336,17 @@
     if (BRAND === BRANDS.volt) return;
     try {
       if (document.title && /^Volt\b/.test(document.title)) document.title = document.title.replace(/^Volt\b/, BRAND.name);
+      // Copy Lab's own hero heading spells the brand name out as page content, not chrome — the
+      // one such case found across Copy Lab/Campaign/SmartClip (Campaign and SmartClip's headings
+      // were already brand-neutral copy). Rewritten by id rather than by matching "Volt" as text,
+      // so it can't accidentally catch something that isn't actually the wordmark. The trailing
+      // accent-coloured "." is Volt's own convention (from BRAND.wordmark ending in "."); Vantly's
+      // wordmark has none, so the dot span is hidden rather than left dangling off "Vantly".
+      var hero = document.getElementById("pageHeroLogo");
+      if (hero && hero.firstChild && hero.firstChild.nodeType === 3) {
+        hero.firstChild.textContent = BRAND.name;
+        if (BRAND.wordmark.slice(-1) !== ".") { var dot = hero.querySelector(".accent"); if (dot) dot.style.display = "none"; }
+      }
     } catch (e) {}
     if (BRAND.favicon) {
       try {
