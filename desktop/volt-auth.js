@@ -59,6 +59,10 @@
         accent: "#e2924a", accentPress: "#c97a35", accentHi: "#f4c88b",
         good: "#6bd39a", mid: "#f0b95e", low: "#e8746f", info: "#8ab4d8",
         glow1: "rgba(226,146,74,.14)", glow2: "rgba(58,64,112,.22)", glow3: "rgba(226,146,74,.06)",
+        // Studio-only: it uses solid hex borders and three distinct panel depths where the other
+        // pages use rgba tokens and two, so these have no equivalent in the block above.
+        surfaceIn: "#0e1226", surfaceAlt: "#1b2040", surfaceHover: "#242a54",
+        borderSolid: "#2b3057", borderHover: "#3d4478",
       },
     },
   };
@@ -76,6 +80,11 @@
   var SUPABASE_ANON = BRAND.supabaseAnon;
   var BRAND_READY = !!(SUPABASE_URL && SUPABASE_ANON);
   window.voltBrandAdmins = BRAND.adminEmails || []; // admin.html's owner check reads this
+  // Studio builds its whole palette through a Tailwind config object evaluated inline, so it can't
+  // be re-skinned by CSS overrides alone the way the token-based pages can. It reads this instead —
+  // this file loads first in <head>, so the value is always here before that config runs. Null for
+  // Volt, which keeps Studio's own lime config exactly as written.
+  window.voltBrandTheme = BRAND.theme || null;
   var KEYS_LS = "volt_keys_v1";
   var sb = null, session = null;
 
@@ -413,7 +422,48 @@
       ".va-tab.active{background:" + t.glow1 + " !important;color:" + t.accentHi + " !important;}" +
       ".vk-item.sel{background:" + t.glow1 + " !important;}.vk-item.sel .vk-t{color:" + t.accentHi + " !important;}" +
       "#va-cmdk:hover{background:" + t.accent + " !important;border-color:" + t.accent + " !important;}" +
-      "#va-rail .r-tile.on{color:" + t.accentHi + " !important;}";
+      "#va-rail .r-tile.on{color:" + t.accentHi + " !important;}" +
+      // ---- Studio ----------------------------------------------------------------------------
+      // Its Tailwind config is already brand-aware (studio.html reads window.voltBrandTheme), but
+      // its own <style> block hardcodes the lime hex across ~15 component rules. Those are listed
+      // out here rather than left to bleed lime through an otherwise copper page.
+      // NOT touched on purpose: .bg-sme-red / .text-sme-navy / :root{--bp,--bs}. Those aren't app
+      // chrome — they're the user's own Brand Kit colours driving the graphic being designed, and
+      // re-skinning them would change the artwork, not the interface around it.
+      "body{background-color:" + t.bg + " !important;font-family:" + t.fb + " !important;}" +
+      "::-webkit-scrollbar-track{background:" + t.bg + " !important;}" +
+      "::-webkit-scrollbar-thumb{background:" + t.borderSolid + " !important;}" +
+      "::-webkit-scrollbar-thumb:hover{background:" + t.borderHover + " !important;}" +
+      ".preview-bg{background-color:" + t.surfaceIn + " !important;background-image:radial-gradient(" + t.borderSolid + " 1px,transparent 1px) !important;}" +
+      "input[type=range]{accent-color:" + t.accent + " !important;}" +
+      "#toast{background-color:" + t.surface + " !important;border-color:" + t.borderSolid + " !important;}" +
+      ".nav-tab{border-color:" + t.borderSolid + " !important;color:" + t.dim + " !important;}" +
+      ".nav-tab:hover{color:" + t.text + " !important;border-color:" + t.accent + " !important;}" +
+      ".nav-tab.active{background:" + t.accent + " !important;color:" + t.bg + " !important;border-color:" + t.accent + " !important;}" +
+      "#progress-bar{background:linear-gradient(90deg," + t.accentPress + "," + t.accent + ") !important;}" +
+      ".engine-badge{background:" + t.glow1 + " !important;color:" + t.accentHi + " !important;border-color:" + t.border2 + " !important;}" +
+      ".vt-tabs{background:" + t.surface + " !important;border-color:" + t.borderSolid + " !important;}" +
+      ".vt-tab{color:" + t.dim + " !important;}" +
+      ".vt-tab:hover{color:" + t.text + " !important;}" +
+      ".vt-tab.on{background:" + t.accent + " !important;color:" + t.bg + " !important;}" +
+      ".vt-lbl{color:" + t.accentHi + " !important;}" +
+      ".vt-sub{color:" + t.dim + " !important;}" +
+      ".vt-note,.vt-lbl .hint{color:" + t.faint + " !important;}" +
+      ".vt-card{background:" + t.surface + " !important;border-color:" + t.borderSolid + " !important;}" +
+      ".vt-opt{background:" + t.surfaceAlt + " !important;color:" + t.dim + " !important;border-color:" + t.borderSolid + " !important;}" +
+      ".vt-opt:hover{color:" + t.text + " !important;border-color:" + t.borderHover + " !important;background:" + t.surfaceHover + " !important;}" +
+      ".vt-opt.on{background:" + t.accent + " !important;color:" + t.bg + " !important;border-color:" + t.accent + " !important;}" +
+      "#ct-current{border-color:" + t.border2 + " !important;color:" + t.text + " !important;background:" + t.surface + " !important;}" +
+      "#ct-current:hover{border-color:" + t.accent + " !important;background:" + t.surfaceHover + " !important;}" +
+      ".vt-btn{background:" + t.surfaceAlt + " !important;color:" + t.text + " !important;border-color:" + t.borderSolid + " !important;}" +
+      ".vt-btn:hover{background:" + t.surfaceHover + " !important;border-color:" + t.borderHover + " !important;}" +
+      ".vt-btn-accent,.vt-btn-primary{background:" + t.accent + " !important;color:" + t.bg + " !important;border-color:" + t.accent + " !important;}" +
+      ".vt-btn-accent:hover,.vt-btn-primary:hover{background:" + t.accentHi + " !important;border-color:" + t.accentHi + " !important;}" +
+      ".vt-in,.bk-in{background:" + t.surfaceIn + " !important;color:" + t.text + " !important;border-color:" + t.borderSolid + " !important;}" +
+      ".vt-in:focus,.bk-in:focus{border-color:" + t.accent + " !important;}" +
+      ".vt-file::file-selector-button{background:" + t.surfaceAlt + " !important;color:" + t.text + " !important;border-color:" + t.borderSolid + " !important;}" +
+      ".vt-file::file-selector-button:hover{background:" + t.surfaceHover + " !important;}" +
+      ".bk-lbl{color:" + t.dim + " !important;}";
     var st = document.createElement("style"); st.id = "va-brand-theme"; st.textContent = css;
     document.head.appendChild(st);
   }

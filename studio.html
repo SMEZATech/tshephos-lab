@@ -23,18 +23,34 @@
         // Volt palette. Chrome accents (red/blue/emerald/purple) are remapped to one electric-lime ramp
         // so the whole app UI is unified. The SME-branded graphic output uses sme-red/sme-navy/slate/white
         // and is deliberately left untouched.
+        //
+        // BRAND-AWARE: volt-auth.js loads above this and sets window.voltBrandTheme for any brand
+        // that isn't Volt (see its BRANDS table). Studio can't be re-skinned by the CSS-variable
+        // override that covers Copy Lab/Campaign/SmartClip, because its palette is built HERE, in a
+        // Tailwind config object, before any stylesheet exists. So the ramp and the `lab` shell
+        // colours are read from that theme when present — and fall through to the exact lime values
+        // below when it's absent, which is always the case on Volt's own deployment.
+        const _vt = window.voltBrandTheme || null;
+        const _ramp = (hi, mid, lo) => ({ 200:hi, 300:hi, 400:mid, 500:mid, 600:lo, 700:lo, 800:lo, 900:lo });
         const _lime = { 200:'#e8ffc2', 300:'#d4ff8f', 400:'#c5ff5e', 500:'#B6FF3D', 600:'#a3ec2b', 700:'#8fd416', 800:'#6f9f12', 900:'#3f4d0a' };
+        const _accentRamp = _vt ? _ramp(_vt.accentHi, _vt.accent, _vt.accentPress) : _lime;
+        const _lab = _vt
+            ? { bg:_vt.bg, surface:_vt.surface, surface2:_vt.surface2, border:'#2b3057', line:'#343a66', text:_vt.text, dim:_vt.dim, faint:_vt.faint, accent:_vt.accent, ink:_vt.bg }
+            : { bg:'#0A0B0F', surface:'#14171F', surface2:'#1A1E28', border:'#23262E', line:'#2A2E38', text:'#ECEEF3', dim:'#888F9D', faint:'#5B616D', accent:'#B6FF3D', ink:'#0A0B0F' };
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         sme: { red: '#9c1c1f', navy: '#0a2c3d', black: '#000000', gray: '#f8fafc' },
-                        lab: { bg:'#0A0B0F', surface:'#14171F', surface2:'#1A1E28', border:'#23262E', line:'#2A2E38', text:'#ECEEF3', dim:'#888F9D', faint:'#5B616D', accent:'#B6FF3D', ink:'#0A0B0F' },
-                        red: _lime, blue: _lime, emerald: _lime, purple: _lime, sky: _lime, indigo: _lime, violet: _lime
+                        lab: _lab,
+                        red: _accentRamp, blue: _accentRamp, emerald: _accentRamp, purple: _accentRamp,
+                        sky: _accentRamp, indigo: _accentRamp, violet: _accentRamp
                     },
                     fontFamily: {
                         oswald: ['Oswald', 'sans-serif'], roboto: ['Roboto', 'sans-serif'],
-                        display: ['Unbounded', 'sans-serif'], sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace']
+                        display: _vt ? ['Fraunces', 'Georgia', 'serif'] : ['Unbounded', 'sans-serif'],
+                        sans: _vt ? ['Public Sans', 'system-ui', 'sans-serif'] : ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
                     }
                 }
             }
