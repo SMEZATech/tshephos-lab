@@ -237,7 +237,7 @@
             </nav>
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-baseline gap-2.5 min-w-0">
-                    <h1 class="text-2xl font-extrabold text-white tracking-tight leading-none" style="font-family:'Unbounded',sans-serif;">Volt<span style="color:#B6FF3D;">.</span></h1>
+                    <h1 id="pageHeroLogo" class="text-2xl font-extrabold text-white tracking-tight leading-none" style="font-family:var(--vt-display,'Unbounded'),sans-serif;">Volt<span class="accent" style="color:var(--vt-accent,#B6FF3D);">.</span></h1>
                     <span class="text-[10px] text-[#5B616D] tracking-[0.18em] uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Studio</span>
                 </div>
                 <!-- The "No API key" badge lived here. It reported an implementation detail nobody
@@ -250,7 +250,7 @@
                     <span id="brand-chip-swatch" class="w-3.5 h-3.5 rounded-sm shrink-0 border border-white/20" style="background:#9c1c1f;"></span>
                     <span class="text-[11px] text-[#888F9D] font-bold truncate"><span id="brand-chip-name" class="text-white">SME South Africa</span></span>
                 </span>
-                <span class="text-[9px] font-bold uppercase tracking-widest shrink-0" style="color:#B6FF3D;">Manage</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest shrink-0" style="color:var(--vt-accent,#B6FF3D);">Manage</span>
             </button>
         </div>
 
@@ -269,7 +269,7 @@
             <div id="pane-design" class="space-y-6">
 
                 <div id="advisor-panel" class="vt-card" style="border-color:rgba(182,255,61,0.22);background:linear-gradient(180deg,rgba(182,255,61,0.06),rgba(182,255,61,0.02));">
-                    <div class="flex items-center gap-2 mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em]" style="color:#B6FF3D;">
+                    <div class="flex items-center gap-2 mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em]" style="color:var(--vt-accent,#B6FF3D);">
                         <span>🤖</span> Strategy Proxy
                     </div>
                     <p id="advisor-msg" class="text-[13px] text-[#ECEEF3] leading-snug"></p>
@@ -348,7 +348,7 @@
 
                     <div id="carousel-controls" class="vt-sec hidden">
                         <div class="vt-lbl">Slides <span class="hint">— 6 in the ZIP</span>
-                            <button onclick="autoSliceFromTitle()" class="ml-auto text-[10px] font-bold uppercase tracking-widest" style="color:#B6FF3D;">↻ Re-slice</button>
+                            <button onclick="autoSliceFromTitle()" class="ml-auto text-[10px] font-bold uppercase tracking-widest" style="color:var(--vt-accent,#B6FF3D);">↻ Re-slice</button>
                         </div>
                         <div class="grid grid-cols-6 gap-1.5">
                             <button onclick="changeSlide(0)" id="sl-0" class="vt-opt slide-nav on">1</button>
@@ -384,7 +384,7 @@
                             <!-- Editing a direction's copy was one-way: there was no path back to
                                  the wording the design was written around, so experimenting cost
                                  you the original. -->
-                            <button type="button" onclick="resetPremCopy()" class="ml-auto text-[10px] font-bold uppercase tracking-widest text-[#5B616D] hover:text-[#B6FF3D] transition-colors" title="Restore this direction's original wording">↺ Reset</button>
+                            <button type="button" onclick="resetPremCopy()" class="ml-auto text-[10px] font-bold uppercase tracking-widest text-[#5B616D] hover:text-[var(--vt-accent,#B6FF3D)] transition-colors" title="Restore this direction's original wording">↺ Reset</button>
                         </div>
                         <div id="premium-fields" class="flex flex-col gap-2"></div>
                     </div>
@@ -512,7 +512,7 @@
                         <input type="range" id="in-font-size" min="60" max="140" value="100" class="w-full cursor-pointer" oninput="syncDOM()">
                         <div class="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-[#23262E]">
                             <label class="vt-sub cursor-pointer" style="margin:0;" for="toggle-footer">Show footer / CTA branding</label>
-                            <input type="checkbox" id="toggle-footer" checked class="w-4 h-4 cursor-pointer" style="accent-color:#B6FF3D;" onchange="state.showFooter = this.checked; renderLayout();">
+                            <input type="checkbox" id="toggle-footer" checked class="w-4 h-4 cursor-pointer" style="accent-color:var(--vt-accent,#B6FF3D);" onchange="state.showFooter = this.checked; renderLayout();">
                         </div>
                     </div>
                 </div>
@@ -533,7 +533,7 @@
                         <span id="variety-badge" class="ml-auto text-[10px] font-mono font-bold px-2 py-0.5 rounded" style="background:rgba(255,255,255,0.06);color:#888F9D;">—</span>
                     </div>
                     <div class="h-1.5 rounded-full overflow-hidden mb-3" style="background:rgba(255,255,255,0.08)">
-                        <div id="variety-bar" class="h-full rounded-full" style="width:0%;background:#B6FF3D;transition:width .4s ease,background .4s ease"></div>
+                        <div id="variety-bar" class="h-full rounded-full" style="width:0%;background:var(--vt-accent,#B6FF3D);transition:width .4s ease,background .4s ease"></div>
                     </div>
                     <div id="feed-grid" class="grid grid-cols-3 gap-1.5"></div>
                     <p id="feed-hint" class="vt-note mt-3">Your last 9 exports as an Instagram-style grid — a gut-check on whether your feed looks varied.</p>
@@ -597,7 +597,7 @@
                     <p id="motion-hint" class="vt-note mb-3"></p>
                     <div class="flex items-center gap-2 mb-3">
                         <label class="vt-sub" style="margin:0;" for="motion-dur">Length</label>
-                        <input type="range" id="motion-dur" min="3" max="10" step="1" value="5" class="flex-1 cursor-pointer" style="accent-color:#B6FF3D;">
+                        <input type="range" id="motion-dur" min="3" max="10" step="1" value="5" class="flex-1 cursor-pointer" style="accent-color:var(--vt-accent,#B6FF3D);">
                         <span id="motion-dur-label" class="text-[10px] font-mono text-[#888F9D] w-8 text-right">5s</span>
                     </div>
                     <button onclick="exportMotion()" id="btn-motion" class="vt-btn">
@@ -628,7 +628,7 @@
     <main class="flex-1 preview-bg flex flex-col items-center p-8 relative overflow-y-auto overflow-x-hidden">
         <div class="mb-6 shrink-0 bg-slate-900/80 backdrop-blur px-5 py-2 rounded-full border border-slate-700 shadow-lg z-20 flex items-center gap-4">
             <h2 class="text-slate-200 font-bold text-sm tracking-[0.15em] uppercase flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full animate-pulse" style="background:#B6FF3D;"></span> Live Preview
+                <span class="w-2 h-2 rounded-full animate-pulse" style="background:var(--vt-accent,#B6FF3D);"></span> Live Preview
             </h2>
             <p id="preview-dim" class="text-red-400 font-mono text-xs font-bold">1200 x 628</p>
             <div class="flex items-center gap-1 border-l border-slate-700 pl-3">
@@ -847,7 +847,7 @@
           +   '<textarea id="bk-voice" class="bk-in" rows="3" placeholder="e.g. Confident, practical and warm. Plain English, short punchy sentences, no jargon. Speaks to founders like a knowledgeable mentor.">' + sanitizeHTML(editing.voice || '') + '</textarea>'
           + '</div>'
           + '<div class="flex items-center gap-2 pt-4 border-t border-slate-700">'
-          +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:#B6FF3D;color:#0A0B0F;">Save &amp; apply</button>'
+          +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">Save &amp; apply</button>'
           +   (isExisting && !isDefault ? '<button id="bk-delete" class="text-[11px] font-bold py-2 px-3 rounded uppercase border border-red-500/50 text-red-300 hover:bg-red-500/10">Delete</button>' : '')
           +   '<button onclick="closeBrandKit()" class="ml-auto text-[11px] font-bold py-2 px-4 rounded uppercase border border-slate-600 text-slate-300 hover:bg-slate-700">Done</button>'
           + '</div>';
@@ -2726,8 +2726,8 @@
         if (short <= 0) return;
         setTimeout(() => {
             const btn = document.getElementById('btn-story-twin'); if (!btn) return;
-            btn.classList.add('ring-2', 'ring-[#B6FF3D]');
-            setTimeout(() => btn.classList.remove('ring-2', 'ring-[#B6FF3D]'), 4000);
+            btn.classList.add('ring-2', 'ring-[var(--vt-accent,#B6FF3D)]');
+            setTimeout(() => btn.classList.remove('ring-2', 'ring-[var(--vt-accent,#B6FF3D)]'), 4000);
             showToast('That is the feed post. ' + short + ' more stor' + (short === 1 ? 'y' : 'ies') + ' to hit today\'s 5 — the 9:16 is one click below.');
         }, 1400);
     }
@@ -2847,7 +2847,7 @@
         const label = score >= 67 ? 'Varied' : score >= 34 ? 'Okay' : 'Repetitive';
         return { score, distinct: set.size, total: recent.length, label };
     }
-    function varietyColor(score) { return score >= 67 ? '#B6FF3D' : score >= 34 ? '#FFC857' : '#FF7C7C'; }
+    function varietyColor(score) { return score >= 67 ? 'var(--vt-accent,#B6FF3D)' : score >= 34 ? '#FFC857' : '#FF7C7C'; }
 
     function renderFeed() {
         const grid = document.getElementById('feed-grid');
@@ -2958,7 +2958,7 @@
         if (nudge) {
             msgEl.innerHTML = nudge.text;
             actEl.innerHTML =
-                '<button id="coach-apply" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:#B6FF3D;color:#0A0B0F;">' + sanitizeHTML(nudge.cta) + '</button>'
+                '<button id="coach-apply" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">' + sanitizeHTML(nudge.cta) + '</button>'
               + '<button id="coach-ack" class="text-slate-300 text-[10px] font-bold py-1.5 px-3 rounded uppercase border border-slate-600 hover:bg-slate-700">Got it</button>'
               + '<button id="coach-off" class="text-slate-500 text-[10px] font-medium py-1.5 px-2 rounded uppercase hover:text-slate-300" title="Turn off variety tips">Mute</button>';
             const ap = document.getElementById('coach-apply');
@@ -2975,7 +2975,7 @@
     function renderDayTip(msgEl, actEl) {
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const today = new Date().getDay();
-        const btn = (camp, label) => '<button onclick="setCampaign(\'' + camp + '\')" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:#B6FF3D;color:#0A0B0F;">' + label + '</button>';
+        const btn = (camp, label) => '<button onclick="setCampaign(\'' + camp + '\')" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">' + label + '</button>';
         if (today === 2 || today === 4) {
             msgEl.innerHTML = "It's <b>" + days[today] + "</b>. Polls drive mid-week engagement — try the Poll layout today.";
             actEl.innerHTML = btn('poll', 'Create Poll');
@@ -3101,12 +3101,12 @@
         html += '</div>';
 
         _auditTips = scorecardTips(sc);
-        html += '<div class="border-t border-slate-700 pt-5"><p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:#B6FF3D;">Priority fixes</p><div class="space-y-2">';
+        html += '<div class="border-t border-slate-700 pt-5"><p class="text-xs font-bold uppercase tracking-widest mb-3" style="color:var(--vt-accent,#B6FF3D);">Priority fixes</p><div class="space-y-2">';
         _auditTips.forEach(function (tip, i) {
             html += '<div class="flex items-start gap-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">'
-              + '<span style="color:#B6FF3D;">&rarr;</span>'
+              + '<span style="color:var(--vt-accent,#B6FF3D);">&rarr;</span>'
               + '<div class="flex-1"><p class="text-sm text-slate-300 leading-snug">' + tip.t + '</p>'
-              + (tip.cta ? '<button onclick="auditTipAction(' + i + ')" class="mt-2 text-[10px] font-bold py-1 px-3 rounded uppercase" style="background:#B6FF3D;color:#0A0B0F;">' + sanitizeHTML(tip.cta.label) + '</button>' : '')
+              + (tip.cta ? '<button onclick="auditTipAction(' + i + ')" class="mt-2 text-[10px] font-bold py-1 px-3 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">' + sanitizeHTML(tip.cta.label) + '</button>' : '')
               + '</div></div>';
         });
         html += '</div></div>';

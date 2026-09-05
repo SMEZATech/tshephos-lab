@@ -395,6 +395,10 @@
         "--accent:" + t.accent + " !important;--accent-press:" + t.accentPress + " !important;" +
         "--good:" + t.good + " !important;--mid:" + t.mid + " !important;--low:" + t.low + " !important;--info:" + t.info + " !important;" +
         "--fd:" + t.fd + " !important;--fb:" + t.fb + " !important;" +
+        // Studio's markup carries ~18 inline style="color:#B6FF3D" attributes that no selector can
+        // reach. Those now read var(--vt-accent,#B6FF3D) instead, so defining it here re-points all
+        // of them at once; leaving it undefined (Volt) means every one falls back to its own lime.
+        "--vt-accent:" + t.accent + ";--vt-display:" + t.fd + ";" +
       "}" +
       // the decorative ambient glow every one of these pages paints behind .wrap — hardcoded lime/
       // blue rgba literals, not tokens, so it needs its own rule rather than riding the block above.
