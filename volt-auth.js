@@ -40,7 +40,11 @@
       name: "Vantly", wordmark: "Vantly", mark: "V",
       tagline: "Your vantage point.",
       emailPlaceholder: "you@yourcompany.com",
-      favicon: "",
+      // The logomark from the brand guide, inlined as an SVG data URI so the tab icon ships with
+      // the code rather than depending on a hosted file that could 404 on a fresh deployment.
+      // Two ridgelines meeting at a summit with first light breaking over the join — the "vantage
+      // point", on the ink ground so it holds against both light and dark browser chrome.
+      favicon: "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20rx%3D%2722%27%20fill%3D%27%2312162a%27%2F%3E%3Cpolygon%20points%3D%2784%2C20%2073%2C20%2047%2C80%2055%2C80%27%20fill%3D%27%233a4070%27%2F%3E%3Cpolygon%20points%3D%2718%2C20%2029%2C20%2055%2C80%2047%2C80%27%20fill%3D%27%23e2924a%27%2F%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2740%27%20r%3D%277%27%20fill%3D%27%23f4c88b%27%2F%3E%3C%2Fsvg%3E",
       supabaseUrl: "https://wxiaumhgjzysivzaryuu.supabase.co",
       supabaseAnon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4aWF1bWhnanp5c2l2emFyeXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0OTEzODQsImV4cCI6MjEwNDA2NzM4NH0.EqmA8lDopq9ElNjnt2x5webSTueJ77FEyyiHrq9G-E8",
       apiHost: "https://vantly-xi.vercel.app", // update this once the real vantly.* domain is connected
