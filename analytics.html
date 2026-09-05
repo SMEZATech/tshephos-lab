@@ -25,9 +25,9 @@
   body{font-family:var(--fb); color:var(--text); background:var(--bg); min-height:100vh; -webkit-font-smoothing:antialiased; position:relative; overflow-x:hidden;}
   .bg{position:fixed; inset:0; z-index:0; pointer-events:none;
     background:
-      radial-gradient(820px 540px at 8% -6%, rgba(182,255,61,.12), transparent 60%),
+      radial-gradient(820px 540px at 8% -6%, rgba(var(--accent-rgb,182,255,61),.12), transparent 60%),
       radial-gradient(720px 520px at 102% 4%, rgba(86,140,255,.10), transparent 58%),
-      radial-gradient(600px 600px at 50% 120%, rgba(182,255,61,.05), transparent 60%);}
+      radial-gradient(600px 600px at 50% 120%, rgba(var(--accent-rgb,182,255,61),.05), transparent 60%);}
   .wrap{position:relative; z-index:1; max-width:1060px; margin:0 auto; padding:26px 22px 36px;}
 
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
@@ -47,7 +47,7 @@
   .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
   textarea,input,select{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
   textarea::placeholder,input::placeholder{color:#565c68;}
-  textarea:focus,input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(182,255,61,.14);}
+  textarea:focus,input:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(var(--accent-rgb,182,255,61),.14);}
   .row{display:flex; gap:18px; margin-top:18px; flex-wrap:wrap;}
   .field{flex:1; min-width:230px;}
   .seg{display:flex; gap:7px; flex-wrap:wrap;}
@@ -65,8 +65,8 @@
   .mcard .m-ins input{padding:8px 6px; font-size:14px; text-align:center; border-radius:9px;}
 
   .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
-  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(182,255,61,.6);}
-  .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(182,255,61,.7);}
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(var(--accent-rgb,182,255,61),.6);}
+  .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(var(--accent-rgb,182,255,61),.7);}
   .btn:active:not(:disabled){transform:translateY(1px);}
   .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
   .go-note{font-size:13px; color:var(--dim);}
@@ -155,7 +155,7 @@
   .col.opp li::before{content:'↗'; color:var(--info);}
 
   .acts{display:flex; flex-direction:column; gap:10px;}
-  .act{display:flex; gap:13px; align-items:flex-start; background:rgba(182,255,61,.05); border:1px solid var(--border); border-radius:13px; padding:13px 15px;}
+  .act{display:flex; gap:13px; align-items:flex-start; background:rgba(var(--accent-rgb,182,255,61),.05); border:1px solid var(--border); border-radius:13px; padding:13px 15px;}
   .act .n{font-family:var(--fd); font-weight:800; font-size:15px; color:var(--accent); flex-shrink:0; width:18px; line-height:1.4;}
   .act p{margin:0; font-size:14px; line-height:1.5; color:var(--text);}
 
@@ -177,7 +177,7 @@
   .pmets{display:flex; flex-wrap:wrap; gap:8px;}
   .pmet{font-family:var(--fm); font-size:11px; color:var(--dim); background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:7px; padding:4px 9px;}
   .pmet b{color:var(--text); font-weight:700;}
-  .pb-verdict{font-size:15px; line-height:1.5; color:var(--text); margin:18px 0 14px; padding:13px 15px; background:rgba(182,255,61,.06); border:1px solid var(--border); border-radius:12px;}
+  .pb-verdict{font-size:15px; line-height:1.5; color:var(--text); margin:18px 0 14px; padding:13px 15px; background:rgba(var(--accent-rgb,182,255,61),.06); border:1px solid var(--border); border-radius:12px;}
   .pb{margin-top:14px;}
   .pb-h{font-family:var(--fm); font-size:11px; letter-spacing:.08em; text-transform:uppercase; margin:0 0 8px;}
   .pb-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px;}
@@ -386,7 +386,7 @@ async function fetchChannels(force){
   const controls = document.getElementById('liveControls');
   const sel = document.getElementById('liveChannel');
   if(_channelsLoaded && !force) return;
-  status.innerHTML = '<p class="ls-msg"><span class="spinner" style="border-color:rgba(182,255,61,.3);border-top-color:#B6FF3D"></span> Loading channels…</p>';
+  status.innerHTML = '<p class="ls-msg"><span class="spinner" style="border-color:rgba(var(--accent-rgb,182,255,61),.3);border-top-color:#B6FF3D"></span> Loading channels…</p>';
   controls.style.display = 'none';
 
   // Postiz and the direct Instagram connection are independent — one being unconfigured must not

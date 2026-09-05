@@ -29,7 +29,7 @@
   .chips{display:flex;flex-wrap:wrap;gap:9px;}
   .chip{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--border-2);border-radius:11px;background:#0D0F15;color:var(--dim);font-size:13px;font-weight:600;cursor:pointer;transition:all .14s;}
   .chip:hover{border-color:var(--dim);color:var(--text);}
-  .chip.on{background:rgba(182,255,61,.12);border-color:var(--accent);color:var(--accent);}
+  .chip.on{background:rgba(var(--accent-rgb,182,255,61),.12);border-color:var(--accent);color:var(--accent);}
   .chip .pf{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.04em;opacity:.7;}
   .seg{display:inline-flex;background:#0D0F15;border:1px solid var(--border);border-radius:12px;padding:4px;gap:3px;}
   .seg button{font-family:var(--fm);font-weight:700;font-size:12px;background:transparent;border:none;color:var(--dim);padding:9px 15px;border-radius:9px;cursor:pointer;}
@@ -70,7 +70,7 @@
   .prev.vshape.is-story .prev-body{display:none;}
   .prev.vshape .prev-tag{position:absolute;top:10px;right:12px;z-index:2;font-family:var(--fm);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);padding:3px 7px;border-radius:6px;}
   .prev-eng{display:flex;gap:18px;margin-top:13px;padding-top:11px;border-top:1px solid #eee;font-size:12.5px;font-weight:700;color:#65676b;}
-  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(182,255,61,.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;}
+  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(var(--accent-rgb,182,255,61),.3);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
   .empty{color:var(--faint);font-size:13px;padding:8px 0;}
   .q-row{display:flex;align-items:flex-start;gap:14px;padding:13px 0;border-top:1px solid var(--border);}

@@ -16,7 +16,7 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fb);-webkit-font-smoothing:antialiased;
-    background-image:radial-gradient(900px 500px at 85% -10%,rgba(182,255,61,.05),transparent 60%);min-height:100vh;}
+    background-image:radial-gradient(900px 500px at 85% -10%,rgba(var(--accent-rgb,182,255,61),.05),transparent 60%);min-height:100vh;}
   .wrap{max-width:1080px;margin:0 auto;padding:40px 30px 60px;}
   .hero{font-family:var(--fd);font-weight:800;font-size:clamp(24px,3.4vw,36px);letter-spacing:-.02em;margin:0 0 6px;}
   .hero .g{color:var(--accent);}
@@ -95,7 +95,7 @@
 const $ = s => document.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const API = 'https://tshephos-lab.vercel.app/api';
-const TOOL = { copy:['✍️','index.html','rgba(182,255,61,.12)'], email:['✉️','email.html','rgba(160,107,255,.14)'], videolook:['🎬','video.html','rgba(182,255,61,.12)'], brand:['🎨','studio.html','rgba(127,200,255,.12)'] };
+const TOOL = { copy:['✍️','index.html','rgba(var(--accent-rgb,182,255,61),.12)'], email:['✉️','email.html','rgba(160,107,255,.14)'], videolook:['🎬','video.html','rgba(var(--accent-rgb,182,255,61),.12)'], brand:['🎨','studio.html','rgba(127,200,255,.12)'] };
 function ago(ts){ if(!ts) return ''; const s=(Date.now()-new Date(ts).getTime())/1000; if(s<3600) return Math.max(1,Math.round(s/60))+'m ago'; if(s<86400) return Math.round(s/3600)+'h ago'; return Math.round(s/86400)+'d ago'; }
 
 async function loadRecent(){

@@ -57,6 +57,10 @@
         border: "rgba(244,239,230,.09)", border2: "rgba(244,239,230,.17)",
         text: "#f4efe6", dim: "#a29cc2", faint: "#6d688a",
         accent: "#e2924a", accentPress: "#c97a35", accentHi: "#f4c88b",
+        // The same copper as `accent`, as a bare RGB triplet. Every page tints the accent for
+        // glows/focus rings/badges via rgba(...) literals, which can't take a hex — those now read
+        // rgba(var(--accent-rgb,182,255,61),alpha), so this one value re-points all 61 of them.
+        accentRgb: "226,146,74",
         good: "#6bd39a", mid: "#f0b95e", low: "#e8746f", info: "#8ab4d8",
         glow1: "rgba(226,146,74,.14)", glow2: "rgba(58,64,112,.22)", glow3: "rgba(226,146,74,.06)",
         // Studio-only: it uses solid hex borders and three distinct panel depths where the other
@@ -398,7 +402,7 @@
         // Studio's markup carries ~18 inline style="color:#B6FF3D" attributes that no selector can
         // reach. Those now read var(--vt-accent,#B6FF3D) instead, so defining it here re-points all
         // of them at once; leaving it undefined (Volt) means every one falls back to its own lime.
-        "--vt-accent:" + t.accent + ";--vt-display:" + t.fd + ";" +
+        "--vt-accent:" + t.accent + ";--vt-display:" + t.fd + ";--accent-rgb:" + t.accentRgb + ";" +
       "}" +
       // the decorative ambient glow every one of these pages paints behind .wrap — hardcoded lime/
       // blue rgba literals, not tokens, so it needs its own rule rather than riding the block above.
