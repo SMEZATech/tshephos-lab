@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
-  :root{ --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28; --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+  :root{ --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28); --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
     --text:#ECEEF3; --dim:#8A91A0; --faint:#5B616D; --accent:#B6FF3D; --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF;
     --fd:'Unbounded',system-ui; --fb:'Plus Jakarta Sans',system-ui; --fm:'JetBrains Mono',monospace; }
   *{box-sizing:border-box;}
@@ -19,19 +19,19 @@
   h1{font-family:var(--fd);font-weight:800;font-size:clamp(24px,3.4vw,32px);letter-spacing:-.02em;margin:0 0 4px;}
   .sub{color:var(--dim);font-size:14.5px;margin:0 0 24px;max-width:64ch;}
   .lbl{display:block;font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:700;margin:0 0 8px;}
-  textarea,input[type=text]{width:100%;box-sizing:border-box;background:#0D0F15;border:1px solid var(--border-2);border-radius:12px;padding:12px 13px;color:var(--text);font-family:var(--fb);font-size:14px;outline:none;transition:border-color .15s;}
+  textarea,input[type=text]{width:100%;box-sizing:border-box;background:var(--ink-in,#0D0F15);border:1px solid var(--border-2);border-radius:12px;padding:12px 13px;color:var(--text);font-family:var(--fb);font-size:14px;outline:none;transition:border-color .15s;}
   textarea:focus,input[type=text]:focus{border-color:var(--accent);}
   input[type=file]{width:100%;font-size:12.5px;color:var(--dim);}
-  input[type=file]::file-selector-button{margin-right:12px;padding:8px 13px;border-radius:9px;border:1px solid var(--border-2);background:#0D0F15;color:var(--text);font-family:var(--fm);font-weight:700;font-size:11.5px;cursor:pointer;}
-  .panel{background:linear-gradient(180deg,var(--surface),#11141b);border:1px solid var(--border);border-radius:18px;padding:22px;}
+  input[type=file]::file-selector-button{margin-right:12px;padding:8px 13px;border-radius:9px;border:1px solid var(--border-2);background:var(--ink-in,#0D0F15);color:var(--text);font-family:var(--fm);font-weight:700;font-size:11.5px;cursor:pointer;}
+  .panel{background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b));border:1px solid var(--border);border-radius:18px;padding:22px;}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-  .seg{display:inline-flex;background:#0D0F15;border:1px solid var(--border);border-radius:12px;padding:4px;gap:3px;}
+  .seg{display:inline-flex;background:var(--ink-in,#0D0F15);border:1px solid var(--border);border-radius:12px;padding:4px;gap:3px;}
   .seg button{font-family:var(--fm);font-weight:700;font-size:12px;background:transparent;border:none;color:var(--dim);padding:8px 14px;border-radius:9px;cursor:pointer;}
-  .seg button.on{background:var(--accent);color:#0A0B0F;}
-  .btn{font-family:var(--fb);font-weight:800;font-size:14.5px;border:none;border-radius:12px;padding:13px 20px;cursor:pointer;background:var(--accent);color:#0A0B0F;display:inline-flex;align-items:center;gap:8px;}
+  .seg button.on{background:var(--accent);color:var(--ink,#0A0B0F);}
+  .btn{font-family:var(--fb);font-weight:800;font-size:14.5px;border:none;border-radius:12px;padding:13px 20px;cursor:pointer;background:var(--accent);color:var(--ink,#0A0B0F);display:inline-flex;align-items:center;gap:8px;}
   .btn:disabled{opacity:.5;cursor:not-allowed;}
   .mini{font-family:var(--fm);font-weight:700;font-size:11.5px;background:transparent;border:1px solid var(--border-2);color:var(--text);border-radius:9px;padding:7px 11px;cursor:pointer;}
-  .mini:hover{background:var(--accent);color:#0A0B0F;border-color:var(--accent);}
+  .mini:hover{background:var(--accent);color:var(--ink,#0A0B0F);border-color:var(--accent);}
   .note{color:var(--faint);font-size:12px;margin:6px 0 0;}
   .status{font-family:var(--fm);font-size:12.5px;color:var(--info);min-height:16px;margin-top:8px;}
   .status.err{color:var(--low);} .status.ok{color:var(--good);}
@@ -52,17 +52,17 @@
   .hooks{margin:0;padding-left:18px;} .hooks li{font-size:14px;line-height:1.6;margin-bottom:4px;}
   /* Native dropdown list: force a readable dark surface + light text (default was near-invisible) */
   #vtLang{background:var(--surface-2);color:var(--text);border:1px solid var(--border-2);border-radius:9px;padding:7px 9px;}
-  #vtLang option{background:#14171F;color:#ECEEF3;}
+  #vtLang option{background:var(--ink-raise,#14171F);color:#ECEEF3;}
   .genimg-wrap{display:flex;flex-direction:column;gap:10px;}
   .genimg{width:100%;max-width:420px;border-radius:12px;border:1px solid var(--border);display:block;}
-  .genimg-prompt{width:100%;background:#0D0F15;border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:13px;line-height:1.5;padding:10px;resize:vertical;}
+  .genimg-prompt{width:100%;background:var(--ink-in,#0D0F15);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:13px;line-height:1.5;padding:10px;resize:vertical;}
   .genimg-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .genimg-row select{background:var(--surface-2);color:var(--text);border:1px solid var(--border-2);border-radius:9px;padding:7px 9px;font-family:var(--fm);font-size:11.5px;cursor:pointer;}
-  .genimg-row select option{background:#14171F;color:#ECEEF3;}
+  .genimg-row select option{background:var(--ink-raise,#14171F);color:#ECEEF3;}
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
   .tab:hover{color:var(--text); border-color:var(--accent);}
-  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
 </style>
 </head>
 <body>
@@ -80,7 +80,7 @@
   </nav>
 
   <h1>📝 Transcribe</h1>
-  <p class="sub">Drop in a transcript (or transcribe a clip), and Volt repurposes it: <b style="color:var(--text)">YouTube titles, description, tags &amp; chapters</b>, a scroll-stopping <b style="color:var(--text)">TikTok / Reels</b> caption, a full <b style="color:var(--text)">article</b> (800+ words), or a ready-to-send <b style="color:var(--text)">email</b>.</p>
+  <p class="sub">Drop in a transcript (or transcribe a clip), and <span data-brand-name></span> repurposes it: <b style="color:var(--text)">YouTube titles, description, tags &amp; chapters</b>, a scroll-stopping <b style="color:var(--text)">TikTok / Reels</b> caption, a full <b style="color:var(--text)">article</b> (800+ words), or a ready-to-send <b style="color:var(--text)">email</b>.</p>
 
   <div class="panel">
     <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -343,7 +343,7 @@ function stashCaption(text, src){
     let arr=[]; try{ arr=JSON.parse(localStorage.getItem('volt_recent_captions')||'[]'); }catch(_){}
     if(!Array.isArray(arr)) arr=[];
     arr = arr.filter(c=>c && c.text !== text);
-    arr.unshift({ text, src: src||'Volt', at: Date.now() });
+    arr.unshift({ text, src: src||(window.voltBrandName||'Volt'), at: Date.now() });
     localStorage.setItem('volt_recent_captions', JSON.stringify(arr.slice(0,20)));
   }catch(_){}
 }
@@ -369,7 +369,7 @@ function renderSocial(v){
       + '<p class="note" style="margin:0 0 2px">AI image to run with the post. Tweak the description, pick a shape, and generate.</p>'
       + '<textarea id="vtImgPrompt" class="genimg-prompt" rows="3">'+esc(v.imagePrompt||'')+'</textarea>'
       + '<div class="genimg-row"><select id="vtImgAspect" title="Image shape">'+aspectOpts(defAspect)+'</select>'
-        + '<button class="mini" id="vtGenImg" style="background:var(--accent);color:#0A0B0F;border-color:var(--accent);">🎨 Generate image</button>'
+        + '<button class="mini" id="vtGenImg" style="background:var(--accent);color:var(--ink,#0A0B0F);border-color:var(--accent);">🎨 Generate image</button>'
         + '<span class="note" id="vtImgStatus" style="margin:0;"></span></div>'
       + '<div id="vtImgOut"></div>'
       + '</div></div>';

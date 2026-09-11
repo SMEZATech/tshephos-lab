@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28);
     --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
     --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
     --accent:#B6FF3D; --accent-press:#a3ec2b;
@@ -33,7 +33,7 @@
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
   .tab:hover{color:var(--text); border-color:var(--accent);}
-  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
 
   .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
@@ -42,29 +42,29 @@
   h1.title .accent{color:var(--accent);}
   .sub{color:var(--dim); font-size:16px; max-width:560px; margin:15px 0 0; line-height:1.55;}
 
-  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
-  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
+  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
   textarea::placeholder{color:#565c68;}
   textarea:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(var(--accent-rgb,182,255,61),.14);}
   .row{display:flex; gap:18px; margin-top:18px; flex-wrap:wrap; align-items:flex-end;}
   .field{flex:1; min-width:230px;}
   .seg{display:flex; gap:7px; flex-wrap:wrap;}
-  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:var(--ink-in,#0D0F15); color:var(--dim); cursor:pointer; transition:all .14s;}
   .seg button:hover{color:var(--text); border-color:var(--accent);}
-  .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .seg button.on{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
 
   .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
-  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(var(--accent-rgb,182,255,61),.6);}
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:var(--ink,#0A0B0F); background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(var(--accent-rgb,182,255,61),.6);}
   .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press);}
   .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
   .go-note{font-size:13px; color:var(--dim);}
   .brandchip{margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-family:var(--fm); font-size:11px; font-weight:700; color:var(--dim); border:1px solid var(--border-2); border-radius:100px; padding:6px 12px;}
   .saved{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);}
   .saved[hidden]{display:none;}
-  .schip{font-family:var(--fm); font-size:11.5px; font-weight:700; background:#0D0F15; border:1px solid var(--border-2); color:var(--dim); border-radius:9px; padding:7px 11px; cursor:pointer; transition:all .14s;}
+  .schip{font-family:var(--fm); font-size:11.5px; font-weight:700; background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); color:var(--dim); border-radius:9px; padding:7px 11px; cursor:pointer; transition:all .14s;}
   .schip:hover{border-color:var(--accent); color:var(--accent);}
-  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:var(--ink,#0A0B0F);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
   @keyframes spin{to{transform:rotate(360deg)}}
 
   .error{display:flex; gap:11px; align-items:flex-start; margin-top:20px; font-size:14px; line-height:1.5; color:#ffd7d7; background:rgba(255,124,124,.08); border:1px solid rgba(255,124,124,.35); border-radius:14px; padding:14px 16px;}
@@ -79,7 +79,7 @@
   .grid.two{grid-template-columns:repeat(2,1fr);}
   @media(max-width:860px){.grid{grid-template-columns:1fr;} .grid.two{grid-template-columns:1fr;}}
 
-  .card{background:linear-gradient(180deg,var(--surface),#12151c); border:1px solid var(--border); border-radius:18px; padding:19px; display:flex; flex-direction:column; box-shadow:0 18px 44px -26px rgba(0,0,0,.8); opacity:0; animation:rise .55s cubic-bezier(.2,.7,.2,1) forwards;}
+  .card{background:linear-gradient(180deg,var(--surface),var(--ink-card,#12151c)); border:1px solid var(--border); border-radius:18px; padding:19px; display:flex; flex-direction:column; box-shadow:0 18px 44px -26px rgba(0,0,0,.8); opacity:0; animation:rise .55s cubic-bezier(.2,.7,.2,1) forwards;}
   @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
   .fw{align-self:flex-start; font-family:var(--fm); font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--accent); background:rgba(var(--accent-rgb,182,255,61),.1); border:1px solid rgba(var(--accent-rgb,182,255,61),.25); padding:4px 9px; border-radius:7px; margin-bottom:12px;}
   .hl{font-weight:800; font-size:18px; line-height:1.2; margin:0 0 8px;}
@@ -89,12 +89,12 @@
   .tag{font-family:var(--fm); font-size:10.5px; font-weight:700; color:#bfe6ff; background:rgba(86,140,255,.1); border:1px solid rgba(86,140,255,.28); padding:3px 8px; border-radius:6px;}
   .actions{display:flex; gap:8px; margin-top:13px; padding-top:13px; border-top:1px solid var(--border); flex-wrap:wrap;}
   .mini{display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:11.5px; background:transparent; border:1px solid var(--border-2); color:var(--text); border-radius:9px; padding:8px 12px; cursor:pointer; transition:all .14s; text-decoration:none;}
-  .mini:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .mini:hover{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
   .mini.hot{border-color:rgba(var(--accent-rgb,182,255,61),.4); color:var(--accent);}
-  .mini.hot:hover{color:#0A0B0F;}
+  .mini.hot:hover{color:var(--ink,#0A0B0F);}
 
   .crea{padding:0; overflow:hidden;}
-  .crea .imgwrap{background:#0b0d12; display:flex; align-items:center; justify-content:center; min-height:230px;}
+  .crea .imgwrap{background:var(--ink-abyss,#0b0d12); display:flex; align-items:center; justify-content:center; min-height:230px;}
   .crea img{width:100%; height:auto; display:block;}
   .crea .meta{padding:14px 16px;}
   .crea .meta .nm{font-family:var(--fm); font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em;}
@@ -104,12 +104,14 @@
   .post .when{font-family:var(--fm); font-size:11px; font-weight:700; color:var(--info); text-transform:uppercase; letter-spacing:.06em;}
   .post .txt{font-size:14px; line-height:1.5; color:var(--text); white-space:pre-wrap;}
 
-  .skel{height:230px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
+  .skel{height:230px; border-radius:18px; border:1px solid var(--border); background:linear-gradient(100deg,var(--ink-raise,#14171f) 30%,var(--ink-line,#1d212b) 50%,var(--ink-raise,#14171f) 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
   @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
 
-  #toast{visibility:hidden; min-width:230px; background:#14171F; color:#fff; text-align:center; border-radius:9px; padding:14px; position:fixed; z-index:1000; left:50%; bottom:30px; transform:translateX(-50%); box-shadow:0 10px 30px rgba(0,0,0,.5); border:1px solid #23262E; transition:opacity .3s; opacity:0; font-size:13.5px;}
+  #toast{visibility:hidden; min-width:230px; background:var(--ink-raise,#14171F); color:#fff; text-align:center; border-radius:9px; padding:14px; position:fixed; z-index:1000; left:50%; bottom:30px; transform:translateX(-50%); box-shadow:0 10px 30px rgba(0,0,0,.5); border:1px solid #23262E; transition:opacity .3s; opacity:0; font-size:13.5px;}
   #toast.show{visibility:visible; opacity:1;}
-  footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
+  /* uppercase here because the brand name is now injected in its natural case; without this
+     Volt's footer would read "Volt · CAMPAIGN" where it has always read "VOLT · CAMPAIGN". */
+  footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562; text-transform:uppercase;}
 </style>
 </head>
 <body>
@@ -130,7 +132,7 @@
 
   <div class="badge"><span class="dot"></span> One brief → whole campaign</div>
   <h1 class="title">Brief it once.<br><span class="accent">Ship everything.</span></h1>
-  <p class="sub">Describe the campaign in plain words. Volt writes the ad copy, designs the creatives, briefs the newsletter and drafts the posting schedule — all matched, all editable.</p>
+  <p class="sub" id="campaignSub">Describe the campaign in plain words. <span data-brand-name></span> writes the ad copy, designs the creatives, briefs the newsletter and drafts the posting schedule — all matched, all editable.</p>
 
   <section class="console">
     <label class="lbl" for="brief">What are we promoting?</label>
@@ -166,9 +168,9 @@
     <div class="error" id="err" hidden></div>
   </section>
 
-  <section id="brainPanel" style="display:none; margin-top:20px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:16px; padding:18px 20px;">
+  <section id="brainPanel" style="display:none; margin-top:20px; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:16px; padding:18px 20px;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
-      <span class="lbl" style="margin:0; color:var(--accent);">🧠 What Volt has learned — every campaign is generated WITH this</span>
+      <span class="lbl" style="margin:0; color:var(--accent);">🧠 What <span data-brand-name></span> has learned — every campaign is generated WITH this</span>
       <button class="mini" id="brainRefresh" title="Recompute from your latest performance">↻ Refresh</button>
     </div>
     <div id="brainBody"><p class="go-note" style="margin:0;">Loading…</p></div>
@@ -200,7 +202,7 @@
     <div class="grid two" id="postGrid"></div>
   </section>
 
-  <footer>VOLT · CAMPAIGN — <span>one brief in, a campaign out</span></footer>
+  <footer><span data-brand-name></span> · CAMPAIGN — <span>one brief in, a campaign out</span></footer>
 </main>
 <div id="toast"></div>
 
@@ -277,10 +279,13 @@ function post(payload){
   return p;
 }
 // ── Brand Kit (shared with Studio via localStorage + the account, same keys) ──
-const SME_BRAND = { id:'sme', name:'SME South Africa', primary:'#9c1c1f', secondary:'#0a2c3d',
+// Merged over by the brand's own default kit when it has one (window.voltBrandDefaultKit).
+// Volt has none, so this stays exactly the object it has always been; a Vantly customer
+// gets a neutral placeholder instead of someone else's company as their brand.
+const SME_BRAND = Object.assign({ id:'sme', name:'SME South Africa', primary:'#9c1c1f', secondary:'#0a2c3d',
   tag:'SME Knowledge HUB', cta:'Read Insight', url:'smesouthafrica.co.za',
   logo:'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png',
-  voice:'Confident, practical and encouraging. Plain English, short punchy sentences, no jargon or hype. Speaks to South African SME founders like a knowledgeable, no-nonsense mentor.' };
+  voice:'Confident, practical and encouraging. Plain English, short punchy sentences, no jargon or hype. Speaks to South African SME founders like a knowledgeable, no-nonsense mentor.' }, window.voltBrandDefaultKit || {});
 function loadBrands(){ try { const a = JSON.parse(localStorage.getItem('volt_brands_v1') || 'null'); if (Array.isArray(a) && a.length) return a; } catch(e){} return [Object.assign({}, SME_BRAND)]; }
 function activeBrandId(){ try { return localStorage.getItem('volt_active_brand') || 'sme'; } catch(e){ return 'sme'; } }
 function currentBrand(){ const a = loadBrands(); return a.find(b => b.id === activeBrandId()) || a[0] || SME_BRAND; }
@@ -386,7 +391,7 @@ function renderResults(c){
         <button class="mini hot" onclick="toEmail()">✉️ Write it in Email</button>
       </div>
     </div>`;
-  $('#stEmail').hidden = !(c.email && (c.email.subject || c.email.brief));
+  $('#stEmail').hidden = $('#stEmail').dataset.brandOff === '1' || !(c.email && (c.email.subject || c.email.brief));
 
   // Posts
   const pg = $('#postGrid');
@@ -429,7 +434,7 @@ function clearCampaign(){
   lastCampaign = null;
   ['stCopy','stCrea','stEmail','stPosts'].forEach(id => { const el = $('#' + id); if (el) el.hidden = true; });
   $('#brief').value = '';
-  const note = $('#goNote'); if (note) note.textContent = '~20 seconds. Copy, creatives, email & schedule.';
+  const note = $('#goNote'); if (note) note.textContent = window.__brandGoNote || '~20 seconds. Copy, creatives, email & schedule.';
   toast('Cleared');
 }
 
@@ -574,7 +579,7 @@ function renderBrain(s){
   const body = $('#brainBody'), panel = $('#brainPanel');
   if (!s){ panel.style.display = 'none'; return; }
   panel.style.display = 'block';
-  if (s.status === 'learning'){ body.innerHTML = '<p class="go-note" style="margin:0;">' + esc(s.note || 'Volt is still learning — keep creating and checking Stats.') + '</p>'; return; }
+  if (s.status === 'learning'){ body.innerHTML = '<p class="go-note" style="margin:0;">' + esc(s.note || ((window.voltBrandName||'Volt'))+' is still learning — keep creating and checking Stats.') + '</p>'; return; }
   if (s.status !== 'ready'){ body.innerHTML = '<p class="go-note" style="margin:0;">No insights yet.</p>'; return; }
   const list = (title, arr, col) => (arr && arr.length) ? '<div style="margin-bottom:9px;"><span class="lbl" style="margin:0 0 4px; color:' + col + ';">' + title + '</span><ul style="margin:0; padding-left:18px; font-size:13.5px; line-height:1.55; color:var(--text);">' + arr.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '';
   let h = list('Do more ✓', s.do_more, 'var(--good)') + list('Avoid ✕', s.do_less, 'var(--low)') + list('Hooks that land', s.hooks, 'var(--info)');
@@ -597,6 +602,52 @@ showBrandChip();
 restore();   // bring back the last campaign on this device before anything else
 window.addEventListener('volt:ready', () => { pullBrandKit(); loadSaved(); loadBrain(false); });
 if (window.voltSession) { pullBrandKit(); loadSaved(); loadBrain(false); }
+</script>
+
+<script>
+/* Brand fit-out. Volt ships every module and its own example copy is on-brand for SME South
+   Africa, so every branch below is a no-op there and the markup stands exactly as written. */
+(function () {
+  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); }
+  ready(function () {
+    var hidden = window.voltBrandHiddenModules || [];
+    var name = window.voltBrandName || 'Volt';
+    if (name === 'Volt') return;
+
+    // The worked example is an SME South Africa funding webinar — the right prompt for Volt's
+    // team and a confusing one for a paying customer in another market entirely.
+    var brief = document.getElementById('brief');
+    if (brief) brief.placeholder = "e.g. We're running a free 45-minute workshop on cutting delivery costs, Thursday 6pm. Goal: sign-ups from operations leads.";
+
+    // Only promise what this brand actually ships. The generator still drafts these stages, so
+    // the ones the user has no tool for are hidden rather than shown as dead output.
+    var parts = ['Copy', 'creatives'];
+    if (hidden.indexOf('email') === -1) parts.push('email');
+    if (hidden.indexOf('schedule') === -1) parts.push('schedule');
+    var blurb = '~20 seconds. ' + (parts.length > 1
+      ? parts.slice(0, -1).join(', ') + ' & ' + parts[parts.length - 1]
+      : parts[0]) + '.';
+    var note = document.getElementById('goNote');
+    if (note) note.textContent = blurb;
+    window.__brandGoNote = blurb; // regenerate resets this text; see resetStages()
+
+    // the intro promises the same four outputs; keep it honest about the two that remain
+    var sub = document.getElementById('campaignSub');
+    if (sub) {
+      var made = ['writes the ad copy', 'designs the creatives'];
+      if (hidden.indexOf('email') === -1) made.push('briefs the newsletter');
+      if (hidden.indexOf('schedule') === -1) made.push('drafts the posting schedule');
+      sub.textContent = 'Describe the campaign in plain words. ' + name + ' ' +
+        made.slice(0, -1).join(', ') + ' and ' + made[made.length - 1] + ' — all matched, all editable.';
+    }
+
+    var STAGE = { email: 'stEmail', schedule: 'stPosts' };
+    hidden.forEach(function (m) {
+      var el = document.getElementById(STAGE[m] || '');
+      if (el) { el.hidden = true; el.dataset.brandOff = '1'; }
+    });
+  });
+})();
 </script>
 </body>
 </html>

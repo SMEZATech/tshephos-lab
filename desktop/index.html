@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28);
     --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
     --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
     --accent:#B6FF3D; --accent-press:#a3ec2b;
@@ -33,7 +33,7 @@
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px;}
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
   .tab:hover{color:var(--text); border-color:var(--accent);}
-  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
 
   .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
@@ -42,21 +42,21 @@
   h1.title .accent{color:var(--accent);}
   .sub{color:var(--dim); font-size:16px; max-width:540px; margin:15px 0 0; line-height:1.55;}
 
-  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  .console{margin-top:30px; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:22px; padding:24px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .lbl{display:block; font-family:var(--fm); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); font-weight:700; margin-bottom:9px;}
   .lbl .opt{color:#5b616d; letter-spacing:0; text-transform:none; font-weight:400;}
-  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
+  textarea,input{width:100%; font-family:var(--fb); font-size:15px; color:var(--text); background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; outline:none; transition:border-color .16s, box-shadow .16s; resize:vertical;}
   textarea::placeholder,input::placeholder{color:#565c68;}
   textarea:focus,input:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(var(--accent-rgb,182,255,61),.14);}
   .row{display:flex; gap:18px; margin-top:18px; flex-wrap:wrap;}
   .field{flex:1; min-width:230px;}
   .seg{display:flex; gap:7px; flex-wrap:wrap;}
-  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .seg button{font-family:var(--fm); font-size:12.5px; font-weight:700; padding:10px 14px; border:1px solid var(--border-2); border-radius:11px; background:var(--ink-in,#0D0F15); color:var(--dim); cursor:pointer; transition:all .14s;}
   .seg button:hover{color:var(--text); border-color:var(--accent);}
-  .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .seg button.on{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
 
   .go{display:flex; align-items:center; gap:18px; margin-top:22px; flex-wrap:wrap;}
-  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(var(--accent-rgb,182,255,61),.6);}
+  .btn{display:inline-flex; align-items:center; gap:9px; font-family:var(--fb); font-weight:800; font-size:15.5px; color:var(--ink,#0A0B0F); background:var(--accent); border:none; border-radius:13px; padding:14px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(var(--accent-rgb,182,255,61),.6);}
   .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(var(--accent-rgb,182,255,61),.7);}
   .btn:active:not(:disabled){transform:translateY(1px);}
   .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
@@ -73,7 +73,7 @@
   .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px;}
   @media(max-width:720px){.grid{grid-template-columns:1fr;}}
 
-  .card{background:linear-gradient(180deg,var(--surface),#12151c); border:1px solid var(--border); border-radius:20px; padding:21px; display:flex; flex-direction:column; box-shadow:0 18px 44px -26px rgba(0,0,0,.8); opacity:0; animation:rise .55s cubic-bezier(.2,.7,.2,1) forwards; transition:border-color .2s, transform .2s;}
+  .card{background:linear-gradient(180deg,var(--surface),var(--ink-card,#12151c)); border:1px solid var(--border); border-radius:20px; padding:21px; display:flex; flex-direction:column; box-shadow:0 18px 44px -26px rgba(0,0,0,.8); opacity:0; animation:rise .55s cubic-bezier(.2,.7,.2,1) forwards; transition:border-color .2s, transform .2s;}
   .card:hover{border-color:var(--border-2); transform:translateY(-2px);}
   @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
   .card-top{display:flex; align-items:center; gap:11px; margin-bottom:15px;}
@@ -98,21 +98,21 @@
 
   .actions{display:flex; gap:9px; margin-top:18px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap;}
   .mini{display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:11.5px; background:transparent; border:1px solid var(--border-2); color:var(--text); border-radius:9px; padding:8px 12px; cursor:pointer; transition:all .14s;}
-  .mini:hover:not(:disabled){background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .mini:hover:not(:disabled){background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
   .mini.go-studio{border-color:rgba(var(--accent-rgb,182,255,61),.4); color:var(--accent);}
-  .mini.go-studio:hover{background:var(--accent); color:#0A0B0F;}
+  .mini.go-studio:hover{background:var(--accent); color:var(--ink,#0A0B0F);}
   .mini:disabled{opacity:.45; cursor:not-allowed;}
   .mini svg{width:13px;height:13px;}
   .kit-status{font-family:var(--fm); font-size:12px; color:var(--dim); margin-top:8px; min-height:14px;}
   .kit-status.busy{color:var(--info);} .kit-status.ok{color:var(--good);} .kit-status.err{color:var(--low);}
 
-  .skel{height:300px; border-radius:20px; border:1px solid var(--border); background:linear-gradient(100deg,#14171f 30%,#1d212b 50%,#14171f 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
+  .skel{height:300px; border-radius:20px; border:1px solid var(--border); background:linear-gradient(100deg,var(--ink-raise,#14171f) 30%,var(--ink-line,#1d212b) 50%,var(--ink-raise,#14171f) 70%); background-size:200% 100%; animation:sh 1.4s infinite;}
   @keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
   .empty{margin-top:32px; border:1px dashed var(--border-2); border-radius:20px; padding:52px 20px; text-align:center; color:var(--dim);}
   .empty svg{width:30px;height:30px;opacity:.6;}
   .empty p{margin:14px 0 0; font-size:15px;}
 
-  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:var(--ink,#0A0B0F);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
   .mini .spinner{border-color:rgba(255,255,255,.25);border-top-color:var(--text);}
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -177,9 +177,9 @@
     <div id="draftStatus" class="kit-status"></div>
   </section>
 
-  <section id="brainPanel" style="display:none; margin-top:20px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:16px; padding:18px 20px;">
+  <section id="brainPanel" style="display:none; margin-top:20px; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:16px; padding:18px 20px;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
-      <span class="lbl" style="margin:0; color:var(--accent);">🧠 What Volt has learned about your brand</span>
+      <span class="lbl" style="margin:0; color:var(--accent);">🧠 What <span data-brand-name></span> has learned about your brand</span>
       <button class="mini" id="brainRefresh" title="Recompute from your latest performance">↻ Refresh</button>
     </div>
     <div id="brainBody"><p class="go-note" style="margin:0;">Loading…</p></div>
@@ -189,7 +189,7 @@
   <div id="results"></div>
 
   <div id="draftsModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
-    <div style="width:100%; max-width:460px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
+    <div style="width:100%; max-width:460px; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
         <span class="lbl" style="margin:0;">📁 Saved briefs</span>
         <button class="mini" id="draftsClose">Close</button>
@@ -198,7 +198,7 @@
     </div>
   </div>
 
-  <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
+  <footer>© 2026 <span data-brand-copyright></span> · All rights reserved</footer>
 </main>
 
 <script>
@@ -225,7 +225,7 @@ function stashCaption(text, src){
     let arr=[]; try{ arr=JSON.parse(localStorage.getItem('volt_recent_captions')||'[]'); }catch(_){}
     if(!Array.isArray(arr)) arr=[];
     arr = arr.filter(c=>c && c.text !== text);
-    arr.unshift({ text, src: src||'Volt', at: Date.now() });
+    arr.unshift({ text, src: src||(window.voltBrandName||'Volt'), at: Date.now() });
     localStorage.setItem('volt_recent_captions', JSON.stringify(arr.slice(0,20)));
   }catch(_){}
 }
@@ -272,7 +272,7 @@ async function run(winnerAngle){
   state.loading = true; syncGen(); hideErr();
   state.variations = []; render();
   elGenLabel.textContent = 'Writing & scoring…';
-  const svg = elGen.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner" style="border-color:rgba(10,11,15,.35);border-top-color:#0A0B0F"></span>';
+  const svg = elGen.querySelector('svg'); if(svg) svg.outerHTML = '<span class="spinner" style="border-color:rgba(10,11,15,.35);border-top-color:var(--ink,#0A0B0F)"></span>';
   try{
     const data = await callApi({ offer:state.offer, audience:state.audience, platform:state.platform, count:5, winnerAngle, brandVoice:activeBrandVoice() });
     state.contentId = data.contentId || null;
@@ -521,7 +521,7 @@ function renderBrain(s){
   const body=$('#brainBody'), panel=$('#brainPanel');
   if(!s){ panel.style.display='none'; return; }
   panel.style.display='block';
-  if(s.status==='learning'){ body.innerHTML='<p class="go-note" style="margin:0;">'+esc(s.note||'Volt is still learning — keep creating and checking Analytics.')+'</p>'; return; }
+  if(s.status==='learning'){ body.innerHTML='<p class="go-note" style="margin:0;">'+esc(s.note||((window.voltBrandName||'Volt'))+' is still learning — keep creating and checking Analytics.')+'</p>'; return; }
   if(s.status!=='ready'){ body.innerHTML='<p class="go-note" style="margin:0;">No insights yet.</p>'; return; }
   const list=(title,arr,col)=> (arr&&arr.length)? '<div style="margin-bottom:9px;"><span class="lbl" style="margin:0 0 4px; color:'+col+';">'+title+'</span><ul style="margin:0; padding-left:18px; font-size:13.5px; line-height:1.55; color:var(--text);">'+arr.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
   // Per-platform numbers are COMPUTED server-side, not written by the model, so they can be stated
@@ -552,7 +552,7 @@ function renderBrain(s){
     h+='<div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--border);">'
       + '<span class="lbl" style="margin:0 0 6px;">Use what works</span>'
       + '<div style="display:flex;flex-wrap:wrap;gap:7px;">'
-      + applyable.map((x,i)=>'<button type="button" class="brain-apply" data-i="'+i+'" style="font-family:var(--fm);font-size:11.5px;font-weight:700;padding:7px 11px;border-radius:9px;border:1px solid var(--border-2);background:#0D0F15;color:var(--dim);cursor:pointer;text-align:left;max-width:100%;">+ '+esc(x.length>52?x.slice(0,52)+'…':x)+'</button>').join('')
+      + applyable.map((x,i)=>'<button type="button" class="brain-apply" data-i="'+i+'" style="font-family:var(--fm);font-size:11.5px;font-weight:700;padding:7px 11px;border-radius:9px;border:1px solid var(--border-2);background:var(--ink-in,#0D0F15);color:var(--dim);cursor:pointer;text-align:left;max-width:100%;">+ '+esc(x.length>52?x.slice(0,52)+'…':x)+'</button>').join('')
       + '</div><p class="go-note" style="margin:7px 0 0;">Adds it to your brief as a steer for the next generation.</p></div>';
   }
   body.innerHTML=h || '<p class="go-note" style="margin:0;">No clear patterns yet — keep publishing.</p>';
@@ -607,6 +607,20 @@ if(window.voltSession) loadBrain(false);
 
 restoreCopy();
 render();
+</script>
+
+<script>
+/* Brand-neutral worked example. No-op on Volt, whose SME South Africa prompts are correct. */
+(function () {
+  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); }
+  ready(function () {
+    if ((window.voltBrandName || 'Volt') === 'Volt') return;
+    var offer = document.getElementById('offer');
+    if (offer) offer.placeholder = 'e.g. 20% off our starter plan until 30 June — first-time buyers, limited seats.';
+    var aud = document.getElementById('audience');
+    if (aud) aud.placeholder = 'e.g. Operations leads, 25–45';
+  });
+})();
 </script>
 </body>
 </html>

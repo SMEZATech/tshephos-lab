@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-09-03</strong> (multi-brand foundation + Video + MCP + Studio — see "Known gap in this file" below for what wasn't re-verified this pass).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-09-11</strong> (Vantly end-to-end pass: module set, brand-leak sweep, design layer — see "Known gap in this file" below for what wasn't re-verified this pass).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -171,6 +171,51 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-09-11</span>
+    <strong>Vantly end-to-end: the module set it actually ships, every brand leak, and a real design layer</strong> — the
+    2026-09-04 pass re-skinned Vantly's colour. This pass made it a product you could hand to a stranger. Three things,
+    all of them no-ops for Volt by construction.
+    <p style="margin-top:8px;"><strong>1. Modules.</strong> <code>BRAND.hiddenModules</code> (Vantly: email, schedule,
+    analytics) is applied at the <em>brand</em> level, ahead of the org-settings early-return — a brand-new org has no
+    settings row at all and must still get the right module set. An org can re-enable one from Admin
+    (<code>modules[k] === true</code> wins). Rail group headers with nothing left under them are pruned, and
+    <code>applyOrgSettings()</code> is now re-run from <code>showBadge()</code>: the rail is built from
+    <code>showApp()</code>, i.e. after the DOMContentLoaded/load passes have already run, so without that call a retired
+    module's tile was never actually removed. Campaign's Newsletter and Posting-plan stages, and its "~20 seconds.
+    Copy, creatives, email &amp; schedule" promise, follow the same list; so does the welcome modal's one-liner and the
+    Guide, which hides those sections, their TOC rows, and any cross-reference pointing at them.</p>
+    <p style="margin-top:8px;"><strong>2. Brand leaks.</strong> ~227 hardcoded Volt-dark hexes across 14 pages
+    (<code>#0A0B0F</code>, <code>#0D0F15</code>, <code>#14171F</code>…) now read
+    <code>var(--ink-*, &lt;original hex&gt;)</code> — the same fallback trick the accent already used, so an unthemed
+    brand is untouched. Rewritten in CSS contexts <em>only</em> (<code>&lt;style&gt;</code> blocks and
+    <code>style=</code> attributes): the identical hexes inside canvas draw calls are the artwork, not the interface.
+    Studio's Tailwind arbitrary values (<code>bg-[#0D0F15]</code> etc.) were routed onto its already-brand-aware
+    <code>lab</code> palette, each mapped to a key holding the byte-identical Volt hex (two new keys, <code>well</code>
+    and <code>ghost</code>, exist so nothing had to be approximated). Prose now uses
+    <code>&lt;span data-brand-name&gt;</code>/<code>data-brand-copyright</code>; the sleep screen no longer rains lime
+    glyphs spelling "VOLT"; Video's caption swatches and Freeform's palette follow the active brand instead of offering
+    SME South Africa's red/navy and Volt's lime; and each page's fallback Brand Kit is
+    <code>Object.assign(&lt;the old literal&gt;, window.voltBrandDefaultKit || {})</code>, so a Vantly customer's first
+    visit no longer presents another company as their own brand — <code>voice</code> included, which would otherwise
+    have steered their copy at "South African SME founders".</p>
+    <p style="margin-top:8px;"><strong>3. Design layer.</strong> <code>brandPolish()</code> in
+    <code>volt-auth.js</code> — elevation with a 1px top highlight, a real focus ring (a border recolour alone is too
+    easy to miss), styled <code>&lt;select&gt;</code> and file-input chrome, gradient primaries, thin brand-toned
+    scrollbars, and one shell settle-in behind <code>prefers-reduced-motion</code>. Scoped to class names Studio doesn't
+    use, so none of it reaches the design canvas. Returns <code>""</code> without a theme.</p>
+    <p style="margin-top:8px;">Two Volt regressions were caught by verifying rather than assuming, both worth
+    remembering: <code>applyBrandChrome()</code> early-returns for Volt, so the new empty
+    <code>data-brand-name</code> placeholders rendered blank there ("© 2026&nbsp;&nbsp;· All rights reserved") until the
+    fill moved <em>above</em> that guard; and injecting the name in its natural case turned Campaign's
+    "VOLT · CAMPAIGN" footer into "Volt · CAMPAIGN" until the rule got
+    <code>text-transform:uppercase</code>. Volt was then re-verified live on every page touched — palette, footers,
+    Guide, Studio's computed Tailwind colours, Freeform's swatch list — all byte-identical.</p>
+    <p style="margin-top:8px;"><strong>Still open:</strong> <code>BRANDS.vantly.apiHost</code> is
+    <code>vantly-xi.vercel.app</code> until the real domain is connected (and <code>detectBrand()</code> assumes the
+    hostname contains "vantly"). Desktop always resolves to Volt — hostname detection can't see a brand on
+    <code>127.0.0.1</code>, so a Vantly desktop build would need an explicit marker.</p>
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-09-04</span>
     <strong>Vantly's visual identity applied across the app — three colour layers, not one</strong> — the earlier multi-brand work changed what the app <em>says</em>; this changed what it <em>looks like</em>. Turned out the palette lives in three separate places, each needing a different mechanism: (1) <b>CSS tokens</b> — Copy Lab, Campaign, SmartClip and most other pages define their own <code>:root{--bg/--accent/--fd/…}</code>, so redefining those with <code>!important</code> from <code>injectBrandStyles()</code> re-skins all of them from one file. <code>!important</code> is load-bearing: <code>volt-auth.js</code> is the first thing in <code>&lt;head&gt;</code> and can inject before a page's own <code>&lt;style&gt;</code> parses, so without it the page would win the cascade and silently undo the theme. (2) <b>Studio's Tailwind config</b> — its palette is built in a JS object before any stylesheet exists, so CSS overrides can't reach it; <code>studio.html</code> now reads <code>window.voltBrandTheme</code> for its accent ramp, shell colours and fonts, with Volt's fallback values byte-identical to what was there. Its own <code>&lt;style&gt;</code> block needed ~15 explicit selector overrides on top. (3) <b>rgba accent tints</b> — 61 <code>rgba(182,255,61,alpha)</code> literals across 11 pages (ambient glows, focus rings, badge fills, button shadows) that <code>rgba()</code> can't take a hex for, so they never followed the token; all now read <code>rgba(var(--accent-rgb,182,255,61),alpha)</code>. Plus Studio's 18 inline <code>style="color:#B6FF3D"</code> attributes, unreachable by any selector, now on <code>var(--vt-accent,…)</code>.

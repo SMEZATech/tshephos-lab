@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28);
     --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
     --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
     --accent:#B6FF3D; --accent-press:#a3ec2b;
@@ -33,7 +33,7 @@
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap;}
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
   .tab:hover{color:var(--text); border-color:var(--accent);}
-  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
 
   .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);}
@@ -48,25 +48,25 @@
   a{color:var(--accent); text-decoration:none; border-bottom:1px solid rgba(var(--accent-rgb,182,255,61),.3);}
 
   .lead{color:var(--dim); font-size:15.5px; margin:6px 0 4px; max-width:680px;}
-  .card{background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:20px; padding:24px 26px; margin-top:16px; box-shadow:0 24px 60px -34px rgba(0,0,0,.8);}
+  .card{background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:20px; padding:24px 26px; margin-top:16px; box-shadow:0 24px 60px -34px rgba(0,0,0,.8);}
 
   /* contents */
   .toc{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-top:22px;}
-  .toc a{display:flex; align-items:center; gap:10px; font-family:var(--fm); font-size:12.5px; font-weight:700; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:12px 14px; text-decoration:none; transition:all .14s;}
+  .toc a{display:flex; align-items:center; gap:10px; font-family:var(--fm); font-size:12.5px; font-weight:700; color:var(--text); background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:12px; padding:12px 14px; text-decoration:none; transition:all .14s;}
   .toc a:hover{border-color:var(--accent); color:var(--accent); transform:translateY(-1px);}
   .toc a .e{font-size:17px;}
 
   /* numbered steps */
   ol.steps{list-style:none; counter-reset:s; padding:0; margin:14px 0;}
   ol.steps>li{counter-increment:s; position:relative; padding:4px 0 16px 50px; margin:0;}
-  ol.steps>li::before{content:counter(s); position:absolute; left:0; top:0; width:32px; height:32px; border-radius:50%; background:var(--accent); color:#0A0B0F; font-family:var(--fd); font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center;}
+  ol.steps>li::before{content:counter(s); position:absolute; left:0; top:0; width:32px; height:32px; border-radius:50%; background:var(--accent); color:var(--ink,#0A0B0F); font-family:var(--fd); font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center;}
   ol.steps>li:not(:last-child)::after{content:''; position:absolute; left:15px; top:34px; bottom:2px; width:2px; background:var(--border-2);}
   ol.steps>li b{color:var(--text);}
   ul.plain{margin:8px 0; padding-left:20px;} ul.plain li{margin:5px 0; color:var(--dim);} ul.plain li b{color:var(--text);}
 
   /* chips that represent buttons/labels in the app */
-  .chip{display:inline-block; font-family:var(--fm); font-size:12px; font-weight:700; padding:3px 9px; border-radius:8px; border:1px solid var(--border-2); background:#0D0F15; color:var(--text); white-space:nowrap;}
-  .chip.lime{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .chip{display:inline-block; font-family:var(--fm); font-size:12px; font-weight:700; padding:3px 9px; border-radius:8px; border:1px solid var(--border-2); background:var(--ink-in,#0D0F15); color:var(--text); white-space:nowrap;}
+  .chip.lime{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
   .chip.tab{border-color:var(--border-2); color:var(--dim);}
 
   /* callouts */
@@ -82,7 +82,7 @@
   th{font-family:var(--fm); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim);}
   td b{color:var(--text);}
 
-  .kbd{font-family:var(--fm); font-size:12px; font-weight:700; background:#0D0F15; border:1px solid var(--border-2); border-bottom-width:2px; border-radius:7px; padding:3px 8px; color:var(--text);}
+  .kbd{font-family:var(--fm); font-size:12px; font-weight:700; background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-bottom-width:2px; border-radius:7px; padding:3px 8px; color:var(--text);}
 
   hr{border:0; border-top:1px solid var(--border); margin:8px 0;}
   footer{margin-top:54px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
@@ -110,8 +110,8 @@
 
   <header>
     <span class="badge"><span class="dot"></span> Operator's Guide · for the Social Media Manager</span>
-    <h1 class="title">Volt<span class="accent">.</span> — how to use it</h1>
-    <p class="sub">Volt is SME South Africa's in-house marketing studio. Write ad copy, design graphics across 15 content families, build the newsletter, cut webinars into branded shorts, publish straight to social, and now connect an AI tool of your own to it. This guide walks through each, start to finish.</p>
+    <h1 class="title" id="pageHeroLogo">Volt<span class="accent">.</span> — how to use it</h1>
+    <p class="sub" id="guideSub">Volt is SME South Africa's in-house marketing studio. Write ad copy, design graphics across 15 content families, build the newsletter, cut webinars into branded shorts, publish straight to social, and now connect an AI tool of your own to it. This guide walks through each, start to finish.</p>
   </header>
 
   <div class="toc">
@@ -133,17 +133,17 @@
 
   <!-- ============ GETTING STARTED ============ -->
   <h2 id="start"><span class="ic">🚀</span> Getting started</h2>
-  <p class="lead">There are two ways to run Volt — they look identical and share the same engine.</p>
+  <p class="lead">There are two ways to run <span data-brand-name></span> — they look identical and share the same engine.</p>
   <div class="card">
     <h3>Web app (easiest)</h3>
     <ul class="plain">
-      <li>Open <a href="https://tshephos-lab.vercel.app">tshephos-lab.vercel.app</a> in your browser.</li>
+      <li>Open <a href="https://tshephos-lab.vercel.app" data-brand-applink>tshephos-lab.vercel.app</a> in your browser.</li>
       <li>Nothing to install, nothing to sign into. Bookmark it.</li>
     </ul>
     <h3>Desktop app (Windows)</h3>
     <ol class="steps">
-      <li>Open the <b>Volt</b> app.</li>
-      <li><b>Sign in</b> with your <span class="chip">@smesouthafrica.co.za</span> work email.</li>
+      <li>Open the <b><span data-brand-name></span></b> app.</li>
+      <li><b>Sign in</b> with your <span class="chip" data-brand-emaildomain>@smesouthafrica.co.za</span> work email.</li>
       <li>Click <span class="chip">⚙</span> (top-right) and paste the <b>API keys</b> you were given. These power the AI tools.</li>
     </ol>
     <div class="call info"><span class="k">ℹ️</span><div>The keys live only on your machine. <b>Studio</b> needs no key; the other tools each need their matching one (you'll be told which if it's missing).</div></div>
@@ -167,7 +167,7 @@
   <!-- ============ COPY ============ -->
   <h2 id="campaign"><span class="ic">⚡</span> Campaign — one brief, everything made</h2>
   <div class="card">
-    <p>Describe what you're promoting in plain words and Volt builds the whole campaign in one go:
+    <p>Describe what you're promoting in plain words and <span data-brand-name></span> builds the whole campaign in one go:
     <b>3 ranked ad-copy angles</b>, <b>3 finished creatives</b> (rendered by Studio's engine in your brand),
     a <b>newsletter subject + brief</b>, and a <b>4-post publishing plan</b> across platforms.</p>
     <h3>Then hand each piece off</h3>
@@ -178,7 +178,7 @@
       <li><b>🎬 Video</b> — the headlines become ready hook options for a short.</li>
     </ul>
     <p><b>↻ Reroll</b> any single angle or creative without redoing the campaign. <b>💾 Save</b> keeps it on your account;
-    your last campaign also restores automatically when you come back. The <b>🧠 panel</b> shows what Volt has
+    your last campaign also restores automatically when you come back. The <b>🧠 panel</b> shows what <span data-brand-name></span> has
     learned from your real performance — every campaign is generated with that steering it.</p>
   </div>
 
@@ -202,7 +202,7 @@
     <h3>Set up your brand once</h3>
     <ol class="steps">
       <li>Open <span class="chip tab">🎨 Studio</span> → find the <b>Brand Kit</b>.</li>
-      <li>SME South Africa is the default (red <span class="chip">#9c1c1f</span>, navy <span class="chip">#0a2c3d</span>). To add another brand, choose <b>➕ New brand…</b>, set its colours, logo, name and website, and save.</li>
+      <li><span data-brand-kitdefault>SME South Africa is the default (red <span class="chip">#9c1c1f</span>, navy <span class="chip">#0a2c3d</span>)</span>. To add another brand, choose <b>➕ New brand…</b>, set its colours, logo, name and website, and save.</li>
       <li>The <b>active brand</b> is what other tools use.</li>
     </ol>
     <div class="call info"><span class="k">🔗</span><div><b>Why it matters:</b> whatever brand is active in Studio is the brand the <b>Video</b> tool uses for intro/outro colours, the logo and the wordmark — so everything stays on-brand without re-typing.</div></div>
@@ -265,12 +265,12 @@
 
   <!-- ============ EMAIL ============ -->
   <h2 id="email"><span class="ic">✉️</span> Email — build the newsletter</h2>
-  <p class="lead">Describe the week's content, and Volt builds a Kit-ready newsletter in the fixed SME house style. You can then edit it right in the preview and push it to Kit.</p>
+  <p class="lead">Describe the week's content, and <span data-brand-name></span> builds a Kit-ready newsletter in the fixed SME house style. You can then edit it right in the preview and push it to Kit.</p>
   <div class="card">
     <h3>Build it</h3>
     <ol class="steps">
       <li>In the big box, <b>describe this week's content</b> — the theme and the sections you want.</li>
-      <li>Add the exact <b>links</b> Volt may use (text + URL). It only uses these and never invents a URL.</li>
+      <li>Add the exact <b>links</b> <span data-brand-name></span> may use (text + URL). It only uses these and never invents a URL.</li>
       <li>Fill the <b>Email subject</b> and <b>Preview text</b> (used when you send to Kit).</li>
       <li>Toggle any <b>promo blocks</b> you need — webinar banner, free resource, sponsored mention, weekly action — and fill their details.</li>
       <li>Hit <span class="chip lime">Build email</span>. The live preview appears on the right.</li>
@@ -295,20 +295,20 @@
 
   <!-- ============ SCHEDULE ============ -->
   <h2 id="schedule"><span class="ic">📅</span> Schedule — publish, direct</h2>
-  <p class="lead">Compose once, then choose where it goes. Instagram, Facebook and TikTok publish <b>directly</b> from Volt — no third-party scheduler in between, so if something fails you see that platform's own error, not someone else's paraphrase of it. Everything else still runs through your connected Postiz instance.</p>
+  <p class="lead">Compose once, then choose where it goes. Instagram, Facebook and TikTok publish <b>directly</b> from <span data-brand-name></span> — no third-party scheduler in between, so if something fails you see that platform's own error, not someone else's paraphrase of it. Everything else still runs through your connected Postiz instance.</p>
   <div class="card">
     <h3>Compose a post</h3>
     <ol class="steps">
       <li>Pick the post type: <span class="chip">Feed</span>, <span class="chip">✨ Story</span> or <span class="chip">🎬 Reel</span> — the composer's preview shape changes to match (a Story/Reel previews as a real vertical phone frame).</li>
       <li>Load an image — from a Studio export, a file, or Campaign's hand-off.</li>
-      <li>Write the caption. A Story carries <b>no caption</b> on the real platform — Volt already knows this and won't try to attach one.</li>
+      <li>Write the caption. A Story carries <b>no caption</b> on the real platform — <span data-brand-name></span> already knows this and won't try to attach one.</li>
       <li>Tick which connected channels this goes to (Instagram/Facebook direct, or any Postiz channel).</li>
       <li>Choose <span class="chip">⚡ Post now</span>, <span class="chip">🗓️ Schedule</span> for later, or <span class="chip">📝 Save draft</span> (Postiz channels only — Instagram/Facebook/TikTok have no drafts over their own APIs, only "now" or "later").</li>
     </ol>
   </div>
   <div class="card">
     <h3>The calendar</h3>
-    <p>One merged view, bucketed by day — pulls from three sources at once (your Postiz queue, and Volt's own Instagram and Facebook queues) instead of three separate lists.</p>
+    <p>One merged view, bucketed by day — pulls from three sources at once (your Postiz queue, and <span data-brand-name></span>'s own Instagram and Facebook queues) instead of three separate lists.</p>
     <div class="call warn"><span class="k">⚠️</span><div>A <b>"⚠ CRON_SECRET not set"</b> note means scheduling-for-later is off on the server — only <b>Post now</b> will actually publish. That's a one-time setup thing for Tshepho to fix, not something to work around.</div></div>
   </div>
   <div class="card">
@@ -352,7 +352,7 @@
     <ol class="steps">
       <li>Click <span class="chip lime">✨ Find highlights</span> — the AI reads the transcript and ranks the most clip-worthy moments.</li>
       <li>Each result shows a <b>score</b>, a <b>time range</b>, a one-line reason and a suggested <b>hook</b>.</li>
-      <li>Tap a card → Volt <b>trims straight to that moment</b> and pre-fills its hook. Regenerate captions on the tight clip, then export.</li>
+      <li>Tap a card → <span data-brand-name></span> <b>trims straight to that moment</b> and pre-fills its hook. Regenerate captions on the tight clip, then export.</li>
     </ol>
 
     <h3>📝 Post copy &amp; hooks</h3>
@@ -389,13 +389,13 @@
       <li><b>Studio designs</b> — retire an overused look from Studio's picker. Retiring never touches graphics already exported.</li>
       <li><b>Premium content types</b> — turn a <a href="#premium">Studio family</a> on/off org-wide. Business News defaults <b>off</b> for everyone (it's the one family with its own fixed identity, not your Brand Kit) — an owner opts it in here.</li>
       <li><b>Instagram &amp; Facebook / TikTok</b> — the one-time social connections used by <a href="#schedule">Schedule</a>.</li>
-      <li><b>🔌 AI Tools (MCP)</b> — generate the key that connects an outside AI tool to Volt. Full walkthrough in the next section.</li>
+      <li><b>🔌 AI Tools (MCP)</b> — generate the key that connects an outside AI tool to <span data-brand-name></span>. Full walkthrough in the next section.</li>
     </ul>
   </div>
 
   <!-- ============ MCP ============ -->
   <h2 id="mcp"><span class="ic">🔌</span> Connect AI Tools (MCP)</h2>
-  <p class="lead">Volt speaks <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a> (Model Context Protocol) — the open standard most AI tools now support for connecting to outside apps. Once connected, Claude Desktop, Claude Code, or any other MCP-compatible tool can generate on-brand copy and read your Brand Kit <b>without leaving that tool</b>.</p>
+  <p class="lead"><span data-brand-name></span> speaks <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">MCP</a> (Model Context Protocol) — the open standard most AI tools now support for connecting to outside apps. Once connected, Claude Desktop, Claude Code, or any other MCP-compatible tool can generate on-brand copy and read your Brand Kit <b>without leaving that tool</b>.</p>
   <div class="call warn"><span class="k">🔒</span><div><b>Generate-only, by design.</b> A connected AI tool can draft ad copy, newsletter copy and read the Brand Kit. It <b>cannot</b> publish a post, change a setting, or touch anything else in the account — connecting a tool never hands it the ability to act live on your behalf.</div></div>
   <div class="card">
     <h3>1. Generate a key</h3>
@@ -410,12 +410,12 @@
     <p>Every MCP client asks for the same three things, just in a different-shaped form:</p>
     <table>
       <tr><th>What it asks for</th><th>What to enter</th></tr>
-      <tr><td>Server URL / endpoint</td><td><code>https://tshephos-lab.vercel.app/api/mcp</code></td></tr>
+      <tr><td>Server URL / endpoint</td><td><code data-brand-mcp>https://tshephos-lab.vercel.app/api/mcp</code></td></tr>
       <tr><td>Auth header</td><td><code>Authorization: Bearer sk_volt_…</code> (your key)</td></tr>
       <tr><td>Transport</td><td>Streamable HTTP (the standard remote-MCP transport — no local install, nothing to keep running)</td></tr>
     </table>
     <h3>Claude Code</h3>
-    <p style="font-family:var(--fm); font-size:13px; background:#0D0F15; border:1px solid var(--border-2); border-radius:10px; padding:12px 14px; overflow-x:auto;">claude mcp add --transport http volt https://tshephos-lab.vercel.app/api/mcp --header "Authorization: Bearer sk_volt_..."</p>
+    <p style="font-family:var(--fm); font-size:13px; background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:10px; padding:12px 14px; overflow-x:auto;">claude mcp add --transport http volt https://tshephos-lab.vercel.app/api/mcp --header "Authorization: Bearer sk_volt_..."</p>
     <h3>Claude Desktop</h3>
     <p><b>Settings → Connectors → Add custom connector</b> — paste the URL above, add the Authorization header with your key.</p>
   </div>
@@ -477,7 +477,69 @@
   </div>
 
   <p style="text-align:center; margin-top:30px;"><a class="backtop" href="#top">↑ back to top</a></p>
-  <footer>© 2026 <span>SME South Africa</span> · Volt Operator's Guide · Built by Tshepho Joel</footer>
+  <footer id="guideFooter">© 2026 <span>SME South Africa</span> · Volt Operator's Guide · Built by Tshepho Joel</footer>
 </main>
+
+<script>
+/* Brand-specific guidance. Volt has no theme and ships every module, so every branch below is
+   a no-op for it and the markup's original SME South Africa wording stands untouched. */
+(function () {
+  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); }
+  ready(function () {
+    var name = window.voltBrandName || 'Volt';
+    var host = (window.voltBrandApiHost || 'https://tshephos-lab.vercel.app').replace(/\/+$/,'');
+    var bare = host.replace(/^https?:\/\//,'');
+    var kit  = window.voltBrandDefaultKit || null;
+    var mail = window.voltBrandEmailPlaceholder || '';
+
+    var link = document.querySelector('[data-brand-applink]');
+    if (link) { link.href = host; link.textContent = bare; }
+
+    var mcp = document.querySelector('[data-brand-mcp]');
+    if (mcp) mcp.textContent = host + '/api/mcp';
+
+    // Volt restricts sign-up to one work domain; a commercial brand does not, so the instruction
+    // changes shape rather than just swapping the domain string.
+    var dom = document.querySelector('[data-brand-emaildomain]');
+    if (dom && name !== 'Volt') {
+      var at = mail.indexOf('@');
+      dom.outerHTML = at > -1 ? 'work email' : 'email address';
+    }
+
+    var kd = document.querySelector('[data-brand-kitdefault]');
+    if (kd && kit) {
+      kd.textContent = 'A neutral placeholder brand is the default until you set your own';
+    }
+
+    var foot = document.getElementById('guideFooter');
+    if (foot && name !== 'Volt') {
+      foot.textContent = '© 2026 ' + (window.voltBrandCopyright || name) + ' · ' + name + " Operator's Guide";
+    }
+
+    var sub = document.getElementById('guideSub');
+    if (sub && name !== 'Volt') {
+      sub.textContent = name + ' is your marketing studio. Write ad copy, design graphics across ' +
+        'a library of content families, cut long recordings into branded shorts, and keep it all ' +
+        'on one Brand Kit. This page explains every tool, in order.';
+    }
+
+    // Sections for modules this brand does not ship. Hiding the tile but leaving a full how-to
+    // for it in the guide is worse than not shipping it at all — it documents a dead end.
+    var hidden = window.voltBrandHiddenModules || [];
+    hidden.forEach(function (m) {
+      var h = document.getElementById(m); if (!h) return;
+      var toc = document.querySelector('.toc a[href="#' + m + '"]'); if (toc) toc.style.display = 'none';
+      var el = h, group = [h];
+      while ((el = el.nextElementSibling) && el.tagName !== 'H2') group.push(el);
+      group.forEach(function (n) { n.style.display = 'none'; });
+      // cross-references elsewhere in the guide would now scroll to something invisible
+      [].forEach.call(document.querySelectorAll('a[href="#' + m + '"]'), function (a) {
+        if (a.closest('.toc')) return;
+        var t = document.createTextNode(a.textContent); a.parentNode.replaceChild(t, a);
+      });
+    });
+  });
+})();
+</script>
 </body>
 </html>

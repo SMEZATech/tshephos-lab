@@ -14,7 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&family=Oswald:wght@500;700;900&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28;
+    --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28);
     --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
     --text:#ECEEF3; --dim:#888F9D; --faint:#5B616D;
     --accent:#B6FF3D; --accent-press:#a3ec2b;
@@ -36,7 +36,7 @@
   .topbar{display:flex; gap:8px; align-items:center; margin-bottom:24px; flex-wrap:wrap;}
   .tab{font-family:var(--fm); font-size:12px; font-weight:700; letter-spacing:.03em; padding:9px 15px; border-radius:11px; border:1px solid var(--border-2); color:var(--dim); text-decoration:none; transition:all .14s; cursor:pointer;}
   .tab:hover{color:var(--text); border-color:var(--accent);}
-  .tab.active{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
+  .tab.active{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
 
   .badge{display:inline-flex; align-items:center; gap:8px; font-family:var(--fm); font-size:11px; font-weight:700; letter-spacing:.18em; color:var(--dim); text-transform:uppercase; border:1px solid var(--border); border-radius:100px; padding:6px 13px; background:rgba(255,255,255,.02);}
   .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 2s infinite;}
@@ -48,7 +48,7 @@
   .layout{display:grid; grid-template-columns:380px 1fr; gap:22px; margin-top:30px;}
   @media(max-width:920px){.layout{grid-template-columns:1fr;}}
 
-  .panel{background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04); align-self:start;}
+  .panel{background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:22px; padding:22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04); align-self:start;}
   .blk{padding:16px 0; border-bottom:1px solid var(--border);}
   .blk:first-child{padding-top:0;}
   .blk:last-child{border-bottom:none; padding-bottom:0;}
@@ -57,18 +57,18 @@
   .num{font-family:var(--fd); font-weight:800; color:var(--accent); margin-right:7px;}
 
   input[type=file]{width:100%; font-size:12.5px; color:var(--dim); font-family:var(--fb);}
-  input[type=file]::file-selector-button{margin-right:12px; padding:8px 13px; border-radius:9px; border:1px solid var(--border-2); background:#0D0F15; color:var(--text); font-family:var(--fm); font-weight:700; font-size:11.5px; cursor:pointer; transition:all .14s;}
-  input[type=file]::file-selector-button:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
-  input[type=text]{width:100%; font-family:var(--fb); font-size:14px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:11px; padding:11px 13px; outline:none; transition:border-color .16s, box-shadow .16s;}
+  input[type=file]::file-selector-button{margin-right:12px; padding:8px 13px; border-radius:9px; border:1px solid var(--border-2); background:var(--ink-in,#0D0F15); color:var(--text); font-family:var(--fm); font-weight:700; font-size:11.5px; cursor:pointer; transition:all .14s;}
+  input[type=file]::file-selector-button:hover{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
+  input[type=text]{width:100%; font-family:var(--fb); font-size:14px; color:var(--text); background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:11px; padding:11px 13px; outline:none; transition:border-color .16s, box-shadow .16s;}
   input[type=text]::placeholder{color:#565c68;}
   input[type=text]:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(var(--accent-rgb,182,255,61),.14);}
   input[type=range]{width:100%; accent-color:var(--accent); cursor:pointer;}
 
   .seg{display:flex; gap:6px; flex-wrap:wrap;}
-  .seg button{font-family:var(--fm); font-size:12px; font-weight:700; padding:9px 13px; border:1px solid var(--border-2); border-radius:10px; background:#0D0F15; color:var(--dim); cursor:pointer; transition:all .14s;}
+  .seg button{font-family:var(--fm); font-size:12px; font-weight:700; padding:9px 13px; border:1px solid var(--border-2); border-radius:10px; background:var(--ink-in,#0D0F15); color:var(--dim); cursor:pointer; transition:all .14s;}
   .seg button:hover{color:var(--text); border-color:var(--accent);}
-  .seg button.on{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
-  .brand-sel{width:100%; font-family:var(--fm); font-size:12.5px; font-weight:700; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:10px; padding:10px 11px; margin-bottom:14px; cursor:pointer; outline:none; transition:border-color .14s;}
+  .seg button.on{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
+  .brand-sel{width:100%; font-family:var(--fm); font-size:12.5px; font-weight:700; color:var(--text); background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:10px; padding:10px 11px; margin-bottom:14px; cursor:pointer; outline:none; transition:border-color .14s;}
   .brand-sel:focus{border-color:var(--accent); box-shadow:0 0 0 4px rgba(var(--accent-rgb,182,255,61),.14);}
 
   .trim-read{font-family:var(--fm); font-size:12px; color:var(--text); margin-bottom:10px;}
@@ -80,17 +80,17 @@
   .sw{position:relative; width:38px; height:21px; border-radius:100px; background:#2a2f3a; border:1px solid var(--border-2); flex-shrink:0; margin-left:auto; transition:background .15s;}
   .sw::after{content:''; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#888f9d; transition:transform .15s, background .15s;}
   .togrow.on .sw{background:var(--accent); border-color:var(--accent);}
-  .togrow.on .sw::after{transform:translateX(17px); background:#0A0B0F;}
+  .togrow.on .sw::after{transform:translateX(17px); background:var(--ink,#0A0B0F);}
   .togfields{display:none; margin-top:10px;}
   .togfields.show{display:block;}
   .togfields input{margin-bottom:8px;}
 
-  .btn{display:inline-flex; align-items:center; justify-content:center; gap:9px; width:100%; font-family:var(--fb); font-weight:800; font-size:15.5px; color:#0A0B0F; background:var(--accent); border:none; border-radius:13px; padding:15px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(var(--accent-rgb,182,255,61),.6);}
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:9px; width:100%; font-family:var(--fb); font-weight:800; font-size:15.5px; color:var(--ink,#0A0B0F); background:var(--accent); border:none; border-radius:13px; padding:15px 24px; cursor:pointer; transition:transform .12s, box-shadow .18s, background .15s; box-shadow:0 8px 24px -8px rgba(var(--accent-rgb,182,255,61),.6);}
   .btn:hover:not(:disabled){transform:translateY(-1px); background:var(--accent-press); box-shadow:0 14px 32px -10px rgba(var(--accent-rgb,182,255,61),.7);}
   .btn:active:not(:disabled){transform:translateY(1px);}
   .btn:disabled{opacity:.4; cursor:not-allowed; box-shadow:none;}
   .ctrls{display:flex; gap:8px; margin-top:14px;}
-  .mini{flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:12px; background:#0D0F15; border:1px solid var(--border-2); color:var(--text); border-radius:11px; padding:11px 10px; cursor:pointer; transition:all .14s;}
+  .mini{flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-family:var(--fm); font-weight:700; font-size:12px; background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); color:var(--text); border-radius:11px; padding:11px 10px; cursor:pointer; transition:all .14s;}
   .mini:hover{background:var(--surface-2); border-color:var(--accent);}
   .mini svg{width:14px;height:14px;}
 
@@ -103,7 +103,7 @@
           background:var(--bg); padding-bottom:12px; border-bottom:1px solid var(--border);}
   @media(max-width:920px){ .player{position:static;} }
   .canvas-shell{position:relative; background:#000; border:1px solid var(--border); border-radius:18px; overflow:hidden; box-shadow:0 24px 60px -28px rgba(0,0,0,.85); display:flex; align-items:center; justify-content:center; width:100%; min-height:300px; padding:14px;}
-  #stageCanvas{max-height:64vh; max-width:100%; height:auto; width:auto; border-radius:8px; background:#0a0b0f; display:block;}
+  #stageCanvas{max-height:64vh; max-width:100%; height:auto; width:auto; border-radius:8px; background:var(--ink,#0a0b0f); display:block;}
   .stage-empty{color:var(--faint); text-align:center; padding:80px 20px;}
   .stage-empty svg{width:34px;height:34px;opacity:.5;}
   .stage-empty p{margin:14px 0 0; font-size:15px;}
@@ -120,7 +120,7 @@
   .cap-custom input[type=color]{position:absolute; inset:-4px; width:calc(100% + 8px); height:calc(100% + 8px); opacity:0; cursor:pointer; border:none; padding:0; background:transparent;}
   .status{font-family:var(--fm); font-size:12px; color:var(--info); margin-top:12px; min-height:16px; text-align:center;}
   .status.rec{color:var(--low);}
-  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:#0A0B0F;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+  .spinner{width:14px;height:14px;border:2px solid rgba(10,11,15,.3);border-top-color:var(--ink,#0A0B0F);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
   @keyframes spin{to{transform:rotate(360deg)}}
 
   .note{font-size:12px; color:var(--faint); line-height:1.5; margin-top:14px;}
@@ -133,12 +133,12 @@
   .cap-sw:hover{transform:scale(1.08);}
   .cap-sw.on{border-color:#fff; box-shadow:0 0 0 3px rgba(var(--accent-rgb,182,255,61),.45);}
 
-  #capEditor{margin-top:24px; width:100%; align-self:stretch; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  #capEditor{margin-top:24px; width:100%; align-self:stretch; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .cap-ed-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
   .cap-ed-hint{display:block; font-size:12px; color:var(--faint); margin-top:5px;}
   .cap-ed-count{font-family:var(--fm); font-size:11px; letter-spacing:.06em; color:var(--dim); border:1px solid var(--border); border-radius:100px; padding:5px 11px; white-space:nowrap;}
   .filmwrap{position:relative; margin:10px 0 4px; display:none;}
-  .filmstrip{display:flex; gap:2px; height:46px; border-radius:8px; overflow:hidden; background:#0a0b0f; border:1px solid var(--border);}
+  .filmstrip{display:flex; gap:2px; height:46px; border-radius:8px; overflow:hidden; background:var(--ink,#0a0b0f); border:1px solid var(--border);}
   .film-thumb{flex:1 1 0; min-width:0; background-size:cover; background-position:center; background-repeat:no-repeat;}
   .filmstrip.busy{opacity:.5;}
   .filmtrim{position:absolute; inset:0; pointer-events:none;}
@@ -148,32 +148,32 @@
   .ft-handle::before{content:""; width:4px; height:58%; border-radius:3px; background:var(--accent); box-shadow:0 0 0 3px rgba(10,11,15,.55);}
   #capList{max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; padding-right:6px;}
   #capList::-webkit-scrollbar{width:8px;} #capList::-webkit-scrollbar-thumb{background:var(--border-2); border-radius:8px;}
-  .caprow{display:flex; align-items:center; gap:11px; background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:8px 10px; transition:border-color .14s, background .14s; cursor:pointer;}
+  .caprow{display:flex; align-items:center; gap:11px; background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:12px; padding:8px 10px; transition:border-color .14s, background .14s; cursor:pointer;}
   .caprow:hover{border-color:rgba(var(--accent-rgb,182,255,61),.45);}
   .caprow.live{border-color:var(--accent); background:rgba(var(--accent-rgb,182,255,61),.07); box-shadow:0 0 0 1px var(--accent) inset;}
   .caprow .tc{font-family:var(--fm); font-size:11px; font-weight:700; color:var(--accent); background:rgba(var(--accent-rgb,182,255,61),.08); border-radius:7px; padding:5px 8px; flex-shrink:0; min-width:46px; text-align:center;}
   .caprow input{flex:1; background:transparent; border:none; border-radius:8px; padding:8px 9px; color:var(--text); font-family:var(--fb); font-size:14.5px; font-weight:600; outline:none; cursor:text;}
-  .caprow input:focus{background:#070809; box-shadow:0 0 0 2px rgba(var(--accent-rgb,182,255,61),.25);}
+  .caprow input:focus{background:var(--ink-abyss,#070809); box-shadow:0 0 0 2px rgba(var(--accent-rgb,182,255,61),.25);}
   .caprow .del{flex-shrink:0; width:28px; height:28px; border-radius:8px; border:1px solid var(--border-2); background:transparent; color:var(--dim); font-size:15px; line-height:1; cursor:pointer; transition:all .14s;}
   .caprow .del:hover{color:var(--low); border-color:var(--low);}
 
-  #postCopy{margin-top:24px; width:100%; align-self:stretch; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
+  #postCopy{margin-top:24px; width:100%; align-self:stretch; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:22px; padding:20px 22px; box-shadow:0 24px 60px -28px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);}
   .pc-block{margin-top:14px;}
   .pc-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;}
   .pc-head span{font-family:var(--fm); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:700;}
-  .pc-copy{font-family:var(--fm); font-size:11px; font-weight:700; padding:5px 12px; border:1px solid var(--border-2); border-radius:8px; background:#0D0F15; color:var(--text); cursor:pointer; transition:all .14s;}
-  .pc-copy:hover{background:var(--accent); color:#0A0B0F; border-color:var(--accent);}
-  .pc-area{width:100%; background:#0D0F15; border:1px solid var(--border-2); border-radius:12px; padding:13px; color:var(--text); font-family:var(--fb); font-size:14.5px; line-height:1.5; outline:none; resize:vertical;}
+  .pc-copy{font-family:var(--fm); font-size:11px; font-weight:700; padding:5px 12px; border:1px solid var(--border-2); border-radius:8px; background:var(--ink-in,#0D0F15); color:var(--text); cursor:pointer; transition:all .14s;}
+  .pc-copy:hover{background:var(--accent); color:var(--ink,#0A0B0F); border-color:var(--accent);}
+  .pc-area{width:100%; background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:12px; padding:13px; color:var(--text); font-family:var(--fb); font-size:14.5px; line-height:1.5; outline:none; resize:vertical;}
   .pc-area:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(var(--accent-rgb,182,255,61),.18);}
   .pc-tags{display:flex; flex-wrap:wrap; gap:7px;}
   .pc-tag{font-family:var(--fm); font-size:12.5px; color:var(--info); background:rgba(127,200,255,.08); border:1px solid rgba(127,200,255,.22); border-radius:100px; padding:6px 12px;}
   .pc-hooks{display:flex; flex-direction:column; gap:7px;}
-  .pc-hook{text-align:left; font-family:var(--fb); font-weight:700; font-size:14.5px; color:var(--text); background:#0D0F15; border:1px solid var(--border-2); border-radius:11px; padding:11px 14px; cursor:pointer; transition:all .14s;}
+  .pc-hook{text-align:left; font-family:var(--fb); font-weight:700; font-size:14.5px; color:var(--text); background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:11px; padding:11px 14px; cursor:pointer; transition:all .14s;}
   .pc-hook:hover{border-color:var(--accent); color:var(--accent); transform:translateX(2px);}
 
-  .hl-card{text-align:left; background:#0D0F15; border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; cursor:pointer; transition:border-color .14s, transform .14s; display:flex; gap:13px; align-items:flex-start;}
+  .hl-card{text-align:left; background:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:13px; padding:13px 15px; cursor:pointer; transition:border-color .14s, transform .14s; display:flex; gap:13px; align-items:flex-start;}
   .hl-card:hover{border-color:var(--accent); transform:translateX(2px);}
-  .hl-score{flex-shrink:0; width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:var(--fd); font-weight:800; font-size:15px; color:#0A0B0F;}
+  .hl-score{flex-shrink:0; width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:var(--fd); font-weight:800; font-size:15px; color:var(--ink,#0A0B0F);}
   .hl-main{flex:1; min-width:0;}
   .hl-title{font-family:var(--fb); font-weight:800; font-size:15px; color:var(--text); margin:0 0 3px;}
   .hl-meta{font-family:var(--fm); font-size:11px; color:var(--accent); margin-bottom:5px;}
@@ -213,7 +213,7 @@
 
   <header>
     <span class="badge"><span class="dot"></span> Video Styler · V1</span>
-    <h1 class="title">Volt<span class="accent">.</span></h1>
+    <h1 class="title" id="pageHeroLogo">Volt<span class="accent">.</span></h1>
     <p class="sub">Turn any clip into a scroll-stopping vertical short. Upload, trim to the moment, reframe, grade the look, add music, a hook and optional intro/outro cards — then export. <span style="color:var(--faint)">Auto-captions, caption styling and post copy are built in. Intro/outro branding is optional — toggle it off for a plain short.</span></p>
   </header>
 
@@ -423,12 +423,12 @@
         </div>
         <div id="capColorRow" style="display:none; align-items:center; gap:9px; margin-top:12px; flex-wrap:wrap;">
           <span class="lbl" style="margin:0;">Highlight</span>
-          <button class="cap-sw on" data-c="#B6FF3D" style="background:#B6FF3D;" title="Lime"></button>
+          <button class="cap-sw on" data-role="accent" data-c="#B6FF3D" style="background:#B6FF3D;" title="Lime"></button>
           <button class="cap-sw" data-c="#FFC857" style="background:#FFC857;" title="Yellow"></button>
           <button class="cap-sw" data-c="#ffffff" style="background:#ffffff;" title="White"></button>
-          <button class="cap-sw" data-c="#9c1c1f" style="background:#9c1c1f;" title="SME Red"></button>
-          <button class="cap-sw" data-c="#0a2c3d" style="background:#0a2c3d;" title="SME Navy"></button>
-          <button class="cap-sw" data-c="#fcf7f8" style="background:#fcf7f8;" title="SME Off-white"></button>
+          <button class="cap-sw" data-role="primary" data-c="#9c1c1f" style="background:#9c1c1f;" title="SME Red"></button>
+          <button class="cap-sw" data-role="secondary" data-c="#0a2c3d" style="background:#0a2c3d;" title="SME Navy"></button>
+          <button class="cap-sw" data-role="light" data-c="#fcf7f8" style="background:#fcf7f8;" title="SME Off-white"></button>
           <label class="cap-sw cap-custom" id="capCustomWrap" title="Custom colour — pick any" style="background:conic-gradient(from 90deg, #ff5d5d, #ffc857, #B6FF3D, #57e3c0, #7fc8ff, #c08cff, #ff5d5d);">
             <input type="color" id="capCustom" value="#B6FF3D" />
           </label>
@@ -569,7 +569,7 @@
 
   
 
-  <footer>© 2026 <span>Tshepho Joel</span> · All rights reserved</footer>
+  <footer>© 2026 <span data-brand-copyright></span> · All rights reserved</footer>
 </main>
 
 <!-- hidden media elements -->
@@ -608,7 +608,10 @@ let C_NAVY='#0a2c3d', C_RED='#9c1c1f', C_REDLT='#ffb1b1';
 
 // ---- Shared Brand Kit (same localStorage store Studio writes to) ----
 const BRANDS_KEY='volt_brands_v1', ACTIVE_BRAND_KEY='volt_active_brand';
-const SME_BRAND={ id:'sme', name:'SME South Africa', primary:'#9c1c1f', secondary:'#0a2c3d', tag:'SME Knowledge HUB', cta:'Read Insight', url:'smesouthafrica.co.za', logo:'' };
+// Merged over by the brand's own default kit when it has one (window.voltBrandDefaultKit).
+// Volt has none, so this stays exactly the object it has always been; a Vantly customer
+// gets a neutral placeholder instead of someone else's company as their brand.
+const SME_BRAND=Object.assign({ id:'sme', name:'SME South Africa', primary:'#9c1c1f', secondary:'#0a2c3d', tag:'SME Knowledge HUB', cta:'Read Insight', url:'smesouthafrica.co.za', logo:'' }, window.voltBrandDefaultKit || {});
 function loadBrands(){ try{ const a=JSON.parse(localStorage.getItem(BRANDS_KEY)||'null'); if(Array.isArray(a)&&a.length) return a; }catch(e){} return [Object.assign({},SME_BRAND)]; }
 function activeBrandId(){ try{ return localStorage.getItem(ACTIVE_BRAND_KEY)||'sme'; }catch(e){ return 'sme'; } }
 function setActiveBrandId(id){ try{ localStorage.setItem(ACTIVE_BRAND_KEY, id); }catch(e){} }
@@ -633,7 +636,7 @@ const state = {
   trimStart:0, trimEnd:0, duration:0,
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
-  words:[], lines:[], captionsOn:false, capColor:'#B6FF3D', capPos:'bottom', capOffset:0, busy:false, capturing:false,
+  words:[], lines:[], captionsOn:false, capColor:((window.voltBrandTheme&&window.voltBrandTheme.accent)||'#B6FF3D'), capPos:'bottom', capOffset:0, busy:false, capturing:false,
   hookOn:false, hookDur:5, fill:'crop', focus:'center', postPlatform:'LinkedIn',
   capSize:'M', capsOn:false, capBg:'none', progressOn:false, nameOn:false,
   brand:null, exportFmt:'mp4', upscale:1, layers:[], transition:'cross',
@@ -1630,9 +1633,9 @@ function renderLayers(){
   wrap.innerHTML = (state.layers||[]).map((L,i)=>{
     let head;
     if(L.type==='emoji') head='<div style="display:flex; gap:6px; align-items:center;"><input type="text" class="lyr-f" data-i="'+i+'" data-k="emoji" value="'+escAttr(L.emoji||'')+'" maxlength="4" style="width:52px; text-align:center; font-size:18px;" /><div style="flex:1; display:flex; gap:3px; flex-wrap:wrap;">'+QUICK_EMOJI.map(e=>'<button class="mini lyr-emoji" data-i="'+i+'" data-e="'+e+'" style="padding:4px 6px;">'+e+'</button>').join('')+'</div><button class="mini lyr-del" data-i="'+i+'">✕</button></div>';
-    else if(L.type==='image') head='<div style="display:flex; gap:8px; align-items:center;"><div style="width:44px; height:44px; border-radius:8px; background:#0a0b0f center/cover no-repeat;'+(L.src?'background-image:url('+L.src+');':'')+' border:1px solid var(--border); flex:none;"></div><span class="note" style="flex:1; margin:0;">Image overlay</span><button class="mini lyr-del" data-i="'+i+'">✕</button></div>';
+    else if(L.type==='image') head='<div style="display:flex; gap:8px; align-items:center;"><div style="width:44px; height:44px; border-radius:8px; background:var(--ink,#0a0b0f) center/cover no-repeat;'+(L.src?'background-image:url('+L.src+');':'')+' border:1px solid var(--border); flex:none;"></div><span class="note" style="flex:1; margin:0;">Image overlay</span><button class="mini lyr-del" data-i="'+i+'">✕</button></div>';
     else head='<div style="display:flex; gap:6px; align-items:center;"><input type="text" class="lyr-f" data-i="'+i+'" data-k="text" value="'+escAttr(L.text||'')+'" placeholder="Overlay text" style="flex:1;" /><button class="mini lyr-del" data-i="'+i+'">✕</button></div>';
-    return '<div style="border:1px solid var(--border); border-radius:12px; padding:10px; background:#0D0F15;">'+head+layerControls(L,i)+'</div>';
+    return '<div style="border:1px solid var(--border); border-radius:12px; padding:10px; background:var(--ink-in,#0D0F15);">'+head+layerControls(L,i)+'</div>';
   }).join('');
 }
 function onLayerField(e){ const f=e.target.closest('.lyr-f'); if(!f) return; const i=+f.dataset.i, L=state.layers[i]; if(L) L[f.dataset.k]=f.value; }
@@ -2863,17 +2866,17 @@ let _clipUid = 0;
 function renderClipList(){
   const list = $('#clipList'); if(!list) return;
   const rows = [];
-  rows.push('<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#0D0F15;">'
+  rows.push('<div style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--ink-in,#0D0F15);">'
     + '<span style="font-family:var(--fm);font-size:10.5px;color:var(--accent);">MAIN</span>'
     + '<span style="flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escAttr(mainClipName || 'Your clip') + '</span>'
     + '<span style="font-family:var(--fm);font-size:11px;color:var(--dim);">' + clipDur().toFixed(1) + 's</span>'
   + '</div>');
   extraClips.forEach((c,i)=>{
-    rows.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:#0D0F15;">'
+    rows.push('<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--ink-in,#0D0F15);">'
       + '<span style="font-family:var(--fm);font-size:10.5px;color:var(--dim);">' + (i+2) + '</span>'
       + '<span style="flex:1;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escAttr(c.name) + '</span>'
-      + '<input type="number" class="cl-tr" data-i="' + i + '" data-k="trimStart" value="' + c.trimStart.toFixed(1) + '" min="0" max="' + (c.duration||0).toFixed(1) + '" step="0.1" title="Start" style="width:58px;background:#0A0B0F;border:1px solid var(--border-2);border-radius:7px;color:var(--text);font-size:11.5px;padding:4px 6px;">'
-      + '<input type="number" class="cl-tr" data-i="' + i + '" data-k="trimEnd" value="' + c.trimEnd.toFixed(1) + '" min="0" max="' + (c.duration||0).toFixed(1) + '" step="0.1" title="End" style="width:58px;background:#0A0B0F;border:1px solid var(--border-2);border-radius:7px;color:var(--text);font-size:11.5px;padding:4px 6px;">'
+      + '<input type="number" class="cl-tr" data-i="' + i + '" data-k="trimStart" value="' + c.trimStart.toFixed(1) + '" min="0" max="' + (c.duration||0).toFixed(1) + '" step="0.1" title="Start" style="width:58px;background:var(--ink,#0A0B0F);border:1px solid var(--border-2);border-radius:7px;color:var(--text);font-size:11.5px;padding:4px 6px;">'
+      + '<input type="number" class="cl-tr" data-i="' + i + '" data-k="trimEnd" value="' + c.trimEnd.toFixed(1) + '" min="0" max="' + (c.duration||0).toFixed(1) + '" step="0.1" title="End" style="width:58px;background:var(--ink,#0A0B0F);border:1px solid var(--border-2);border-radius:7px;color:var(--text);font-size:11.5px;padding:4px 6px;">'
       + '<span style="font-family:var(--fm);font-size:11px;color:var(--dim);width:38px;text-align:right;">' + extraDur(c).toFixed(1) + 's</span>'
       + '<button class="mini cl-up" data-i="' + i + '" title="Move earlier" ' + (i===0?'disabled':'') + ' style="padding:5px 8px;">↑</button>'
       + '<button class="mini cl-del" data-i="' + i + '" title="Remove clip" style="padding:5px 8px;">✕</button>'
@@ -3450,7 +3453,34 @@ async function pullBrandKit(){
     refreshBrand();
   }catch(e){}
 }
+// Three of the caption swatches are SME South Africa's own brand colours, hardcoded, and
+// labelled with that company's name — right for Volt, and something a paying Vantly customer
+// should never see. On a themed brand they re-point at the ACTIVE brand kit instead, so the
+// presets are the user's own colours. No theme (Volt) means this returns immediately and the
+// markup's original colours and labels stand exactly as written.
+function brandCaptionSwatches(){
+  if(!window.voltBrandTheme) return;
+  const b = activeBrand() || {};
+  const nm = b.name && b.name !== 'Your brand' ? b.name : (window.voltBrandName || 'Brand');
+  const roles = {
+    accent:    [window.voltBrandTheme.accent, nm + ' accent'],
+    primary:   [b.primary   || window.voltBrandTheme.accent,  nm + ' primary'],
+    secondary: [b.secondary || window.voltBrandTheme.surface2, nm + ' secondary'],
+    light:     [b.light     || '#fcf7f8', 'Off-white']
+  };
+  document.querySelectorAll('#capColorRow .cap-sw[data-role]').forEach(el=>{
+    const r = roles[el.getAttribute('data-role')]; if(!r || !r[0]) return;
+    const wasOn = el.classList.contains('on');
+    el.setAttribute('data-c', r[0]);
+    el.style.background = r[0];
+    el.title = r[1];
+    // the selected swatch just changed colour underneath the state, so keep them agreeing
+    if(wasOn) state.capColor = r[0];
+  });
+}
 window.addEventListener('volt:ready', pullBrandKit);
+window.addEventListener('volt:ready', brandCaptionSwatches);
+document.addEventListener('DOMContentLoaded', brandCaptionSwatches);
 if(window.voltSession) pullBrandKit();
 
 // ---- Phase B: save / load a VIDEO LOOK preset (style only — not the clip) ----
@@ -3684,7 +3714,7 @@ applyTemplate(state.template || 'webinar', { quiet:true });
 </script>
 
 <div id="looksModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(6,7,10,.85); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:24px;">
-  <div style="width:100%; max-width:440px; background:linear-gradient(180deg,var(--surface),#11141b); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
+  <div style="width:100%; max-width:440px; background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b)); border:1px solid var(--border); border-radius:18px; padding:22px; max-height:80vh; overflow:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
       <span class="lbl" style="margin:0;">📁 Saved looks</span>
       <button class="mini" id="looksClose">Close</button>

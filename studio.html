@@ -35,8 +35,8 @@
         const _lime = { 200:'#e8ffc2', 300:'#d4ff8f', 400:'#c5ff5e', 500:'#B6FF3D', 600:'#a3ec2b', 700:'#8fd416', 800:'#6f9f12', 900:'#3f4d0a' };
         const _accentRamp = _vt ? _ramp(_vt.accentHi, _vt.accent, _vt.accentPress) : _lime;
         const _lab = _vt
-            ? { bg:_vt.bg, surface:_vt.surface, surface2:_vt.surface2, border:'#2b3057', line:'#343a66', text:_vt.text, dim:_vt.dim, faint:_vt.faint, accent:_vt.accent, ink:_vt.bg }
-            : { bg:'#0A0B0F', surface:'#14171F', surface2:'#1A1E28', border:'#23262E', line:'#2A2E38', text:'#ECEEF3', dim:'#888F9D', faint:'#5B616D', accent:'#B6FF3D', ink:'#0A0B0F' };
+            ? { bg:_vt.bg, surface:_vt.surface, surface2:_vt.surface2, border:'#2b3057', line:'#343a66', text:_vt.text, dim:_vt.dim, faint:_vt.faint, accent:_vt.accent, ink:_vt.bg, well:_vt.inkIn, ghost:_vt.faint }
+            : { bg:'#0A0B0F', surface:'#14171F', surface2:'#1A1E28', border:'#23262E', line:'#2A2E38', text:'#ECEEF3', dim:'#888F9D', faint:'#5B616D', accent:'#B6FF3D', ink:'#0A0B0F', well:'#0D0F15', ghost:'#3d424c' };
         tailwind.config = {
             theme: {
                 extend: {
@@ -60,9 +60,9 @@
     <!-- Note: No html2canvas, no jspdf. JSZip is loaded INSIDE the worker via importScripts. Zero main-thread deps beyond Tailwind. -->
 
     <style>
-        body { background-color: #0A0B0F; color: #ECEEF3; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        body { background-color: var(--ink,#0A0B0F); color: #ECEEF3; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #0A0B0F; }
+        ::-webkit-scrollbar-track { background: var(--ink,#0A0B0F); }
         ::-webkit-scrollbar-thumb { background: #2A2E38; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #3a3f4a; }
 
@@ -87,7 +87,7 @@
         input[type=range] { accent-color: #B6FF3D; }
 
         #toast {
-            visibility: hidden; min-width: 250px; background-color: #14171F; color: #fff; text-align: center;
+            visibility: hidden; min-width: 250px; background-color: var(--ink-raise,#14171F); color: #fff; text-align: center;
             border-radius: 8px; padding: 16px; position: fixed; z-index: 1000; left: 50%; bottom: 30px;
             transform: translateX(-50%); box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #23262E;
             transition: visibility 0.3s, opacity 0.3s ease-in-out; opacity: 0;
@@ -104,7 +104,7 @@
             text-decoration: none; transition: all 0.14s; cursor: pointer;
         }
         .nav-tab:hover { color: #ECEEF3; border-color: #B6FF3D; }
-        .nav-tab.active { background: #B6FF3D; color: #0A0B0F; border-color: #B6FF3D; }
+        .nav-tab.active { background: #B6FF3D; color: var(--ink,#0A0B0F); border-color: #B6FF3D; }
 
         /* Progress bar */
         #progress-shell {
@@ -141,11 +141,11 @@
            slide, direction, motion style — used to carry its own hand-written Tailwind
            class string, and seven different JS functions each added and removed a
            DIFFERENT set of classes to show selection (bg-slate-700 + border-white in
-           one, bg-[#B6FF3D] + border-red-500 in another, bg-red-600 in a third). Same
+           one, bg-lab-accent + border-red-500 in another, bg-red-600 in a third). Same
            control, four looks. One class here, one `.on` modifier, and every selector
            in the sidebar reads the same and toggles the same way.
            ============================================================================ */
-        .vt-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:4px; background:#14171F; border:1px solid #23262E; border-radius:12px; }
+        .vt-tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:4px; background:var(--ink-raise,#14171F); border:1px solid #23262E; border-radius:12px; }
         .vt-tab {
             display:flex; align-items:center; justify-content:center; gap:6px;
             font-size:11px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase;
@@ -153,7 +153,7 @@
             cursor:pointer; transition:background .14s, color .14s;
         }
         .vt-tab:hover { color:#ECEEF3; background:rgba(255,255,255,0.045); }
-        .vt-tab.on { background:#B6FF3D; color:#0A0B0F; }
+        .vt-tab.on { background:#B6FF3D; color:var(--ink,#0A0B0F); }
         .vt-tab .n { font-family:'JetBrains Mono',monospace; font-size:10px; opacity:0.5; }
         .vt-tab.on .n { opacity:0.65; }
 
@@ -161,7 +161,7 @@
         .vt-lbl .hint { color:#5B616D; font-size:10px; font-weight:600; letter-spacing:0.02em; text-transform:none; }
         .vt-sub { display:block; font-size:10px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#888F9D; margin-bottom:5px; }
         .vt-note { font-size:10px; line-height:1.5; color:#5B616D; }
-        .vt-card { background:#14171F; border:1px solid #23262E; border-radius:14px; padding:15px; }
+        .vt-card { background:var(--ink-raise,#14171F); border:1px solid #23262E; border-radius:14px; padding:15px; }
 
         .vt-opt {
             display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
@@ -170,14 +170,14 @@
             cursor:pointer; transition:background .14s, color .14s, border-color .14s; text-align:center;
         }
         .vt-opt:hover { color:#ECEEF3; border-color:#39404d; background:#1C2029; }
-        .vt-opt.on { background:#B6FF3D; color:#0A0B0F; border-color:#B6FF3D; font-weight:800; }
+        .vt-opt.on { background:#B6FF3D; color:var(--ink,#0A0B0F); border-color:#B6FF3D; font-weight:800; }
         .vt-opt .sub { font-size:9px; font-weight:600; letter-spacing:0.04em; opacity:0.6; text-transform:none; }
         /* The direction buttons are wider and left-read, with the letter as a prefix. */
         .vt-opt.wide { flex-direction:row; justify-content:flex-start; text-align:left; gap:7px; }
         .vt-opt .k { font-family:'JetBrains Mono',monospace; font-size:9px; opacity:0.5; }
         /* The collapsed post-type summary: reads as a settled choice, not a live option, so it
            does not compete with the one filled button on screen (Download). */
-        #ct-current { border-color:rgba(182,255,61,0.3); color:#ECEEF3; background:#14171F; }
+        #ct-current { border-color:rgba(182,255,61,0.3); color:#ECEEF3; background:var(--ink-raise,#14171F); }
         #ct-current:hover { border-color:#B6FF3D; background:#1C2029; }
 
         .vt-btn {
@@ -187,12 +187,12 @@
             cursor:pointer; transition:background .14s, border-color .14s;
         }
         .vt-btn:hover { background:#1C2029; border-color:#39404d; }
-        .vt-btn-accent { background:#B6FF3D; color:#0A0B0F; border-color:#B6FF3D; }
+        .vt-btn-accent { background:#B6FF3D; color:var(--ink,#0A0B0F); border-color:#B6FF3D; }
         .vt-btn-accent:hover { background:#c5ff5e; border-color:#c5ff5e; }
-        .vt-btn-primary { background:#B6FF3D; color:#0A0B0F; border-color:#B6FF3D; font-size:13px; padding:14px 12px; letter-spacing:0.06em; }
+        .vt-btn-primary { background:#B6FF3D; color:var(--ink,#0A0B0F); border-color:#B6FF3D; font-size:13px; padding:14px 12px; letter-spacing:0.06em; }
         .vt-btn-primary:hover { background:#c5ff5e; border-color:#c5ff5e; }
 
-        .vt-in { width:100%; background:#0D0F15; color:#ECEEF3; border:1px solid #23262E; border-radius:10px; padding:10px 12px; font-size:13px; outline:none; transition:border-color .14s; }
+        .vt-in { width:100%; background:var(--ink-in,#0D0F15); color:#ECEEF3; border:1px solid #23262E; border-radius:10px; padding:10px 12px; font-size:13px; outline:none; transition:border-color .14s; }
         .vt-in::placeholder { color:#4a505c; }
         .vt-in:focus { border-color:#B6FF3D; }
         .vt-file { width:100%; font-size:12px; color:#888F9D; }
@@ -201,7 +201,7 @@
 
         /* Brand Kit form fields */
         .bk-lbl { display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#888F9D; font-weight:700; margin-bottom:4px; }
-        .bk-in  { width:100%; background:#0D0F15; color:#ECEEF3; border:1px solid #2A2E38; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; }
+        .bk-in  { width:100%; background:var(--ink-in,#0D0F15); color:#ECEEF3; border:1px solid #2A2E38; border-radius:8px; padding:8px 10px; font-size:13px; outline:none; }
         .bk-in:focus { border-color:#B6FF3D; }
     </style>
 </head>
@@ -220,10 +220,10 @@
          Now: a compact header, three tabs (Design / Content / Export), one scrolling
          pane, and a single always-visible primary action. Nothing was removed.
          ============================================================================ -->
-    <aside class="w-full md:w-[420px] bg-[#0D0F15] border-r border-[#23262E] flex flex-col h-full shrink-0 z-10 shadow-2xl relative">
+    <aside class="w-full md:w-[420px] bg-lab-well border-r border-lab-border flex flex-col h-full shrink-0 z-10 shadow-2xl relative">
 
         <!-- Header — compact. The advisor moved into the Design tab where its action lives. -->
-        <div class="px-5 pt-4 pb-4 border-b border-[#23262E] shrink-0">
+        <div class="px-5 pt-4 pb-4 border-b border-lab-border shrink-0">
             <nav class="nav-tabs">
                 <a class="nav-tab" href="index.html">✍️ Copy</a>
                 <a class="nav-tab" href="campaign.html">⚡ Campaign</a>
@@ -238,17 +238,17 @@
             <div class="flex items-center justify-between gap-3">
                 <div class="flex items-baseline gap-2.5 min-w-0">
                     <h1 id="pageHeroLogo" class="text-2xl font-extrabold text-white tracking-tight leading-none" style="font-family:var(--vt-display,'Unbounded'),sans-serif;">Volt<span class="accent" style="color:var(--vt-accent,#B6FF3D);">.</span></h1>
-                    <span class="text-[10px] text-[#5B616D] tracking-[0.18em] uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Studio</span>
+                    <span class="text-[10px] text-lab-faint tracking-[0.18em] uppercase font-bold" style="font-family:'JetBrains Mono',monospace;">Studio</span>
                 </div>
                 <!-- The "No API key" badge lived here. It reported an implementation detail nobody
                      using Studio can act on — the graphics engine is local and needs no key — and
                      read like a warning about a broken setup. Removed rather than reworded. -->
             </div>
 
-            <button onclick="openBrandKit()" id="brand-chip" class="mt-3 w-full flex items-center justify-between gap-2 bg-[#14171F] hover:bg-[#1A1E28] border border-[#23262E] rounded-lg px-3 py-2 transition-colors">
+            <button onclick="openBrandKit()" id="brand-chip" class="mt-3 w-full flex items-center justify-between gap-2 bg-lab-surface hover:bg-lab-surface2 border border-lab-border rounded-lg px-3 py-2 transition-colors">
                 <span class="flex items-center gap-2 min-w-0">
                     <span id="brand-chip-swatch" class="w-3.5 h-3.5 rounded-sm shrink-0 border border-white/20" style="background:#9c1c1f;"></span>
-                    <span class="text-[11px] text-[#888F9D] font-bold truncate"><span id="brand-chip-name" class="text-white">SME South Africa</span></span>
+                    <span class="text-[11px] text-lab-dim font-bold truncate"><span id="brand-chip-name" class="text-white">SME South Africa</span></span>
                 </span>
                 <span class="text-[9px] font-bold uppercase tracking-widest shrink-0" style="color:var(--vt-accent,#B6FF3D);">Manage</span>
             </button>
@@ -272,7 +272,7 @@
                     <div class="flex items-center gap-2 mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em]" style="color:var(--vt-accent,#B6FF3D);">
                         <span>🤖</span> Strategy Proxy
                     </div>
-                    <p id="advisor-msg" class="text-[13px] text-[#ECEEF3] leading-snug"></p>
+                    <p id="advisor-msg" class="text-[13px] text-lab-text leading-snug"></p>
                     <div id="advisor-action" class="mt-3 flex gap-2"></div>
                 </div>
 
@@ -384,7 +384,7 @@
                             <!-- Editing a direction's copy was one-way: there was no path back to
                                  the wording the design was written around, so experimenting cost
                                  you the original. -->
-                            <button type="button" onclick="resetPremCopy()" class="ml-auto text-[10px] font-bold uppercase tracking-widest text-[#5B616D] hover:text-[var(--vt-accent,#B6FF3D)] transition-colors" title="Restore this direction's original wording">↺ Reset</button>
+                            <button type="button" onclick="resetPremCopy()" class="ml-auto text-[10px] font-bold uppercase tracking-widest text-lab-faint hover:text-[var(--vt-accent,#B6FF3D)] transition-colors" title="Restore this direction's original wording">↺ Reset</button>
                         </div>
                         <div id="premium-fields" class="flex flex-col gap-2"></div>
                     </div>
@@ -415,7 +415,7 @@
                             <button id="prem-ai-btn" type="button" class="vt-btn vt-btn-accent shrink-0" style="width:auto;padding-left:14px;padding-right:14px;">✨ Generate</button>
                         </div>
                         <div id="prem-image-has" class="hidden flex items-center gap-3 mt-3">
-                            <img id="prem-image-thumb" alt="" class="w-12 h-12 rounded-lg object-cover border border-[#23262E] bg-[#0D0F15]" />
+                            <img id="prem-image-thumb" alt="" class="w-12 h-12 rounded-lg object-cover border border-lab-border bg-lab-well" />
                             <button id="prem-image-clear" type="button" class="vt-btn" style="width:auto;padding:7px 12px;font-size:10px;">✕ Remove photo</button>
                         </div>
                         <p id="prem-image-status" class="vt-note mt-2"></p>
@@ -485,7 +485,7 @@
                         <p id="ai-img-status" class="vt-note mt-2"></p>
                         <!-- Uploading was one-way: there was no path back to the stock image. -->
                         <div id="in-image-has" class="hidden flex items-center gap-3 mt-3">
-                            <img id="in-image-thumb" alt="" class="w-12 h-12 rounded-lg object-cover border border-[#23262E] bg-[#0D0F15]" />
+                            <img id="in-image-thumb" alt="" class="w-12 h-12 rounded-lg object-cover border border-lab-border bg-lab-well" />
                             <button id="in-image-clear" type="button" class="vt-btn" style="width:auto;padding:7px 12px;font-size:10px;">✕ Remove image</button>
                         </div>
                     </div>
@@ -494,11 +494,11 @@
                         <div class="vt-lbl">Image framing</div>
                         <div class="space-y-3">
                             <div>
-                                <div class="flex justify-between vt-sub" style="margin-bottom:4px;"><span>Horizontal</span><span id="val-img-x" class="font-mono text-[#ECEEF3]">50%</span></div>
+                                <div class="flex justify-between vt-sub" style="margin-bottom:4px;"><span>Horizontal</span><span id="val-img-x" class="font-mono text-lab-text">50%</span></div>
                                 <input type="range" id="in-img-x" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
                             </div>
                             <div>
-                                <div class="flex justify-between vt-sub" style="margin-bottom:4px;"><span>Vertical</span><span id="val-img-y" class="font-mono text-[#ECEEF3]">50%</span></div>
+                                <div class="flex justify-between vt-sub" style="margin-bottom:4px;"><span>Vertical</span><span id="val-img-y" class="font-mono text-lab-text">50%</span></div>
                                 <input type="range" id="in-img-y" min="0" max="100" value="50" class="w-full cursor-pointer" oninput="syncDOM()">
                             </div>
                         </div>
@@ -507,10 +507,10 @@
                     <div class="vt-card">
                         <div class="flex justify-between vt-sub" style="margin-bottom:6px;">
                             <label for="in-font-size">Typography scale</label>
-                            <span id="font-size-val" class="font-mono text-[#ECEEF3]">100%</span>
+                            <span id="font-size-val" class="font-mono text-lab-text">100%</span>
                         </div>
                         <input type="range" id="in-font-size" min="60" max="140" value="100" class="w-full cursor-pointer" oninput="syncDOM()">
-                        <div class="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-[#23262E]">
+                        <div class="flex items-center justify-between gap-2 mt-4 pt-3 border-t border-lab-border">
                             <label class="vt-sub cursor-pointer" style="margin:0;" for="toggle-footer">Show footer / CTA branding</label>
                             <input type="checkbox" id="toggle-footer" checked class="w-4 h-4 cursor-pointer" style="accent-color:var(--vt-accent,#B6FF3D);" onchange="state.showFooter = this.checked; renderLayout();">
                         </div>
@@ -525,7 +525,7 @@
                      from the controls that decided what they act on. This restates the answer. -->
                 <div class="vt-card" style="padding:12px 15px;">
                     <div class="vt-sub" style="margin-bottom:4px;">Exporting</div>
-                    <div id="export-summary" class="text-[13px] font-bold text-[#ECEEF3] leading-snug">—</div>
+                    <div id="export-summary" class="text-[13px] font-bold text-lab-text leading-snug">—</div>
                 </div>
 
                 <div class="vt-card">
@@ -548,7 +548,7 @@
                          barely made any. The day's count sits on the button. -->
                     <button onclick="exportStoryTwin()" id="btn-story-twin" class="vt-btn">
                         <span>✨</span><span id="story-twin-text">Also make the Story (9:16)</span>
-                        <span id="story-twin-count" class="ml-auto font-mono text-[10px] normal-case tracking-normal text-[#5B616D]"></span>
+                        <span id="story-twin-count" class="ml-auto font-mono text-[10px] normal-case tracking-normal text-lab-faint"></span>
                     </button>
 
                     <!-- Creative carousel: all 6 slides as one ZIP. -->
@@ -598,7 +598,7 @@
                     <div class="flex items-center gap-2 mb-3">
                         <label class="vt-sub" style="margin:0;" for="motion-dur">Length</label>
                         <input type="range" id="motion-dur" min="3" max="10" step="1" value="5" class="flex-1 cursor-pointer" style="accent-color:var(--vt-accent,#B6FF3D);">
-                        <span id="motion-dur-label" class="text-[10px] font-mono text-[#888F9D] w-8 text-right">5s</span>
+                        <span id="motion-dur-label" class="text-[10px] font-mono text-lab-dim w-8 text-right">5s</span>
                     </div>
                     <button onclick="exportMotion()" id="btn-motion" class="vt-btn">
                         <span>🎬</span><span id="motion-btn-text">Export animated post</span>
@@ -606,12 +606,12 @@
                     <p id="motion-status" class="vt-note mt-2 min-h-[13px]"></p>
                 </div>
 
-                <p class="text-[10px] text-[#3d424c] font-bold tracking-[0.2em] uppercase text-center pt-2">Developed by Tshepho Joel © 2026</p>
+                <p class="text-[10px] text-lab-ghost font-bold tracking-[0.2em] uppercase text-center pt-2">Developed by <span data-brand-copyright></span> © 2026</p>
             </div>
         </div>
 
         <!-- The one action that is always one click away, on every tab. -->
-        <div class="px-5 py-4 border-t border-[#23262E] bg-[#0D0F15] shrink-0 z-20">
+        <div class="px-5 py-4 border-t border-lab-border bg-lab-well shrink-0 z-20">
             <button onclick="triggerExport()" id="btn-download" class="vt-btn vt-btn-primary">
                 <svg id="icon-download" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 <svg id="icon-loading" class="w-5 h-5 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -620,7 +620,7 @@
             <div id="progress-shell" style="opacity:0">
                 <div id="progress-bar"></div>
             </div>
-            <p id="progress-label" class="text-[10px] text-[#5B616D] text-center font-mono uppercase tracking-widest" style="min-height:14px"></p>
+            <p id="progress-label" class="text-[10px] text-lab-faint text-center font-mono uppercase tracking-widest" style="min-height:14px"></p>
         </div>
     </aside>
 
@@ -656,8 +656,8 @@
     <!-- Content Scorecard modal -->
     <div id="audit-modal" class="hidden" style="position:fixed;inset:0;z-index:1000;">
         <div onclick="closeAudit()" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);"></div>
-        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:#14171F;border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
-            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:#14171F;z-index:2;">
+        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:var(--ink-raise,#14171F);border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:var(--ink-raise,#14171F);z-index:2;">
                 <div class="flex items-center gap-2">
                     <span>📊</span>
                     <h3 class="text-lg font-bold text-white" style="font-family:'Unbounded',sans-serif;">Content Scorecard</h3>
@@ -671,8 +671,8 @@
     <!-- Brand Kit modal -->
     <div id="brandkit-modal" class="hidden" style="position:fixed;inset:0;z-index:1001;">
         <div onclick="closeBrandKit()" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);"></div>
-        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:#14171F;border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
-            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:#14171F;z-index:2;">
+        <div style="position:relative;max-width:560px;margin:5vh auto;max-height:90vh;overflow-y:auto;background:var(--ink-raise,#14171F);border:1px solid #23262E;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,0.6);">
+            <div class="flex justify-between items-center p-6 border-b border-slate-700 sticky top-0" style="background:var(--ink-raise,#14171F);z-index:2;">
                 <div class="flex items-center gap-2"><span>🎨</span><h3 class="text-lg font-bold text-white" style="font-family:'Unbounded',sans-serif;">Brand Kit</h3></div>
                 <button onclick="closeBrandKit()" class="text-slate-400 hover:text-white text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-700">&times;</button>
             </div>
@@ -716,13 +716,15 @@
     // =============================================================
     // 1b. BRAND KIT (multi-brand; SME SA is the seeded default)
     // =============================================================
-    const SME_BRAND = {
+    // Merged over by the brand's own default kit when it has one (window.voltBrandDefaultKit).
+    // Volt has none, so this stays exactly the object it has always been.
+    const SME_BRAND = Object.assign({
         id: 'sme', name: 'SME South Africa',
         primary: '#9c1c1f', secondary: '#0a2c3d',
         tag: 'SME Knowledge HUB', cta: 'Read Insight', url: 'smesouthafrica.co.za',
         logo: WHITE_LOGO,
         voice: 'Confident, practical and encouraging. Plain English, short punchy sentences, no jargon or hype. Speaks to South African SME founders like a knowledgeable, no-nonsense mentor.'
-    };
+    }, window.voltBrandDefaultKit || {});
     const BRANDS_KEY = 'volt_brands_v1';
     const ACTIVE_BRAND_KEY = 'volt_active_brand';
     let _bkEditing = null;
@@ -847,7 +849,7 @@
           +   '<textarea id="bk-voice" class="bk-in" rows="3" placeholder="e.g. Confident, practical and warm. Plain English, short punchy sentences, no jargon. Speaks to founders like a knowledgeable mentor.">' + sanitizeHTML(editing.voice || '') + '</textarea>'
           + '</div>'
           + '<div class="flex items-center gap-2 pt-4 border-t border-slate-700">'
-          +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">Save &amp; apply</button>'
+          +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:var(--ink,#0A0B0F);">Save &amp; apply</button>'
           +   (isExisting && !isDefault ? '<button id="bk-delete" class="text-[11px] font-bold py-2 px-3 rounded uppercase border border-red-500/50 text-red-300 hover:bg-red-500/10">Delete</button>' : '')
           +   '<button onclick="closeBrandKit()" class="ml-auto text-[11px] font-bold py-2 px-4 rounded uppercase border border-slate-600 text-slate-300 hover:bg-slate-700">Done</button>'
           + '</div>';
@@ -1535,7 +1537,7 @@
             if (myGen !== _creGen || state.contentType !== 'creative') return;  // superseded / switched away
             // Canvas SIZE is owned synchronously by setFormat/setCampaign — we only swap the image here.
             const url = URL.createObjectURL(result.blob);
-            canvas.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0d12;"><img src="' + url + '" style="max-width:100%;max-height:100%;display:block;" /></div>';
+            canvas.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--ink-abyss,#0b0d12);"><img src="' + url + '" style="max-width:100%;max-height:100%;display:block;" /></div>';
             if (_crePreviewURL) URL.revokeObjectURL(_crePreviewURL);
             _crePreviewURL = url;
             setTimeout(resizeWrapper, 30);
@@ -1949,7 +1951,7 @@
         // NOTE: the canvas SIZE is owned synchronously by setFormat/applyPremiumSize — never set it from
         // this async path (a slow stale render used to clobber the size). We only swap the image here.
         const url = URL.createObjectURL(result.blob);
-        canvas.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0d12;"><img src="' + url + '" style="max-width:100%;max-height:100%;display:block;" /></div>';
+        canvas.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--ink-abyss,#0b0d12);"><img src="' + url + '" style="max-width:100%;max-height:100%;display:block;" /></div>';
         if (_premPreviewURL) URL.revokeObjectURL(_premPreviewURL);
         _premPreviewURL = url;
         if (typeof resizeWrapper === 'function') setTimeout(resizeWrapper, 30);
@@ -2958,7 +2960,7 @@
         if (nudge) {
             msgEl.innerHTML = nudge.text;
             actEl.innerHTML =
-                '<button id="coach-apply" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">' + sanitizeHTML(nudge.cta) + '</button>'
+                '<button id="coach-apply" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:var(--vt-accent,#B6FF3D);color:var(--ink,#0A0B0F);">' + sanitizeHTML(nudge.cta) + '</button>'
               + '<button id="coach-ack" class="text-slate-300 text-[10px] font-bold py-1.5 px-3 rounded uppercase border border-slate-600 hover:bg-slate-700">Got it</button>'
               + '<button id="coach-off" class="text-slate-500 text-[10px] font-medium py-1.5 px-2 rounded uppercase hover:text-slate-300" title="Turn off variety tips">Mute</button>';
             const ap = document.getElementById('coach-apply');
@@ -2975,7 +2977,7 @@
     function renderDayTip(msgEl, actEl) {
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const today = new Date().getDay();
-        const btn = (camp, label) => '<button onclick="setCampaign(\'' + camp + '\')" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">' + label + '</button>';
+        const btn = (camp, label) => '<button onclick="setCampaign(\'' + camp + '\')" class="text-[10px] font-bold py-1.5 px-3 rounded uppercase shadow hover:opacity-90" style="background:var(--vt-accent,#B6FF3D);color:var(--ink,#0A0B0F);">' + label + '</button>';
         if (today === 2 || today === 4) {
             msgEl.innerHTML = "It's <b>" + days[today] + "</b>. Polls drive mid-week engagement — try the Poll layout today.";
             actEl.innerHTML = btn('poll', 'Create Poll');
@@ -3106,7 +3108,7 @@
             html += '<div class="flex items-start gap-3 bg-slate-900/50 rounded-lg p-3 border border-slate-700">'
               + '<span style="color:var(--vt-accent,#B6FF3D);">&rarr;</span>'
               + '<div class="flex-1"><p class="text-sm text-slate-300 leading-snug">' + tip.t + '</p>'
-              + (tip.cta ? '<button onclick="auditTipAction(' + i + ')" class="mt-2 text-[10px] font-bold py-1 px-3 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:#0A0B0F;">' + sanitizeHTML(tip.cta.label) + '</button>' : '')
+              + (tip.cta ? '<button onclick="auditTipAction(' + i + ')" class="mt-2 text-[10px] font-bold py-1 px-3 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:var(--ink,#0A0B0F);">' + sanitizeHTML(tip.cta.label) + '</button>' : '')
               + '</div></div>';
         });
         html += '</div></div>';

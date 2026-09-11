@@ -22,8 +22,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Volt — Freeform</title>
 <style>
-  html,body{margin:0;height:100%;background:#0b0d12;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
+  html,body{margin:0;height:100%;background:var(--ink-abyss,#0b0d12);font-family:'Plus Jakarta Sans',system-ui,sans-serif;}
   #ff-root{display:flex;height:100vh;width:100%;}
+  .ff-focus-accent:focus{border-color:var(--accent,#B6FF3D) !important;}
+  .ff-hover-accent:hover{border-color:var(--accent,#B6FF3D) !important;}
   #ff-root .ff-sw{width:24px;height:24px;border-radius:6px;border:1px solid rgba(255,255,255,.25);cursor:pointer;}
 </style>
 </head>
@@ -50,7 +52,12 @@
   }
   function brandSwatches(){
     const b = brand();
-    const cols = [b.primary||'#9c1c1f', b.secondary||'#0a2c3d', b.light||'#ffb1b1', '#FFFFFF', '#0A0B0F', '#B6FF3D'];
+    // The last two are the product's own ink and accent, offered as generic palette entries
+    // alongside the user's Brand Kit colours. They follow the active brand so a Vantly canvas
+    // isn't handed Volt's lime; with no theme the fallbacks are Volt's originals, unchanged.
+    const _t = window.voltBrandTheme || null;
+    const cols = [b.primary||'#9c1c1f', b.secondary||'#0a2c3d', b.light||'#ffb1b1', '#FFFFFF',
+                  (_t && _t.ink) || '#0A0B0F', (_t && _t.accent) || '#B6FF3D'];
     return [...new Set(cols.filter(Boolean))];
   }
 
@@ -71,15 +78,15 @@
     +   '<button id="ff-add-logo" class="'+B+'">⭐ Brand logo</button>'
     +   '<input id="ff-file" type="file" accept="image/*" class="hidden">'
     +   '<button id="ff-removebg" class="'+B+'">🪄 Remove background</button>'
-    +   '<div class="flex gap-1.5"><input id="ff-ai-prompt" type="text" placeholder="Describe an image to generate…" class="flex-1 min-w-0 bg-slate-900 text-slate-100 rounded-lg px-2 py-2 text-xs border border-slate-700 focus:border-[#B6FF3D] outline-none"><button id="ff-ai-gen" class="text-sm font-bold px-3 rounded-lg shrink-0" style="background:#B6FF3D;color:#0A0B0F;" title="Generate image with AI">✨</button></div>'
+    +   '<div class="flex gap-1.5"><input id="ff-ai-prompt" type="text" placeholder="Describe an image to generate…" class="flex-1 min-w-0 bg-slate-900 text-slate-100 rounded-lg px-2 py-2 text-xs border border-slate-700 ff-focus-accent outline-none"><button id="ff-ai-gen" class="text-sm font-bold px-3 rounded-lg shrink-0" style="background:var(--accent,#B6FF3D);color:var(--ink,#0A0B0F);" title="Generate image with AI">✨</button></div>'
     +   '<div id="ff-status" class="text-[11px] text-slate-400 mb-1" style="min-height:14px;"></div>'
     +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mt-3 mb-2">Free assets</p>'
     +   '<div class="flex gap-1 mb-2" id="ff-asset-kind">'
-    +     '<button data-k="photos" class="ff-ak flex-1 text-xs font-bold px-2 py-1.5 rounded-lg text-slate-900" style="background:#B6FF3D;">Photos</button>'
+    +     '<button data-k="photos" class="ff-ak flex-1 text-xs font-bold px-2 py-1.5 rounded-lg text-slate-900" style="background:var(--accent,#B6FF3D);">Photos</button>'
     +     '<button data-k="gifs" class="ff-ak flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-800 text-slate-300">GIFs</button>'
     +     '<button data-k="icons" class="ff-ak flex-1 text-xs font-bold px-2 py-1.5 rounded-lg bg-slate-800 text-slate-300">Icons</button>'
     +   '</div>'
-    +   '<div class="flex gap-1.5 mb-2"><input id="ff-asset-q" type="text" placeholder="Search free photos…" class="flex-1 min-w-0 bg-slate-900 text-slate-100 rounded-lg px-2 py-2 text-xs border border-slate-700 focus:border-[#B6FF3D] outline-none"><button id="ff-asset-go" class="text-sm font-bold px-3 rounded-lg shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-100">🔍</button></div>'
+    +   '<div class="flex gap-1.5 mb-2"><input id="ff-asset-q" type="text" placeholder="Search free photos…" class="flex-1 min-w-0 bg-slate-900 text-slate-100 rounded-lg px-2 py-2 text-xs border border-slate-700 ff-focus-accent outline-none"><button id="ff-asset-go" class="text-sm font-bold px-3 rounded-lg shrink-0 bg-slate-800 hover:bg-slate-700 text-slate-100">🔍</button></div>'
     +   '<div id="ff-asset-note" class="text-[11px] text-slate-500 mb-1" style="min-height:12px;"></div>'
     +   '<div id="ff-asset-grid" class="grid grid-cols-3 gap-1.5 mb-2 overflow-y-auto" style="max-height:210px;"></div>'
     +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mt-3 mb-2">Colour <span class="text-slate-500">(selected / background)</span></p>'
@@ -92,7 +99,7 @@
     +   '<p class="text-[11px] font-mono uppercase tracking-widest text-slate-400 mb-2">Layer</p>'
     +   '<div class="grid grid-cols-2 gap-2 mb-2"><button id="ff-front" class="text-xs px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">Bring front</button><button id="ff-back" class="text-xs px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">Send back</button><button id="ff-dup" class="text-xs px-2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100">Duplicate</button><button id="ff-del" class="text-xs px-2 py-2 rounded-lg bg-red-900/60 hover:bg-red-800 text-red-100">Delete</button></div>'
     +   '<button id="ff-clear" class="'+B+' mt-2" style="background:#3a1212;">🗑️ Clear canvas</button>'
-    +   '<button id="ff-png" class="w-full text-sm font-extrabold px-3 py-3 rounded-lg mt-3" style="background:#B6FF3D;color:#0A0B0F;">⬇️ Download HD PNG</button>'
+    +   '<button id="ff-png" class="w-full text-sm font-extrabold px-3 py-3 rounded-lg mt-3" style="background:var(--accent,#B6FF3D);color:var(--ink,#0A0B0F);">⬇️ Download HD PNG</button>'
     +   '<p class="text-[11px] text-slate-500 mt-3 leading-relaxed">Drag to move · corner handles resize · double-click text to edit · Delete key removes.</p>'
     + '</aside>'
     + '<div class="flex-1 flex flex-col overflow-hidden">'
@@ -179,7 +186,7 @@
       if(d.note && !(d.results||[]).length){ note.textContent = d.note; return; }
       if(!(d.results||[]).length){ note.textContent = 'Nothing found — try another word.'; return; }
       note.textContent = (d.results.length) + ' from ' + d.provider + ' — click to add';
-      grid.innerHTML = d.results.map((a,i)=>'<img data-i="'+i+'" src="'+a.thumb+'" title="'+String(a.alt||'').replace(/"/g,'&quot;')+' ('+String(a.credit||'').replace(/"/g,'&quot;')+')" loading="lazy" class="w-full h-14 object-cover rounded cursor-pointer border border-slate-700 hover:border-[#B6FF3D]" style="background:#1a1e28;">').join('');
+      grid.innerHTML = d.results.map((a,i)=>'<img data-i="'+i+'" src="'+a.thumb+'" title="'+String(a.alt||'').replace(/"/g,'&quot;')+' ('+String(a.credit||'').replace(/"/g,'&quot;')+')" loading="lazy" class="w-full h-14 object-cover rounded cursor-pointer border border-slate-700 ff-hover-accent" style="background:var(--ink-track,#1a1e28);">').join('');
       grid.querySelectorAll('img').forEach(el => el.addEventListener('click', ()=>{
         const a = d.results[parseInt(el.dataset.i,10)]; if(!a) return;
         addImageFromURL(a.full); ffStatus('Added — ' + (a.credit || d.provider));
@@ -190,7 +197,7 @@
     const b = e.target.closest('.ff-ak'); if(!b) return;
     assetKind = b.dataset.k;
     document.querySelectorAll('.ff-ak').forEach(x=>{ const on = x === b;
-      x.style.background = on ? '#B6FF3D' : ''; x.classList.toggle('bg-slate-800', !on);
+      x.style.background = on ? (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#B6FF3D') : ''; x.classList.toggle('bg-slate-800', !on);
       x.classList.toggle('text-slate-900', on); x.classList.toggle('text-slate-300', !on); });
     $$('ff-asset-q').placeholder = AK_PLACEHOLDER[assetKind];
     if(($$('ff-asset-q').value||'').trim()) searchAssets();

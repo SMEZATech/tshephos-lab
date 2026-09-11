@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --bg:#0A0B0F; --surface:#14171F; --surface-2:#1A1E28; --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28); --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
     --text:#ECEEF3; --dim:#8A91A0; --faint:#5B616D; --accent:#B6FF3D; --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF; --violet:#a06bff;
     --fd:'Unbounded',system-ui; --fb:'Plus Jakarta Sans',system-ui; --fm:'JetBrains Mono',monospace;
   }
@@ -27,7 +27,7 @@
   .chip:hover{border-color:var(--accent);transform:translateY(-1px);}
   .chip .e{font-size:16px;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
-  .card{display:block;text-decoration:none;color:var(--text);background:linear-gradient(180deg,var(--surface),#11141b);border:1px solid var(--border);border-radius:18px;padding:20px;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;}
+  .card{display:block;text-decoration:none;color:var(--text);background:linear-gradient(180deg,var(--surface),var(--ink-deep,#11141b));border:1px solid var(--border);border-radius:18px;padding:20px;transition:border-color .18s,transform .18s,box-shadow .18s;position:relative;overflow:hidden;}
   .card:hover{border-color:var(--border-2);transform:translateY(-3px);box-shadow:0 22px 40px -26px rgba(0,0,0,.9);}
   .card .badge{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;margin-bottom:14px;background:var(--surface-2);border:1px solid var(--border);}
   .card h3{font-family:var(--fd);font-weight:700;font-size:16px;margin:0 0 5px;}
@@ -56,7 +56,7 @@
 <body>
 <main class="wrap">
   <p class="hero">What are we making today, <span class="g" id="firstName">there</span>?</p>
-  <p class="subhero">Start from a goal — Volt routes you to the right tool, on brand, using what's actually been working.</p>
+  <p class="subhero">Start from a goal — <span data-brand-name></span> routes you to the right tool, on brand, using what's actually been working.</p>
 
   <div class="quick">
     <a class="chip" href="index.html"><span class="e">✍️</span> Ad copy</a>
@@ -77,14 +77,14 @@
     <a class="card" href="analytics.html"><span class="go">→</span><div class="badge">📊</div><h3>Stats</h3><p>Automated performance across channels — feeds the Brain.</p></a>
   </div>
 
-  <p class="eyebrow">Pick up where you left off · &amp; what Volt is learning</p>
+  <p class="eyebrow">Pick up where you left off · &amp; what <span data-brand-name></span> is learning</p>
   <div class="cols">
     <div class="panel">
       <h4>Continue</h4>
       <div id="recentList"><p class="empty">Loading…</p></div>
     </div>
     <div class="panel brain">
-      <h4>🧠 What Volt has learned</h4>
+      <h4>🧠 What <span data-brand-name></span> has learned</h4>
       <div id="brainBody"><p class="empty">Loading…</p></div>
     </div>
   </div>
@@ -109,7 +109,7 @@ async function loadRecent(){
 }
 function renderBrain(s){
   const body=$('#brainBody');
-  if(!s || s.status==='learning'){ body.innerHTML='<p class="empty">'+esc((s&&s.note)||'Volt is still learning — keep creating and checking Analytics.')+'</p>'; return; }
+  if(!s || s.status==='learning'){ body.innerHTML='<p class="empty">'+esc((s&&s.note)||((window.voltBrandName||'Volt'))+' is still learning — keep creating and checking Analytics.')+'</p>'; return; }
   if(s.status!=='ready'){ body.innerHTML='<p class="empty">No insights yet.</p>'; return; }
   const rows=[];
   (s.do_more||[]).slice(0,3).forEach(x=>rows.push('<li class="brow"><span class="tag do">DO</span><span>'+esc(x)+'</span></li>'));

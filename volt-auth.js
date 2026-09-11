@@ -32,6 +32,9 @@
       supabaseUrl: "https://ltnjjsadcvqmtczbtxii.supabase.co",
       supabaseAnon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0bmpqc2FkY3ZxbXRjemJ0eGlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNDgyODIsImV4cCI6MjA5NzcyNDI4Mn0.3sUeA0nITk1BqPQZGrgluHqQNHm9jP6KlrRrsZG3Tps",
       apiHost: "https://tshephos-lab.vercel.app",
+      // Footer bylines and the "what X has learned" strings read these instead of hardcoding a
+      // name, so one brand's copy never shows up on the other's deployment.
+      copyright: "Tshepho Joel",
       // admin.html reads this (window.voltBrandAdmins) instead of its own hardcoded list, so
       // "who can write org settings" lives in exactly one place per brand, same as everything else.
       adminEmails: ["joel@smesouthafrica.co.za", "joelbosega@gmail.com"],
@@ -50,6 +53,25 @@
       apiHost: "https://vantly-xi.vercel.app", // update this once the real vantly.* domain is connected
       // Vantly's own admin — nothing to do with the SME South Africa list above.
       adminEmails: ["joelbosega@gmail.com"],
+      copyright: "Vantly",
+      // Modules that are OFF by default for this brand, hidden at the brand level rather than
+      // left for an admin to switch off by hand. Joel's call: Vantly ships Create/Design/Video
+      // first and the Publish + Measure families aren't commercially ready. An org CAN still turn
+      // one back on from Admin (an explicit `true` in org settings wins over this list), so this
+      // is a default, not a lock. Volt has no such field, so nothing changes there.
+      hiddenModules: ["email", "schedule", "analytics"],
+      // The Brand Kit a brand-new org sees before it has saved one of its own. Volt's pages
+      // hardcode SME South Africa here, which is right for Volt and badly wrong for a Vantly
+      // customer — their first visit would present someone else's company as their own brand.
+      // Every field the pages read has to be present, not just the obvious ones: Object.assign
+      // merges this OVER the hardcoded kit, so any key left out here keeps SME South Africa's
+      // value — `voice` especially, which would otherwise steer a paying customer's copy toward
+      // "South African SME founders".
+      defaultBrandKit: {
+        id: "vantly", name: "Your brand", primary: "#e2924a", secondary: "#12162a",
+        tag: "", cta: "Learn more", url: "", logo: "",
+        voice: "Clear, confident and useful. Plain language, short sentences, no hype or jargon. Writes like a capable specialist who respects the reader's time.",
+      },
       // Full visual identity — see the Vantly Brand Identity artifact for the reasoning (dusk-to-
       // dawn palette, Fraunces + Public Sans, "vantage point" as two ridgelines meeting at first
       // light). Volt has no `theme` field at all, which is what keeps this whole block a no-op for
@@ -71,6 +93,12 @@
         // pages use rgba tokens and two, so these have no equivalent in the block above.
         surfaceIn: "#0e1226", surfaceAlt: "#1b2040", surfaceHover: "#242a54",
         borderSolid: "#2b3057", borderHover: "#3d4478",
+        // Every page also hardcodes a family of near-black Volt hexes that no token reached —
+        // input wells, raised panels, card gradient ends, progress tracks. Those now read
+        // var(--ink-*, <original Volt hex>), so these eight values re-point all ~227 of them and
+        // a brand with no theme keeps its own literals untouched.
+        ink: "#12162a", inkIn: "#0e1226", inkRaise: "#191d36", inkDeep: "#151a31",
+        inkCard: "#161b33", inkTrack: "#212752", inkLine: "#2b3057", inkAbyss: "#0a0d1c",
       },
     },
   };
@@ -93,6 +121,15 @@
   // this file loads first in <head>, so the value is always here before that config runs. Null for
   // Volt, which keeps Studio's own lime config exactly as written.
   window.voltBrandTheme = BRAND.theme || null;
+  // Static markup fills these through [data-brand-name] / [data-brand-copyright] (see
+  // applyBrandChrome); JS-built strings read the globals directly.
+  window.voltBrandName = BRAND.name;
+  window.voltBrandCopyright = BRAND.copyright || BRAND.name;
+  window.voltBrandDefaultKit = BRAND.defaultBrandKit || null;
+  // guide.html reads these to describe THIS brand's setup rather than Volt's.
+  window.voltBrandApiHost = BRAND.apiHost || "";
+  window.voltBrandEmailPlaceholder = BRAND.emailPlaceholder || "";
+  window.voltBrandHiddenModules = BRAND.hiddenModules || [];
   var KEYS_LS = "volt_keys_v1";
   var sb = null, session = null;
 
@@ -350,6 +387,15 @@
   // entirely anyway. BRAND.favicon is blank for both brands today (no icon asset made yet for
   // either); the hook is wired and ready for whenever one is supplied.
   function applyBrandChrome() {
+    // Runs for EVERY brand, before the Volt early-return below. These placeholders are empty in
+    // the markup, so skipping this leaves a hole where the product name should be — Volt's own
+    // footer read "© 2026  · All rights reserved" until this moved above the guard.
+    // Static copy that names the product. Pages write <span data-brand-name></span> rather than
+    // the literal word, so the same markup reads "Volt" or "Vantly" with no per-brand template.
+    try {
+      [].forEach.call(document.querySelectorAll("[data-brand-name]"), function (el) { el.textContent = BRAND.name; });
+      [].forEach.call(document.querySelectorAll("[data-brand-copyright]"), function (el) { el.textContent = BRAND.copyright || BRAND.name; });
+    } catch (e) {}
     if (BRAND === BRANDS.volt) return;
     try {
       if (document.title && /^Volt\b/.test(document.title)) document.title = document.title.replace(/^Volt\b/, BRAND.name);
@@ -406,6 +452,9 @@
         // Studio's markup carries ~18 inline style="color:#B6FF3D" attributes that no selector can
         // reach. Those now read var(--vt-accent,#B6FF3D) instead, so defining it here re-points all
         // of them at once; leaving it undefined (Volt) means every one falls back to its own lime.
+        "--ink:" + t.ink + " !important;--ink-in:" + t.inkIn + " !important;--ink-raise:" + t.inkRaise + " !important;" +
+        "--ink-deep:" + t.inkDeep + " !important;--ink-card:" + t.inkCard + " !important;--ink-track:" + t.inkTrack + " !important;" +
+        "--ink-line:" + t.inkLine + " !important;--ink-abyss:" + t.inkAbyss + " !important;" +
         "--vt-accent:" + t.accent + ";--vt-display:" + t.fd + ";--accent-rgb:" + t.accentRgb + ";" +
       "}" +
       // the decorative ambient glow every one of these pages paints behind .wrap — hardcoded lime/
@@ -425,11 +474,12 @@
       ".va-get{color:" + t.accent + " !important;}" +
       "#va-refresh,#va-gear{color:" + t.accent + " !important;}" +
       "#va-refresh:hover,#va-gear:hover{background:" + t.accent + " !important;}" +
-      "#va-rail .r-logo .m{background:" + t.accent + " !important;}" +
+      "#va-rail{background:linear-gradient(180deg," + t.inkRaise + "," + t.ink + ") !important;}" +
+      "#va-rail .r-logo .m{background:" + t.accent + " !important;color:" + t.ink + " !important;}" +
       ".r-tile.on{background:" + t.glow1 + " !important;color:" + t.accentHi + " !important;}" +
       ".r-tile.on::before{background:" + t.accent + " !important;}" +
       ".r-tile:hover{color:" + t.text + " !important;}" +
-      "#va-rail .r-av .cir{background:linear-gradient(135deg," + t.accent + "," + t.good + ") !important;}" +
+      "#va-rail .r-av .cir{background:linear-gradient(135deg," + t.accentHi + "," + t.accent + ") !important;color:" + t.ink + " !important;}" +
       ".va-acct-av{background:linear-gradient(135deg," + t.accent + "," + t.good + ") !important;}" +
       ".va-tab.active{background:" + t.glow1 + " !important;color:" + t.accentHi + " !important;}" +
       ".vk-item.sel{background:" + t.glow1 + " !important;}.vk-item.sel .vk-t{color:" + t.accentHi + " !important;}" +
@@ -475,9 +525,86 @@
       ".vt-in:focus,.bk-in:focus{border-color:" + t.accent + " !important;}" +
       ".vt-file::file-selector-button{background:" + t.surfaceAlt + " !important;color:" + t.text + " !important;border-color:" + t.borderSolid + " !important;}" +
       ".vt-file::file-selector-button:hover{background:" + t.surfaceHover + " !important;}" +
-      ".bk-lbl{color:" + t.dim + " !important;}";
+      ".bk-lbl{color:" + t.dim + " !important;}" +
+      brandPolish(t);
     var st = document.createElement("style"); st.id = "va-brand-theme"; st.textContent = css;
     document.head.appendChild(st);
+  }
+
+  // ---- the design layer ------------------------------------------------------------------
+  // Everything above re-points COLOUR. This is the part that makes Vantly feel like a product
+  // someone pays for rather than a recoloured internal tool: elevation, focus, motion, and the
+  // native controls the browser would otherwise draw in its own chrome. Kept separate from the
+  // palette block on purpose — that one is a mechanical re-map and should stay easy to scan;
+  // this one is design judgement and will get edited far more often.
+  // Scoped to class names Studio does not use (it lives in a `vt-*` / Tailwind namespace), so
+  // none of this reaches the design canvas — a hover transform on the artboard would be a bug,
+  // not a flourish. Returns "" for any brand without a theme, so Volt is untouched.
+  function brandPolish(t) {
+    var a = t.accentRgb || "226,146,74";
+    return (
+      // Native <select> and file inputs are the two places the OS draws its own widget and the
+      // page abruptly stops looking designed. SmartClip's whole control row is these.
+      "select{-webkit-appearance:none !important;-moz-appearance:none !important;appearance:none !important;" +
+        "background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23a29cc2' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\") !important;" +
+        "background-repeat:no-repeat !important;background-position:right 13px center !important;" +
+        "background-size:11px !important;padding-right:34px !important;cursor:pointer !important;}" +
+      "select:hover{border-color:" + t.borderHover + " !important;}" +
+      "input[type=file]{cursor:pointer !important;}" +
+      "input[type=file]::file-selector-button{font-family:inherit !important;font-weight:700 !important;font-size:12.5px !important;" +
+        "background:" + t.surfaceAlt + " !important;color:" + t.text + " !important;border:1px solid " + t.borderSolid + " !important;" +
+        "border-radius:9px !important;padding:8px 14px !important;margin-right:12px !important;cursor:pointer !important;" +
+        "transition:all .16s cubic-bezier(.4,0,.2,1) !important;}" +
+      "input[type=file]::file-selector-button:hover{background:" + t.surfaceHover + " !important;border-color:" + t.accent + " !important;color:" + t.accentHi + " !important;}" +
+      // One focus ring everywhere, rather than each page's own border-colour swap. A visible ring
+      // is also the accessibility floor — a border recolour alone is far too easy to miss.
+      "input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none !important;" +
+        "border-color:" + t.accent + " !important;box-shadow:0 0 0 3px rgba(" + a + ",.22) !important;}" +
+      "button:focus-visible,a:focus-visible,[role=button]:focus-visible{outline:2px solid rgba(" + a + ",.75) !important;outline-offset:2px !important;}" +
+      // Depth. The pages ship flat 1px borders; a soft ambient shadow plus a 1px top highlight is
+      // what actually reads as a raised surface on a dark ground.
+      ".card,.console,.stage,.clip{box-shadow:0 1px 0 rgba(244,239,230,.04) inset,0 2px 6px -2px rgba(0,0,0,.5),0 18px 44px -24px rgba(0,0,0,.85) !important;}" +
+      ".card:hover{border-color:rgba(" + a + ",.34) !important;box-shadow:0 1px 0 rgba(244,239,230,.06) inset,0 4px 12px -3px rgba(0,0,0,.55),0 26px 60px -26px rgba(0,0,0,.9) !important;}" +
+      // Primary action: warmth in the fill and a copper glow that grows on hover.
+      ".btn:not(:disabled){background:linear-gradient(180deg," + t.accentHi + "," + t.accent + ") !important;color:" + t.ink + " !important;" +
+        "box-shadow:0 1px 0 rgba(255,255,255,.28) inset,0 10px 26px -10px rgba(" + a + ",.65) !important;letter-spacing:-.01em !important;}" +
+      ".btn:hover:not(:disabled){background:linear-gradient(180deg," + t.accentHi + "," + t.accentPress + ") !important;" +
+        "box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 16px 36px -12px rgba(" + a + ",.8) !important;}" +
+      ".btn:active:not(:disabled){box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 6px 16px -8px rgba(" + a + ",.6) !important;}" +
+      // Secondary / segmented controls — the flattest thing on the page before this.
+      ".seg button,.mini{transition:all .16s cubic-bezier(.4,0,.2,1) !important;}" +
+      ".seg button:hover:not(.on){background:" + t.surfaceHover + " !important;border-color:" + t.borderHover + " !important;color:" + t.text + " !important;}" +
+      ".seg button.on{background:linear-gradient(180deg," + t.accentHi + "," + t.accent + ") !important;color:" + t.ink + " !important;" +
+        "box-shadow:0 6px 16px -8px rgba(" + a + ",.7) !important;}" +
+      ".mini:hover{border-color:rgba(" + a + ",.5) !important;color:" + t.accentHi + " !important;}" +
+      // Fraunces is an optical-size face; left on its default it renders the big display settings
+      // soft. This also tightens the large sizes, which ship a touch loose for a display serif.
+      ".title,h1,h2,.hero{font-optical-sizing:auto !important;letter-spacing:-.022em !important;}" +
+      "::selection{background:rgba(" + a + ",.3);color:" + t.text + ";}" +
+      "*{scrollbar-width:thin;scrollbar-color:" + t.borderHover + " transparent;}" +
+      "::-webkit-scrollbar{width:10px;height:10px;}::-webkit-scrollbar-track{background:transparent;}" +
+      "::-webkit-scrollbar-thumb{background:" + t.borderSolid + ";border-radius:99px;border:3px solid transparent;background-clip:content-box;}" +
+      "::-webkit-scrollbar-thumb:hover{background:" + t.borderHover + ";border:3px solid transparent;background-clip:content-box;}" +
+      // A single settle-in on first paint. Pages already animate their own result cards; this is
+      // only the shell, and it is skipped entirely for anyone who asked for less motion.
+      "@media (prefers-reduced-motion:no-preference){.wrap{animation:vtRise .5s cubic-bezier(.2,.7,.2,1) both;}" +
+      "@keyframes vtRise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}}" +
+      // ---- volt-auth.js's own late-injected chrome -----------------------------------------
+      // The sleep screen and the first-run welcome inject their CSS AFTER this stylesheet, so at
+      // equal specificity they win — landing these needs the !important every rule here carries.
+      // Both were built pure lime, and the sleep screen is the most-seen surface on an idle
+      // machine, which makes a leak there the most visible one in the product.
+      "#va-sleep .vs-corner{border-color:rgba(" + a + ",.5) !important;}" +
+      "#va-sleep .vs-reactor{filter:drop-shadow(0 0 26px rgba(" + a + ",.5)) !important;}" +
+      "#va-sleep .r1,#va-jarvis .r1{stroke:rgba(" + a + ",.55) !important;}" +
+      "#va-sleep .r3,#va-jarvis .r3{stroke:rgba(" + a + ",.7) !important;}" +
+      "#va-sleep .core,#va-jarvis .core{fill:rgba(" + a + ",.1) !important;stroke:rgba(" + a + ",.95) !important;}" +
+      "#va-sleep .vs-console{border-color:rgba(" + a + ",.2) !important;}" +
+      "#va-jarvis .vj-corner{border-color:rgba(" + a + ",.55) !important;}" +
+      "#va-jarvis .vj-reactor{filter:drop-shadow(0 0 22px rgba(" + a + ",.4)) !important;}" +
+      "#va-toast{border-color:rgba(" + a + ",.4) !important;background:" + t.surface + " !important;}" +
+      ""
+    );
   }
 
   /* ---------- sign-in gate ---------- */
@@ -647,6 +774,15 @@
       });
     }, 0);
   }
+  function welcomeBlurb() {
+    var hidden = BRAND.hiddenModules || [];
+    var has = function (k) { return hidden.indexOf(k) === -1; };
+    var parts = ["copy", "graphics", "video"];
+    if (has("email")) parts.push("email");
+    if (has("analytics")) parts.push("the numbers");
+    if (parts.length < 2) return parts.join("");
+    return parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1];
+  }
   function showBadge() { // builds the left rail — the app's only navigation surface
     injectCSS();
     var old = document.getElementById("va-rail"); if (old) old.remove();
@@ -672,6 +808,11 @@
     var byId = function (id) { return document.getElementById(id); };
     if (byId("r-av")) byId("r-av").addEventListener("click", function (e) { e.stopPropagation(); toggleRailPop(byId("r-av")); });
     if (byId("r-cmdk")) byId("r-cmdk").addEventListener("click", function () { if (window.voltOpenCommand) window.voltOpenCommand(); });
+    // The rail is built here, from showApp(), which runs only once a session resolves — i.e. AFTER
+    // the DOMContentLoaded/load passes of applyOrgSettings have already been and gone. Re-applying
+    // here is what actually removes a retired module's tile; refreshOrgSettings() can't be relied
+    // on for it, since it bails early for an org that has no settings row saved yet.
+    applyOrgSettings();
   }
   function showToast(msg) {
     injectCSS();
@@ -845,7 +986,12 @@
   function startRain() {
     var cv = document.getElementById("va-sleep-rain"); if (!cv || !cv.getContext) return;
     var ctx = cv.getContext("2d");
-    var glyphs = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈ0123456789<>[]{}=+*/#$%⚡◇VOLT";
+    // The tail of this string spells the product name, so it can't stay hardcoded — a Vantly
+    // machine idling into a screen that rains "VOLT" is the most visible brand leak in the app.
+    var glyphs = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈ0123456789<>[]{}=+*/#$%⚡◇" + String(BRAND.name || "").toUpperCase();
+    var _th = BRAND.theme || null;
+    var _rainRgb = (_th && _th.accentRgb) || "182,255,61";
+    var _rainFade = _th ? "rgba(10,12,26,.14)" : "rgba(6,7,10,.14)";
     var fs = 16, cols = 0, drops = [];
     function resize() {
       cv.width = window.innerWidth; cv.height = window.innerHeight;
@@ -857,13 +1003,13 @@
     function frame(ts) {
       _sleepRainT = requestAnimationFrame(frame);
       if (ts - last < 55) return; last = ts;
-      ctx.fillStyle = "rgba(6,7,10,.14)"; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = _rainFade; ctx.fillRect(0, 0, cv.width, cv.height);
       ctx.font = "600 " + fs + "px 'JetBrains Mono',monospace";
       for (var i = 0; i < cols; i++) {
         var ch = glyphs.charAt(Math.floor(Math.random() * glyphs.length));
         var x = i * fs, y = drops[i] * fs;
         if (drops[i] > 0 && Math.random() > 0.985) ctx.fillStyle = "rgba(236,238,243,.92)"; // bright lead glyph
-        else ctx.fillStyle = "rgba(182,255,61," + (0.22 + Math.random() * 0.5).toFixed(2) + ")";
+        else ctx.fillStyle = "rgba(" + _rainRgb + "," + (0.22 + Math.random() * 0.5).toFixed(2) + ")";
         ctx.fillText(ch, x, y);
         if (y > cv.height && Math.random() > 0.975) drops[i] = 0;
         drops[i] += 0.6;
@@ -1308,6 +1454,38 @@
     return !!(s && s[group] && s[group][key] === false);
   }
   window.voltRetired = retired;
+  function hideModule(k) {
+    var sel = 'a[href="' + k + '.html"]';
+    [].forEach.call(document.querySelectorAll(sel), function (a) { a.style.display = "none"; });
+  }
+  // Brand-level module defaults (BRAND.hiddenModules). Runs ahead of the org-settings early-return
+  // because a brand-new org has no saved settings at all and must STILL get the brand's default
+  // module set — otherwise Vantly's first-ever sign-in shows the three families it doesn't ship.
+  // An org that has explicitly re-enabled one (modules[k] === true) overrides the brand default.
+  function applyBrandModules(s) {
+    var hidden = BRAND.hiddenModules; if (!hidden || !hidden.length) return;
+    var mods = (s && s.modules) || {};
+    hidden.forEach(function (k) { if (mods[k] !== true) hideModule(k); });
+  }
+  // A rail group header ("Publish", "Measure") left standing over zero visible tiles reads as a
+  // broken nav, so drop the header and its spacer once everything under it is hidden.
+  function pruneRailGroups() {
+    var rail = document.getElementById("va-rail"); if (!rail) return;
+    var kids = [].slice.call(rail.children);
+    kids.forEach(function (el, i) {
+      if (!el.classList || !el.classList.contains("r-grp")) return;
+      var anyVisible = false;
+      for (var j = i + 1; j < kids.length; j++) {
+        var nx = kids[j];
+        if (nx.classList && (nx.classList.contains("r-grp") || nx.classList.contains("r-gap"))) break;
+        if (nx.classList && nx.classList.contains("r-tile") && nx.style.display !== "none") { anyVisible = true; break; }
+      }
+      if (anyVisible) return;
+      el.style.display = "none";
+      var prev = kids[i - 1];
+      if (prev && prev.classList && prev.classList.contains("r-gap")) prev.style.display = "none";
+    });
+  }
   function applyOrgSettings() {
     var s = orgSettings();
     // Business News SA (Studio's editorial family) is OFF by default for every org, opt-IN rather
@@ -1317,7 +1495,8 @@
     if (!(s && s.premium && s.premium.bizsa === true)) {
       var bizEl = document.getElementById("ct-bizsa"); if (bizEl) bizEl.style.display = "none";
     }
-    if (!s || (!s.modules && !s.themes && !s.premium)) return;
+    applyBrandModules(s);
+    if (!s || (!s.modules && !s.themes && !s.premium)) { pruneRailGroups(); return; }
     // nav tabs + rail entries for retired modules. Used to only hide an <a> carrying one of three
     // class names (tab / nav-tab / r-t) — leftover from the old per-page topbar this app no longer
     // uses (see "Nav lives in the rail"). The rail's real tile class is "r-tile", which matched
@@ -1326,9 +1505,9 @@
     // real case where a link to a retired module's page should stay visible somewhere.
     Object.keys(s.modules || {}).forEach(function (k) {
       if (s.modules[k] !== false) return;
-      var sel = 'a[href="' + k + '.html"]';
-      [].forEach.call(document.querySelectorAll(sel), function (a) { a.style.display = "none"; });
+      hideModule(k);
     });
+    pruneRailGroups();
     // Studio theme buttons (#theme-classic…) and premium content types (#ct-funding…)
     Object.keys(s.themes || {}).forEach(function (k) {
       if (s.themes[k] === false) { var el = document.getElementById("theme-" + k); if (el) el.style.display = "none"; }
@@ -1544,7 +1723,7 @@
     var m = document.createElement("div"); m.id = "va-welcome";
     m.innerHTML = '<div class="va-card">' +
       '<p class="va-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
-      '<p class="va-sub" style="margin-bottom:18px;">Welcome, ' + esc(firstName(session && session.user && session.user.email)) + '. Your AI marketing suite — copy, graphics, video, email and the numbers, all in one place.</p>' +
+      '<p class="va-sub" style="margin-bottom:18px;">Welcome, ' + esc(firstName(session && session.user && session.user.email)) + '. Your AI marketing suite — ' + welcomeBlurb() + ', all in one place.</p>' +
       '<div class="va-tips">' +
         vaTip("🎨", "Set your brand once", "Do it in Studio — every tool then uses your colours, logo and voice.") +
         vaTip(isMac() ? "⌘" : "^K", "Jump anywhere, instantly", "Press " + (isMac() ? "⌘K" : "Ctrl K") + " from any tool to switch or run an action.") +
