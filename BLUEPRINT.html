@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-09-11</strong> (Vantly end-to-end pass: module set, brand-leak sweep, design layer — see "Known gap in this file" below for what wasn't re-verified this pass).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-09-15</strong> (full end-to-end audit: found and fixed a 6-week-old production bug in Campaign's creative rendering — see the Change log below for what was verified and how).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -171,6 +171,11 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-09-15</span>
+    <strong>End-to-end audit: Campaign's creative rendering had thrown on every call since 2026-07-31</strong> — Joel asked for a full health check after four quiet days. Git/CI were clean (last push the 11th, CI green, the 5-minute publish cron firing on schedule) — the real find was in the live product, not the repo. The 2026-07-31 audit ("Studio engine out of the HTML") moved the render worker's source out of an inline <code>&lt;script id="worker-src"&gt;</code> block in <code>studio.html</code> into its own <code>studio-engine.js</code> file. Two consumers still regexed <code>studio.html</code> for that block and never got updated: <b>Health's "Studio worker engine boots" check</b>, which had been reporting FAIL for six weeks on the live health page and nobody read closely enough to notice it was checking a pattern that no longer existed — and, worse, <b>Campaign's actual <code>getEngine()</code></b>, the function every one of its three creative previews renders through. Confirmed live before touching anything: called <code>getEngine()</code> in production's own console and reproduced <code>"Studio engine not found"</code> on demand. Every campaign generated in that window would have shown "Render failed — open in Studio instead." on all three creatives, every time — a real, visible, marquee-feature failure that CI's own green checkmarks never caught, because <code>smoke.html</code> (what CI actually runs) already used the correct <code>new Worker('studio-engine.js')</code> and was never touched by the drift. Both fixed the same way — load <code>studio-engine.js</code> directly, simpler than the code it replaced — and both re-verified live against production after deploy: Health's render check now returns PASS with a real rendered bitmap, and a direct <code>getEngine()</code> call from Campaign's live console now returns a real 432×432 render instead of throwing. Swept the rest of the codebase for the same regex; no third copy exists.
+    <p style="margin-top:8px;">Also verified this pass: every routed API endpoint fails 401 (not 500) with no session, confirming the router itself is intact; Volt's own hostname still resolves to the unbranded default with zero console errors; and Vantly's placeholder host renders its full re-skinned identity but fails <em>closed</em> on sign-in ("Failed to fetch" against its still-unconfigured Supabase project) rather than silently authenticating against Volt's real one — exactly as designed, confirmed by actually submitting the form rather than reading the code and assuming.</p>
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-09-11</span>
     <strong>Vantly end-to-end: the module set it actually ships, every brand leak, and a real design layer</strong> — the
