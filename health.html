@@ -236,10 +236,14 @@ function sessionReady(){
   // ── 3. Render engine (free, local) ──
   const eng = [];
   eng.push(await check('Studio worker engine boots', async () => {
-    const html = await (await fetch('studio.html', { cache:'no-store' })).text();
-    const m = html.match(/<script id="worker-src"[^>]*>([\s\S]*?)<\/script>/);
-    if (!m) throw new Error('worker-src block not found in studio.html');
-    const w = new Worker(URL.createObjectURL(new Blob([m[1]], { type:'application/javascript' })));
+    // studio-engine.js has been its own file since the 2026-07-31 audit (Phase 4: "Studio engine
+    // out of the HTML") — this used to regex an inline <script id="worker-src"> block out of
+    // studio.html and boot it from a Blob URL, which is why it started failing that day and stayed
+    // red ever since: nobody reads a check that's "always failing" closely enough to notice it's
+    // checking for a pattern that no longer exists. Load the real file directly instead.
+    const probe = await fetch('studio-engine.js', { cache:'no-store' });
+    if (!probe.ok) throw new Error('studio-engine.js ' + probe.status);
+    const w = new Worker('studio-engine.js');
     const logo = await (await (async () => {
       const c = new OffscreenCanvas(200,60), x = c.getContext('2d');
       x.fillStyle = '#fff'; x.font = '700 40px sans-serif'; x.fillText('L', 8, 45);
