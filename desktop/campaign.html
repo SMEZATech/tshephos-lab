@@ -226,15 +226,18 @@ document.querySelectorAll('#fmtSeg button').forEach(b => b.addEventListener('cli
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600); }
 function copyText(s){ navigator.clipboard.writeText(s).then(() => toast('Copied ✓')).catch(() => toast('Copy failed')); }
 
-// ── Studio's render engine, borrowed live (same technique as /smoke.html): fetch studio.html,
-//    extract the worker, render each creative through the REAL production engine. ──
+// ── Studio's render engine, shared live: render each creative through the REAL production
+//    engine, studio-engine.js, loaded directly. Used to fetch studio.html and regex an inline
+//    <script id="worker-src"> block out of it — that block was removed in the 2026-07-31 audit
+//    that gave the engine its own file, so this threw "Studio engine not found" on every single
+//    call from that day on. Every campaign generated since showed "Render failed — open in
+//    Studio instead." on all three creative previews; caught during an end-to-end audit, not by
+//    a report, because the Studio fallback made it look like an edge case rather than the only
+//    path. Same fix as health.html's identical "Studio worker engine boots" check. ──
 let _worker = null, _chain = Promise.resolve(), _fonts = {}, _logoW = null, _logoC = null, _assetsReady = null;
 async function getEngine(){
   if (_worker) return _worker;
-  const html = await (await fetch('studio.html', { cache: 'no-store' })).text();
-  const m = html.match(/<script id="worker-src"[^>]*>([\s\S]*?)<\/script>/);
-  if (!m) throw new Error('Studio engine not found');
-  _worker = new Worker(URL.createObjectURL(new Blob([m[1]], { type: 'application/javascript' })));
+  _worker = new Worker('studio-engine.js');
   return _worker;
 }
 async function loadAssets(){
