@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<!-- Vantly — Terms of Service. © 2026 Vantly. All rights reserved. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms of Service — Vantly</title>
+  <meta name="description" content="The terms that govern your use of Vantly." />
+  <meta name="robots" content="noindex, follow" />
+  <link rel="canonical" href="https://vantly.co.za/terms.html" />
+  <meta name="theme-color" content="#12162a" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20rx%3D%2722%27%20fill%3D%27%2312162a%27%2F%3E%3Cpolygon%20points%3D%2784%2C20%2073%2C20%2047%2C80%2055%2C80%27%20fill%3D%27%233a4070%27%2F%3E%3Cpolygon%20points%3D%2718%2C20%2029%2C20%2055%2C80%2047%2C80%27%20fill%3D%27%23e2924a%27%2F%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2740%27%20r%3D%277%27%20fill%3D%27%23f4c88b%27%2F%3E%3C%2Fsvg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg:        #12162a;
+  --surface:   #191d36;
+  --surface2:  #212752;
+  --surface3:  #2b3057;
+  --border:    rgba(244,239,230,.09);
+  --border2:   rgba(244,239,230,.17);
+  --border3:   rgba(244,239,230,.26);
+  --text:      #f4efe6;
+  --dim:       #a29cc2;
+  --faint:     #6d688a;
+  --accent:        #e2924a;
+  --accent-press:  #c97a35;
+  --accent-hi:     #f4c88b;
+  --accent-rgb:    226,146,74;
+  --accent-glow:   rgba(226,146,74,.22);
+  --good:  #6bd39a;
+  --mid:   #f0b95e;
+  --low:   #e8746f;
+  --info:  #8ab4d8;
+  --ink:       #12162a;
+  --ink-in:    #0e1226;
+  --ink-raise: #191d36;
+  --ink-deep:  #151a31;
+  --ink-abyss: #0a0d1c;
+  --fd: 'Fraunces', Georgia, serif;
+  --fb: 'Public Sans', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--fb); background: var(--bg); color: var(--text);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden; line-height: 1.6;
+}
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+.ambient {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 900px 600px at 15% -10%, rgba(226,146,74,.11) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 500px at 90% 5%,  rgba(58,64,112,.20) 0%, transparent 55%),
+    radial-gradient(ellipse 600px 700px at 50% 110%, rgba(226,146,74,.07) 0%, transparent 60%);
+}
+.container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+.section { position: relative; z-index: 1; }
+
+/* nav */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: rgba(18,22,42,.82); border-bottom: 1px solid var(--border);
+}
+.nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; max-width: 1160px; margin: 0 auto; gap: 20px; }
+.nav-logo { display: flex; align-items: center; gap: 10px; font-family: var(--fd); font-weight: 800; font-size: 22px; letter-spacing: -.015em; color: var(--text); flex-shrink: 0; }
+.nav-logo-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border2); display: grid; place-items: center; flex-shrink: 0; }
+.nav-logo-icon svg { width: 22px; height: 22px; }
+.nav-links { display: flex; align-items: center; gap: 6px; list-style: none; }
+.nav-links a { font-size: 14px; font-weight: 600; color: var(--dim); padding: 7px 13px; border-radius: 9px; transition: color .15s, background .15s; }
+.nav-links a:hover { color: var(--text); background: rgba(244,239,230,.05); }
+.nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.btn-ghost { font-size: 14px; font-weight: 600; color: var(--dim); padding: 9px 18px; border-radius: 11px; border: 1px solid var(--border2); transition: color .15s, border-color .15s, background .15s; }
+.btn-ghost:hover { color: var(--text); border-color: var(--accent); background: rgba(226,146,74,.06); }
+.btn-primary { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--accent); padding: 10px 22px; border-radius: 11px; border: none; cursor: pointer; transition: background .15s, transform .12s, box-shadow .18s; box-shadow: 0 6px 20px -6px rgba(var(--accent-rgb),.5); }
+.btn-primary:hover { background: var(--accent-press); transform: translateY(-1px); box-shadow: 0 10px 28px -8px rgba(var(--accent-rgb),.6); }
+@media(max-width:860px){ .nav-links{display:none;} }
+
+/* content shell */
+.page-hero { position:relative; z-index:1; padding:150px 24px 40px; text-align:center; max-width:760px; margin:0 auto; }
+.page-eyebrow { display:inline-flex; align-items:center; gap:9px; font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin-bottom:18px; }
+.page-title { font-family:var(--fd); font-weight:800; font-size:clamp(34px,5.5vw,52px); line-height:1.08; letter-spacing:-.02em; margin-bottom:14px; }
+.page-sub { font-size:16px; color:var(--dim); line-height:1.6; }
+.content-wrap { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:20px 24px 100px; }
+.content-wrap h2 { font-family:var(--fd); font-size:24px; font-weight:800; margin:44px 0 14px; letter-spacing:-.01em; }
+.content-wrap h2:first-child { margin-top:0; }
+.content-wrap p { font-size:15px; color:var(--dim); line-height:1.75; margin-bottom:14px; }
+.content-wrap ul { margin:0 0 14px 22px; }
+.content-wrap li { font-size:15px; color:var(--dim); line-height:1.75; margin-bottom:6px; }
+.content-wrap strong { color:var(--text); font-weight:700; }
+.content-wrap a { color:var(--accent); }
+.content-wrap a:hover { text-decoration:underline; }
+.updated-note { font-size:13px; color:var(--faint); margin-bottom:36px; }
+.callout { background:var(--surface); border:1px solid var(--border2); border-radius:14px; padding:18px 20px; margin:20px 0; font-size:14px; color:var(--dim); line-height:1.65; }
+
+/* footer */
+footer { position: relative; z-index: 1; border-top: 1px solid var(--border); padding: 60px 24px 40px; }
+.footer-inner { max-width: 1160px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; }
+.footer-brand .logo-text { font-family: var(--fd); font-weight: 800; font-size: 20px; color: var(--text); margin-bottom: 12px; }
+.footer-brand p { font-size: 13.5px; color: var(--faint); line-height: 1.6; max-width: 260px; margin-bottom: 18px; }
+.footer-col h4 { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 14px; }
+.footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.footer-col a { font-size: 13.5px; color: var(--faint); transition: color .15s; }
+.footer-col a:hover { color: var(--dim); }
+.footer-bottom { max-width: 1160px; margin: 40px auto 0; padding-top: 24px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.footer-bottom p { font-size: 12px; color: var(--faint); }
+.footer-social { display: flex; gap: 12px; }
+.footer-social a { width: 32px; height: 32px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); display: grid; place-items: center; font-size: 14px; color: var(--faint); transition: border-color .15s, color .15s; }
+.footer-social a:hover { border-color: var(--border3); color: var(--dim); }
+@media(max-width:760px){ .footer-inner{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+<div class="ambient"></div>
+<nav class="nav" id="mainNav" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <a href="vantly.html" class="nav-logo" aria-label="Vantly home">
+      <div class="nav-logo-icon" aria-hidden="true"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="84,20 73,20 47,80 55,80" fill="#3a4070"/>
+          <polygon points="18,20 29,20 55,80 47,80" fill="#e2924a"/>
+          <circle cx="50" cy="40" r="7" fill="#f4c88b"/>
+        </svg></div>
+      Vantly
+    </a>
+    <ul class="nav-links" role="list">
+      <li><a href="vantly.html#features">Features</a></li>
+      <li><a href="vantly.html#how-it-works">How it works</a></li>
+      <li><a href="vantly.html#modules">Tools</a></li>
+      <li><a href="vantly.html#pricing">Pricing</a></li>
+    </ul>
+    <div class="nav-right">
+      <a href="home.html" class="btn-ghost">Sign in</a>
+      <a href="signup.html" class="btn-primary">
+        Get started
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+<section class="page-hero"><div class="page-eyebrow">Legal</div><h1 class="page-title">Terms of Service</h1><p class="page-sub">The terms that govern your use of Vantly.</p></section><div class="content-wrap">
+<p class="updated-note">Last updated: 16 September 2026</p>
+
+<div class="callout">
+  <strong>Before this goes live:</strong> same note as the Privacy Policy — fill in your
+  real entity details, and get a lawyer's eyes on the liability and payment sections
+  before customers start paying you.
+</div>
+
+<h2>1. Agreement</h2>
+<p>These Terms govern your use of Vantly, operated by <strong>[Vantly (Pty) Ltd —
+legal entity name]</strong> ("Vantly", "we"). By creating an account you agree to them.
+If you're using Vantly on behalf of a company, you're confirming you have authority to
+bind that company to these Terms.</p>
+
+<h2>2. Your account</h2>
+<p>You're responsible for the security of your account and everything that happens under
+it. Use a real email address and a strong password. Don't share your login.</p>
+
+<h2>3. Plans &amp; billing</h2>
+<ul>
+  <li>Vantly offers a free plan and paid plans, billed monthly via Paystack in ZAR unless
+  stated otherwise.</li>
+  <li>Paid plans renew automatically each billing period until cancelled.</li>
+  <li>You can cancel any time from Settings; you'll keep access until the end of the
+  period you already paid for. No partial refunds for unused time unless required by law.</li>
+  <li>Prices can change; we'll give you at least 30 days' notice before a change affects
+  you.</li>
+</ul>
+
+<h2>4. Acceptable use</h2>
+<p>Don't use Vantly to create content that's illegal, infringing, hateful, or intended to
+deceive or defraud. Don't attempt to abuse, reverse-engineer, or overload the Service.
+We can suspend or terminate accounts that violate this.</p>
+
+<h2>5. Your content, our tools</h2>
+<p>You own what you create with Vantly. We claim no ownership over your Brand Kit or your
+generated content. You grant us only the limited right to process it in order to run the
+Service (e.g. sending it to an AI provider to generate output, storing it so you can come
+back to it).</p>
+
+<h2>6. AI-generated content</h2>
+<p>Vantly uses third-party AI models to generate copy, graphics and other output. AI
+output can be inaccurate, so you're responsible for reviewing and approving anything before
+you publish or send it. We don't guarantee that generated content is error-free, original,
+or suitable for every purpose.</p>
+
+<h2>7. Availability</h2>
+<p>We aim for high availability but don't guarantee the Service will be uninterrupted or
+error-free. We'll do our best to give notice of planned maintenance.</p>
+
+<h2>8. Limitation of liability</h2>
+<p>To the maximum extent permitted by law, Vantly isn't liable for indirect, incidental,
+or consequential damages arising from your use of the Service. Our total liability for any
+claim is limited to the amount you paid us in the 12 months before the claim arose.</p>
+
+<h2>9. Termination</h2>
+<p>You can close your account at any time. We can suspend or terminate accounts that
+violate these Terms, with notice where reasonably possible.</p>
+
+<h2>10. Changes to these Terms</h2>
+<p>We'll email you and update the date above if we make a material change. Continuing to
+use the Service after a change means you accept the update.</p>
+
+<h2>11. Governing law</h2>
+<p>These Terms are governed by the laws of South Africa.</p>
+
+<h2>12. Contact</h2>
+<p><a href="mailto:support@vantly.co.za">support@vantly.co.za</a></p>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="logo-text">Vantly</div>
+      <p>Your vantage point for every campaign.<br/>AI-powered marketing tools for growing brands.</p>
+      <div class="footer-social" aria-label="Follow Vantly on social media">
+        <a href="#" aria-label="Vantly on Instagram">📸</a>
+        <a href="#" aria-label="Vantly on LinkedIn">💼</a>
+        <a href="#" aria-label="Vantly on TikTok">🎵</a>
+        <a href="#" aria-label="Vantly on X / Twitter">🐦</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <ul>
+        <li><a href="vantly.html#features">Features</a></li>
+        <li><a href="vantly.html#modules">Tools</a></li>
+        <li><a href="vantly.html#pricing">Pricing</a></li>
+        <li><a href="home.html">Sign in</a></li>
+        <li><a href="signup.html">Create account</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <ul>
+        <li><a href="home.html">Copy Lab</a></li>
+        <li><a href="home.html">Studio</a></li>
+        <li><a href="home.html">Video Editor</a></li>
+        <li><a href="home.html">SmartClip</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="about.html">About</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+        <li><a href="terms.html">Terms of Service</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 Vantly. All rights reserved.</p>
+    <p>Built with ♥ for brands that mean business.</p>
+  </div>
+</footer>
+</body>
+</html>
