@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<!-- Vantly — Create account page. © 2026 Vantly. All rights reserved. -->
+<html lang="en">
+<head>
+  <script src="volt-auth.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create your Vantly account — Get your vantage point</title>
+  <meta name="description" content="Create a free Vantly account. Set up your brand kit, start generating AI-powered copy, graphics and video — all in one workspace." />
+  <meta name="robots" content="noindex, follow" />
+  <link rel="canonical" href="https://vantly.co.za/signup.html" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20rx%3D%2722%27%20fill%3D%27%2312162a%27%2F%3E%3Cpolygon%20points%3D%2784%2C20%2073%2C20%2047%2C80%2055%2C80%27%20fill%3D%27%233a4070%27%2F%3E%3Cpolygon%20points%3D%2718%2C20%2029%2C20%2055%2C80%2047%2C80%27%20fill%3D%27%23e2924a%27%2F%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2740%27%20r%3D%277%27%20fill%3D%27%23f4c88b%27%2F%3E%3C%2Fsvg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg:#12162a; --surface:#191d36; --surface2:#212752;
+  --border:rgba(244,239,230,.09); --border2:rgba(244,239,230,.17);
+  --text:#f4efe6; --dim:#a29cc2; --faint:#6d688a;
+  --accent:#e2924a; --accent-press:#c97a35; --accent-hi:#f4c88b;
+  --accent-rgb:226,146,74;
+  --good:#6bd39a; --mid:#f0b95e; --low:#e8746f;
+  --fd:'Fraunces',Georgia,serif; --fb:'Public Sans',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:var(--fb);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+a{color:inherit;text-decoration:none;}
+
+/* Page split */
+.page{display:grid;grid-template-columns:1fr 1fr;min-height:100vh;}
+@media(max-width:860px){.page{grid-template-columns:1fr;}}
+
+/* ── Brand panel ── */
+.brand-panel{
+  background:linear-gradient(160deg,#191d36 0%,#12162a 60%,#0e1226 100%);
+  border-right:1px solid var(--border);
+  padding:48px 52px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  position:relative;overflow:hidden;
+}
+.brand-panel::before{
+  content:'';position:absolute;top:-100px;left:-100px;
+  width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(226,146,74,.12),transparent 65%);
+  pointer-events:none;
+}
+@media(max-width:860px){.brand-panel{display:none;}}
+
+.bp-logo{display:flex;align-items:center;gap:12px;}
+.bp-logo-icon{width:42px;height:42px;border-radius:12px;background:var(--surface2);border:1px solid var(--border2);display:grid;place-items:center;}
+.bp-logo-icon svg{width:26px;height:26px;}
+.bp-logo-text{font-family:var(--fd);font-weight:800;font-size:24px;letter-spacing:-.015em;}
+
+.bp-hero{margin-top:auto;padding-top:60px;}
+.bp-eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+.bp-headline{font-family:var(--fd);font-weight:800;font-size:clamp(28px,3.4vw,40px);line-height:1.12;letter-spacing:-.025em;margin-bottom:20px;}
+.bp-headline em{font-style:italic;background:linear-gradient(135deg,var(--accent),var(--accent-hi));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.bp-perks{list-style:none;display:flex;flex-direction:column;gap:12px;margin-bottom:36px;}
+.bp-perks li{display:flex;align-items:center;gap:11px;font-size:14.5px;color:var(--dim);}
+.bp-perk-icon{width:28px;height:28px;border-radius:8px;background:rgba(226,146,74,.1);border:1px solid rgba(226,146,74,.2);display:grid;place-items:center;flex-shrink:0;font-size:13px;}
+.bp-badge{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:100px;padding:8px 15px;background:rgba(255,255,255,.02);}
+.bp-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good);}
+.bp-footer{margin-top:40px;font-size:12px;color:var(--faint);}
+.bp-footer a{color:var(--faint);text-decoration:underline;}
+.bp-footer a:hover{color:var(--dim);}
+
+/* ── Form panel ── */
+.form-panel{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:48px 40px;background:var(--bg);min-height:100vh;position:relative;}
+.form-panel-top{position:absolute;top:28px;right:32px;display:flex;align-items:center;gap:10px;}
+.form-panel-top a{font-size:13.5px;color:var(--dim);padding:8px 16px;border-radius:10px;border:1px solid var(--border2);transition:color .15s,border-color .15s;}
+.form-panel-top a:hover{color:var(--text);border-color:var(--accent);}
+
+.form-mobile-logo{display:none;align-items:center;gap:10px;font-family:var(--fd);font-weight:800;font-size:20px;margin-bottom:32px;align-self:flex-start;}
+@media(max-width:860px){.form-mobile-logo{display:flex;}}
+
+.form-box{width:100%;max-width:420px;}
+.form-eyebrow{font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+.form-title{font-family:var(--fd);font-weight:800;font-size:clamp(26px,3vw,34px);letter-spacing:-.02em;line-height:1.12;margin-bottom:6px;}
+.form-subtitle{font-size:14.5px;color:var(--dim);margin-bottom:32px;line-height:1.55;}
+.form-subtitle a{color:var(--accent);}
+.form-subtitle a:hover{text-decoration:underline;}
+
+.field-group{display:flex;flex-direction:column;gap:16px;margin-bottom:20px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);}
+.field input{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:13px 16px;font-family:var(--fb);font-size:15px;color:var(--text);outline:none;transition:border-color .16s,box-shadow .16s;}
+.field input::placeholder{color:var(--faint);}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(var(--accent-rgb),.14);}
+
+/* Password strength */
+.pw-bar{height:3px;border-radius:2px;background:var(--surface2);overflow:hidden;margin-top:6px;}
+.pw-bar-fill{height:100%;border-radius:2px;background:var(--low);width:0%;transition:width .3s,background .3s;}
+.pw-label{font-size:11px;color:var(--faint);margin-top:4px;}
+
+.agree-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:20px;}
+.agree-row input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;margin-top:1px;accent-color:var(--accent);cursor:pointer;}
+.agree-row label{font-size:13px;color:var(--dim);line-height:1.5;cursor:pointer;}
+.agree-row a{color:var(--accent);}
+.agree-row a:hover{text-decoration:underline;}
+
+.btn-submit{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;font-family:var(--fb);font-size:16px;font-weight:700;color:var(--bg);background:var(--accent);border:none;border-radius:13px;padding:16px 28px;cursor:pointer;transition:background .15s,transform .12s,box-shadow .18s;box-shadow:0 8px 28px -8px rgba(var(--accent-rgb),.5);margin-bottom:16px;}
+.btn-submit:hover:not(:disabled){background:var(--accent-press);transform:translateY(-1px);box-shadow:0 14px 36px -10px rgba(var(--accent-rgb),.6);}
+.btn-submit:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;transform:none;}
+
+.form-msg{border-radius:10px;padding:11px 14px;font-size:13.5px;line-height:1.5;margin-bottom:16px;display:none;}
+.form-msg.error{background:rgba(232,116,111,.1);border:1px solid rgba(232,116,111,.3);color:#f4afa8;}
+.form-msg.success{background:rgba(107,211,154,.1);border:1px solid rgba(107,211,154,.3);color:#a3e8c2;}
+.form-msg.info{background:rgba(226,146,74,.08);border:1px solid rgba(226,146,74,.2);color:var(--accent-hi);}
+.form-msg.show{display:block;}
+
+.sign-in-link{text-align:center;font-size:14px;color:var(--dim);margin-bottom:20px;}
+.sign-in-link a{color:var(--accent);font-weight:600;}
+.sign-in-link a:hover{text-decoration:underline;}
+
+.form-fine{margin-top:20px;text-align:center;font-size:12px;color:var(--faint);line-height:1.6;}
+.form-fine a{color:var(--faint);text-decoration:underline;}
+.form-fine a:hover{color:var(--dim);}
+
+/* Spinner */
+@keyframes spin{to{transform:rotate(360deg);}}
+.spinner{width:18px;height:18px;border-radius:50%;border:2px solid rgba(18,22,42,.4);border-top-color:var(--bg);animation:spin .7s linear infinite;flex-shrink:0;}
+
+/* Success state */
+.success-panel{display:none;text-align:center;max-width:380px;}
+.success-icon{width:64px;height:64px;border-radius:50%;background:rgba(107,211,154,.12);border:2px solid rgba(107,211,154,.3);display:grid;place-items:center;font-size:28px;margin:0 auto 20px;}
+.success-panel h2{font-family:var(--fd);font-weight:800;font-size:28px;letter-spacing:-.02em;margin-bottom:10px;}
+.success-panel p{font-size:15px;color:var(--dim);line-height:1.65;margin-bottom:24px;}
+.btn-app{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:var(--bg);background:var(--accent);padding:14px 28px;border-radius:13px;box-shadow:0 8px 24px -8px rgba(var(--accent-rgb),.5);transition:background .15s,transform .12s;}
+.btn-app:hover{background:var(--accent-press);transform:translateY(-1px);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Brand panel -->
+  <aside class="brand-panel">
+    <div class="bp-logo">
+      <div class="bp-logo-icon">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="84,20 73,20 47,80 55,80" fill="#3a4070"/>
+          <polygon points="18,20 29,20 55,80 47,80" fill="#e2924a"/>
+          <circle cx="50" cy="40" r="7" fill="#f4c88b"/>
+        </svg>
+      </div>
+      <span class="bp-logo-text">Vantly</span>
+    </div>
+
+    <div class="bp-hero">
+      <p class="bp-eyebrow">Free to start · No credit card</p>
+      <h2 class="bp-headline">Give your brand its <em>vantage point.</em></h2>
+      <ul class="bp-perks">
+        <li><span class="bp-perk-icon">✍️</span>AI copy ranked by performance — not random outputs</li>
+        <li><span class="bp-perk-icon">🎨</span>On-brand graphics in seconds — no design skills needed</li>
+        <li><span class="bp-perk-icon">🎬</span>Video editor, SmartClip, Email — all in one workspace</li>
+        <li><span class="bp-perk-icon">📊</span>Analytics that feed back into every tool automatically</li>
+        <li><span class="bp-perk-icon">🔒</span>Your data stays yours — never used to train models</li>
+      </ul>
+      <div class="bp-badge"><span class="dot"></span>Ready in under 60 seconds</div>
+    </div>
+
+    <div class="bp-footer">
+      By signing up you agree to our <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.
+    </div>
+  </aside>
+
+  <!-- Form panel -->
+  <main class="form-panel">
+    <div class="form-panel-top">
+      <span style="font-size:13px;color:var(--faint);">Already have an account?</span>
+      <a href="home.html">Sign in</a>
+    </div>
+
+    <div class="form-mobile-logo">
+      <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="84,20 73,20 47,80 55,80" fill="#3a4070"/>
+        <polygon points="18,20 29,20 55,80 47,80" fill="#e2924a"/>
+        <circle cx="50" cy="40" r="7" fill="#f4c88b"/>
+      </svg>
+      Vantly
+    </div>
+
+    <div class="form-box" id="signupForm">
+      <p class="form-eyebrow">Create account</p>
+      <h1 class="form-title">Get your<br/>vantage point.</h1>
+      <p class="form-subtitle">
+        Free to start. No credit card. Already have an account? <a href="home.html">Sign in →</a>
+      </p>
+
+      <div class="form-msg" id="formMsg"></div>
+
+      <div class="field-group">
+        <div class="field">
+          <label for="su-email">Work email</label>
+          <input type="email" id="su-email" autocomplete="email" spellcheck="false" placeholder="you@yourcompany.com" required />
+        </div>
+        <div class="field">
+          <label for="su-pw">Password</label>
+          <input type="password" id="su-pw" autocomplete="new-password" placeholder="At least 8 characters" required />
+          <div class="pw-bar"><div class="pw-bar-fill" id="pwBar"></div></div>
+          <div class="pw-label" id="pwLabel">Choose a strong password</div>
+        </div>
+        <div class="field">
+          <label for="su-pw2">Confirm password</label>
+          <input type="password" id="su-pw2" autocomplete="new-password" placeholder="Repeat your password" required />
+        </div>
+      </div>
+
+      <div class="agree-row">
+        <input type="checkbox" id="agree" />
+        <label for="agree">I agree to Vantly's <a href="terms.html" target="_blank">Terms of Service</a> and <a href="privacy.html" target="_blank">Privacy Policy</a>.</label>
+      </div>
+
+      <button class="btn-submit" id="submitBtn" disabled>
+        Create my free account →
+      </button>
+
+      <p class="sign-in-link">Have an account? <a href="home.html">Sign in instead</a></p>
+
+      <p class="form-fine">
+        Free plan: Copy Lab (20 gen/month), Studio templates, Video up to 5 min &amp; Brand Kit.<br/><br/>
+        <a href="privacy.html">Privacy Policy</a> · <a href="terms.html">Terms</a> · <a href="vantly.html">← Back to homepage</a>
+      </p>
+    </div>
+
+    <!-- Success state -->
+    <div class="success-panel" id="successPanel">
+      <div class="success-icon">✓</div>
+      <h2>You're in!</h2>
+      <p>Your Vantly account has been created.<br/>Check your email to confirm, then open your workspace.</p>
+      <a href="home.html" class="btn-app">Open Vantly →</a>
+      <p style="margin-top:14px;font-size:13px;color:var(--faint);">Didn't get an email? Check your spam or <a href="home.html" style="color:var(--accent);">sign in directly</a>.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+"use strict";
+var emailEl   = document.getElementById('su-email');
+var pwEl      = document.getElementById('su-pw');
+var pw2El     = document.getElementById('su-pw2');
+var agreeEl   = document.getElementById('agree');
+var submitBtn = document.getElementById('submitBtn');
+var pwBar     = document.getElementById('pwBar');
+var pwLabel   = document.getElementById('pwLabel');
+var msgEl     = document.getElementById('formMsg');
+var formBox   = document.getElementById('signupForm');
+var successPanel = document.getElementById('successPanel');
+
+function scorePassword(p) {
+  var s = 0;
+  if (p.length >= 8)  s++;
+  if (p.length >= 12) s++;
+  if (/[A-Z]/.test(p)) s++;
+  if (/[0-9]/.test(p)) s++;
+  if (/[^A-Za-z0-9]/.test(p)) s++;
+  return s;
+}
+pwEl.addEventListener('input', function() {
+  var s = scorePassword(pwEl.value);
+  if (!pwEl.value) { pwBar.style.width='0%'; pwLabel.textContent='Choose a strong password'; return; }
+  if (s <= 1)      { pwBar.style.width='33%'; pwBar.style.background='var(--low)'; pwLabel.textContent='Weak — add numbers or symbols'; }
+  else if (s <= 3) { pwBar.style.width='66%'; pwBar.style.background='var(--mid)'; pwLabel.textContent='Moderate — getting better'; }
+  else             { pwBar.style.width='100%'; pwBar.style.background='var(--good)'; pwLabel.textContent='Strong ✓'; }
+  checkReady();
+});
+function checkReady() {
+  submitBtn.disabled = !(emailEl.value.trim().length > 4 && pwEl.value.length >= 6 && pw2El.value.length >= 6 && agreeEl.checked);
+}
+[emailEl, pw2El].forEach(function(el) { el.addEventListener('input', checkReady); });
+agreeEl.addEventListener('change', checkReady);
+
+function showMsg(type, text) { msgEl.className = 'form-msg ' + type + ' show'; msgEl.textContent = text; }
+function hideMsg() { msgEl.className = 'form-msg'; }
+
+submitBtn.addEventListener('click', function() {
+  hideMsg();
+  var email = emailEl.value.trim();
+  var pw    = pwEl.value;
+  var pw2   = pw2El.value;
+
+  if (!email) { showMsg('error','Enter your email address.'); emailEl.focus(); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showMsg('error','That doesn\'t look like a valid email.'); emailEl.focus(); return; }
+  if (pw.length < 6) { showMsg('error','Password must be at least 6 characters.'); pwEl.focus(); return; }
+  if (pw !== pw2) { showMsg('error','Passwords don\'t match — check and try again.'); pw2El.focus(); return; }
+  if (!agreeEl.checked) { showMsg('error','Please agree to the Terms & Privacy Policy.'); return; }
+
+  /* Wait for Supabase client from volt-auth.js */
+  function doSignUp(sb) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating account…';
+    sb.auth.signUp({ email: email, password: pw })
+      .then(function(r) {
+        if (r.error) {
+          submitBtn.disabled = false; submitBtn.textContent = 'Create my free account →';
+          showMsg('error', r.error.message || 'Something went wrong.');
+        } else {
+          formBox.style.display = 'none';
+          successPanel.style.display = 'block';
+        }
+      })
+      .catch(function(e) {
+        submitBtn.disabled = false; submitBtn.textContent = 'Create my free account →';
+        showMsg('error', (e && e.message) || 'Network error — check your connection.');
+      });
+  }
+
+  /* volt-auth.js exposes the Supabase client after 'volt:ready' fires.
+     Poll briefly to catch it — usually available immediately after gate injection. */
+  var tries = 0;
+  function trySb() {
+    var sb = window._voltSupabase || window._sb;
+    /* Also try the built-in gate buttons as a fallback */
+    if (!sb) {
+      var vaUp = document.getElementById('va-up');
+      var vaEmail = document.getElementById('va-email');
+      var vaPw = document.getElementById('va-pw');
+      if (vaUp && vaEmail && vaPw) {
+        vaEmail.value = email; vaPw.value = pw;
+        showMsg('info','Creating account…'); vaUp.click(); return;
+      }
+    }
+    if (sb) { doSignUp(sb); return; }
+    if (++tries < 20) { setTimeout(trySb, 150); }
+    else { showMsg('error','Auth not loaded — please refresh and try again.'); submitBtn.disabled = false; submitBtn.textContent = 'Create my free account →'; }
+  }
+  trySb();
+});
+
+[emailEl, pwEl, pw2El].forEach(function(el) {
+  el.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !submitBtn.disabled) submitBtn.click(); });
+});
+
+/* Redirect already-signed-in users straight to the app */
+window.addEventListener('volt:ready', function() {
+  if (window.voltSession) window.location.replace('home.html');
+});
+if (window.voltSession) window.location.replace('home.html');
+
+/* Hide the volt-auth.js overlay — we're providing our own form UI */
+function hideGate() {
+  var g = document.getElementById('va-gate');
+  if (g) { g.style.display = 'none'; document.documentElement.style.overflow = ''; }
+}
+new MutationObserver(hideGate).observe(document.body, { childList: true });
+hideGate();
+</script>
+</body>
+</html>

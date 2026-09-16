@@ -2,6 +2,30 @@
 <!-- Tshepho's Lab — Copy Lab — © 2026 Tshepho Joel. All rights reserved. -->
 <html lang="en">
 <head>
+  <!-- Vantly homepage gate: runs synchronously before volt-auth.js so the auth modal
+       never renders for first-time Vantly visitors hitting the root path. Volt's own
+       deployment is entirely unaffected (hostname check). Any page other than '/' is
+       also unaffected (pathname check), so signed-in users navigating back from inside
+       the app land normally. Belt-and-braces alongside tshephos-lab/vercel.json's own
+       "/" -> "/vantly.html" rewrite (that file has no app/ counterpart — it's deploy
+       config, not a page — so it isn't at risk from build-sync the way this one was:
+       committed straight to the web repo on 2026-09-15, this script lived ONLY in
+       tshephos-lab/index.html until a build-sync run here silently deleted it, because
+       build-sync overwrites every routable page from app/ and app/index.html had no
+       idea this existed. Canonical home now, so that can't happen again. -->
+  <script>
+    (function() {
+      try {
+        var h = String(location.hostname || '').toLowerCase();
+        var p = String(location.pathname || '');
+        // Only redirect on the Vantly domain AND only on the bare root '/'
+        // (Vercel may also serve this file at '/index.html', catch that too)
+        if (h.indexOf('vantly') !== -1 && (p === '/' || p === '/index.html' || p === '/index')) {
+          location.replace('/vantly.html');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <script src="volt-auth.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />

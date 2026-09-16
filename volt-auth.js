@@ -1866,6 +1866,11 @@
     showGate(); // show immediately so nothing flashes unauthenticated
     loadSb(function () {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      // A brand-neutral marketing page (signup.html, say) can carry its own polished form and
+      // still need the real client to submit against — exposed as soon as it exists, not gated
+      // behind a session or 'volt:ready' (that event only fires once a session already exists,
+      // which is exactly backwards for a page whose whole job is creating one).
+      window._voltSupabase = sb;
       var recovering = /type=recovery/.test(location.hash || "");
       sb.auth.getSession().then(function (r) {
         session = r.data.session;
