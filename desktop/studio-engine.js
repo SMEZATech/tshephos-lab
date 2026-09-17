@@ -3243,17 +3243,21 @@ function drawFunding(r, dir, v, a) {
         const sub = r.wrap(String(v.sub || ''), { family: 'Inter', weight: '400', size: 38 }, iW);
         r.drawLines(sub, { family: 'Inter', weight: '400', size: 38 }, pad, y, iW, { color: PC.slate, lineHeight: 1.45 }); y += sub.length * 38 * 1.45 + pV(34);
         // Bullets as thin rules + numerals instead of the house red-square marker — quieter, more
-        // editorial, still scannable at a glance.
+        // editorial, still scannable at a glance. Measure each item's REAL wrapped height before
+        // deciding it fits, the way pBullets() already does elsewhere — a fixed per-item step here
+        // guessed too conservatively and dropped a bullet that had visible room left below it.
         {
+            const bf = { family: 'Inter', weight: '500', size: 32 };
+            const limitY = btnY - pV(40);
             const items = [v.b1, v.b2, v.b3].filter(Boolean);
-            const room = (btnY - pV(40)) - y;
-            const step = Math.max(72, Math.min(pV(96), items.length ? Math.floor(room / items.length) : 0));
-            items.forEach((b, i) => {
-                if (y + step > btnY - pV(40)) return;
+            for (let i = 0; i < items.length; i++) {
+                const lines = r.wrap(String(items[i]), bf, iW - 64);
+                const h = Math.max(40, lines.length * 32 * 1.3) + pV(26);
+                if (y + h > limitY) break;
                 r.drawLines([String(i + 1)], { family: 'Newsreader', weight: '600', size: pT(30) }, pad, y, 56, { color: PC.red });
-                r.drawLines(r.wrap(String(b), { family: 'Inter', weight: '500', size: 32 }, iW - 64), { family: 'Inter', weight: '500', size: 32 }, pad + 64, y + 4, iW - 64, { color: PC.ink, lineHeight: 1.3 });
-                y += step;
-            });
+                r.drawLines(lines, bf, pad + 64, y + 4, iW - 64, { color: PC.ink, lineHeight: 1.3 });
+                y += h;
+            }
         }
         r.rect(pad, btnY, iW, pBtnH(), PC.navy);
         { const f = { family: 'Inter', weight: '700', size: 34 }; r.drawLines([String(v.cta || 'Read the brief →')], f, pad, btnY + (pBtnH() - f.size) / 2, iW, { color: PC.white, align: 'center' }); }
