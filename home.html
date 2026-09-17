@@ -1,18 +1,22 @@
 <!DOCTYPE html>
-<!-- Volt — Create hub (home). © 2026 Tshepho Joel. All rights reserved. -->
+<!-- Volt/Vantly — Create hub (home). © 2026 Tshepho Joel. All rights reserved. -->
 <html lang="en">
 <head>
 <script src="volt-auth.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Volt — Create</title>
+<title>Create</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,800;1,9..144,400&family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
+  /* Tokens are injected by volt-auth.js as :root CSS custom properties.
+     The fallbacks here match Volt's palette so the page renders correctly
+     on Volt, and Vantly's theme override wins automatically at runtime.    */
   :root{
-    --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28); --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
-    --text:#ECEEF3; --dim:#8A91A0; --faint:#5B616D; --accent:#B6FF3D; --good:#57E39A; --mid:#FFC857; --low:#FF7C7C; --info:#7FC8FF; --violet:#a06bff;
-    --fd:'Unbounded',system-ui; --fb:'Plus Jakarta Sans',system-ui; --fm:'JetBrains Mono',monospace;
+    --bg:var(--ink,#0A0B0F); --surface:var(--ink-raise,#14171F); --surface-2:var(--ink-track,#1A1E28);
+    --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.14);
+    --text:#ECEEF3; --dim:#8A91A0; --faint:#5B616D;
+    /* accent, accent-rgb, fd, fb, fm all come from volt-auth.js theme injection */
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:var(--fb);-webkit-font-smoothing:antialiased;
@@ -94,7 +98,9 @@
 "use strict";
 const $ = s => document.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const API = 'https://tshephos-lab.vercel.app/api';
+// Use the brand's API host — volt-auth.js sets this from BRAND.apiHost before any page JS runs.
+// Fallback to Volt's host so Volt's own deployment is unaffected if the variable is absent.
+const API = (window.voltApiHost || 'https://tshephos-lab.vercel.app') + '/api';
 const TOOL = { copy:['✍️','index.html','rgba(var(--accent-rgb,182,255,61),.12)'], email:['✉️','email.html','rgba(160,107,255,.14)'], videolook:['🎬','video.html','rgba(var(--accent-rgb,182,255,61),.12)'], brand:['🎨','studio.html','rgba(127,200,255,.12)'] };
 function ago(ts){ if(!ts) return ''; const s=(Date.now()-new Date(ts).getTime())/1000; if(s<3600) return Math.max(1,Math.round(s/60))+'m ago'; if(s<86400) return Math.round(s/3600)+'h ago'; return Math.round(s/86400)+'d ago'; }
 
@@ -122,7 +128,10 @@ async function loadBrain(){
   catch(e){ $('#brainBody').innerHTML='<p class="empty">Couldn\'t load insights.</p>'; }
 }
 function start(){
-  try{ const em=window.voltSession && window.voltSession.user && window.voltSession.user.email; if(em){ const n=String(em).split('@')[0].split(/[._-]+/)[0]; $('#firstName').textContent = n ? n.charAt(0).toUpperCase()+n.slice(1) : 'there'; } }catch(e){}
+  try{
+    var bn = window.voltBrandName || 'Volt';
+    document.title = bn + ' — Create';
+    var em=window.voltSession && window.voltSession.user && window.voltSession.user.email; if(em){ const n=String(em).split('@')[0].split(/[._-]+/)[0]; $('#firstName').textContent = n ? n.charAt(0).toUpperCase()+n.slice(1) : 'there'; } }catch(e){}
   loadRecent(); loadBrain();
 }
 window.addEventListener('volt:ready', start);

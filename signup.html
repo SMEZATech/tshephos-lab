@@ -296,8 +296,15 @@ submitBtn.addEventListener('click', function() {
           submitBtn.disabled = false; submitBtn.textContent = 'Create my free account →';
           showMsg('error', r.error.message || 'Something went wrong.');
         } else {
-          formBox.style.display = 'none';
-          successPanel.style.display = 'block';
+          /* Two states Supabase can return:
+             1. r.data.session exists → email confirmation is OFF, user is immediately signed in → go to app
+             2. r.data.session is null → confirmation email sent → show 'check your email' panel       */
+          if (r.data && r.data.session) {
+            window.location.replace('home.html');
+          } else {
+            formBox.style.display = 'none';
+            successPanel.style.display = 'block';
+          }
         }
       })
       .catch(function(e) {

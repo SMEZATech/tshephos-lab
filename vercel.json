@@ -1,10 +1,4 @@
 {
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/vantly.html"
-    }
-  ],
   "headers": [
     {
       "source": "/desktop/(.*)",

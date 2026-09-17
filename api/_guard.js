@@ -16,7 +16,9 @@ const ALLOWED_HEADERS =
 
 function isAllowedOrigin(o) {
   if (!o) return false;
-  if (/^https:\/\/tshephos-lab[\w-]*\.vercel\.app$/.test(o)) return true; // prod + preview deploys
+  if (/^https:\/\/tshephos-lab[\w-]*\.vercel\.app$/.test(o)) return true; // Volt prod + preview deploys
+  if (/^https:\/\/vantly[\w-]*\.vercel\.app$/.test(o)) return true;       // Vantly Vercel project + previews
+  if (/^https:\/\/(www\.)?vantly\.co\.za$/.test(o)) return true;          // Vantly production domain
   if (/^http:\/\/localhost(:\d+)?$/.test(o)) return true;                 // local dev
   if (/^http:\/\/127\.0\.0\.1(:\d+)?$/.test(o)) return true;
   return false;
