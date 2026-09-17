@@ -3209,7 +3209,7 @@ function drawFunding(r, dir, v, a) {
         r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad + 40, cardY + pV(38), iW - 80, { color: PC.red });
         r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cardY + pV(82), iW - 80, { color: pInk(PC.paper) });
         r.drawLines([String(v.cards || '')], { family: 'Roboto', weight: '400', size: 34 }, pad + 40, cardY + pV(146), iW - 80, { color: PC.slate });
-        { const cta = pSolid(PC.paper, PC.navy, PC.red); pButton(r, pad, btnY, iW, v.cta, cta.fill, cta.on); } return;
+        { const cta = pSolid(PC.paper, PC.navy, PC.red); pButton(r, pad, btnY, iW, v.cta || 'Get matched today →', cta.fill, cta.on); } return;
     }
     if (dir === 'c') {
         // Big Number — research-driven: concrete number + trust + speed + urgent CTA (out-converts a generic estimator).
@@ -3227,7 +3227,38 @@ function drawFunding(r, dir, v, a) {
         { const t = String(v.speed || '').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 26 }, w = r.textWidth(t, f) + 60; r.fillRoundRect((W - w) / 2, y, w, 58, 29, 'rgba(255,255,255,0.08)'); r.ctx.save(); r.ctx.strokeStyle = 'rgba(0,224,143,0.7)'; r.ctx.lineWidth = 2; r.roundRectPath((W - w) / 2, y, w, 58, 29); r.ctx.stroke(); r.ctx.restore(); r.drawLines([t], f, (W - w) / 2, y + 16, w, { color: '#00e08f', align: 'center' }); }
         // trust line
         r.drawLines([String(v.trust || '')], { family: 'Roboto', weight: '700', size: 28 }, 0, btnY - pV(96), W, { color: 'rgba(255,255,255,0.7)', align: 'center' });
-        pButton(r, pad + 40, btnY, iW - 80, v.cta, PC.red, PC.white); return;
+        pButton(r, pad + 40, btnY, iW - 80, v.cta || 'Apply now →', PC.red, PC.white); return;
+    }
+    if (dir === 'e') {
+        // The Editorial Brief — every other direction in this family is a navy gradient with a
+        // pill and a rounded red button; this is the one deliberately different silhouette: paper
+        // background, a serif headline (Newsreader — already loaded for Business News SA, not a
+        // new font dependency), and a sharp-cornered button instead of the house pill+rounded-rect.
+        r.fillBg(PC.paper);
+        let y = pLogo(r, a, PC.paper);
+        r.rect(pad, y, 64, 5, PC.red); y += pV(30);
+        r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(26) }, pad, y, iW, { color: PC.red }); y += pV(48);
+        const fit = r.fitFontSize(String(v.head || ''), { family: 'Newsreader', weight: '600' }, iW, pV(260), 1.08, { max: pT(84), min: 44 });
+        r.drawLines(fit.lines, { family: 'Newsreader', weight: '600', size: fit.size }, pad, y, iW, { color: PC.ink, lineHeight: 1.08 }); y += fit.totalH + pV(26);
+        const sub = r.wrap(String(v.sub || ''), { family: 'Inter', weight: '400', size: 38 }, iW);
+        r.drawLines(sub, { family: 'Inter', weight: '400', size: 38 }, pad, y, iW, { color: PC.slate, lineHeight: 1.45 }); y += sub.length * 38 * 1.45 + pV(34);
+        // Bullets as thin rules + numerals instead of the house red-square marker — quieter, more
+        // editorial, still scannable at a glance.
+        {
+            const items = [v.b1, v.b2, v.b3].filter(Boolean);
+            const room = (btnY - pV(40)) - y;
+            const step = Math.max(72, Math.min(pV(96), items.length ? Math.floor(room / items.length) : 0));
+            items.forEach((b, i) => {
+                if (y + step > btnY - pV(40)) return;
+                r.drawLines([String(i + 1)], { family: 'Newsreader', weight: '600', size: pT(30) }, pad, y, 56, { color: PC.red });
+                r.drawLines(r.wrap(String(b), { family: 'Inter', weight: '500', size: 32 }, iW - 64), { family: 'Inter', weight: '500', size: 32 }, pad + 64, y + 4, iW - 64, { color: PC.ink, lineHeight: 1.3 });
+                y += step;
+            });
+        }
+        r.rect(pad, btnY, iW, pBtnH(), PC.navy);
+        { const f = { family: 'Inter', weight: '700', size: 34 }; r.drawLines([String(v.cta || 'Read the brief →')], f, pad, btnY + (pBtnH() - f.size) / 2, iW, { color: PC.white, align: 'center' }); }
+        r.drawLines([String(v.url || '')], { family: 'Inter', weight: '500', size: 26 }, pad, btnY - pV(38), iW, { color: PC.slate });
+        return;
     }
     // A: The Product Spec (navy)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
@@ -3249,7 +3280,7 @@ function drawFunding(r, dir, v, a) {
             items.forEach(b => { if (y + step <= btnY - pV(52)) { pBullet(r, pad, y, b, PC.red, PC.f8); y += step; } });
         }
     }
-    pButton(r, pad, btnY - pV(52), iW, v.cta, PC.red, PC.white);
+    pButton(r, pad, btnY - pV(52), iW, v.cta || 'Check eligibility →', PC.red, PC.white);
     r.strokeLine(pad, H - pad - pSafeB() - 44, W - pad, H - pad - pSafeB() - 44, 'rgba(255,255,255,0.1)', 2);
     r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, H - pad - pSafeB() - 30, iW, { color: 'rgba(255,255,255,0.7)' });
 }
