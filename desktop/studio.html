@@ -3154,6 +3154,20 @@
         return true;
     }
 
+    // The Friday Roundup banner (volt-auth.js) links here as studio.html?family=roundup — a plain
+    // query param, not sessionStorage, since there's no generated content to carry, just an intent
+    // to open on a specific family. Checked ahead of restoreStudioSession() the same way the other
+    // hand-offs are: an explicit link always wins over resuming a stale session.
+    function applyRoundupLink() {
+        let want;
+        try { want = new URLSearchParams(location.search).get('family'); } catch (e) { return false; }
+        if (want !== 'roundup' || !PREMIUM.roundup) return false;
+        setCampaign('standard');
+        setContentType('roundup');
+        renderPremFields(); renderPremiumPreview();
+        showToast('Roundup — bundle this week’s reads into one post.', 'success');
+        return true;
+    }
     function applyCopyLabHandoff() {
         let raw;
         try { raw = sessionStorage.getItem('tl_handoff'); } catch (e) { return false; }
@@ -3233,7 +3247,7 @@
         // (Retirement can land after this tab was already open, so re-check when settings arrive.)
         avoidRetiredTheme();
         // A hand-off always wins over a restored session — it's the more recent intent.
-        window._voltHandoff = applyCampaignCreative() || applyCopyLabHandoff() || false;
+        window._voltHandoff = applyCampaignCreative() || applyCopyLabHandoff() || applyRoundupLink() || false;
         if (!window._voltHandoff && !restoreStudioSession()) setCampaign('standard');
         registerStudioAutosave();
         document.addEventListener('volt:orgsettings', () => { if (avoidRetiredTheme()) renderLayout(); });

@@ -895,6 +895,51 @@
       })
       .catch(function () {});
   }
+  /* ---------- Friday Roundup nudge ---------- */
+  // Joel's ask: every Friday, everyone using Volt should see a prompt to bundle the week's reads
+  // into a Roundup post instead of posting articles one at a time. Dismiss is scoped to TODAY's
+  // date, not "forever" — the whole point is it comes back next Friday. Shares the update banner's
+  // DOM id/classes on purpose (same reason showContentUpdateBanner does): one shared stylesheet,
+  // and it makes the two mutually exclusive for free — only one #va-update-bar can exist at a time,
+  // and a real update notice deliberately outranks this weekly nudge.
+  function maybeFridayRoundupNudge() {
+    if (new Date().getDay() !== 5) return;   // 0=Sun … 5=Fri
+    var today = new Date().toISOString().slice(0, 10);
+    var dismissed = null; try { dismissed = localStorage.getItem("volt_friday_nudge_dismissed"); } catch (e) {}
+    if (dismissed === today) return;
+    if (document.getElementById("va-update-bar")) return; // a real update notice takes priority
+    showFridayRoundupBanner();
+  }
+  function showFridayRoundupBanner() {
+    if (document.getElementById("va-update-bar")) return;
+    if (!document.getElementById("va-ub-style")) {
+      var st = document.createElement("style"); st.id = "va-ub-style";
+      st.textContent =
+        "#va-update-bar{position:fixed;top:0;left:72px;right:0;z-index:9998;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 16px;background:linear-gradient(90deg,#1A1E28,#14171F);border-bottom:1px solid var(--border-2,rgba(255,255,255,.14));font-family:var(--fb,system-ui);font-size:13px;color:var(--text,#ECEEF3)}" +
+        "body.va-has-update{padding-top:42px}" +
+        "#va-update-bar .va-ub-cur{color:var(--faint,#5B616D)}" +
+        "#va-update-bar .va-ub-actions{display:flex;align-items:center;gap:8px;flex:none}" +
+        "#va-update-bar .va-ub-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+        "#va-update-bar .va-ub-btn{background:var(--accent,#B6FF3D);color:#0A0B0F;text-decoration:none;font-weight:600;padding:5px 12px;border-radius:8px;font-size:12px;white-space:nowrap;border:none;cursor:pointer;font-family:inherit;}" +
+        "#va-update-bar .va-ub-x{background:transparent;border:1px solid var(--border-2,rgba(255,255,255,.14));color:var(--dim,#888F9D);padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px}" +
+        "@media(max-width:760px){#va-update-bar{left:0}}";
+      document.head.appendChild(st);
+    }
+    var bar = document.createElement("div"); bar.id = "va-update-bar";
+    bar.innerHTML =
+      '<span class="va-ub-txt">📰 It’s Friday — bundle this week’s reads into one Roundup post</span>' +
+      '<span class="va-ub-actions">' +
+        '<a class="va-ub-btn" id="va-fb-go" href="studio.html?family=roundup">Open Roundup →</a>' +
+        '<button class="va-ub-x" id="va-fb-x">Dismiss</button>' +
+      "</span>";
+    document.body.appendChild(bar);
+    document.body.classList.add("va-has-update");
+    var x = document.getElementById("va-fb-x");
+    if (x) x.addEventListener("click", function () {
+      try { localStorage.setItem("volt_friday_nudge_dismissed", new Date().toISOString().slice(0, 10)); } catch (e) {}
+      bar.remove(); document.body.classList.remove("va-has-update");
+    });
+  }
   function showContentUpdateBanner() {
     if (document.getElementById("va-update-bar")) return;
     if (!document.getElementById("va-ub-style")) {
@@ -1841,6 +1886,7 @@
     maybeUpdateCheck();
     maybeContentUpdateCheck();
     if (!_contentPollT) _contentPollT = setInterval(maybeContentUpdateCheck, CONTENT_POLL_MS);
+    maybeFridayRoundupNudge();
     maybeGreetOwner();
     initSleep();
     // Signal pages that a session is ready, so they can load per-account data (Phase B).
