@@ -3307,7 +3307,7 @@ function drawFunding(r, dir, v, a) {
             }
         }
         r.rect(pad, btnY, iW, pBtnH(), PC.navy);
-        { const f = { family: 'Inter', weight: '700', size: 34 }; r.drawLines([String(v.cta || 'Read the brief →')], f, pad, btnY + (pBtnH() - f.size) / 2, iW, { color: PC.white, align: 'center' }); }
+        { const f = { family: 'Inter', weight: '700', size: 34 }; r.drawLines([String(v.cta || 'Read the brief →')], f, pad, btnY + (pBtnH() - f.size) / 2, iW, { color: pInk(PC.navy), align: 'center' }); }
         r.drawLines([String(v.url || '')], { family: 'Inter', weight: '500', size: 26 }, pad, btnY - pV(38), iW, { color: PC.slate });
         return;
     }
