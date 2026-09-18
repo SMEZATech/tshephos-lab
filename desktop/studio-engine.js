@@ -1719,7 +1719,7 @@ function drawGlossary(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.navy, PC.red);
     const accT = pAccentText(PC.paper, PC.red);
-    r.rect(0, 0, W, 26, pSolid(PC.paper, PC.red, PC.navy).fill);
+    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.paper) + pV(12);
     r.drawLines([String(v.eyebrow || 'Business glossary').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: accT });
     y += pV(46);
@@ -2230,6 +2230,9 @@ function drawPodcast(r, dir, v, a) {
     // A: Episode card — show identity, episode number, title, guest, where to listen
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, H, 560, 'rgba(156,28,31,0.32)', 'rgba(156,28,31,0)');
+    // Band only, no chip: this direction already puts a "SME PODCAST" masthead top-right (below),
+    // the exact spot pHeritageChip claims — a real per-family conflict, not skipped by accident.
+    pHeritageBand(r);
     const acc = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     // Show name rides TOP-RIGHT on the logo line — a masthead, not a pill in the content column,
@@ -3173,6 +3176,31 @@ function pLogoC(r, assets, on) {
     return pad + 54 + pV(LOGO_GAP - 6);   // centred marks read slightly tighter, so a touch less
 }
 // shared premium helpers
+// ---------------------------------------------------------------------------------------------
+// Heritage Month (September, SA) — a seasonal, opt-in trim. Deliberately geometric/abstract
+// (a chevron band), not any one culture's specific motif — SA has 11 official cultures, and
+// presenting one as "the" heritage pattern is the reductive version of this idea, not the
+// tasteful one. Two pieces, meant to be used together but callable separately: a thin band at
+// the very top edge (drawn BEFORE pLogo, which already starts at pTop() = pad + safeT, so this
+// never competes with the logo for space) and a small corner chip using the same pChip shape
+// already proven elsewhere in this file. Both read on dark AND light family backgrounds — the
+// pattern uses PC.red at two opacities rather than a color needing a light/dark swap.
+// ---------------------------------------------------------------------------------------------
+function pHeritageBand(r) {
+    const W = r.w, h = pV(26), n = Math.ceil(W / (h * 2));
+    for (let i = 0; i < n; i++) {
+        const x = i * h * 2;
+        r.ctx.save(); r.ctx.beginPath();
+        r.ctx.moveTo(x, 0); r.ctx.lineTo(x + h, h); r.ctx.lineTo(x + h * 2, 0); r.ctx.closePath();
+        r.ctx.fillStyle = i % 2 === 0 ? PC.red : 'rgba(156,28,31,0.35)';
+        r.ctx.fill(); r.ctx.restore();
+    }
+    return h;
+}
+function pHeritageChip(r) {
+    const t = 'HERITAGE MONTH', w2 = r.textWidth(t, { family: 'Roboto', weight: '700', size: 28 }) + 44;
+    return pChip(r, r.w - pPad() - w2, pTop() - 6, t, PC.red, PC.white);
+}
 function pChip(r, x, y, text, bg, fg) {
     const f = { family: 'Roboto', weight: '700', size: 28 }, t = String(text || '');
     const padX = 22, padY = 12, h = 28 + padY * 2, w = r.textWidth(t, f) + padX * 2;
@@ -3235,6 +3263,7 @@ function drawFunding(r, dir, v, a) {
         // background, a serif headline (Newsreader — already loaded for Business News SA, not a
         // new font dependency), and a sharp-cornered button instead of the house pill+rounded-rect.
         r.fillBg(PC.paper);
+        pHeritageBand(r); pHeritageChip(r);
         let y = pLogo(r, a, PC.paper);
         r.rect(pad, y, 64, 5, PC.red); y += pV(30);
         r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(26) }, pad, y, iW, { color: PC.red }); y += pV(48);
@@ -3267,6 +3296,7 @@ function drawFunding(r, dir, v, a) {
     // A: The Product Spec (navy)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)');
+    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.navy);
     y += pPill(r, pad, y, v.pill, PC.red, PC.white) + pV(34);
     const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(240), 1.02, { max: pT(96), min: 46 });
@@ -3376,6 +3406,7 @@ function drawNewsletter(r, dir, v, a) {
     // A: #1 Hero (navy, centered)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(0, 0, 470, 'rgba(156,28,31,0.25)', 'rgba(156,28,31,0)');
+    pHeritageBand(r); pHeritageChip(r);
     let y = pLogoC(r, a, PC.navy) + pV(10);
     r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: PC.off, align: 'center' }); y += pV(74);
     const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.05, { max: pT(104), min: 50 });
