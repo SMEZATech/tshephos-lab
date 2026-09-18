@@ -1643,6 +1643,7 @@ function drawHub(r, dir, v, a) {
     // A: THE MEMBERSHIP CARD. What you get, in the order a founder cares about.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(0, H, 560, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
+    pHeritageBand(r); pHeritageChip(r);
     const acc = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text });
@@ -1889,6 +1890,7 @@ function drawWebinar(r, dir, v, a) {
     // A: THE SESSION CARD. Date first, because that is the decision — everything else is detail.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, 0, 540, 'rgba(156,28,31,0.24)', 'rgba(156,28,31,0)');
+    pHeritageBand(r); // no chip: the format badge (below) already owns this corner
     const acc = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     { const t = String(v.format || 'Online').toUpperCase();
@@ -1994,6 +1996,7 @@ function drawProviders(r, dir, v, a) {
     // A: The pitch — headline + three reasons to join, dark and direct
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
+    pHeritageBand(r); // no chip: the URL already rides top-right on the logo line (below)
     const accA = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     // The URL rides on the logo line, top-right. At the bottom it collided with the third bullet,
@@ -2075,6 +2078,7 @@ function drawFindPros(r, dir, v, a) {
     r.fillBg(PC.paper);
     const accA = pSolid(PC.paper, PC.red, PC.navy), bulA = pSolid(PC.paper, PC.navy, PC.red);
     r.rect(0, 0, 26, H, accA.fill);
+    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.paper) + pV(8);
     r.drawLines([String(v.eyebrow || 'One request. Many quotes.').toUpperCase()],
         { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: accA.text }); y += pV(62);
@@ -2374,6 +2378,7 @@ function drawFeature(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.red, PC.navy);
     r.rect(0, 0, 26, H, acc.fill);
+    pHeritageBand(r); pHeritageChip(r);
     const top = pLogo(r, a, PC.paper) + pV(6);
     const attrH = pV(120);
     const quoteMarkS = pT(150);
@@ -2543,6 +2548,7 @@ function drawRoundup(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.red, PC.navy);
     r.rect(0, 0, 26, H, acc.fill);
+    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.paper) + pV(6);
     y += pPill(r, pad, y, v.eyebrow || 'This week’s reads', acc.fill, acc.on) + pV(30);
     if (v.head) {
@@ -2633,6 +2639,10 @@ function drawFounder(r, dir, v, a) {
         }
         const colW = wide ? W - picW - pad * 2 - pV(24) : iW;
         const bottomLimit = wide ? H - pad - pSafeB() : picY - pV(34);
+        // Only in the portrait layout: in "wide" the photo panel starts at y=0 on the right side
+        // (picY=0, picH=H there), so a full-width top band would cross straight over the founder's
+        // face — the same reason direction A (The Cover) is skipped entirely.
+        if (!wide) { pHeritageBand(r); pHeritageChip(r); }
         let y = pLogo(r, a, PC.paper) + pV(6);
         r.rect(pad, y, 96, 10, acc.fill); y += pV(30);
         pPill(r, pad, y, v.eyebrow || 'Founder Focus', acc.fill, acc.on); y += (PG ? PG.pill : 64) + pV(34);
@@ -2667,6 +2677,7 @@ function drawFounder(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.red, PC.navy);
     r.rect(0, 0, 26, H, acc.fill);
+    pHeritageBand(r); pHeritageChip(r);
     const top = pLogo(r, a, PC.paper) + pV(6);
     const ds = pV(128);                                    // a bigger circle than Feature's — here the person IS the subject
     const attrH = ds + pV(30);
@@ -2702,6 +2713,7 @@ function drawMerch(r, dir, v, a) {
     if (dir === 'b') { // Price hero — bold typographic, no photo needed
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         r.radialGlow(W, H, 540, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)');
+        pHeritageBand(r); pHeritageChip(r);
         const acc = pSolid(PC.navy, PC.red, PC.paper);
         let y = pLogo(r, a, PC.navy);
         r.drawLines([String(v.eyebrow || 'Built for founders').toUpperCase()],
@@ -2722,7 +2734,7 @@ function drawMerch(r, dir, v, a) {
     if (dir === 'c') { // The collection — three products with prices, catalogue-style
         r.fillBg(PC.paper);
         const acc = pSolid(PC.paper, PC.red, PC.navy), cta = pSolid(PC.paper, PC.navy, PC.red);
-        r.rect(0, 0, W, 22, acc.fill);
+        pHeritageBand(r); pHeritageChip(r);
         let y = pLogo(r, a, PC.paper) + pV(10);
         r.drawLines([String(v.eyebrow || 'The store is open').toUpperCase()],
             { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(58);
@@ -3368,6 +3380,7 @@ function drawSolutions(r, dir, v, a) {
     // no author byline; a proper CTA button.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, '#041219']], 'br');
     r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.22)', 'rgba(156,28,31,0)');
+    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.navy) + pV(30);   // extra gap so the eyebrow isn't crowding the logo
     r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: '#ff6b4a' }); y += pV(58);
     r.rect(pad, y, 120, 12, PC.red); y += pV(34);
@@ -3453,6 +3466,7 @@ function drawResources(r, dir, v, a) {
     }
     // A: Guide Mockup (navy, rotated cover, centered) — cover text kept inside the card
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+    pHeritageBand(r); pHeritageChip(r);
     let y = pLogoC(r, a, PC.navy);
     { const t = String(v.pill || 'FREE DOWNLOAD').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 30 }, w = r.textWidth(t, f) + 68; r.fillRoundRect((W - w) / 2, y, w, 62, 31, PC.red); r.drawLines([t], f, (W - w) / 2, y + 16, w, { color: '#fff', align: 'center' }); } y += pV(92);
     // The mockup card scales with the canvas so portrait doesn't leave a hole around it.
