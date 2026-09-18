@@ -3183,17 +3183,23 @@ function pLogoC(r, assets, on) {
 // tasteful one. Two pieces, meant to be used together but callable separately: a thin band at
 // the very top edge (drawn BEFORE pLogo, which already starts at pTop() = pad + safeT, so this
 // never competes with the logo for space) and a small corner chip using the same pChip shape
-// already proven elsewhere in this file. Both read on dark AND light family backgrounds — the
-// pattern uses PC.red at two opacities rather than a color needing a light/dark swap.
+// already proven elsewhere in this file.
+// The band cycles the SIX official flag colours (Pantone-matched hex, not a guess): green,
+// gold, red, blue, black, white. A thin stroke on every triangle is load-bearing, not decorative
+// — without it, the white chevron disappears into a paper-background family and the black one
+// nearly disappears into a navy-gradient one; the stroke keeps every segment legible on both.
 // ---------------------------------------------------------------------------------------------
+const FLAG_COLORS = ['#007A4D', '#FFB612', '#DE3831', '#002395', '#000000', '#FFFFFF'];
 function pHeritageBand(r) {
-    const W = r.w, h = pV(26), n = Math.ceil(W / (h * 2));
+    const W = r.w, h = pV(26), n = Math.ceil(W / h);
     for (let i = 0; i < n; i++) {
-        const x = i * h * 2;
+        const x = i * h;
         r.ctx.save(); r.ctx.beginPath();
-        r.ctx.moveTo(x, 0); r.ctx.lineTo(x + h, h); r.ctx.lineTo(x + h * 2, 0); r.ctx.closePath();
-        r.ctx.fillStyle = i % 2 === 0 ? PC.red : 'rgba(156,28,31,0.35)';
-        r.ctx.fill(); r.ctx.restore();
+        r.ctx.moveTo(x, 0); r.ctx.lineTo(x + h / 2, h); r.ctx.lineTo(x + h, 0); r.ctx.closePath();
+        r.ctx.fillStyle = FLAG_COLORS[i % FLAG_COLORS.length];
+        r.ctx.fill();
+        r.ctx.lineWidth = 1.5; r.ctx.strokeStyle = 'rgba(0,0,0,0.18)'; r.ctx.stroke();
+        r.ctx.restore();
     }
     return h;
 }
