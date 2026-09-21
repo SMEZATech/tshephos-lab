@@ -166,6 +166,22 @@
   }
   .film-acts button:hover{border-color:var(--accent); color:var(--accent);}
   .film-acts button.danger:hover{border-color:var(--low); color:var(--low);}
+
+  /* ---- Live readiness badge — the SAME preflightRun() checks the 🛫 button always ran,
+       just re-scored on a debounce as you type instead of waiting for a click. No separate
+       "score" invented: it's the real fail/warn counts that already drive the panel below. ---- */
+  .pf-badge{
+    display:inline-flex; align-items:center; gap:6px; font-family:var(--fm); font-size:11.5px;
+    font-weight:700; padding:8px 12px; border-radius:9px; border:1px solid var(--border-2);
+    background:transparent; cursor:pointer; transition:all .14s; flex-shrink:0;
+  }
+  .pf-badge:hover{border-color:var(--border-3,var(--border-2));}
+  .pf-badge .dot{width:6px; height:6px; border-radius:50%; flex-shrink:0;}
+  .pf-badge.ok{color:var(--good); border-color:rgba(87,227,154,.3);} .pf-badge.ok .dot{background:var(--good); box-shadow:0 0 6px var(--good);}
+  .pf-badge.warn{color:var(--mid); border-color:rgba(255,200,87,.3);} .pf-badge.warn .dot{background:var(--mid); box-shadow:0 0 6px var(--mid);}
+  .pf-badge.fail{color:var(--low); border-color:rgba(255,124,124,.3);} .pf-badge.fail .dot{background:var(--low); box-shadow:0 0 6px var(--low);}
+  @keyframes pfPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .pf-badge.checking .dot{animation:pfPulse 1s ease-in-out infinite;}
 </style>
 </head>
 <body>
@@ -1330,6 +1346,7 @@ function renderPreview(bodyHtml){
         <div class="right">
           <button class="mini" id="copyBtn">${ICON.copy} Copy HTML</button>
           <button class="mini" id="dlBtn">${ICON.down} Download .html</button>
+          <span class="pf-badge checking" id="pfBadge" title="Send readiness — click for the full breakdown"><span class="dot"></span> Checking…</span>
           <button class="mini" id="pfBtn" title="Deliverability & QA check — broken links, Gmail clipping, spam triggers, UTM coverage">🛫 Pre-flight</button>
           <button class="mini" id="testBtn" title="Send a real test copy to your inbox — before it ever goes to Kit">📨 Send test</button>
           <button class="mini kit" id="kitBtn" title="Create a draft broadcast in Kit">✉ Send to Kit</button>
@@ -1697,6 +1714,21 @@ function quickTypoScan(text){
   return out;
 }
 let _pfLastIssues = [];
+// Debounced live score — reuses preflightRun() verbatim, just re-runs it as you type instead of
+// waiting for a click on 🛫 Pre-flight. The badge only exists once renderPreview() has built the
+// toolbar at least once, so a missing element here just means "nothing built yet" — not a bug.
+let _pfBadgeT = null;
+function schedulePfBadge(){ clearTimeout(_pfBadgeT); _pfBadgeT = setTimeout(updatePfBadge, 900); }
+function updatePfBadge(){
+  const b = document.getElementById('pfBadge'); if(!b) return;
+  const issues = preflightRun();
+  const fails = issues.filter(i => i.level === 'fail').length;
+  const warns = issues.filter(i => i.level === 'warn').length;
+  b.classList.remove('checking','ok','warn','fail');
+  if(fails){ b.classList.add('fail'); b.innerHTML = '<span class="dot"></span> ' + fails + ' blocker' + (fails>1?'s':''); }
+  else if(warns){ b.classList.add('warn'); b.innerHTML = '<span class="dot"></span> ' + warns + ' warning' + (warns>1?'s':''); }
+  else { b.classList.add('ok'); b.innerHTML = '<span class="dot"></span> Ready to send'; }
+}
 function preflightShow(){
   const issues = preflightRun(); _pfLastIssues = issues;
   const panel = $('#pfPanel'), list = $('#pfList'), verdict = $('#pfVerdict'), utmBtn = $('#pfUtm');
@@ -1819,6 +1851,8 @@ function wireTestSend(){
   const pfu = document.getElementById('pfUtm'); if(pfu) pfu.addEventListener('click', autoUtmTag);
   const pfb = document.getElementById('pfBlend'); if(pfb) pfb.addEventListener('click', toggleBlendPromos);
   const pfg = document.getElementById('pfGrammar'); if(pfg) pfg.addEventListener('click', deepGrammarCheck);
+  const pfBadge = document.getElementById('pfBadge'); if(pfBadge) pfBadge.addEventListener('click', preflightShow);
+  updatePfBadge(); // a build just happened — score it now, don't wait for the debounce
 }
 
 let _pfOverride = false;
@@ -1877,6 +1911,7 @@ function syncFromEditable(){
   state.editedContent = ed.innerHTML;
   lastFragment = assemble(state.body, false);
   if(typeof scheduleAutosave === 'function') scheduleAutosave(); // inline edits autosave too
+  if(typeof schedulePfBadge === 'function') schedulePfBadge(); // …and re-score readiness too
 }
 // Run a rich-text command against the editable iframe document.
 function exec(cmd, val){
@@ -2201,7 +2236,7 @@ async function autosaveDraft(){
     if(r.ok && d.project){ currentDraftId = d.project.id; setDraftStatus('✅ Autosaved','ok'); setTimeout(()=>{ const s=document.getElementById('draftStatus'); if(s && /Autosaved/.test(s.textContent)) s.textContent=''; }, 1800); }
   }catch(e){}
 }
-document.addEventListener('input', e=>{ const t=e.target; if(t && t.id && /^(brief|subject|previewText|greeting|shellVariant|wb-|rs-|pc-|sp-|tk-|cta-|ct-|op-|sg-|cs-)/.test(t.id)) scheduleAutosave(); }, true);
+document.addEventListener('input', e=>{ const t=e.target; if(t && t.id && /^(brief|subject|previewText|greeting|shellVariant|wb-|rs-|pc-|sp-|tk-|cta-|ct-|op-|sg-|cs-)/.test(t.id)){ scheduleAutosave(); schedulePfBadge(); } }, true);
 
 // ---- Signature: remembered on this device so the community manager fills it once. ----
 const SIG_KEY = 'volt_signature_v1';
