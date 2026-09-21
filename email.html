@@ -83,6 +83,14 @@
   .promo.on .sw::after{transform:translateX(17px); background:var(--ink,#0A0B0F);}
   .promo-fields{display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);}
   .promo.on .promo-fields{display:block;}
+  /* Drag-and-drop reorder, layered on TOP of the ▲▼ arrows rather than replacing them — native
+     HTML5 drag has no keyboard or touch path, so the arrows stay the accessible way to do the
+     exact same move. This is a faster option for a mouse, not the only option. */
+  .promo-grip{cursor:grab; color:var(--faint); font-size:13px; line-height:1; flex-shrink:0; letter-spacing:-2px; touch-action:none; padding:2px 1px;}
+  .promo-grip:hover{color:var(--dim);}
+  .promo-grip:active{cursor:grabbing;}
+  .promo.dragging{opacity:.35;}
+  .promo-dropline{height:3px; background:var(--accent); border-radius:2px; margin:0 0 12px; box-shadow:0 0 8px rgba(var(--accent-rgb,182,255,61),.55);}
 
   .linkrow{display:flex; gap:8px; margin-bottom:8px; align-items:center;}
   .linkrow .lk-text{flex:1.2; min-width:110px;}
@@ -1100,6 +1108,66 @@ function initPromoReorder(){
   });
 }
 initPromoReorder();
+
+// ---- Drag-and-drop reorder — same "DOM order IS the email order" model movePromo() already
+// uses, just a faster way to do the identical move with a mouse. Grip-scoped on purpose: a
+// promo only becomes draggable while its own grip is held (toggled on mousedown, off on
+// dragend), so grabbing a section to drag it can never be confused with clicking its header to
+// toggle it on/off, or with selecting text inside its fields.
+let _dragPromo = null;
+function initPromoDrag(){
+  const container = document.querySelector('.promos'); if(!container) return;
+  document.querySelectorAll('.promos .promo').forEach(promo => {
+    const head = promo.querySelector('.promo-head'); if(!head || head.querySelector('.promo-grip')) return;
+    const grip = document.createElement('span');
+    grip.className = 'promo-grip'; grip.title = 'Drag to reorder'; grip.textContent = '⠿⠿';
+    head.insertBefore(grip, head.firstChild);
+    grip.addEventListener('mousedown', e => { e.stopPropagation(); promo.draggable = true; });
+    promo.addEventListener('dragstart', e => {
+      _dragPromo = promo;
+      promo.classList.add('dragging');
+      try{ e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', promo.id || ''); }catch(err){}
+    });
+    promo.addEventListener('dragend', () => {
+      promo.classList.remove('dragging'); promo.draggable = false; _dragPromo = null;
+      clearDropLine();
+    });
+  });
+  if(container.dataset.dragWired) return;
+  container.dataset.dragWired = '1';
+  container.addEventListener('dragover', e => {
+    if(!_dragPromo) return;
+    e.preventDefault();
+    showDropLine(container, promoAfterPoint(container, e.clientY));
+  });
+  container.addEventListener('drop', e => {
+    if(!_dragPromo) return;
+    e.preventDefault();
+    const dragged = _dragPromo, after = promoAfterPoint(container, e.clientY);
+    if(after) container.insertBefore(dragged, after); else container.appendChild(dragged);
+    clearDropLine();
+    rebuildFromFields();
+  });
+}
+// Which not-currently-dragged promo the pointer is above the midpoint of, so the drop lands
+// BEFORE that one — null means "past the last card", i.e. append at the end.
+function promoAfterPoint(container, y){
+  const els = [...container.querySelectorAll('.promo:not(.dragging)')];
+  let closest = null, closestOffset = -Infinity;
+  els.forEach(el => {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if(offset < 0 && offset > closestOffset){ closestOffset = offset; closest = el; }
+  });
+  return closest;
+}
+function showDropLine(container, before){
+  let line = document.getElementById('promoDropLine');
+  if(!line){ line = document.createElement('div'); line.id = 'promoDropLine'; line.className = 'promo-dropline'; }
+  if(before) container.insertBefore(line, before); else container.appendChild(line);
+}
+function clearDropLine(){ const l = document.getElementById('promoDropLine'); if(l) l.remove(); }
+initPromoDrag();
 
 // Link rows — easy structured link adding
 const elLinks = $('#links');
