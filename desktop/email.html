@@ -2292,6 +2292,26 @@ charHint('subject','subjectHint',40,55);
 charHint('previewText','previewHint',85,100);
 
 const ANGLE_LABEL = { curiosity:'Curiosity', 'clear-benefit':'Benefit', benefit:'Benefit', question:'Question', 'number/list':'Number', number:'Number', list:'List', contrarian:'Contrarian' };
+// ---- Real past winners, for grounding 🧠's subject suggestions in what actually worked ----
+// Same source the recent-sends Stats module reads (GET /api/kit, no new endpoint) — just the
+// top few by real open rate, so "informed by your last 4 sends" is a true claim, not a label.
+let _kitWinners = null;
+async function loadKitWinnersOnce(){
+  if(_kitWinners && _kitWinners.length) return _kitWinners;
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/kit');
+    if(!r.ok) return [];
+    const d = await r.json().catch(()=>({}));
+    const list = (d && d.broadcasts) || [];
+    const winners = list
+      .filter(b => b && b.subject && typeof b.openRate === 'number' && b.openRate > 0)
+      .sort((a,b) => b.openRate - a.openRate)
+      .slice(0, 5)
+      .map(b => ({ subject: b.subject, openRate: Math.round(b.openRate) }));
+    if(winners.length) _kitWinners = winners;
+    return winners;
+  }catch(e){ return []; }
+}
 async function suggestSubjects(){
   const btn = document.getElementById('suggestSubjects'), status = document.getElementById('subjectsStatus'), wrap = document.getElementById('subjectChips');
   const theme = (state.brief||'').trim();
@@ -2300,14 +2320,22 @@ async function suggestSubjects(){
   if(btn) btn.disabled = true;
   if(status){ status.textContent='Thinking up angles…'; status.style.color='#94a3b8'; }
   try{
-    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ task:'subjects', theme, content }) });
+    const pastWinners = await loadKitWinnersOnce();
+    const r = await fetch('https://tshephos-lab.vercel.app/api/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ task:'subjects', theme, content, pastWinners }) });
     let data; try{ data = await r.json(); }catch(_){ throw new Error('Could not reach the assistant.'); }
     if(!r.ok) throw new Error(data && data.error ? data.error : 'Request failed.');
     const subs = (data && data.subjects) || [];
     if(!subs.length) throw new Error('No subject lines came back — try again.');
+    // Honest either way: say so when real send history actually shaped these, and say so when
+    // it didn't (no Kit connection yet, or no sent broadcasts with recorded opens) rather than
+    // implying every batch is grounded in data that doesn't exist yet.
+    wrap && (wrap.dataset.grounded = pastWinners.length ? '1' : '0');
     if(wrap){
       wrap.style.display='block';
-      wrap.innerHTML = subs.map((s,i)=>{
+      const groundNote = pastWinners.length
+        ? '<p style="margin:0 0 10px;font-size:11.5px;color:#16a34a;">🧠 Informed by your ' + pastWinners.length + ' best-opening real send' + (pastWinners.length>1?'s':'') + ' (' + pastWinners.map(w=>w.openRate+'%').join(', ') + ' open) — not just a guess.</p>'
+        : '<p style="margin:0 0 10px;font-size:11.5px;color:#64748b;">No sent-broadcast history yet to learn from — these are theme-only for now.</p>';
+      wrap.innerHTML = groundNote + subs.map((s,i)=>{
         const label = ANGLE_LABEL[(s.angle||'').toLowerCase()] || (s.angle||'Option');
         return '<button type="button" class="subj-chip" data-i="'+i+'" style="display:block;width:100%;text-align:left;margin:0 0 8px;padding:10px 12px;border:1px solid #d7dde5;border-radius:10px;background:#fff;cursor:pointer;">'
           + '<span style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#9c1c1f;margin-bottom:3px;">'+label+'</span>'

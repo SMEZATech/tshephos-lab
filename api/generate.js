@@ -229,7 +229,14 @@ Return ONLY minified JSON with this exact shape:
 {"title":"a short action title, under 60 characters (e.g. Check your VAT registration status)","body":"1 to 2 sentences telling them exactly what to do this week and why it matters","poll":["2 to 4 very short one-tap reply options a reader could pick, each under 22 characters"]}`;
 }
 
-function buildSubjectsPrompt({ theme, content }) {
+function buildSubjectsPrompt({ theme, content, pastWinners }) {
+  // Real, this org's own past open rates — not a general "what makes a good subject line"
+  // claim. Optional: an org with no sendable Kit history (or Kit not connected) gets exactly
+  // the same prompt as before, just without this block.
+  const winnersBlock = (pastWinners && pastWinners.length)
+    ? `\nSUBJECT LINES THAT ACTUALLY WORKED FOR THIS AUDIENCE (real open rates from past sends — notice the pattern, don't just imitate the wording):\n`
+      + pastWinners.map((w) => `- "${w.subject}" — ${w.openRate}% open`).join("\n") + "\n"
+    : "";
   return `Here is the email that is about to go out (theme first, then the body text).
 
 THEME / BRIEF:
@@ -241,8 +248,8 @@ EMAIL BODY:
 """
 ${content}
 """
-
-Write 5 subject-line options for this exact email, each a DIFFERENT angle so the user can pick the vibe:
+${winnersBlock}
+Write 5 subject-line options for this exact email, each a DIFFERENT angle so the user can pick the vibe${pastWinners && pastWinners.length ? " — let what's actually worked above inform the angles, but never copy a past subject verbatim or reuse its exact wording" : ""}:
 1. curiosity — an open loop that makes them need to know
 2. clear-benefit — the concrete win, stated plainly
 3. question — a question the reader would answer "yes, that's me"
@@ -625,7 +632,16 @@ export default async function handler(req, res) {
       const theme = String(body.theme || body.brief || "").slice(0, 2000);
       const content = String(body.content || body.body || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 6000);
       if (!content && !theme) return res.status(400).json({ error: "Build the email first, then suggest subjects." });
-      const text = await callProvider(buildSubjectsPrompt({ theme, content }) + promptExtras, { system: SYSTEM_SUBJECTS, temperature: 0.85, maxTokens: 1200 });
+      // The client fetches these from its own real Kit broadcast history (GET /api/kit) and
+      // sends the top few by open rate — this route has no Kit key of its own to go fetch them
+      // itself, and doesn't need one: it only ever repeats numbers the client already has.
+      const pastWinners = Array.isArray(body.pastWinners)
+        ? body.pastWinners.slice(0, 5).map((w) => ({
+            subject: String((w && w.subject) || "").slice(0, 140),
+            openRate: Math.round(Number(w && w.openRate) || 0),
+          })).filter((w) => w.subject && w.openRate > 0)
+        : [];
+      const text = await callProvider(buildSubjectsPrompt({ theme, content, pastWinners }) + promptExtras, { system: SYSTEM_SUBJECTS, temperature: 0.85, maxTokens: 1200 });
       const sp = safeParse(text);
       const arr = Array.isArray(sp && sp.subjects) ? sp.subjects : [];
       const subjects = arr.map((s) => ({
