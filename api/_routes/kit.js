@@ -121,6 +121,32 @@ export default async function handler(req, res) {
 
   const kitHeaders = { "Content-Type": "application/json", Accept: "application/json", "X-Kit-Api-Key": kitKey };
 
+  // ---- Read: a handful of REAL subscribers, for the Email builder's "preview as" picker ----
+  // Deliberately small (6) and read-only: this exists so a merge tag's real resolved value can be
+  // checked before send, not to browse the list. Kit v4's /subscribers returns first_name +
+  // email_address at the top level and any custom fields (industry, business_name, city — the
+  // same keys Volt's own MERGE_FIELDS write into {{ subscriber.* }} tags) under `fields`.
+  if (req.method === "GET" && req.query && req.query.action === "subscribers") {
+    try {
+      const sr = await fetch(KIT_BASE + "/subscribers?per_page=6&status=active", { headers: kitHeaders });
+      const sd = await sr.json().catch(() => ({}));
+      if (!sr.ok) {
+        const auth = sr.status === 401 || sr.status === 403;
+        return res.status(auth ? 401 : 502).json({ error: (sd && (sd.message || sd.error)) || ("Kit request failed (" + sr.status + ")") });
+      }
+      const list = (sd && sd.subscribers) || [];
+      const subs = list.slice(0, 6).map((s) => ({
+        id: s.id,
+        firstName: s.first_name || "",
+        email: s.email_address || "",
+        fields: (s.fields && typeof s.fields === "object") ? s.fields : {},
+      }));
+      return res.status(200).json({ subscribers: subs });
+    } catch (err) {
+      return res.status(502).json({ error: (err && err.message) || "Kit read error" });
+    }
+  }
+
   // ---- Read: recent broadcasts + their open/click stats (Stats module) ----
   if (req.method === "GET") {
     try {

@@ -182,6 +182,28 @@
   .pf-badge.fail{color:var(--low); border-color:rgba(255,124,124,.3);} .pf-badge.fail .dot{background:var(--low); box-shadow:0 0 6px var(--low);}
   @keyframes pfPulse{0%,100%{opacity:1;}50%{opacity:.35;}}
   .pf-badge.checking .dot{animation:pfPulse 1s ease-in-out infinite;}
+
+  /* ---- "Preview as" — resolves {{ subscriber.* }} tags to a real subscriber's real values,
+       instead of the fallback text everyone sees while editing. Read-only while active: editing
+       a copy that says "Hi Karabo" must never flow back into the real draft. ---- */
+  .pas-select{
+    width:auto; font-family:var(--fm); font-size:11.5px; font-weight:700; color:var(--text);
+    background-color:var(--ink-in,#0D0F15); border:1px solid var(--border-2); border-radius:10px;
+    padding:8px 30px 8px 12px; margin:0;
+  }
+  .pas-banner{
+    display:none; align-items:center; gap:9px; font-size:12.5px; color:var(--info);
+    background:rgba(127,200,255,.08); border:1px solid rgba(127,200,255,.25); border-radius:11px;
+    padding:10px 13px; margin-bottom:12px;
+  }
+  .pas-banner.show{display:flex;}
+  .pas-banner b{color:var(--text);}
+  .pas-banner button{
+    margin-left:auto; font-family:var(--fm); font-size:11px; font-weight:700; color:var(--info);
+    background:transparent; border:1px solid rgba(127,200,255,.35); border-radius:8px;
+    padding:5px 11px; cursor:pointer; flex-shrink:0;
+  }
+  .pas-banner button:hover{background:rgba(127,200,255,.12);}
 </style>
 </head>
 <body>
@@ -1343,6 +1365,9 @@ function renderPreview(bodyHtml){
           <button data-m="desktop" class="${isM?'':'on'}">🖥 Desktop</button>
           <button data-m="mobile" class="${isM?'on':''}">📱 Mobile</button>
         </div>
+        <select class="pas-select" id="pasSelect" title="Preview as a real subscriber — resolves merge tags to their actual values">
+          <option value="">👁 Raw tags</option>
+        </select>
         <div class="right">
           <button class="mini" id="copyBtn">${ICON.copy} Copy HTML</button>
           <button class="mini" id="dlBtn">${ICON.down} Download .html</button>
@@ -1394,10 +1419,12 @@ function renderPreview(bodyHtml){
         <div id="imgStatus" class="kit-status" style="flex-basis:100%; margin-top:4px;"></div>
       </div>
       <p class="editing-hint">✏️ <b>Edit straight in the preview</b> — fix wording, format text, add images. Your changes flow into the exported HTML. The header, footer and promo blocks stay locked to the template.</p>
+      <div class="pas-banner" id="pasBanner">👁 Previewing as <b class="who"></b> — merge tags resolved to their real values. Read-only while previewing. <button type="button" id="pasBack">← Back to editing</button></div>
       <div class="stage">
         <iframe class="frame ${isM?'mobile':''}" id="frame" title="Email preview"></iframe>
       </div>
     </div>`;
+  _previewingAsSub = null; // a fresh render is always the real, editable draft — never mid-preview
   const frame = document.getElementById('frame');
   frame.addEventListener('load', () => wireEditableFrame(frame));
   frame.srcdoc = previewDoc(assemble(state.body, true));
@@ -1410,6 +1437,7 @@ function renderPreview(bodyHtml){
     setPreviewMode(b.dataset.m);
   });
   wireEditorToolbar();
+  wirePreviewAs();
 }
 
 // Create a draft broadcast in Kit from the assembled (edited) HTML.
@@ -1855,6 +1883,71 @@ function wireTestSend(){
   updatePfBadge(); // a build just happened — score it now, don't wait for the debounce
 }
 
+// ---- "Preview as" a real subscriber — resolves {{ subscriber.* }} tags to what Kit would
+// actually put there, instead of the fallback text ("Boss") everyone sees while editing. ----
+let _kitSubs = null;      // cached after the first successful fetch — the list rarely needs refetching mid-edit
+let _previewingAsSub = null;
+async function loadKitSubsOnce(){
+  // Only a real, non-empty result gets cached — an empty array is truthy, so caching a failed
+  // or pre-connection fetch as "done" would mean never trying again for the rest of the session,
+  // even once Kit gets connected or a transient error clears. A miss just costs one more fetch
+  // on the next build, which is cheap and rare.
+  if(_kitSubs && _kitSubs.length) return _kitSubs;
+  try{
+    const r = await fetch('https://tshephos-lab.vercel.app/api/kit?action=subscribers');
+    if(!r.ok) return []; // Kit not connected yet, or no active subscribers — fail quiet, not loud
+    const d = await r.json().catch(()=>({}));
+    const subs = (d && d.subscribers) || [];
+    if(subs.length) _kitSubs = subs;
+    return subs;
+  }catch(e){ return []; }
+}
+// Same quote-normalising approach as the server's resolveMergeTags() in api/_routes/kit.js (a
+// greeting saved via <input value> reaches the HTML with its quotes entity-encoded, which stops
+// `default:"..."` from matching), but resolved against ONE real subscriber's real field values
+// instead of a generic stand-in.
+function resolveMergeTagsForSubscriber(html, sub){
+  if(!sub) return html;
+  const fields = Object.assign({ first_name: sub.firstName, email_address: sub.email }, sub.fields || {});
+  return String(html)
+    .replace(/\{\{[\s\S]*?\}\}/g, m => m
+      .replace(/&quot;|&#0*34;/gi, '"').replace(/&apos;|&#0*39;/gi, "'")
+      .replace(/[“”]/g, '"').replace(/[‘’]/g, "'"))
+    .replace(/\{\{\s*subscriber\.([a-zA-Z_]+)\s*(?:\|\s*default\s*:\s*["']([^"']*)["']\s*)?\}\}/g, (m, key, fallback) => {
+      const v = fields[key];
+      return (v != null && String(v).trim()) ? esc(String(v)) : (fallback != null ? esc(fallback) : '');
+    });
+}
+async function wirePreviewAs(){
+  const sel = document.getElementById('pasSelect'); if(!sel) return;
+  sel.addEventListener('change', () => applyPreviewAs(sel.value));
+  const back = document.getElementById('pasBack'); if(back) back.addEventListener('click', () => { sel.value=''; applyPreviewAs(''); });
+  const subs = await loadKitSubsOnce();
+  if(!subs.length) return; // no Kit connection, or nobody active yet — the "Raw tags" option is still there and correct
+  const cur = document.getElementById('pasSelect'); if(!cur) return; // a newer render may already have replaced this one
+  subs.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.firstName ? ('👤 ' + s.firstName) : ('👤 ' + s.email);
+    cur.appendChild(opt);
+  });
+}
+function applyPreviewAs(subId){
+  const frame = document.getElementById('frame'); if(!frame) return;
+  const banner = document.getElementById('pasBanner');
+  if(!subId){
+    _previewingAsSub = null;
+    if(banner) banner.classList.remove('show');
+    frame.srcdoc = previewDoc(assemble(state.body, true)); // the 'load' listener re-wires editing
+    return;
+  }
+  const sub = (_kitSubs || []).find(s => String(s.id) === String(subId));
+  if(!sub) return;
+  _previewingAsSub = sub;
+  frame.srcdoc = previewDoc(resolveMergeTagsForSubscriber(assemble(state.body, true), sub));
+  if(banner){ banner.classList.add('show'); const who=banner.querySelector('.who'); if(who) who.textContent = sub.firstName || sub.email || 'this subscriber'; }
+}
+
 let _pfOverride = false;
 async function sendToKit(){
   const btn = document.getElementById('kitBtn');
@@ -1891,6 +1984,7 @@ async function sendToKit(){
 
 // Make the body region of the preview iframe editable and keep the export copy in sync.
 function wireEditableFrame(frame){
+  if(_previewingAsSub) return; // read-only while showing a real subscriber's resolved copy
   const doc = frame.contentDocument; if(!doc) return;
   const ed = doc.querySelector('.volt-editable'); if(!ed) return;
   editableDocRef = doc;
