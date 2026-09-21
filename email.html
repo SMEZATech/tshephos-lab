@@ -143,6 +143,29 @@
 
   footer{margin-top:40px; text-align:center; font-family:var(--fm); font-size:11px; letter-spacing:.05em; color:#4f5562;}
   footer span{color:var(--dim);}
+
+  /* ---- Recent sends filmstrip — sits above the builder so "what did we send two weeks
+       ago" never means leaving it to check. Real saved-draft rows only: no fabricated
+       open-rate numbers, since Volt doesn't correlate a draft with its Kit send today. ---- */
+  .draft-film{display:flex; gap:9px; overflow-x:auto; padding:2px 2px 12px; margin-bottom:2px;}
+  .film-card{
+    flex:0 0 152px; background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:11px; cursor:pointer; transition:border-color .14s, transform .14s;
+  }
+  .film-card:hover{border-color:var(--border-2); transform:translateY(-1px);}
+  .film-card.active{border-color:rgba(var(--accent-rgb,182,255,61),.5); background:linear-gradient(180deg,rgba(var(--accent-rgb,182,255,61),.07),var(--surface));}
+  .film-date{font-family:var(--fm); font-size:10.5px; color:var(--faint); letter-spacing:.03em; text-transform:uppercase; margin-bottom:6px;}
+  .film-card.active .film-date{color:var(--accent);}
+  .film-title{font-size:12.5px; font-weight:600; color:var(--text); line-height:1.35; margin-bottom:10px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .film-acts{display:flex; gap:6px;}
+  .film-acts button{
+    font-family:var(--fm); font-size:10.5px; font-weight:700; flex:1; padding:6px 0;
+    border-radius:7px; border:1px solid var(--border-2); background:transparent; color:var(--dim);
+    cursor:pointer; transition:all .14s;
+  }
+  .film-acts button:hover{border-color:var(--accent); color:var(--accent);}
+  .film-acts button.danger:hover{border-color:var(--low); color:var(--low);}
 </style>
 </head>
 <body>
@@ -538,8 +561,9 @@ Keep it warm and practical."></textarea>
       <span class="go-note">Header &amp; footer are fixed. Uses your Gemini key.</span>
       <button class="mini" id="importBtn" style="margin-left:auto;" title="Paste HTML you built elsewhere (e.g. Gemini) — Volt cleans it back into the Outlook + Gmail-safe template">🧩 Paste HTML</button>
       <button class="mini" id="saveDraftBtn">💾 Save draft</button>
-      <button class="mini" id="draftsBtn">📁 Drafts</button>
+      <button class="mini" id="draftsBtn">📁 All drafts</button>
     </div>
+    <div id="draftFilm" class="draft-film" hidden></div>
     <div id="draftStatus" class="kit-status"></div>
     <div class="error" id="error" hidden></div>
   </section>
@@ -2254,6 +2278,7 @@ async function saveDraft(){
     if(!r.ok) throw new Error((data&&data.error)||'Save failed.');
     currentDraftId = data.project && data.project.id;
     setDraftStatus('✅ Saved “'+title+'”.','ok');
+    loadDraftFilm();
   }catch(e){ setDraftStatus(e.message,'err'); }
 }
 async function openDrafts(){
@@ -2279,18 +2304,74 @@ async function loadDraft(id){
     restoreDraft(data.project && data.project.data);
     document.getElementById('draftsModal').style.display='none';
     setDraftStatus('✅ Loaded “'+esc(data.project&&data.project.title||'draft')+'”.','ok');
+    loadDraftFilm();
   }catch(e){ setDraftStatus(e.message,'err'); }
 }
 async function deleteDraft(id){
   try{ await fetch(PROJECTS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op:'delete', id }) }); }catch(e){}
   if(currentDraftId===id) currentDraftId=null;
   openDrafts();
+  loadDraftFilm();
+}
+// Copy a saved draft's content into a brand-new row (never overwrites the one you duplicated
+// from) — same intent as loadDraft, minus the one line that would reuse its id.
+async function duplicateDraft(id, title){
+  setDraftStatus('Duplicating…','busy');
+  try{
+    const r = await fetch(PROJECTS_URL+'?id='+encodeURIComponent(id));
+    let data={}; try{ data=await r.json(); }catch(_){}
+    if(!r.ok) throw new Error((data&&data.error)||'Could not load.');
+    currentDraftId = null; // force an INSERT, not an overwrite, on the save below
+    restoreDraft(data.project && data.project.data);
+    const subj = $('#subject');
+    const base = (title || (data.project && data.project.title) || 'Newsletter draft').replace(/\s*\(copy\)\s*$/i,'');
+    if(subj) subj.value = base + ' (copy)';
+    await saveDraft(); // inserts the new row, sets currentDraftId, refreshes the filmstrip
+    setDraftStatus('✅ Duplicated “'+esc(base)+'” — editing the copy now.','ok');
+  }catch(e){ setDraftStatus(e.message,'err'); }
+}
+function relTime(iso){
+  const d=new Date(iso), ms=Date.now()-d.getTime(), day=86400000;
+  if(ms<day && d.getDate()===new Date().getDate()) return 'Today';
+  if(ms<2*day) return 'Yesterday';
+  if(ms<7*day) return Math.floor(ms/day)+'d ago';
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+async function loadDraftFilm(){
+  const strip=document.getElementById('draftFilm'); if(!strip) return;
+  try{
+    const r = await fetch(PROJECTS_URL+'?type=email');
+    if(!r.ok){ strip.hidden=true; return; } // not signed in yet, or nothing saved — stay quiet
+    const data = await r.json().catch(()=>({}));
+    const ps = (data.projects||[]).slice(0,8); // API already sorts updated_at.desc
+    if(!ps.length){ strip.hidden=true; return; }
+    strip.hidden=false;
+    strip.innerHTML = ps.map(p=>
+      '<div class="film-card'+(p.id===currentDraftId?' active':'')+'" data-open="'+esc(p.id)+'">'
+      +'<div class="film-date">'+esc(relTime(p.updated_at))+'</div>'
+      +'<div class="film-title">'+esc(p.title||'Untitled')+'</div>'
+      +'<div class="film-acts">'
+      +'<button data-dup="'+esc(p.id)+'" data-title="'+esc(p.title||'')+'" title="Duplicate into a new draft">⧉ Copy</button>'
+      +'<button class="danger" data-del="'+esc(p.id)+'" title="Delete">✕</button>'
+      +'</div></div>'
+    ).join('');
+  }catch(e){ strip.hidden=true; }
 }
 { const sb=document.getElementById('saveDraftBtn'); if(sb) sb.addEventListener('click', saveDraft);
   const db=document.getElementById('draftsBtn'); if(db) db.addEventListener('click', openDrafts);
   const dc=document.getElementById('draftsClose'); if(dc) dc.addEventListener('click', ()=>{ document.getElementById('draftsModal').style.display='none'; });
   const dm=document.getElementById('draftsModal'); if(dm) dm.addEventListener('click', e=>{ if(e.target===dm) dm.style.display='none'; });
   const dl=document.getElementById('draftsList'); if(dl) dl.addEventListener('click', e=>{ const L=e.target.closest('[data-load]'); if(L){ loadDraft(L.dataset.load); return; } const D=e.target.closest('[data-del]'); if(D) deleteDraft(D.dataset.del); });
+  const df=document.getElementById('draftFilm');
+  if(df) df.addEventListener('click', e=>{
+    const dup=e.target.closest('[data-dup]');
+    if(dup){ e.stopPropagation(); duplicateDraft(dup.dataset.dup, dup.dataset.title); return; }
+    const del=e.target.closest('[data-del]');
+    if(del){ e.stopPropagation(); deleteDraft(del.dataset.del); return; }
+    const card=e.target.closest('[data-open]');
+    if(card) loadDraft(card.dataset.open);
+  });
+  window.addEventListener('volt:ready', loadDraftFilm);
 }
 
 // ===== Paste & clean HTML — rebuild pasted HTML into the Outlook/Gmail-safe template =====
