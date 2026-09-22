@@ -1,0 +1,6 @@
+﻿User-agent: *
+Disallow: /api/
+Disallow: /desktop/
+Allow: /
+
+Sitemap: https://vantly.co.za/sitemap.xml
