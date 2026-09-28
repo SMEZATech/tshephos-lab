@@ -1,0 +1,196 @@
+﻿<style id="vantly-wp-override">html,body{background-color:#12162a!important;background:#12162a!important;color:#f4efe6!important;margin:0!important;padding:0!important;}.entry-header,.entry-title,.page-header,.page-title,.wp-block-post-title,.post-title,.article-header,.site-header,header.entry-header,article>header,h1.entry-title,h2.entry-title{display:none!important;}.site-content,.site-content>*,#content,#primary,#main,main,main.site-main,.entry-content,.entry-content>*,article,article.page,article.type-page,.wp-site-blocks,.wp-site-blocks>*,.is-layout-constrained,.is-layout-flow,.has-global-padding,.wp-block-post-content{background:transparent!important;background-color:transparent!important;max-width:none!important;width:100%!important;padding:0!important;margin:0!important;box-shadow:none!important;border:none!important;}.site-footer,footer.site-footer,#colophon{display:none!important;}body.admin-bar .v-nav{top:32px!important;}@media screen and (max-width:782px){body.admin-bar .v-nav{top:46px!important;}}</style>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Public+Sans:wght@400;500;600;700;800&display=swap');
+:root{--vbg:#12162a;--vsurf:#191d36;--vsurf2:#212752;--vborder:rgba(244,239,230,.09);--vborder2:rgba(244,239,230,.17);--vtext:#f4efe6;--vdim:#a29cc2;--vfaint:#6d688a;--vacc:#e2924a;--vacc-press:#c97a35;--vacc-hi:#f4c88b;--vgood:#6bd39a;--vfd:'Fraunces',Georgia,serif;--vfb:'Public Sans',system-ui,sans-serif;}
+*,*::before,*::after{box-sizing:border-box;}
+body.vantly-page{margin:0;padding:0;background:var(--vbg);color:var(--vtext);font-family:var(--vfb);-webkit-font-smoothing:antialiased;min-height:100vh;}
+a{color:inherit;text-decoration:none;}
+body.vantly-page .site-header,body.vantly-page .site-footer,body.vantly-page header,body.vantly-page footer.site-footer{display:none!important;}
+.v-nav{position:fixed;top:0;left:0;right:0;z-index:9999;height:64px;display:flex;align-items:center;padding:0 max(24px,calc((100vw - 1160px)/2));background:rgba(18,22,42,.82);backdrop-filter:blur(16px);border-bottom:1px solid var(--vborder);}
+.v-logo{display:flex;align-items:center;gap:10px;font-family:var(--vfd);font-weight:800;font-size:20px;color:var(--vtext);}
+.v-logo-icon{width:32px;height:32px;border-radius:9px;background:var(--vsurf2);border:1px solid var(--vborder2);display:grid;place-items:center;}
+.v-nav-links{display:flex;gap:28px;margin:0 auto;list-style:none;padding:0;}
+.v-nav-links a{font-size:14px;font-weight:500;color:var(--vdim);}
+.v-nav-links a:hover{color:var(--vtext);}
+.v-nav-right{display:flex;align-items:center;gap:10px;}
+.v-ghost{font-size:14px;font-weight:600;color:var(--vdim);padding:8px 16px;border-radius:10px;border:1px solid var(--vborder2);}
+.v-primary{font-size:14px;font-weight:700;color:var(--vbg);background:var(--vacc);padding:9px 18px;border-radius:10px;}
+.v-primary:hover{background:var(--vacc-press);}
+@media(max-width:760px){.v-nav-links{display:none;}}
+.v-wrap{max-width:1160px;margin:0 auto;padding:0 24px;}
+.v-section{padding:100px 0;}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--vacc);margin-bottom:14px;}
+.v-h1{font-family:var(--vfd);font-weight:800;font-size:clamp(38px,5vw,60px);line-height:1.08;letter-spacing:-.03em;margin:0 0 20px;}
+.v-h2{font-family:var(--vfd);font-weight:800;font-size:clamp(26px,3.5vw,40px);line-height:1.12;letter-spacing:-.025em;margin:0 0 16px;}
+.v-h3{font-family:var(--vfd);font-weight:700;font-size:20px;line-height:1.25;margin:0 0 10px;}
+.v-sub{font-size:18px;color:var(--vdim);line-height:1.65;max-width:580px;}
+.v-em{font-style:italic;background:linear-gradient(135deg,var(--vacc),var(--vacc-hi));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.tc{text-align:center;}.mxa{margin-left:auto;margin-right:auto;}
+.v-card{background:var(--vsurf);border:1px solid var(--vborder);border-radius:20px;padding:28px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:48px;align-items:start;}
+@media(max-width:860px){.g3{grid-template-columns:1fr;}.g2{grid-template-columns:1fr;}}
+.v-btn-hero{display:inline-flex;align-items:center;gap:9px;font-size:16px;font-weight:700;color:var(--vbg);background:var(--vacc);padding:16px 28px;border-radius:14px;box-shadow:0 8px 28px -8px rgba(226,146,74,.5);}
+.v-btn-hero:hover{background:var(--vacc-press);}
+.v-ambient{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse 900px 600px at 15% -10%,rgba(226,146,74,.07) 0%,transparent 60%),radial-gradient(ellipse 700px 500px at 90% 5%,rgba(58,64,112,.15) 0%,transparent 55%);}
+.v-rel{position:relative;z-index:1;}
+.fade-up{opacity:0;transform:translateY(24px);transition:opacity .6s,transform .6s;}
+.fade-up.visible{opacity:1;transform:none;}
+.v-chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;}
+.v-chip{display:inline-flex;align-items:center;gap:8px;background:var(--vsurf);border:1px solid var(--vborder2);border-radius:12px;padding:10px 16px;font-size:14px;font-weight:600;color:var(--vdim);}
+.v-footer{background:var(--vsurf);border-top:1px solid var(--vborder);padding:60px 0 32px;margin-top:0;}
+.v-footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:40px;margin-bottom:48px;}
+@media(max-width:760px){.v-footer-grid{grid-template-columns:1fr 1fr;}}
+.v-footer h4{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--vdim);margin:0 0 14px;}
+.v-footer ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px;}
+.v-footer ul a{font-size:14px;color:var(--vfaint);}
+.v-footer ul a:hover{color:var(--vtext);}
+.v-fbot{border-top:1px solid var(--vborder);padding-top:24px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.v-fbot p{font-size:13px;color:var(--vfaint);margin:0;}
+.v-prose{max-width:760px;margin:0 auto;font-size:15.5px;line-height:1.78;color:var(--vdim);}
+.v-prose h2{font-family:var(--vfd);font-size:22px;font-weight:700;color:var(--vtext);margin:48px 0 14px;}
+.v-prose h3{font-family:var(--vfd);font-size:17px;font-weight:600;color:var(--vtext);margin:28px 0 10px;}
+.v-prose p{margin:0 0 16px;}
+.v-prose a{color:var(--vacc);}
+.v-prose ul{padding-left:20px;margin:0 0 16px;}
+.v-prose li{margin-bottom:6px;}
+.v-callout{background:rgba(226,146,74,.08);border:1px solid rgba(226,146,74,.2);border-radius:12px;padding:16px 20px;margin:24px 0;color:var(--vacc-hi);}
+.v-form .v-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+.v-form label{font-size:11.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--vdim);}
+.v-form input,.v-form select,.v-form textarea{width:100%;background:var(--vsurf);border:1px solid var(--vborder2);border-radius:12px;padding:13px 16px;font-family:var(--vfb);font-size:15px;color:var(--vtext);outline:none;}
+.v-form input:focus,.v-form select:focus,.v-form textarea:focus{border-color:var(--vacc);box-shadow:0 0 0 4px rgba(226,146,74,.14);}
+.v-form select option{background:var(--vsurf2);}
+.v-form textarea{min-height:140px;resize:vertical;}
+.v-faq{display:flex;flex-direction:column;gap:8px;}
+.v-faq-item{background:var(--vsurf);border:1px solid var(--vborder);border-radius:14px;overflow:hidden;}
+.v-faq-q{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;cursor:pointer;font-size:15px;font-weight:600;color:var(--vtext);gap:16px;list-style:none;}
+.v-faq-q .ic{flex-shrink:0;width:22px;height:22px;border-radius:6px;background:var(--vsurf2);display:grid;place-items:center;font-size:13px;transition:transform .25s;}
+.v-faq-item.open .v-faq-q .ic{transform:rotate(45deg);}
+.v-faq-a{max-height:0;overflow:hidden;transition:max-height .35s ease;}
+.v-faq-a p{padding:0 22px 18px;margin:0;font-size:14.5px;color:var(--vdim);line-height:1.65;}
+</style>
+
+<style>
+.hostinger-ai-page-title, .wp-block-post-title { display: none !important; }
+.insights-hero { padding: 140px 24px 60px; text-align: center; }
+.insights-hero h1 { font-family: var(--vfd); font-size: clamp(2.8rem, 5vw, 4.5rem); font-weight: 800; color: var(--vtext); margin: 0 0 16px; letter-spacing: -0.02em; }
+.insights-hero p { font-size: 1.15rem; color: var(--vdim); max-width: 520px; margin: 0 auto; line-height: 1.6; }
+.insights-wrap { max-width: 1100px; margin: 40px auto 80px; padding: 0 24px; }
+.ins-featured { display: flex; background: var(--vsurf); border: 1px solid var(--vborder); border-radius: 20px; overflow: hidden; margin-bottom: 56px; text-decoration: none; transition: transform 0.3s; }
+.ins-featured:hover { transform: translateY(-3px); }
+.ins-featured-img { width: 50%; flex-shrink: 0; overflow: hidden; min-height: 340px; }
+.ins-featured-img img { width: 100%; height: 100%; object-fit: cover; }
+.ins-featured-body { width: 50%; padding: 40px; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.ins-featured-body .badge { display: inline-block; width: fit-content; background: rgba(226,146,74,0.15); color: var(--vacc); padding: 5px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 16px; }
+.ins-featured-body h2 { font-family: var(--vfd); font-size: 1.7rem; font-weight: 800; color: var(--vtext); margin: 0 0 14px; line-height: 1.2; }
+.ins-featured-body p { color: var(--vdim); font-size: 0.95rem; line-height: 1.6; margin: 0 0 20px; }
+.ins-featured-body .cta { color: var(--vacc); font-size: 14px; font-weight: 700; }
+.ins-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.ins-card { display: flex; flex-direction: column; background: var(--vsurf); border: 1px solid var(--vborder); border-radius: 14px; overflow: hidden; text-decoration: none; transition: transform 0.3s, border-color 0.3s; }
+.ins-card:hover { transform: translateY(-3px); border-color: rgba(226,146,74,0.2); }
+.ins-card-img { height: 180px; overflow: hidden; }
+.ins-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.ins-card-body { padding: 20px; display: flex; flex-direction: column; flex-grow: 1; }
+.ins-card-body .date { font-size: 11px; color: var(--vfaint); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.ins-card-body h3 { font-family: var(--vfd); font-size: 1.15rem; color: var(--vtext); margin: 0 0 14px; line-height: 1.3; font-weight: 700; }
+.ins-card-body .cta { margin-top: auto; color: var(--vacc); font-size: 13px; font-weight: 700; }
+@media(max-width:900px) { .ins-grid { grid-template-columns: repeat(2, 1fr); } .ins-featured { flex-direction: column; } .ins-featured-img, .ins-featured-body { width: 100%; } .ins-featured-img { min-height: 220px; } }
+@media(max-width:600px) { .ins-grid { grid-template-columns: 1fr; } }
+</style>
+<nav class="v-nav">
+  <a class="v-logo" href="/"><div class="v-logo-icon"><svg width="20" height="20" viewBox="0 0 100 100"><polygon points="84,20 73,20 47,80 55,80" fill="#3a4070"/><polygon points="18,20 29,20 55,80 47,80" fill="#e2924a"/><circle cx="50" cy="40" r="7" fill="#f4c88b"/></svg></div>Vantly</a>
+  <ul class="v-nav-links"><li><a href="/#features">Features</a></li><li><a href="/#pricing">Pricing</a></li><li><a href="/about">About</a></li><li><a href="/contact">Contact</a></li>
+<li><a href="https://vantly.co.za/insights/">Insights (Blog)</a></li></ul>
+  <div class="v-nav-right"><a href="https://vantly-xi.vercel.app" class="v-ghost">Sign in</a><a href="https://vantly-xi.vercel.app/signup" class="v-primary">Get started</a></div>
+</nav>
+<div class="insights-hero">
+  <h1>Vantly Insights</h1>
+  <p>Strategies, guides, and deep-dives for growing brands scaling their content with AI.</p>
+</div>
+<div class="insights-wrap">
+  <a href="https://vantly.co.za/vantly-video-module-guide/" class="ins-featured">
+    <div class="ins-featured-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/post-video-module.jpg" alt="" /></div>
+    <div class="ins-featured-body">
+      <span class="badge">Featured</span>
+      <h2>Video Marketing at Scale: A Complete Guide to Vantly&#8217;s Video Creation Module</h2>
+      <p>Discover how Vantly&#8217;s AI Video module transforms scripts, images and prompts into scroll-stopping marketing videos — no editing experience needed.</p>
+      <span class="cta">Read Article →</span>
+    </div>
+  </a>
+  <div class="ins-grid">    <a href="https://vantly.co.za/vantly-workspace-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/vantly-workspace-header.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>The Complete Workspace: Connecting Your Marketing Ecosystem</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-transcribe-module-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/vantly-transcribe-header.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>Repurpose Content Instantly with the Transcribe Module</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-blueprint-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/vantly-blueprint-header.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>Campaign Blueprints: Strategy and Execution in One Place</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-social-module-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/vantly-social-header.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>Social Media Automation: Mastering Vantly&#8217;s Social Module</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-brand-kit-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/vantly-brandkit-header.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>Brand Consistency at Scale: How to Set Up and Use Your Vantly Brand Kit</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-analytics-dashboard-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/vantly-analytics-header.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>Marketing Analytics Without the Complexity: Understanding Vantly&#8217;s Performance Dashboard</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-email-builder-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/vantly-email-header.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>Email Campaigns That Convert: Mastering Vantly&#8217;s AI Email Builder</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-graphics-module-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/post-graphics-module.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">26 Sept 2026</span>
+        <h3>AI-Powered Graphics: Create Stunning Marketing Visuals Without a Design Team</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>    <a href="https://vantly.co.za/vantly-ai-copy-module-guide/" class="ins-card">
+      <div class="ins-card-img"><img src="https://vantly.co.za/wp-content/uploads/2026/09/post-copy-module.jpg" alt="" /></div>
+      <div class="ins-card-body">
+        <span class="date">25 Sept 2026</span>
+        <h3>How Vantly&#8217;s AI Copy Module Writes Marketing Copy That Converts</h3>
+        <span class="cta">Read Article →</span>
+      </div>
+    </a>  </div>
+</div>
+<footer class="v-footer">
+  <div class="v-wrap">
+    <div class="v-footer-grid">
+      <div><a class="v-logo" href="/" style="display:inline-flex;align-items:center;gap:10px;font-family:'Fraunces',serif;font-weight:800;font-size:18px;color:#f4efe6;"><div class="v-logo-icon"><svg width="18" height="18" viewBox="0 0 100 100"><polygon points="84,20 73,20 47,80 55,80" fill="#3a4070"/><polygon points="18,20 29,20 55,80 47,80" fill="#e2924a"/><circle cx="50" cy="40" r="7" fill="#f4c88b"/></svg></div>Vantly</a><p style="font-size:13.5px;color:#6d688a;line-height:1.6;max-width:260px;margin-top:10px;">Built for brands that mean business.</p></div>
+      <div><h4>Product</h4><ul><li><a href="/#features">Features</a></li><li><a href="/#pricing">Pricing</a></li><li><a href="https://vantly-xi.vercel.app">Sign in</a></li><li><a href="https://vantly-xi.vercel.app/signup">Create account</a></li></ul></div>
+      <div><h4>Tools</h4><ul><li><a href="/#modules">Copy Lab</a></li><li><a href="/#modules">Studio</a></li><li><a href="/#modules">Video</a></li><li><a href="/#modules">SmartClip</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="/about">About</a></li><li><a href="/contact">Contact</a></li>
+<li><a href="https://vantly.co.za/insights/">Insights (Blog)</a></li><li><a href="/privacy">Privacy Policy</a></li><li><a href="/terms">Terms of Service</a></li></ul></div>
+    </div>
+    <div class="v-fbot"><p>&copy; 2026 Vantly. All rights reserved.</p><p>Made in South Africa</p></div>
+  </div>
+</footer>
