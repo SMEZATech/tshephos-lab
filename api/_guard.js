@@ -384,6 +384,14 @@ async function meter(req, res, opts = {}) {
   } catch (e) { return false; } // fail OPEN — billing must never take the app down
 }
 
+// ===== Workspace owner check. Same env contract as projects.js's isAdmin (comma-separated, Vantly's
+// variable first) — shared here so an owner-only action in any route can't drift from it. =====
+function isOwner(s) {
+  const email = String((s && s.user && s.user.email) || "").toLowerCase();
+  const raw = process.env.VANTLY_ADMIN_EMAIL || process.env.VOLT_ADMIN_EMAIL || "joel@smesouthafrica.co.za";
+  return String(raw).toLowerCase().split(",").map((x) => x.trim()).filter(Boolean).includes(email);
+}
+
 // ===== Org-scoped DB access (H1) — every call REQUIRES an orgId and injects org_id=eq.,
 // so an endpoint physically cannot issue an unscoped query. Use for ALL per-org tables. =====
 function db(orgId) {
@@ -455,4 +463,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo };
+export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner };

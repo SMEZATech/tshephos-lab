@@ -81,6 +81,72 @@ for (const f of fs.readdirSync('.').filter(n => /\.html$/.test(n))) {
   catch (e) { fail++; console.error('  x ' + f + ' (JS)'); }
 }
 
+// COPY ROTATION. The rule "the same copy never ships twice on the same design + size + brand" lives
+// in three places that must agree: the selection logic (copy-rotation.js), the server log
+// (api/_routes/copyuse.js) and the written library (copy-library.js). Each has a test here.
+console.log('Copy rotation:');
+for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs']) {
+  try {
+    const out = cp.execSync('node "' + t + '"', { stdio: 'pipe' }).toString().trim().split('\n').pop();
+    console.log('  ok ' + t + ' — ' + out);
+  } catch (e) { fail++; console.error('  x ' + t + '\n    ' + String(e.stdout || '').split('\n').filter(l => /FAIL/.test(l)).join('\n    ')); }
+}
+// The library, checked against studio.html's own PREMIUM registry:
+//   · every pool is a real family.direction; copy 01 IS that direction's default, word for word
+//   · every copy has exactly the direction's fields (url excluded — that comes from the Brand Kit)
+//   · ids are family.dir.NN in order (the log stores ids; order is meaning), 30 per pool
+//   · no two copies in a pool are the same copy (same fingerprint = the rotation would skip one)
+//   · no empty field, and no field wildly longer than the default (the render suite is the real
+//     fit test; this catches the obvious case in a second instead of a minute)
+(function checkLibrary() {
+  if (!fs.existsSync('copy-library.js') || !fs.existsSync('copy-rotation.js')) { fail++; console.error('  x copy-library.js / copy-rotation.js missing — run npm run sync'); return; }
+  const load = (f) => { const m = { exports: {} }; new Function('module', 'exports', fs.readFileSync(f, 'utf8'))(m, m.exports); return m.exports; };
+  const LIB = load('copy-library.js'), R = load('copy-rotation.js');
+  // Pull the PREMIUM literal out of studio.html with a string-aware brace walk, then evaluate it.
+  const src = fs.readFileSync('studio.html', 'utf8'), at = src.indexOf('const PREMIUM = {');
+  let PREMIUM = null;
+  if (at >= 0) {
+    let i = src.indexOf('{', at), depth = 0, q = null;
+    for (; i < src.length; i++) {
+      const c = src[i];
+      if (q) { if (c === '\\') i++; else if (c === q) q = null; continue; }
+      // Comments hold apostrophes ("Joel's", "don't") that would otherwise open a phantom string.
+      if (c === '/' && src[i + 1] === '/') { i = src.indexOf('\n', i); continue; }
+      if (c === '/' && src[i + 1] === '*') { i = src.indexOf('*/', i) + 1; continue; }
+      if (c === '"' || c === "'" || c === '`') q = c;
+      else if (c === '{') depth++;
+      else if (c === '}' && !--depth) break;
+    }
+    try { PREMIUM = new Function('return ' + src.slice(src.indexOf('{', at), i + 1))(); } catch (e) { /* reported below */ }
+  }
+  if (!PREMIUM) { fail++; console.error('  x could not read PREMIUM from studio.html'); return; }
+  const problems = [];
+  let variants = 0;
+  for (const key of Object.keys(LIB)) {
+    const [fam, dir] = key.split('.'), d = PREMIUM[fam] && PREMIUM[fam].dirs[dir];
+    if (!d) { problems.push(key + ': not a PREMIUM family.direction'); continue; }
+    const seed = Object.assign({}, d.fields); delete seed.url;
+    const keys = Object.keys(seed).sort().join(',');
+    const pool = LIB[key];
+    if (pool.length !== 30) problems.push(key + ': ' + pool.length + ' copies (want 30)');
+    const hashes = R.poolHashes(pool);
+    if (new Set(hashes).size !== hashes.length) problems.push(key + ': two copies are the same copy');
+    if (R.hashCopy(pool[0].f) !== R.hashCopy(seed) || JSON.stringify(pool[0].f) !== JSON.stringify(seed)) problems.push(key + ': copy 01 is not the design\'s default copy');
+    pool.forEach((v, i) => {
+      variants++;
+      if (v.id !== key + '.' + String(i + 1).padStart(2, '0')) problems.push(key + ': copy ' + (i + 1) + ' has id ' + v.id);
+      if (Object.keys(v.f).sort().join(',') !== keys) problems.push(v.id + ': fields differ from the design (' + Object.keys(v.f).join(',') + ')');
+      for (const k of Object.keys(v.f)) {
+        const s = String(v.f[k] || '').trim(), lim = Math.max(Math.round(String(seed[k] || '').length * 1.35), String(seed[k] || '').length + 6);
+        if (!s) problems.push(v.id + '.' + k + ': empty');
+        else if (s.length > lim) problems.push(v.id + '.' + k + ': ' + s.length + ' chars (default is ' + String(seed[k]).length + ', limit ' + lim + ')');
+      }
+    });
+  }
+  if (problems.length) { fail++; console.error('  x copy-library.js:\n      ' + problems.slice(0, 40).join('\n      ') + (problems.length > 40 ? '\n      …and ' + (problems.length - 40) + ' more' : '')); }
+  else console.log('  ok copy-library.js — ' + Object.keys(LIB).length + ' designs, ' + variants + ' copies, all match the registry');
+})();
+
 // Optional: verify the live API rejects unauthenticated requests (fail-closed).
 const base = process.argv[2];
 async function live() {

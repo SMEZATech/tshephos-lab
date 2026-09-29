@@ -19,6 +19,9 @@
      this page. studio.html loads the exact same file to warn the user live while they edit, so a
      design cannot pass here and be flagged there, or vice versa. -->
 <script src="render-checks.js"></script>
+<!-- Every written copy in the rotation library is drawn at every size below — a line that doesn't
+     fit fails the build here, not on a banner someone already posted. -->
+<script src="copy-library.js"></script>
 </head>
 <body>
 <h1>Studio Smoke Test</h1>
@@ -308,6 +311,27 @@
         await run('premium+photo/' + pt + '/' + dir + '/' + sz,
           { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, featuredBlob, premType: pt, dir, vals: valsFor(pt, dir), w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
           wh[0] * S, wh[1] * S);
+      }
+    }
+
+    // 6) THE COPY LIBRARY. Studio rotates promotional designs through 30 written copies each
+    // (copy-library.js), so the copy on a real banner is no longer just the default above — it is
+    // any of 540 lines, at any of four sizes. Each one is drawn exactly as Studio would: the
+    // direction's own defaults (for url etc.) with the copy on top, no over-long fixture. The
+    // marketplace families are drawn on the light brand (they're Serv's), the rest on SME's.
+    const LIB = window.VOLT_COPY_LIBRARY || {};
+    const libKeys = Object.keys(LIB);
+    if (!libKeys.length) { results.push({ name: 'copy-library', ok: false, why: 'copy-library.js did not load' }); row('copy-library', { ok: false, why: 'copy-library.js did not load' }); }
+    for (const key of libKeys) {
+      const [pt, dir] = key.split('.');
+      const b = (pt === 'providers' || pt === 'findpros') ? brandLight : brand;
+      for (const v of LIB[key]) {
+        const vals = Object.assign({ url: b.url }, FIELDS[key] || {}, v.f);
+        for (const [sz, wh] of [['story', [1080, 1920]], ['landscape', [1200, 628]], ['square', [1080, 1080]], ['portrait', [1080, 1350]]]) {
+          await run('library/' + v.id + '/' + sz,
+            { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
+            wh[0] * S, wh[1] * S);
+        }
       }
     }
 

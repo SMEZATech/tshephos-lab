@@ -8,7 +8,7 @@
 //   POST {op:"save", id?, type, title, data}  → insert (no id) or update (with id)
 //   POST {op:"delete", id}      → delete
 
-import { setCors, rateLimit, requireSession, db, workspaceInfo } from "./_guard.js";
+import { setCors, rateLimit, requireSession, db, workspaceInfo, isOwner } from "./_guard.js";
 
 const enc = (v) => encodeURIComponent(String(v));
 
@@ -24,12 +24,8 @@ const enc = (v) => encodeURIComponent(String(v));
 // variable name Vantly's own Vercel project depends on reads as exactly the leftover coupling
 // this whole multi-brand approach exists to avoid — Vantly's deployment gets its own cleanly
 // named variable, full stop, not a brand-specific override bolted onto Volt's name.
-const isAdmin = (s) => {
-  const email = String((s && s.user && s.user.email) || "").toLowerCase();
-  const raw = process.env.VANTLY_ADMIN_EMAIL || process.env.VOLT_ADMIN_EMAIL || "joel@smesouthafrica.co.za";
-  const list = String(raw).toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
-  return list.includes(email);
-};
+// The check itself now lives in _guard.js (isOwner) so every owner-only action shares one rule.
+const isAdmin = isOwner;
 
 export default async function handler(req, res) {
   setCors(req, res, "GET, POST, OPTIONS");

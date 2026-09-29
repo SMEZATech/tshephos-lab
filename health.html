@@ -223,6 +223,18 @@ function sessionReady(){
     if (d.healthy === 1) return { warn:true, detail: detail + ' · no failover — add a second free key' };
     return { detail };
   }, { skipWhy:'needs sign-in' }));
+  // Studio's copy rotation logs every download here so the same copy never ships twice on the
+  // same design + size. Without the table Studio still works — it falls back to guarding each
+  // browser on its own — which is exactly why a missing table needs to be said out loud.
+  reads.push(await check('copy rotation · shared log', async () => {
+    if (!signedIn()) return 'SKIP';
+    const r = await fetch(API + '/copyuse?action=recent');
+    if (r.status === 503) return { warn:true, detail:'table missing — run sql/studio_copy_use.sql in Supabase. Studio is guarding each browser separately until then.' };
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error('HTTP ' + r.status + (d.error ? ' — ' + d.error : ''));
+    const n = (d.uses || []).length;
+    return { detail: n ? n + ' recent download(s) logged · last ' + new Date(d.uses[0].created_at).toLocaleString('en-ZA') : 'table ready · no downloads logged yet' };
+  }, { skipWhy:'needs sign-in' }));
   reads.push(await check('postiz · channels', async () => {
     if (!signedIn()) return 'SKIP';
     const d = await api('/postiz?action=channels');

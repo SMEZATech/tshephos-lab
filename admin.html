@@ -3,6 +3,8 @@
 <html lang="en">
 <head>
 <script src="volt-auth.js"></script>
+<!-- Studio's written copy, so the Copy rotation card can say how much of each design is left. -->
+<script src="copy-library.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Volt — Admin</title>
@@ -50,6 +52,14 @@
   .bk-in:focus{border-color:var(--accent);}
   .status{font-family:var(--fm);font-size:12.5px;margin-top:10px;min-height:16px;}
   .status.err{color:var(--low);} .status.ok{color:var(--good);} .status.busy{color:var(--dim);}
+  .cr-grid{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;}
+  .cr-grid th,.cr-grid td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;}
+  .cr-grid th{font-family:var(--fm);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
+  .cr-grid td.n{font-family:var(--fm);text-align:center;width:74px;}
+  .cr-n-ok{color:var(--good);} .cr-n-low{color:var(--mid);font-weight:700;} .cr-n-out{color:var(--low);font-weight:700;}
+  .cr-log{font-family:var(--fm);font-size:11.5px;color:var(--dim);line-height:1.8;max-height:260px;overflow:auto;margin-top:14px;}
+  .cr-log b{color:var(--text);font-weight:700;} .cr-flag{font-size:10px;padding:1px 6px;border-radius:5px;margin-left:6px;}
+  .cr-flag.ov{background:rgba(255,124,124,.12);color:var(--low);} .cr-flag.rc{background:rgba(255,200,87,.12);color:var(--mid);}
 </style>
 </head>
 <body>
@@ -110,6 +120,18 @@
     <h2>Premium content types</h2>
     <p class="h-note">The Funding / Solutions / Newsletter / Resources design families used by Studio and Campaign.</p>
     <div id="premList"></div>
+  </div>
+
+  <!-- ================= COPY ROTATION =================
+       Studio never ships the same copy twice on the same design + size (copy-rotation.js).
+       This card is where that becomes visible: which designs are running out of fresh copy, and
+       who downloaded what. Read-only — nothing here changes what Studio does. -->
+  <div class="card" id="crCard">
+    <h2>Copy rotation</h2>
+    <p class="h-note">Each promotional design has 30 written copies, and each size keeps its own count. Once a design runs out on a size, Studio recycles the oldest copy — that's your cue to ask for fresh copy. Numbers are <b>unused copies left</b>.</p>
+    <div id="crAlerts"></div>
+    <div id="crTable"></div>
+    <div class="cr-log" id="crLog"></div>
   </div>
 
   <div class="bar">
@@ -252,6 +274,68 @@ function connFetch(path, action, body){
       return d;
     });
 }
+// ---- Copy rotation ------------------------------------------------------------------------
+const CR_LIB = window.VOLT_COPY_LIBRARY || {};
+const CR_SIZES = [['landscape','Land'],['square','Square'],['portrait','Port'],['story','Story']];
+const CR_FAM = { funding:'Funding', newsletter:'Newsletter', providers:'Get providers', findpros:'Find providers', hub:'SME Hub', resources:'Resources' };
+// Brand keys in the log are Studio's Brand Kit ids ('sme', or a saved kit's id). Names come from
+// the kits saved in this browser; an unknown id still shows, just less prettily.
+function crBrandName(b){
+  if (b === 'sme') return 'SME South Africa';
+  try { const k = (JSON.parse(localStorage.getItem('volt_brands_v1') || '[]') || []).find(x => x.id === b); if (k && k.name) return k.name; } catch (e) {}
+  return 'Brand ' + b;
+}
+function crWhen(iso){ const d = new Date(iso); return d.getDate() + ' ' + d.toLocaleString('en-ZA',{month:'short'}) + ' ' + d.toTimeString().slice(0,5); }
+async function loadCopyRotation(){
+  const alerts = $('#crAlerts'), table = $('#crTable'), log = $('#crLog');
+  let sum, rec;
+  try {
+    const [a, b] = await Promise.all([fetch(API + '/copyuse?action=summary'), fetch(API + '/copyuse?action=recent')]);
+    if (a.status === 503 || b.status === 503) {
+      alerts.innerHTML = '<div class="hint">⚙️ The shared copy log isn’t set up yet. Run <b>sql/studio_copy_use.sql</b> in the Supabase SQL Editor — until then each browser only guards its own downloads.</div>';
+      return;
+    }
+    if (!a.ok || !b.ok) throw new Error('HTTP ' + a.status);
+    sum = await a.json(); rec = await b.json();
+  } catch (e) { alerts.innerHTML = '<div class="hint">Couldn’t reach the copy log right now.</div>'; return; }
+  // brand → pool → size → Set(copy ids used). An animated post spends the same copy as its still.
+  const used = { sme: {} };
+  for (const u of (sum.uses || [])) {
+    const pool = u.family + '.' + u.dir; if (!CR_LIB[pool]) continue;
+    const size = String(u.size).replace(/^motion-/, '');
+    const bp = (used[u.brand] = used[u.brand] || {}), ps = (bp[pool] = bp[pool] || {});
+    (ps[size] = ps[size] || new Set()).add(u.variant);
+  }
+  const warn = [];
+  let html = '';
+  for (const brand of Object.keys(used)) {
+    html += '<table class="cr-grid"><thead><tr><th>' + esc(crBrandName(brand)) + '</th>' + CR_SIZES.map(s => '<th style="text-align:center">' + s[1] + '</th>').join('') + '</tr></thead><tbody>';
+    for (const pool of Object.keys(CR_LIB)) {
+      const [fam, dir] = pool.split('.'), total = CR_LIB[pool].length, nm = (CR_FAM[fam] || fam) + ' · ' + dir.toUpperCase();
+      html += '<tr><td>' + esc(nm) + '</td>' + CR_SIZES.map(([sz, lbl]) => {
+        const set = used[brand][pool] && used[brand][pool][sz];
+        const left = Math.max(0, total - (set ? set.size : 0));
+        if (left === 0) warn.push('<b>' + esc(nm) + '</b> on ' + lbl + ' (' + esc(crBrandName(brand)) + ') is out — recycling the oldest');
+        else if (left <= 5) warn.push('<b>' + esc(nm) + '</b> on ' + lbl + ' (' + esc(crBrandName(brand)) + ') has ' + left + ' left');
+        return '<td class="n ' + (left === 0 ? 'cr-n-out' : left <= 5 ? 'cr-n-low' : 'cr-n-ok') + '">' + left + '</td>';
+      }).join('') + '</tr>';
+    }
+    html += '</tbody></table>';
+  }
+  table.innerHTML = html;
+  alerts.innerHTML = warn.length
+    ? '<div class="hint" style="border-color:rgba(255,200,87,.35);background:rgba(255,200,87,.07);color:#ffe7ae;">✍️ Time for fresh copy:<br>' + warn.slice(0, 12).join('<br>') + (warn.length > 12 ? '<br>…and ' + (warn.length - 12) + ' more' : '') + '</div>'
+    : '';
+  const rows = rec.uses || [];
+  log.innerHTML = rows.length
+    ? '<div style="color:var(--faint);margin-bottom:4px;">RECENT DOWNLOADS</div>' + rows.slice(0, 30).map(r =>
+        crWhen(r.created_at) + ' · <b>' + esc(String(r.user_email || '').split('@')[0] || '—') + '</b> · ' + esc(r.family + ' ' + String(r.dir).toUpperCase()) + ' · ' + esc(r.size)
+        + (r.variant_id ? ' · copy ' + esc(String(r.variant_id).split('.').pop()) : ' · own copy')
+        + (r.override ? '<span class="cr-flag ov">owner override</span>' : '') + (r.recycled ? '<span class="cr-flag rc">recycled</span>' : '')
+      ).join('<br>')
+    : '<div style="color:var(--faint)">No Studio downloads logged yet.</div>';
+}
+
 async function loadConnections(){
   const box = $('#connBody');
   let ig;
@@ -410,6 +494,7 @@ async function loadTikTok(){
       if(!confirm('Disconnect TikTok from Volt? Scheduled TikTok posts will stop publishing.')) return;
       try{ await connFetch('tiktok','disconnect',{}); }catch(e){}
       loadTikTok();
+  loadCopyRotation();
     });
   } else {
     box.innerHTML = (tt.error ? '<p class="h-note" style="color:var(--low)">'+esc(tt.error)+'</p>' : '')

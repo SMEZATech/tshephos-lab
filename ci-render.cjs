@@ -56,8 +56,9 @@ function serve() {
     const errors = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.goto(`http://127.0.0.1:${PORT}/smoke.html`, { waitUntil: "domcontentloaded" });
-    // The matrix renders ~180 designs through a worker; give it room on a cold CI runner.
-    await page.waitForFunction("window.__smoke !== undefined", null, { timeout: 300000 });
+    // The matrix renders ~2,600 designs (every design + every copy-library line x 4 sizes) through a
+    // worker — ~95s locally; give it room on a cold CI runner, inside the job's 15-minute cap.
+    await page.waitForFunction("window.__smoke !== undefined", null, { timeout: 780000 });
     const r = await page.evaluate("window.__smoke");
 
     const failures = r.results.filter((x) => !x.ok);

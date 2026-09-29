@@ -1328,6 +1328,12 @@ function pBullets(r, x, y, items, boxColor, txtColor, limitY, gap) {
     }
     return { y, drawn };
 }
+// pBullet's height WITHOUT drawing it — so a layout can measure its whole stack before committing.
+function pBulletH(r, x, text) {
+    const s = PG ? PG.bul : 58, fs = Math.round(40 * Math.min(1.08, s / 58));
+    const lines = r.wrap(String(text || ''), { family: 'Roboto', weight: '400', size: fs }, r.w - x - s - 28 - pPad());
+    return Math.max(s, lines.length * fs * 1.3);
+}
 function pBullet(r, x, y, text, boxColor, txtColor) {
     const s = PG ? PG.bul : 58, fs = Math.round(40 * Math.min(1.08, s / 58));
     r.fillRoundRect(x, y, s, s, 16, boxColor);
@@ -2082,13 +2088,25 @@ function drawFindPros(r, dir, v, a) {
     let y = pLogo(r, a, PC.paper) + pV(8);
     r.drawLines([String(v.eyebrow || 'One request. Many quotes.').toUpperCase()],
         { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: accA.text }); y += pV(62);
-    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.03, { max: pT(100), min: 46 });
+    // MEASURE, THEN DRAW. The checklist used to step down a fixed pV(82) per item with no floor,
+    // so on Square the third item — with this direction's OWN default copy — sat under the CTA.
+    // The render suite only caught it once it drew real copy instead of a short fixture. Now the
+    // headline box shrinks until headline + sub + all three items clear the button; pBullets'
+    // limit is the last line of defence, not the plan.
+    const itemsA = [v.i1, v.i2, v.i3].filter(Boolean);
+    const limitA = btnY - pV(36);
+    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
+    const listH = itemsA.reduce((h, t) => h + pBulletH(r, pad, t) + pV(24), 0);
+    let fitA = null;
+    for (const boxH of [pV(300), pV(240), pV(190), pV(150), pV(120)]) {
+        fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, boxH, 1.03, { max: pT(100), min: 46 });
+        if (y + fitA.totalH + pV(26) + subA.length * 40 * 1.42 + pV(36) + listH <= limitA) break;
+    }
     r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.paper), lineHeight: 1.03 });
     y += fitA.totalH + pV(26);
-    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
     r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.paper), lineHeight: 1.42 });
     y += subA.length * 40 * 1.42 + pV(36);
-    [v.i1, v.i2, v.i3].forEach(t => { if (t) { pBullet(r, pad, y, t, bulA.fill, pInk(PC.paper)); y += pV(82); } });
+    pBullets(r, pad, y, itemsA, bulA.fill, pInk(PC.paper), limitA, pV(24));
     pButton(r, pad, btnY, iW, v.cta || 'Get instant quotes →', accA.fill, accA.on);
 }
 
@@ -3246,11 +3264,24 @@ function drawFunding(r, dir, v, a) {
         r.radialGlow(0, H, 500, 'rgba(10,44,61,0.45)', 'rgba(10,44,61,0)');
         let y = pLogo(r, a, PC.red);   // this direction's background is the brand PRIMARY, not navy
         r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: PC.off }); y += pV(58);
-        const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(260), 1.04, { max: pT(86), min: 42 });
+        // The card is pinned above the CTA while headline + sub flow down from the logo — and
+        // nothing stopped the two meeting. On Square the DEFAULT copy's last sub line was drawn
+        // under the card. Measure first: shrink the headline box, then the sub size, until the
+        // text clears the card; if even the tightest setting can't, drop sub lines rather than
+        // bury them.
+        const cardH = pV(200), cardY = btnY - pV(40) - cardH, textLimit = cardY - pV(28);
+        let fit = null, sub = [], subSize = 40;
+        search:
+        for (const sz of [40, 36, 33]) {
+            for (const boxH of [pV(260), pV(210), pV(170), pV(140)]) {
+                fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, boxH, 1.04, { max: pT(86), min: 42 });
+                sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: sz }, iW); subSize = sz;
+                if (y + fit.totalH + pV(22) + sub.length * sz * 1.45 <= textLimit) break search;
+            }
+        }
         r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, pad, y, iW, { color: PC.white, lineHeight: 1.04 }); y += fit.totalH + pV(22);
-        const sub = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-        r.drawLines(sub, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: PC.off, lineHeight: 1.45 });
-        const cardH = pV(200), cardY = btnY - pV(40) - cardH;
+        while (sub.length && y + sub.length * subSize * 1.45 > textLimit) sub = sub.slice(0, -1);
+        r.drawLines(sub, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW, { color: PC.off, lineHeight: 1.45 });
         r.fillRoundRect(pad, cardY, iW, cardH, 30, PC.paper);
         r.drawLines([String(v.cardk || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad + 40, cardY + pV(38), iW - 80, { color: PC.red });
         r.drawLines([String(v.cardh || '')], { family: 'Oswald', weight: '700', size: 50 }, pad + 40, cardY + pV(82), iW - 80, { color: pInk(PC.paper) });
