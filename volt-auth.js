@@ -378,7 +378,7 @@
     '#va-pop .sep{height:1px;background:rgba(255,255,255,.09);margin:5px 4px;}' +
     '@media(max-width:640px){body{padding-left:0 !important;padding-bottom:62px !important;}#va-rail{flex-direction:row;align-items:center;top:auto;bottom:0;width:100% !important;height:62px;padding:0 6px;border-right:none;border-top:1px solid rgba(255,255,255,.08);overflow-x:auto;overflow-y:hidden;box-shadow:none !important;}#va-rail .r-logo,#va-rail .r-spacer,.r-grp,.r-gap{display:none !important;}.r-tile{height:48px;min-width:54px;justify-content:center;padding:0 10px;}.r-tile .lb,#va-rail .r-av .lb{display:none;}.r-tile.on::before{left:8px;right:8px;top:auto;bottom:2px;width:auto;height:3px;border-radius:3px 3px 0 0;}#va-pop{left:8px;right:8px;width:auto;}}';
 
-  function injectCSS() { if (document.getElementById("va-style")) return; var st = document.createElement("style"); st.id = "va-style"; st.textContent = CSS; document.head.appendChild(st); }
+  function injectCSS() { injectRainCSS(); if (document.getElementById("va-style")) return; var st = document.createElement("style"); st.id = "va-style"; st.textContent = CSS; document.head.appendChild(st); }
 
   // The one page-chrome detail volt-auth.js doesn't itself draw: each page's own <title>Volt —
   // X</title>. Rewriting it here (rather than editing every page's <head>) keeps this file the
@@ -610,6 +610,7 @@
   /* ---------- sign-in gate ---------- */
   function showGate(errMsg) {
     injectCSS();
+    hideBoot();
     if (errMsg === "SETUP_INCOMPLETE") errMsg = BRAND.name + " isn’t fully set up yet — its Supabase project hasn’t been connected. Expected before launch, not a bug.";
     document.documentElement.style.overflow = "hidden";
     var g = document.getElementById("va-gate");
@@ -679,6 +680,7 @@
   /* ---------- set a new password (arrives here from the recovery email link) ---------- */
   function showReset() {
     injectCSS();
+    hideBoot();
     var g = document.getElementById("va-gate"); if (g) g.remove();
     if (document.getElementById("va-reset")) return;
     document.documentElement.style.overflow = "hidden";
@@ -1878,6 +1880,7 @@
 
   function showApp() {
     var g = document.getElementById("va-gate"); if (g) g.remove();
+    hideBoot();
     document.documentElement.style.overflow = "";
     showBadge();
     initCmdK();
@@ -1896,6 +1899,182 @@
     if (f) { try { localStorage.removeItem("volt_just_updated"); } catch (e) {} showToast("✓ You're on the latest version"); }
   }
 
+  /* ---------- lightning rain: THE loading state ---------- */
+  // Joel, 2026-09-29: "going forward when there is loading, render the lightning design like
+  // rain drops." So loading has ONE look across the whole app, and it lives here, in the file
+  // every page already loads first:
+  //   · .spinner — every page's little inline spinner (7 pages each defined their own spinning
+  //     ring) is restyled into bolts falling through a 14px window. No page needed editing.
+  //   · .skel — the skeleton cards shown while results load get bolts raining through them.
+  //   · the boot screen — a full-screen downpour while the session is checked (this used to flash
+  //     the sign-in form on every page load, even for someone already signed in).
+  //   · window.voltRain.mount(el) / .overlay(label) — for any NEW loading state. Use these; don't
+  //     add another spinner.
+  // The glyph is Volt's own bolt (the same path as the rail's Campaign icon). Another brand gets a
+  // plain raindrop — a Vantly screen raining Volt's lightning would be a brand leak (same reason
+  // the sleep screen's rain spells BRAND.name, not "VOLT").
+  var RAIN_IS_VOLT = BRAND === BRANDS.volt;
+  var RAIN_PATH = RAIN_IS_VOLT ? "M13 2.5L4.5 13.2h6.2L10 21.5l8.9-11H12z"
+                               : "M12 2.5C12 2.5 5 11 5 15.5a7 7 0 0 0 14 0C19 11 12 2.5 12 2.5z";
+  var RAIN_RGB = (BRAND.theme && BRAND.theme.accentRgb) || "182,255,61";
+  function rainSvgUri(inner, vb) {
+    return 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb + '">' + inner + '</svg>') + '")';
+  }
+  // One glyph, for the inline spinner. A tile of scattered glyphs, for skeletons — scattered so a
+  // repeating mask reads as rain, not wallpaper.
+  var RAIN_ONE = rainSvgUri('<path d="' + RAIN_PATH + '"/>', "0 0 24 24");
+  var RAIN_TILE = rainSvgUri([[14, 6, 1.1], [112, 44, 1.5], [168, 4, .9], [58, 108, 1.3], [150, 150, 1], [8, 186, .85], [196, 96, 1.2]]
+    .map(function (p) { return '<path transform="translate(' + p[0] + ' ' + p[1] + ') scale(' + p[2] + ')" d="' + RAIN_PATH + '"/>'; }).join(""), "0 0 230 240");
+  function rainCSS() {
+    var m = function (img, pos) { return "-webkit-mask:" + img + " " + pos + ";mask:" + img + " " + pos + ";"; };
+    return "" +
+      // Inline spinner. !important because every page ships its own .spinner (a bordered ring on
+      // a rotate animation) and this has to win regardless of which loaded first.
+      ".spinner{display:inline-block;width:17px !important;height:18px !important;border:0 !important;border-radius:0 !important;background:none !important;animation:none !important;position:relative !important;overflow:hidden !important;vertical-align:-3px;color:rgb(" + RAIN_RGB + ");}" +
+      // On a filled (accent) button the bolts take the button's own label colour, or they'd be
+      // lime-on-lime. Loose status text keeps the brand colour.
+      "button .spinner,[class*=btn] .spinner{color:inherit;}" +
+      ".spinner.hidden{display:none !important;}" +
+      ".spinner::before,.spinner::after{content:'';position:absolute;top:0;left:0;width:10px;height:13px;background:currentColor;" + m(RAIN_ONE, "center/contain no-repeat") + "animation:vrDrop .62s linear infinite;}" +
+      ".spinner::after{left:9px;width:8px;height:10px;opacity:.7;animation-delay:-.31s;animation-duration:.55s;}" +
+      "@keyframes vrDrop{0%{transform:translateY(-14px);opacity:0}18%{opacity:1}82%{opacity:1}100%{transform:translateY(19px);opacity:0}}" +
+      // Skeletons: two layers of rain at different sizes and speeds (parallax), over the page's
+      // own shimmer. Each layer starts one tile above the card and falls exactly one tile, so the
+      // loop is seamless.
+      ".skel{position:relative;overflow:hidden;}" +
+      ".skel::before,.skel::after{content:'';position:absolute;left:0;right:0;bottom:0;pointer-events:none;background:rgba(" + RAIN_RGB + ",.26);}" +
+      ".skel::before{top:-240px;" + m(RAIN_TILE, "0 0/230px 240px repeat") + "animation:vrSkelA 1.7s linear infinite;}" +
+      ".skel::after{top:-168px;opacity:.5;" + m(RAIN_TILE, "90px 0/161px 168px repeat") + "animation:vrSkelB 1.05s linear infinite;}" +
+      "@keyframes vrSkelA{to{transform:translateY(240px)}}@keyframes vrSkelB{to{transform:translateY(168px)}}" +
+      // Boot screen.
+      "#va-boot{position:fixed;inset:0;z-index:100000;background:#06070A;display:flex;align-items:center;justify-content:center;transition:opacity .35s ease;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}" +
+      "#va-boot.out{opacity:0;pointer-events:none;}" +
+      "#va-boot canvas,.vr-cv{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;}" +
+      "#va-boot .vb-in{position:relative;text-align:center;}" +
+      "#va-boot .vb-logo{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:38px;color:#ECEEF3;margin:0;letter-spacing:-.01em;}" +
+      "#va-boot .vb-logo .d{color:rgb(" + RAIN_RGB + ");}" +
+      "#va-boot .vb-sub{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#888F9D;margin:10px 0 0;}" +
+      ".vr-host{position:relative;overflow:hidden;}" +
+      "#va-rainov{position:fixed;inset:0;z-index:99990;background:rgba(6,7,10,.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;transition:opacity .3s;}" +
+      "#va-rainov .vr-lbl{position:relative;font-family:'JetBrains Mono',monospace;font-size:13px;color:#ECEEF3;background:rgba(10,11,15,.7);border:1px solid rgba(255,255,255,.1);padding:10px 16px;border-radius:12px;}" +
+      "@media(prefers-reduced-motion:reduce){.spinner::before,.spinner::after,.skel::before,.skel::after{animation:none !important;}}";
+  }
+  function injectRainCSS() {
+    if (document.getElementById("va-rain-style")) return;
+    var st = document.createElement("style"); st.id = "va-rain-style"; st.textContent = rainCSS();
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  // Canvas downpour. Bigger drops are "nearer": faster, brighter, with a longer streak; each one
+  // lands with a small splash and respawns at the top. Stops by itself once the canvas leaves the
+  // page, so a caller that forgets stop() can't leak an animation loop.
+  function rainOn(cv, opts) {
+    opts = opts || {};
+    var ctx = cv.getContext && cv.getContext("2d"); if (!ctx) return { stop: function () {} };
+    var glyph = (typeof Path2D === "function") ? new Path2D(RAIN_PATH) : null;
+    var rgb = opts.rgb || RAIN_RGB, dpr = Math.min(2, window.devicePixelRatio || 1);
+    var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var W = 0, H = 0, drops = [], splashes = [], raf = 0, stopped = false, SLANT = 0.14;
+    function spawn(d, anywhere) {
+      var z = Math.random();                               // depth: 0 far … 1 near
+      d.s = (9 + z * 20) * dpr;                            // glyph size
+      d.v = (5 + z * 9) * dpr * (opts.speed || 1);         // px per frame
+      d.a = 0.25 + z * 0.75;
+      d.x = Math.random() * (W + H * SLANT) - H * SLANT;
+      d.y = anywhere ? Math.random() * H : -d.s - Math.random() * H * 0.5;
+      return d;
+    }
+    function resize() {
+      W = cv.width = Math.max(1, Math.round(cv.clientWidth * dpr));
+      H = cv.height = Math.max(1, Math.round(cv.clientHeight * dpr));
+      var n = Math.round(Math.min(140, Math.max(14, (W * H) / (dpr * dpr) / (opts.sparse ? 17000 : 11000))));
+      drops = []; for (var i = 0; i < n; i++) drops.push(spawn({}, true));
+    }
+    function drawGlyph(x, y, s, a) {
+      ctx.save(); ctx.translate(x - s / 2, y - s); ctx.scale(s / 24, s / 24);
+      ctx.fillStyle = "rgba(" + rgb + "," + a + ")";
+      if (glyph) ctx.fill(glyph); else ctx.fillRect(8, 2, 8, 20);
+      ctx.restore();
+    }
+    function frame() {
+      if (stopped || !cv.isConnected) return;
+      raf = requestAnimationFrame(frame);
+      if (cv.clientWidth * dpr !== W || cv.clientHeight * dpr !== H) resize();
+      ctx.clearRect(0, 0, W, H);
+      for (var i = 0; i < drops.length; i++) {
+        var d = drops[i], len = d.v * 4.5;
+        // the streak: a fading line trailing up and back along the fall
+        var g = ctx.createLinearGradient(d.x - len * SLANT, d.y - d.s - len, d.x, d.y - d.s * 0.6);
+        g.addColorStop(0, "rgba(" + rgb + ",0)"); g.addColorStop(1, "rgba(" + rgb + "," + (d.a * 0.45) + ")");
+        ctx.strokeStyle = g; ctx.lineWidth = Math.max(1, d.s * 0.07); ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(d.x - len * SLANT, d.y - d.s - len); ctx.lineTo(d.x, d.y - d.s * 0.6); ctx.stroke();
+        drawGlyph(d.x, d.y, d.s, d.a);
+        d.y += d.v; d.x += d.v * SLANT;
+        if (d.y > H) { if (d.a > 0.5) splashes.push({ x: d.x, r: d.s * 0.2, a: d.a, s: d.s }); spawn(d, false); }
+      }
+      for (var j = splashes.length - 1; j >= 0; j--) {
+        var p = splashes[j];
+        ctx.strokeStyle = "rgba(" + rgb + "," + (p.a * 0.7) + ")"; ctx.lineWidth = Math.max(1, p.s * 0.06);
+        ctx.beginPath(); ctx.ellipse(p.x, H - 2 * dpr, p.r, p.r * 0.28, 0, Math.PI, 0); ctx.stroke();
+        p.r += p.s * 0.09; p.a -= 0.06;
+        if (p.a <= 0) splashes.splice(j, 1);
+      }
+    }
+    resize();
+    if (still) {   // reduced motion: one quiet, static scatter — no animation loop at all
+      for (var k = 0; k < drops.length; k++) drawGlyph(drops[k].x, drops[k].y, drops[k].s, drops[k].a * 0.5);
+    } else frame();
+    return { stop: function () { stopped = true; cancelAnimationFrame(raf); } };
+  }
+  function rainCanvas(host) {
+    var cv = document.createElement("canvas"); cv.className = "vr-cv"; cv.setAttribute("aria-hidden", "true");
+    host.insertBefore(cv, host.firstChild);
+    return cv;
+  }
+  window.voltRain = {
+    // Rain inside any element (a results panel, a preview box). Returns { stop() }.
+    mount: function (el, opts) {
+      injectRainCSS();
+      if (!el) return { stop: function () {} };
+      el.classList.add("vr-host");
+      var cv = rainCanvas(el), h = rainOn(cv, Object.assign({ sparse: true }, opts || {}));
+      return { stop: function () { h.stop(); cv.remove(); el.classList.remove("vr-host"); } };
+    },
+    // A full-screen downpour with a label, for a blocking wait. Returns { update(label), done() }.
+    overlay: function (label) {
+      injectRainCSS();
+      var ov = document.createElement("div"); ov.id = "va-rainov"; ov.setAttribute("role", "status");
+      ov.innerHTML = '<div class="vr-lbl"></div>';
+      ov.firstChild.textContent = label || "Working…";
+      document.body.appendChild(ov);
+      var h = rainOn(rainCanvas(ov));
+      return {
+        update: function (t) { ov.lastChild.textContent = t; },
+        done: function () { ov.style.opacity = "0"; setTimeout(function () { h.stop(); ov.remove(); }, 300); }
+      };
+    },
+    path: RAIN_PATH
+  };
+
+  // Boot screen: covers the page (same job the gate used to do on load — nothing shows
+  // unauthenticated) but says "one moment" instead of asking an already-signed-in person to sign in.
+  var _bootRain = null;
+  function showBoot() {
+    injectRainCSS();
+    if (document.getElementById("va-boot")) return;
+    document.documentElement.style.overflow = "hidden";
+    var b = document.createElement("div"); b.id = "va-boot"; b.setAttribute("role", "status");
+    b.innerHTML = '<div class="vb-in"><p class="vb-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
+      '<p class="vb-sub">Charging up…</p></div>';
+    (document.body || document.documentElement).appendChild(b);
+    _bootRain = rainOn(rainCanvas(b));
+  }
+  function hideBoot() {
+    var b = document.getElementById("va-boot"); if (!b) return;
+    b.classList.add("out");
+    setTimeout(function () { if (_bootRain) _bootRain.stop(); _bootRain = null; b.remove(); }, 380);
+  }
+
   /* ---------- init ---------- */
   function loadSb(cb) {
     if (window.supabase && window.supabase.createClient) return cb();
@@ -1909,7 +2088,12 @@
     injectCSS();
     applyBrandChrome();
     if (!BRAND_READY) { showGate("SETUP_INCOMPLETE"); return; } // fail closed, never touch Volt's real project
-    showGate(); // show immediately so nothing flashes unauthenticated
+    // Cover the page immediately so nothing shows unauthenticated — with the lightning-rain boot
+    // screen, not the sign-in form: most loads are someone already signed in, and flashing a
+    // login form at them on every page was the old behaviour. The form only appears once we KNOW
+    // there's no session (or if the check hangs — 9s is a broken network, not a slow one).
+    showBoot();
+    setTimeout(function () { if (document.getElementById("va-boot") && !session) showGate(); }, 9000);
     loadSb(function () {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
       // A brand-neutral marketing page (signup.html, say) can carry its own polished form and
@@ -1922,6 +2106,7 @@
         session = r.data.session;
         if (recovering) showReset();
         else if (session) showApp();
+        else showGate();
         sb.auth.onAuthStateChange(function (_e, s) {
           session = s;
           if (_e === "PASSWORD_RECOVERY") { showReset(); return; }
