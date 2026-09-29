@@ -227,7 +227,7 @@
       <button type="button" class="cal-navbtn" id="calRefresh" title="Refresh">↻</button>
       <button type="button" class="cal-newbtn" id="calNewPost">+ New post</button>
     </div>
-    <div id="calBody"><span class="empty">Loading your schedule…</span></div>
+    <div id="calBody"><span class="empty"><span class="spinner"></span> Loading your schedule…</span></div>
   </div>
 </main>
 
@@ -249,7 +249,7 @@
           <div class="chips" id="igChip" style="margin-bottom:9px;"></div>
           <div class="chips" id="fbChip" style="margin-bottom:9px;"></div>
           <div class="chips" id="ttChip" style="margin-bottom:9px;"></div>
-          <div class="chips" id="scChannels"><span class="empty">Loading your channels…</span></div>
+          <div class="chips" id="scChannels"><span class="empty"><span class="spinner"></span> Loading your channels…</span></div>
         </div>
         <div class="blk">
           <label class="lbl">Post type</label>
@@ -1018,7 +1018,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && $('#composeScri
 
 // ---- Queue: fetch all three sources, feed the shape card + the calendar ----
 async function loadQueue(){
-  const box=$('#calBody'); if(box && !calItems.length) box.innerHTML='<span class="empty">Loading your schedule…</span>';
+  const box=$('#calBody'); if(box && !calItems.length) box.innerHTML='<span class="empty"><span class="spinner"></span> Loading your schedule…</span>';
   // Postiz and Volt's own two direct queues are independent sources — one being unconfigured or
   // erroring must never hide the other two.
   let q = [];

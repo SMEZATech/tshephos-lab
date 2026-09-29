@@ -1176,7 +1176,7 @@
   function loadBilling() {
     var box = document.getElementById("va-bill");
     if (!box) return;
-    box.innerHTML = '<p class="va-keys-note" style="margin:12px 0 2px;">Loading plan…</p>';
+    box.innerHTML = '<p class="va-keys-note" style="margin:12px 0 2px;"><span class="spinner"></span> Loading plan…</p>';
     fetch(BILL_API + "?action=usage").then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (o) {
       if (!o.ok) { box.innerHTML = ""; return; }
       var j = o.j;
@@ -1935,8 +1935,8 @@
       // lime-on-lime. Loose status text keeps the brand colour.
       "button .spinner,[class*=btn] .spinner{color:inherit;}" +
       ".spinner.hidden{display:none !important;}" +
-      ".spinner::before,.spinner::after{content:'';position:absolute;top:0;left:0;width:10px;height:13px;background:currentColor;" + m(RAIN_ONE, "center/contain no-repeat") + "animation:vrDrop .62s linear infinite;}" +
-      ".spinner::after{left:9px;width:8px;height:10px;opacity:.7;animation-delay:-.31s;animation-duration:.55s;}" +
+      ".spinner::before,.spinner::after{content:'';position:absolute;top:0;left:0;width:10px;height:13px;background:currentColor;" + m(RAIN_ONE, "center/contain no-repeat") + "animation:vrDrop .8s linear infinite;}" +
+      ".spinner::after{left:9px;width:8px;height:10px;opacity:.7;animation-delay:-.31s;animation-duration:.68s;}" +
       "@keyframes vrDrop{0%{transform:translateY(-14px);opacity:0}18%{opacity:1}82%{opacity:1}100%{transform:translateY(19px);opacity:0}}" +
       // Skeletons: two layers of rain at different sizes and speeds (parallax), over the page's
       // own shimmer. Each layer starts one tile above the card and falls exactly one tile, so the
@@ -1947,7 +1947,7 @@
       ".skel::after{top:-168px;opacity:.5;" + m(RAIN_TILE, "90px 0/161px 168px repeat") + "animation:vrSkelB 1.05s linear infinite;}" +
       "@keyframes vrSkelA{to{transform:translateY(240px)}}@keyframes vrSkelB{to{transform:translateY(168px)}}" +
       // Boot screen.
-      "#va-boot{position:fixed;inset:0;z-index:100000;background:#06070A;display:flex;align-items:center;justify-content:center;transition:opacity .35s ease;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}" +
+      "#va-boot{position:fixed;inset:0;z-index:100000;background:#06070A;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}" +
       "#va-boot.out{opacity:0;pointer-events:none;}" +
       "#va-boot canvas,.vr-cv{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;}" +
       "#va-boot .vb-in{position:relative;text-align:center;}" +
@@ -2031,14 +2031,18 @@
     host.insertBefore(cv, host.firstChild);
     return cv;
   }
+  var RAIN_MIN_MS = 2000; // "a couple more seconds" (Joel) — a floor under how briefly the rain can show
+  function rainDelay(startedAt, cb) { var left = RAIN_MIN_MS - (Date.now() - startedAt); if (left > 0) setTimeout(cb, left); else cb(); }
+
   window.voltRain = {
     // Rain inside any element (a results panel, a preview box). Returns { stop() }.
     mount: function (el, opts) {
       injectRainCSS();
       if (!el) return { stop: function () {} };
       el.classList.add("vr-host");
+      var startedAt = Date.now();
       var cv = rainCanvas(el), h = rainOn(cv, Object.assign({ sparse: true }, opts || {}));
-      return { stop: function () { h.stop(); cv.remove(); el.classList.remove("vr-host"); } };
+      return { stop: function () { rainDelay(startedAt, function () { h.stop(); cv.remove(); el.classList.remove("vr-host"); }); } };
     },
     // A full-screen downpour with a label, for a blocking wait. Returns { update(label), done() }.
     overlay: function (label) {
@@ -2047,10 +2051,11 @@
       ov.innerHTML = '<div class="vr-lbl"></div>';
       ov.firstChild.textContent = label || "Working…";
       document.body.appendChild(ov);
+      var startedAt = Date.now();
       var h = rainOn(rainCanvas(ov));
       return {
         update: function (t) { ov.lastChild.textContent = t; },
-        done: function () { ov.style.opacity = "0"; setTimeout(function () { h.stop(); ov.remove(); }, 300); }
+        done: function () { rainDelay(startedAt, function () { ov.style.opacity = "0"; setTimeout(function () { h.stop(); ov.remove(); }, 450); }); }
       };
     },
     path: RAIN_PATH
@@ -2058,7 +2063,7 @@
 
   // Boot screen: covers the page (same job the gate used to do on load — nothing shows
   // unauthenticated) but says "one moment" instead of asking an already-signed-in person to sign in.
-  var _bootRain = null;
+  var _bootRain = null, _bootShownAt = 0;
   function showBoot() {
     injectRainCSS();
     if (document.getElementById("va-boot")) return;
@@ -2067,12 +2072,16 @@
     b.innerHTML = '<div class="vb-in"><p class="vb-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
       '<p class="vb-sub">Charging up…</p></div>';
     (document.body || document.documentElement).appendChild(b);
+    _bootShownAt = Date.now();
     _bootRain = rainOn(rainCanvas(b));
   }
   function hideBoot() {
-    var b = document.getElementById("va-boot"); if (!b) return;
-    b.classList.add("out");
-    setTimeout(function () { if (_bootRain) _bootRain.stop(); _bootRain = null; b.remove(); }, 380);
+    var b = document.getElementById("va-boot"); if (!b || b._hiding) return;
+    b._hiding = true;
+    rainDelay(_bootShownAt, function () {
+      b.classList.add("out");
+      setTimeout(function () { if (_bootRain) _bootRain.stop(); _bootRain = null; b.remove(); }, 450);
+    });
   }
 
   /* ---------- init ---------- */

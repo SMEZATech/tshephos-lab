@@ -3540,7 +3540,7 @@ async function saveLook(){
 }
 async function openLooks(){
   const modal=$('#looksModal'), list=$('#looksList');
-  list.innerHTML='<p class="capstatus busy" style="margin:0;">Loading…</p>'; modal.style.display='flex';
+  list.innerHTML='<p class="capstatus busy" style="margin:0;"><span class="spinner"></span> Loading…</p>'; modal.style.display='flex';
   try{
     const r = await fetch(LOOKS_URL+'?type=videolook');
     let data={}; try{ data=await r.json(); }catch(_){}

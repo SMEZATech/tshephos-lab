@@ -2508,7 +2508,7 @@ async function saveDraft(){
 }
 async function openDrafts(){
   const modal=document.getElementById('draftsModal'), list=document.getElementById('draftsList');
-  list.innerHTML='<p class="kit-status busy" style="margin:0;">Loading…</p>'; modal.style.display='flex';
+  list.innerHTML='<p class="kit-status busy" style="margin:0;"><span class="spinner"></span> Loading…</p>'; modal.style.display='flex';
   try{
     const r = await fetch(PROJECTS_URL+'?type=email');
     let data={}; try{ data=await r.json(); }catch(_){}

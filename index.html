@@ -206,7 +206,7 @@
       <span class="lbl" style="margin:0; color:var(--accent);">🧠 What <span data-brand-name></span> has learned about your brand</span>
       <button class="mini" id="brainRefresh" title="Recompute from your latest performance">↻ Refresh</button>
     </div>
-    <div id="brainBody"><p class="go-note" style="margin:0;">Loading…</p></div>
+    <div id="brainBody"><p class="go-note" style="margin:0;"><span class="spinner"></span> Loading…</p></div>
   </section>
 
   <div class="error" id="error" hidden></div>
@@ -505,7 +505,7 @@ async function saveDraft(){
 }
 async function openDrafts(){
   const modal=$('#draftsModal'), list=$('#draftsList');
-  list.innerHTML='<p class="kit-status busy" style="margin:0;">Loading…</p>'; modal.style.display='flex';
+  list.innerHTML='<p class="kit-status busy" style="margin:0;"><span class="spinner"></span> Loading…</p>'; modal.style.display='flex';
   try{
     const r = await fetch(PROJECTS_URL+'?type=copy');
     let data={}; try{ data=await r.json(); }catch(_){}
