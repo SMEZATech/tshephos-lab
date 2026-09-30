@@ -311,6 +311,14 @@
     '.va-tip-s{font-size:12.5px;color:#888F9D;line-height:1.45;}' +
     '.va-forgot{display:block;width:100%;margin-top:12px;background:none;border:none;color:#7FC8FF;font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.03em;cursor:pointer;text-align:center;}' +
     '.va-forgot:hover{color:#B6FF3D;text-decoration:underline;}' +
+    // Google's own button spec (white fill, their 4-colour "G", 1px #747775 border) — this is
+    // the one place brand tokens don't apply: Google's identity guidelines require their mark
+    // rendered as issued, not recoloured to match the host product.
+    '.va-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1f1f1f;border:1px solid #747775;border-radius:11px;padding:11px 13px;font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:600;font-size:14.5px;cursor:pointer;transition:background .15s,box-shadow .15s;}' +
+    '.va-google:hover{background:#f7f7f7;box-shadow:0 1px 2px rgba(0,0,0,.15);}' +
+    '.va-google:disabled{opacity:.6;cursor:not-allowed;}' +
+    '.va-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:#5B616D;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;}' +
+    '.va-divider::before,.va-divider::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1);}' +
     '.va-card{width:100%;max-width:430px;background:linear-gradient(180deg,#14171F,#0f1218);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:30px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9);color:#ECEEF3;}' +
     '.va-logo{font-family:"Unbounded","Plus Jakarta Sans",sans-serif;font-weight:800;font-size:32px;letter-spacing:-.02em;margin:0;}.va-logo .d{color:#B6FF3D;}' +
     '.va-sub{color:#888F9D;font-size:14px;margin:6px 0 20px;line-height:1.5;}' +
@@ -616,10 +624,19 @@
     var g = document.getElementById("va-gate");
     if (!g) {
       g = document.createElement("div"); g.id = "va-gate";
+      // Google's redirect-based OAuth flow needs the app running as a real page at a fixed
+      // origin Google can redirect back to — that's the web deployment, not the desktop shell
+      // (an Electron renderer has no such origin, and wiring a custom-protocol callback for it
+      // is a separate, main-process-level change nobody's asked for yet). Web-only for now.
+      var GOOGLE_G_SVG = '<svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>';
+      var googleBlock = isDesktop() ? "" :
+          '<button type="button" class="va-google" id="va-google"><span style="display:inline-flex;">' + GOOGLE_G_SVG + '</span>Continue with Google</button>' +
+          '<div class="va-divider">or</div>';
       g.innerHTML =
         '<div class="va-card">' +
           '<p class="va-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
           '<p class="va-sub">' + esc(BRAND.tagline) + ' Sign in, or create an account to continue.</p>' +
+          googleBlock +
           '<label class="va-lbl" for="va-email">Email</label>' +
           '<input class="va-input" id="va-email" type="email" autocomplete="username" placeholder="' + esc(BRAND.emailPlaceholder) + '" />' +
           '<label class="va-lbl" for="va-pw">Password</label>' +
@@ -631,9 +648,20 @@
         '</div>';
       document.body.appendChild(g);
       var email = document.getElementById("va-email"), pw = document.getElementById("va-pw"), err = document.getElementById("va-err");
-      var inB = document.getElementById("va-in"), upB = document.getElementById("va-up");
-      function busy(on) { inB.disabled = on; upB.disabled = on; }
+      var inB = document.getElementById("va-in"), upB = document.getElementById("va-up"), gB = document.getElementById("va-google");
+      function busy(on) { inB.disabled = on; upB.disabled = on; if (gB) gB.disabled = on; }
       function fail(m) { err.textContent = m || ""; busy(false); }
+      if (gB) gB.addEventListener("click", function () {
+        if (!sb) return; busy(true); err.style.color = ""; err.textContent = "Redirecting to Google…";
+        // No .then/.catch needed for the success path — signInWithOAuth navigates the whole
+        // page away to Google immediately; supabase-js picks the session back up on its own
+        // once Google redirects here, via the same onAuthStateChange listener init() already
+        // wires up. A rejected promise here means the redirect itself never happened (provider
+        // not enabled in this brand's Supabase project, network failure, etc.).
+        sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } })
+          .then(function (r) { if (r.error) fail(r.error.message); })
+          .catch(function (e) { fail(e.message); });
+      });
       inB.addEventListener("click", function () {
         if (!sb) return; busy(true); err.textContent = "Signing in…";
         sb.auth.signInWithPassword({ email: email.value.trim(), password: pw.value })
