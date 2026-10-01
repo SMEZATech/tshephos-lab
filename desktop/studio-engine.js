@@ -1649,7 +1649,6 @@ function drawHub(r, dir, v, a) {
     // A: THE MEMBERSHIP CARD. What you get, in the order a founder cares about.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(0, H, 560, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
-    pHeritageBand(r); pHeritageChip(r);
     const acc = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text });
@@ -1726,7 +1725,6 @@ function drawGlossary(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.navy, PC.red);
     const accT = pAccentText(PC.paper, PC.red);
-    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.paper) + pV(12);
     r.drawLines([String(v.eyebrow || 'Business glossary').toUpperCase()], { family: 'Oswald', weight: '700', size: 30 }, pad, y, iW, { color: accT });
     y += pV(46);
@@ -1896,7 +1894,6 @@ function drawWebinar(r, dir, v, a) {
     // A: THE SESSION CARD. Date first, because that is the decision — everything else is detail.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, 0, 540, 'rgba(156,28,31,0.24)', 'rgba(156,28,31,0)');
-    pHeritageBand(r); // no chip: the format badge (below) already owns this corner
     const acc = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     { const t = String(v.format || 'Online').toUpperCase();
@@ -2002,7 +1999,6 @@ function drawProviders(r, dir, v, a) {
     // A: The pitch — headline + three reasons to join, dark and direct
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
-    pHeritageBand(r); // no chip: the URL already rides top-right on the logo line (below)
     const accA = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     // The URL rides on the logo line, top-right. At the bottom it collided with the third bullet,
@@ -2084,7 +2080,6 @@ function drawFindPros(r, dir, v, a) {
     r.fillBg(PC.paper);
     const accA = pSolid(PC.paper, PC.red, PC.navy), bulA = pSolid(PC.paper, PC.navy, PC.red);
     r.rect(0, 0, 26, H, accA.fill);
-    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.paper) + pV(8);
     r.drawLines([String(v.eyebrow || 'One request. Many quotes.').toUpperCase()],
         { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: accA.text }); y += pV(62);
@@ -2252,9 +2247,6 @@ function drawPodcast(r, dir, v, a) {
     // A: Episode card — show identity, episode number, title, guest, where to listen
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
     r.radialGlow(0, H, 560, 'rgba(156,28,31,0.32)', 'rgba(156,28,31,0)');
-    // Band only, no chip: this direction already puts a "SME PODCAST" masthead top-right (below),
-    // the exact spot pHeritageChip claims — a real per-family conflict, not skipped by accident.
-    pHeritageBand(r);
     const acc = pSolid(PC.navy, PC.red, PC.paper);
     let y = pLogo(r, a, PC.navy);
     // Show name rides TOP-RIGHT on the logo line — a masthead, not a pill in the content column,
@@ -2396,7 +2388,6 @@ function drawFeature(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.red, PC.navy);
     r.rect(0, 0, 26, H, acc.fill);
-    pHeritageBand(r); pHeritageChip(r);
     const top = pLogo(r, a, PC.paper) + pV(6);
     const attrH = pV(120);
     const quoteMarkS = pT(150);
@@ -2566,7 +2557,6 @@ function drawRoundup(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.red, PC.navy);
     r.rect(0, 0, 26, H, acc.fill);
-    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.paper) + pV(6);
     y += pPill(r, pad, y, v.eyebrow || 'This week’s reads', acc.fill, acc.on) + pV(30);
     if (v.head) {
@@ -2660,7 +2650,6 @@ function drawFounder(r, dir, v, a) {
         // Only in the portrait layout: in "wide" the photo panel starts at y=0 on the right side
         // (picY=0, picH=H there), so a full-width top band would cross straight over the founder's
         // face — the same reason direction A (The Cover) is skipped entirely.
-        if (!wide) { pHeritageBand(r); pHeritageChip(r); }
         let y = pLogo(r, a, PC.paper) + pV(6);
         r.rect(pad, y, 96, 10, acc.fill); y += pV(30);
         pPill(r, pad, y, v.eyebrow || 'Founder Focus', acc.fill, acc.on); y += (PG ? PG.pill : 64) + pV(34);
@@ -2695,7 +2684,6 @@ function drawFounder(r, dir, v, a) {
     r.fillBg(PC.paper);
     const acc = pSolid(PC.paper, PC.red, PC.navy);
     r.rect(0, 0, 26, H, acc.fill);
-    pHeritageBand(r); pHeritageChip(r);
     const top = pLogo(r, a, PC.paper) + pV(6);
     const ds = pV(128);                                    // a bigger circle than Feature's — here the person IS the subject
     const attrH = ds + pV(30);
@@ -2731,7 +2719,6 @@ function drawMerch(r, dir, v, a) {
     if (dir === 'b') { // Price hero — bold typographic, no photo needed
         r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
         r.radialGlow(W, H, 540, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)');
-        pHeritageBand(r); pHeritageChip(r);
         const acc = pSolid(PC.navy, PC.red, PC.paper);
         let y = pLogo(r, a, PC.navy);
         r.drawLines([String(v.eyebrow || 'Built for founders').toUpperCase()],
@@ -2752,7 +2739,6 @@ function drawMerch(r, dir, v, a) {
     if (dir === 'c') { // The collection — three products with prices, catalogue-style
         r.fillBg(PC.paper);
         const acc = pSolid(PC.paper, PC.red, PC.navy), cta = pSolid(PC.paper, PC.navy, PC.red);
-        pHeritageBand(r); pHeritageChip(r);
         let y = pLogo(r, a, PC.paper) + pV(10);
         r.drawLines([String(v.eyebrow || 'The store is open').toUpperCase()],
             { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: acc.text }); y += pV(58);
@@ -3206,42 +3192,6 @@ function pLogoC(r, assets, on) {
     return pad + 54 + pV(LOGO_GAP - 6);   // centred marks read slightly tighter, so a touch less
 }
 // shared premium helpers
-// ---------------------------------------------------------------------------------------------
-// Heritage Month (September, SA) — a seasonal, opt-in trim. Deliberately geometric/abstract
-// (a chevron band), not any one culture's specific motif — SA has 11 official cultures, and
-// presenting one as "the" heritage pattern is the reductive version of this idea, not the
-// tasteful one. Two pieces, meant to be used together but callable separately: a thin band at
-// the very top edge (drawn BEFORE pLogo, which already starts at pTop() = pad + safeT, so this
-// never competes with the logo for space) and a small corner chip using the same pChip shape
-// already proven elsewhere in this file.
-// The band cycles the SIX official flag colours (Pantone-matched hex, not a guess): green,
-// gold, red, blue, black, white. A thin stroke on every triangle is load-bearing, not decorative
-// — without it, the white chevron disappears into a paper-background family and the black one
-// nearly disappears into a navy-gradient one; the stroke keeps every segment legible on both.
-// ---------------------------------------------------------------------------------------------
-const FLAG_COLORS = ['#007A4D', '#FFB612', '#DE3831', '#002395', '#000000', '#FFFFFF'];
-function pHeritageBand(r) {
-    const W = r.w, h = pV(26), n = Math.ceil(W / h);
-    for (let i = 0; i < n; i++) {
-        const x = i * h;
-        r.ctx.save(); r.ctx.beginPath();
-        r.ctx.moveTo(x, 0); r.ctx.lineTo(x + h / 2, h); r.ctx.lineTo(x + h, 0); r.ctx.closePath();
-        r.ctx.fillStyle = FLAG_COLORS[i % FLAG_COLORS.length];
-        r.ctx.fill();
-        r.ctx.lineWidth = 1.5; r.ctx.strokeStyle = 'rgba(0,0,0,0.18)'; r.ctx.stroke();
-        r.ctx.restore();
-    }
-    return h;
-}
-function pHeritageChip(r) {
-    const t = 'HERITAGE MONTH', w2 = r.textWidth(t, { family: 'Roboto', weight: '700', size: 28 }) + 44;
-    return pChip(r, r.w - pPad() - w2, pTop() - 6, t, PC.red, PC.white);
-}
-function pChip(r, x, y, text, bg, fg) {
-    const f = { family: 'Roboto', weight: '700', size: 28 }, t = String(text || '');
-    const padX = 22, padY = 12, h = 28 + padY * 2, w = r.textWidth(t, f) + padX * 2;
-    r.fillRoundRect(x, y, w, h, 12, bg); r.drawLines([t], f, x + padX, y + padY, w, { color: fg }); return { w, h };
-}
 function pBorderItem(r, x, y, w, bold, text, bar) {
     r.rect(x, y, 10, 76, bar);
     r.drawLines([String(bold || '')], { family: 'Roboto', weight: '700', size: 36 }, x + 30, y + 2, w - 30, { color: '#0a2c3d' });
@@ -3312,7 +3262,6 @@ function drawFunding(r, dir, v, a) {
         // background, a serif headline (Newsreader — already loaded for Business News SA, not a
         // new font dependency), and a sharp-cornered button instead of the house pill+rounded-rect.
         r.fillBg(PC.paper);
-        pHeritageBand(r); pHeritageChip(r);
         let y = pLogo(r, a, PC.paper);
         r.rect(pad, y, 64, 5, PC.red); y += pV(30);
         r.drawLines([String(v.pill || '').toUpperCase()], { family: 'Oswald', weight: '700', size: pT(26) }, pad, y, iW, { color: PC.red }); y += pV(48);
@@ -3345,7 +3294,6 @@ function drawFunding(r, dir, v, a) {
     // A: The Product Spec (navy)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)');
-    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.navy);
     y += pPill(r, pad, y, v.pill, PC.red, PC.white) + pV(34);
     const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(240), 1.02, { max: pT(96), min: 46 });
@@ -3411,7 +3359,6 @@ function drawSolutions(r, dir, v, a) {
     // no author byline; a proper CTA button.
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, '#041219']], 'br');
     r.radialGlow(W, 0, 470, 'rgba(156,28,31,0.22)', 'rgba(156,28,31,0)');
-    pHeritageBand(r); pHeritageChip(r);
     let y = pLogo(r, a, PC.navy) + pV(30);   // extra gap so the eyebrow isn't crowding the logo
     r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: '#ff6b4a' }); y += pV(58);
     r.rect(pad, y, 120, 12, PC.red); y += pV(34);
@@ -3456,7 +3403,6 @@ function drawNewsletter(r, dir, v, a) {
     // A: #1 Hero (navy, centered)
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
     r.radialGlow(0, 0, 470, 'rgba(156,28,31,0.25)', 'rgba(156,28,31,0)');
-    pHeritageBand(r); pHeritageChip(r);
     let y = pLogoC(r, a, PC.navy) + pV(10);
     r.drawLines([String(v.eyebrow || '').toUpperCase()], { family: 'Oswald', weight: '700', size: 32 }, 0, y, W, { color: PC.off, align: 'center' }); y += pV(74);
     const fit = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.05, { max: pT(104), min: 50 });
@@ -3497,7 +3443,6 @@ function drawResources(r, dir, v, a) {
     }
     // A: Guide Mockup (navy, rotated cover, centered) — cover text kept inside the card
     r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-    pHeritageBand(r); pHeritageChip(r);
     let y = pLogoC(r, a, PC.navy);
     { const t = String(v.pill || 'FREE DOWNLOAD').toUpperCase(), f = { family: 'Oswald', weight: '700', size: 30 }, w = r.textWidth(t, f) + 68; r.fillRoundRect((W - w) / 2, y, w, 62, 31, PC.red); r.drawLines([t], f, (W - w) / 2, y + 16, w, { color: '#fff', align: 'center' }); } y += pV(92);
     // The mockup card scales with the canvas so portrait doesn't leave a hole around it.
