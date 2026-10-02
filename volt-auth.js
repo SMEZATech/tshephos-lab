@@ -1,32 +1,32 @@
-﻿/* Volt â€” real auth + per-user keys (v2, Supabase). Â© 2026 Tshepho Joel.
+/* Volt — real auth + per-user keys (v2, Supabase). © 2026 Tshepho Joel.
    Loaded on EVERY page (web + desktop). Gates the app on a real account, attaches the
    session token to every /api call, and on desktop passes the user's own provider keys.
-   The public APP_KEY is retired â€” the server now requires a valid login instead. */
+   The public APP_KEY is retired — the server now requires a valid login instead. */
 (function () {
   "use strict";
 
   /* ---------- brand config (Volt / Vantly) ----------
      ONE deployed codebase, TWO commercial identities. Which brand is active is decided at RUNTIME
-     from the hostname this script is running on â€” never a build step, since these are plain static
+     from the hostname this script is running on — never a build step, since these are plain static
      files served as-is (no bundler). Volt is the unconditional default: any hostname that isn't
      recognised as Vantly's falls straight through to today's exact Volt config, so Volt's own
      install (web + desktop, which serves pages from a local 127.0.0.1 origin, never this hostname)
      is byte-for-byte unaffected by any of this.
-     Everything brand-specific lives HERE â€” visual chrome (gate/rail/settings text), which Supabase
+     Everything brand-specific lives HERE — visual chrome (gate/rail/settings text), which Supabase
      project owns the account data, and which deployment answers /api calls (see the fetch patch
-     below) â€” so bringing up a new commercial brand is "add a row here", not "edit 15 files".
+     below) — so bringing up a new commercial brand is "add a row here", not "edit 15 files".
      VANTLY IS NOT LIVE YET: supabaseUrl/supabaseAnon/apiHost are deliberately blank placeholders
-     until the Vantly Supabase + Vercel projects exist (Joel's own account-level steps â€” this repo
+     until the Vantly Supabase + Vercel projects exist (Joel's own account-level steps — this repo
      has no ability to create either). Left blank on purpose rather than falling back to Volt's
      credentials: silently authenticating Vantly signups against VOLT's Supabase project would mix
-     a future paying customer's data into Joel's own internal org â€” the one thing this whole
+     a future paying customer's data into Joel's own internal org — the one thing this whole
      multi-brand approach exists to avoid. Blank creds show a clear "not configured" gate instead of
      a broken or (worse) silently-wrong one. Fill in the three blanks below once those exist.
   */
   var BRANDS = {
     volt: {
       name: "Volt", wordmark: "Volt.", mark: "V",
-      tagline: "SME South Africaâ€™s marketing suite.",
+      tagline: "SME South Africa’s marketing suite.",
       emailPlaceholder: "you@smesouthafrica.co.za",
       favicon: "", // unset = keep whatever <link rel=icon> each page already declares
       supabaseUrl: "https://ltnjjsadcvqmtczbtxii.supabase.co",
@@ -45,13 +45,13 @@
       emailPlaceholder: "you@yourcompany.com",
       // The logomark from the brand guide, inlined as an SVG data URI so the tab icon ships with
       // the code rather than depending on a hosted file that could 404 on a fresh deployment.
-      // Two ridgelines meeting at a summit with first light breaking over the join â€” the "vantage
+      // Two ridgelines meeting at a summit with first light breaking over the join — the "vantage
       // point", on the ink ground so it holds against both light and dark browser chrome.
       favicon: "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Crect%20width%3D%27100%27%20height%3D%27100%27%20rx%3D%2722%27%20fill%3D%27%2312162a%27%2F%3E%3Cpolygon%20points%3D%2784%2C20%2073%2C20%2047%2C80%2055%2C80%27%20fill%3D%27%233a4070%27%2F%3E%3Cpolygon%20points%3D%2718%2C20%2029%2C20%2055%2C80%2047%2C80%27%20fill%3D%27%23e2924a%27%2F%3E%3Ccircle%20cx%3D%2750%27%20cy%3D%2740%27%20r%3D%277%27%20fill%3D%27%23f4c88b%27%2F%3E%3C%2Fsvg%3E",
       supabaseUrl: "https://wxiaumhgjzysivzaryuu.supabase.co",
       supabaseAnon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4aWF1bWhnanp5c2l2emFyeXV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0OTEzODQsImV4cCI6MjEwNDA2NzM4NH0.EqmA8lDopq9ElNjnt2x5webSTueJ77FEyyiHrq9G-E8",
       apiHost: "https://vantly-xi.vercel.app", // update this once the real vantly.* domain is connected
-      // Vantly's own admin â€” nothing to do with the SME South Africa list above.
+      // Vantly's own admin — nothing to do with the SME South Africa list above.
       adminEmails: ["joelbosega@gmail.com"],
       copyright: "Vantly",
       // Modules that are OFF by default for this brand, hidden at the brand level rather than
@@ -62,17 +62,17 @@
       hiddenModules: ["email", "schedule", "analytics"],
       // The Brand Kit a brand-new org sees before it has saved one of its own. Volt's pages
       // hardcode SME South Africa here, which is right for Volt and badly wrong for a Vantly
-      // customer â€” their first visit would present someone else's company as their own brand.
+      // customer — their first visit would present someone else's company as their own brand.
       // Every field the pages read has to be present, not just the obvious ones: Object.assign
       // merges this OVER the hardcoded kit, so any key left out here keeps SME South Africa's
-      // value â€” `voice` especially, which would otherwise steer a paying customer's copy toward
+      // value — `voice` especially, which would otherwise steer a paying customer's copy toward
       // "South African SME founders".
       defaultBrandKit: {
         id: "vantly", name: "Your brand", primary: "#e2924a", secondary: "#12162a",
         tag: "", cta: "Learn more", url: "", logo: "",
         voice: "Clear, confident and useful. Plain language, short sentences, no hype or jargon. Writes like a capable specialist who respects the reader's time.",
       },
-      // Full visual identity â€” see the Vantly Brand Identity artifact for the reasoning (dusk-to-
+      // Full visual identity — see the Vantly Brand Identity artifact for the reasoning (dusk-to-
       // dawn palette, Fraunces + Public Sans, "vantage point" as two ridgelines meeting at first
       // light). Volt has no `theme` field at all, which is what keeps this whole block a no-op for
       // Volt's own deployment (see injectBrandStyles() below) rather than something to keep in sync.
@@ -84,7 +84,7 @@
         text: "#f4efe6", dim: "#a29cc2", faint: "#6d688a",
         accent: "#e2924a", accentPress: "#c97a35", accentHi: "#f4c88b",
         // The same copper as `accent`, as a bare RGB triplet. Every page tints the accent for
-        // glows/focus rings/badges via rgba(...) literals, which can't take a hex â€” those now read
+        // glows/focus rings/badges via rgba(...) literals, which can't take a hex — those now read
         // rgba(var(--accent-rgb,182,255,61),alpha), so this one value re-points all 61 of them.
         accentRgb: "226,146,74",
         good: "#6bd39a", mid: "#f0b95e", low: "#e8746f", info: "#8ab4d8",
@@ -93,7 +93,7 @@
         // pages use rgba tokens and two, so these have no equivalent in the block above.
         surfaceIn: "#0e1226", surfaceAlt: "#1b2040", surfaceHover: "#242a54",
         borderSolid: "#2b3057", borderHover: "#3d4478",
-        // Every page also hardcodes a family of near-black Volt hexes that no token reached â€”
+        // Every page also hardcodes a family of near-black Volt hexes that no token reached —
         // input wells, raised panels, card gradient ends, progress tracks. Those now read
         // var(--ink-*, <original Volt hex>), so these eight values re-point all ~227 of them and
         // a brand with no theme keeps its own literals untouched.
@@ -110,14 +110,14 @@
     return BRANDS.volt;
   }
   var BRAND = detectBrand();
-  // Deliberately NOT "|| BRANDS.volt.supabaseUrl" â€” an unconfigured Vantly must fail closed with a
+  // Deliberately NOT "|| BRANDS.volt.supabaseUrl" — an unconfigured Vantly must fail closed with a
   // clear message (see init()), never silently authenticate against Volt's real production project.
   var SUPABASE_URL = BRAND.supabaseUrl;
   var SUPABASE_ANON = BRAND.supabaseAnon;
   var BRAND_READY = !!(SUPABASE_URL && SUPABASE_ANON);
   window.voltBrandAdmins = BRAND.adminEmails || []; // admin.html's owner check reads this
   // Studio builds its whole palette through a Tailwind config object evaluated inline, so it can't
-  // be re-skinned by CSS overrides alone the way the token-based pages can. It reads this instead â€”
+  // be re-skinned by CSS overrides alone the way the token-based pages can. It reads this instead —
   // this file loads first in <head>, so the value is always here before that config runs. Null for
   // Volt, which keeps Studio's own lime config exactly as written.
   window.voltBrandTheme = BRAND.theme || null;
@@ -134,18 +134,18 @@
   var sb = null, session = null;
 
   var KEYS = {
-    gemini:     { label: "Google Gemini", sub: "Primary AI + captions + images Â· free", url: "https://aistudio.google.com/apikey" },
+    gemini:     { label: "Google Gemini", sub: "Primary AI + captions + images · free", url: "https://aistudio.google.com/apikey" },
     gemini2:    { label: "Google Gemini (2nd key)", sub: "A 2nd Gemini key from ANOTHER Google account = separate free quota", url: "https://aistudio.google.com/apikey" },
-    groq:       { label: "Groq", sub: "Fast AI fallback + Whisper captions Â· free", url: "https://console.groq.com/keys" },
-    cerebras:   { label: "Cerebras", sub: "Very fast AI fallback Â· free tier", url: "https://cloud.cerebras.ai/" },
-    openrouter: { label: "OpenRouter", sub: "AI fallback, many free models Â· free key", url: "https://openrouter.ai/keys" },
-    mistral:    { label: "Mistral", sub: "AI fallback Â· free tier", url: "https://console.mistral.ai/api-keys/" },
+    groq:       { label: "Groq", sub: "Fast AI fallback + Whisper captions · free", url: "https://console.groq.com/keys" },
+    cerebras:   { label: "Cerebras", sub: "Very fast AI fallback · free tier", url: "https://cloud.cerebras.ai/" },
+    openrouter: { label: "OpenRouter", sub: "AI fallback, many free models · free key", url: "https://openrouter.ai/keys" },
+    mistral:    { label: "Mistral", sub: "AI fallback · free tier", url: "https://console.mistral.ai/api-keys/" },
     openai:     { label: "OpenAI", sub: "AI fallback (uses your credits)", url: "https://platform.openai.com/api-keys" },
     postiz:     { label: "Postiz", sub: "Live analytics, top posts & scheduling", url: "https://postiz.com" },
     kit:        { label: "Kit", sub: "Newsletters + email stats", url: "https://app.kit.com/account_settings/developer_settings" },
-    wpUrl:      { label: "WordPress site URL", sub: "Hosts images (Studio â†’ Scheduler, Email uploads)", url: "https://wordpress.org", ph: "https://smesouthafrica.co.za" },
+    wpUrl:      { label: "WordPress site URL", sub: "Hosts images (Studio → Scheduler, Email uploads)", url: "https://wordpress.org", ph: "https://smesouthafrica.co.za" },
     wpUser:     { label: "WordPress username", sub: "Your WP login username", url: "" },
-    wpKey:      { label: "WordPress application password", sub: "WP â†’ Users â†’ Profile â†’ Application Passwords", url: "https://wordpress.org/documentation/article/application-passwords/" },
+    wpKey:      { label: "WordPress application password", sub: "WP → Users → Profile → Application Passwords", url: "https://wordpress.org/documentation/article/application-passwords/" },
   };
   // Providers that feed the AI failover chain (order = try order). Others (postiz/kit) are service keys.
   var AI_PROVIDERS = ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai"];
@@ -155,7 +155,7 @@
   /* ---------- same-origin asset URLs ----------
      Studio/Video/Freeform fetch external images (brand logos, featured images, scraped og:images)
      and hand the BYTES to the canvas worker. Cross-origin fetch needs CORS headers, and the place
-     most of these actually live â€” WordPress uploads â€” sends none. It only ever worked because the
+     most of these actually live — WordPress uploads — sends none. It only ever worked because the
      desktop shell ran with webSecurity OFF, which is a real hole: remote pages executing with
      same-origin enforcement disabled, on a machine holding the user's API keys.
      voltAsset() routes those loads through /api/scrape?img=1 so they arrive from OUR origin. Then
@@ -164,11 +164,11 @@
   window.voltAsset = function (url) {
     var u = String(url || "");
     if (!u || /^(data:|blob:)/i.test(u)) return u;
-    if (!/^https?:\/\//i.test(u)) return u;                       // relative â€” already ours
+    if (!/^https?:\/\//i.test(u)) return u;                       // relative — already ours
     try { if (new URL(u, location.href).origin === location.origin) return u; } catch (e) {}
     // volt-auth.js ships byte-identical to every target (build-sync does NOT rewrite it), so the
-    // base is resolved at runtime: origin-relative when we're already on a Volt origin â€” which
-    // keeps preview deployments and local dev working â€” and absolute otherwise.
+    // base is resolved at runtime: origin-relative when we're already on a Volt origin — which
+    // keeps preview deployments and local dev working — and absolute otherwise.
     var ours = /(^|\.)tshephos-lab[^.]*\.vercel\.app$/.test(location.hostname)
             || location.hostname === "localhost" || location.hostname === "127.0.0.1";
     var base = ours ? "/api/scrape" : "https://tshephos-lab.vercel.app/api/scrape";
@@ -181,7 +181,7 @@
 
   /* ---------- fetch patch: attach the session token (+ desktop keys) to backend calls ---------- */
   function ollamaCfg() { try { return JSON.parse(localStorage.getItem("volt_ollama") || "{}"); } catch (e) { return {}; } }
-  // Volt Brain beacon â€” record what the user does with generated content. Fire-and-forget,
+  // Volt Brain beacon — record what the user does with generated content. Fire-and-forget,
   // never blocks or errors a user action. Goes through the patched fetch (adds the Bearer).
   window.voltEvent = function (contentId, event, detail) {
     try {
@@ -193,7 +193,7 @@
     } catch (e) {}
   };
   /* ---------- crash reporting: a break for ANY user is visible to us, not just the one who hits it.
-     Fire-and-forget, deduped, capped â€” never interferes with the page. ---------- */
+     Fire-and-forget, deduped, capped — never interferes with the page. ---------- */
   (function () {
     var sent = {}, count = 0, MAX = 8;
     function report(kind, msg, extra) {
@@ -250,7 +250,7 @@
     };
     // Every page on this codebase hardcodes its API calls as an ABSOLUTE
     // "https://tshephos-lab.vercel.app/api/..." URL rather than a relative "/api/...". That's
-    // deliberate, not an oversight â€” the desktop app serves these same pages from a local
+    // deliberate, not an oversight — the desktop app serves these same pages from a local
     // 127.0.0.1 server (see webSecurity's own comment elsewhere), where a relative path would hit
     // the wrong origin entirely. So a brand-aware deployment can't fix this by editing 15 files'
     // worth of URL constants to be relative; it has to rewrite the HOST at the one place every one
@@ -302,7 +302,7 @@
 
   /* ---------- styles ---------- */
   var CSS = '' +
-    '#va-gate,#va-modal,#va-reset,#va-welcome{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,7,10,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:"Public Sans",system-ui,sans-serif;}' +
+    '#va-gate,#va-modal,#va-reset,#va-welcome{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(6,7,10,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
     '#va-modal,#va-reset,#va-welcome{z-index:100001;}' +
     '.va-tips{display:flex;flex-direction:column;gap:14px;margin:2px 0 6px;}' +
     '.va-tip{display:flex;gap:13px;align-items:flex-start;}' +
@@ -311,16 +311,16 @@
     '.va-tip-s{font-size:12.5px;color:#888F9D;line-height:1.45;}' +
     '.va-forgot{display:block;width:100%;margin-top:12px;background:none;border:none;color:#7FC8FF;font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.03em;cursor:pointer;text-align:center;}' +
     '.va-forgot:hover{color:#B6FF3D;text-decoration:underline;}' +
-    // Google's own button spec (white fill, their 4-colour "G", 1px #747775 border) â€” this is
+    // Google's own button spec (white fill, their 4-colour "G", 1px #747775 border) — this is
     // the one place brand tokens don't apply: Google's identity guidelines require their mark
     // rendered as issued, not recoloured to match the host product.
-    '.va-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1f1f1f;border:1px solid #747775;border-radius:11px;padding:11px 13px;font-family:"Public Sans",system-ui,sans-serif;font-weight:600;font-size:14.5px;cursor:pointer;transition:background .15s,box-shadow .15s;}' +
+    '.va-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1f1f1f;border:1px solid #747775;border-radius:11px;padding:11px 13px;font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-weight:600;font-size:14.5px;cursor:pointer;transition:background .15s,box-shadow .15s;}' +
     '.va-google:hover{background:#f7f7f7;box-shadow:0 1px 2px rgba(0,0,0,.15);}' +
     '.va-google:disabled{opacity:.6;cursor:not-allowed;}' +
     '.va-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:#5B616D;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;}' +
     '.va-divider::before,.va-divider::after{content:"";flex:1;height:1px;background:rgba(255,255,255,.1);}' +
     '.va-card{width:100%;max-width:430px;background:linear-gradient(180deg,#14171F,#0f1218);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:30px;box-shadow:0 30px 80px -30px rgba(0,0,0,.9);color:#ECEEF3;}' +
-    '.va-logo{font-family:"Fraunces","Public Sans",sans-serif;font-weight:800;font-size:32px;letter-spacing:-.02em;margin:0;}.va-logo .d{color:#B6FF3D;}' +
+    '.va-logo{font-family:"Unbounded","Plus Jakarta Sans",sans-serif;font-weight:800;font-size:32px;letter-spacing:-.02em;margin:0;}.va-logo .d{color:#B6FF3D;}' +
     '.va-sub{color:#888F9D;font-size:14px;margin:6px 0 20px;line-height:1.5;}' +
     '.va-lbl{display:block;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#888F9D;font-weight:700;margin:14px 0 6px;}' +
     '.va-input{width:100%;box-sizing:border-box;background:#0D0F15;border:1px solid rgba(255,255,255,.14);border-radius:11px;padding:12px 13px;color:#ECEEF3;font-family:inherit;font-size:14.5px;outline:none;transition:border-color .15s;}' +
@@ -335,29 +335,29 @@
     '.va-keys{margin-top:20px;border-top:1px solid rgba(255,255,255,.09);padding-top:16px;}.va-keys-h{font-weight:800;font-size:14px;margin:0 0 4px;}.va-keys-note{color:#5B616D;font-size:12px;line-height:1.5;margin:0 0 14px;}' +
     '.va-field{margin-bottom:13px;}.va-field .nm{font-weight:700;font-size:13.5px;color:#ECEEF3;}.va-field .pw{font-size:11px;color:#5B616D;font-weight:400;}.va-get{font-family:"JetBrains Mono",monospace;font-size:10.5px;font-weight:700;color:#B6FF3D;text-decoration:none;float:right;}' +
     '.va-saved{color:#57E39A;font-size:12.5px;margin-top:10px;min-height:14px;text-align:center;}' +
-    '#va-badge{position:fixed;top:14px;right:16px;z-index:90000;display:flex;align-items:center;gap:8px;background:rgba(20,23,31,.85);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:100px;padding:5px 6px 5px 13px;font-family:"Public Sans",sans-serif;}' +
+    '#va-badge{position:fixed;top:14px;right:16px;z-index:90000;display:flex;align-items:center;gap:8px;background:rgba(20,23,31,.85);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:100px;padding:5px 6px 5px 13px;font-family:"Plus Jakarta Sans",sans-serif;}' +
     '#va-badge .who{font-size:12.5px;font-weight:700;color:#ECEEF3;}' +
     '#va-refresh,#va-gear{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:#0D0F15;color:#B6FF3D;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;}' +
     '#va-refresh:hover{background:#B6FF3D;color:#0A0B0F;transform:rotate(90deg);}#va-gear:hover{background:#B6FF3D;color:#0A0B0F;}' +
-    '#va-toast{position:fixed;top:58px;right:16px;z-index:99999;background:#14171F;border:1px solid rgba(182,255,61,.4);color:#ECEEF3;font-family:"Public Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;transition:opacity .2s;}#va-toast.show{opacity:1;}' +
-    // ---- Volt left rail â€” the app's only navigation surface. Collapsed it is 72px of icons;
+    '#va-toast{position:fixed;top:58px;right:16px;z-index:99999;background:#14171F;border:1px solid rgba(182,255,61,.4);color:#ECEEF3;font-family:"Plus Jakarta Sans",sans-serif;font-size:13px;font-weight:700;padding:10px 14px;border-radius:10px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7);opacity:0;transition:opacity .2s;}#va-toast.show{opacity:1;}' +
+    // ---- Volt left rail — the app's only navigation surface. Collapsed it is 72px of icons;
     // hovering expands it to 232px AS AN OVERLAY (position:fixed, so the page never reflows),
     // revealing group headers and full labels. Two real problems drove this shape:
     //   1. HEIGHT. The old 50px labelled tiles + 4 footer tiles needed 928px of vertical space.
-    //      A 1366x768 laptop has ~660px, so ~5 modules sat below the fold â€” and because the
+    //      A 1366x768 laptop has ~660px, so ~5 modules sat below the fold — and because the
     //      scrollbar was hidden (width:0) nothing on screen hinted they existed. Now ~570px.
     //   2. SCENT. 11 modules in one flat column said nothing about which tool did what; they are
     //      now grouped Create / Design / Video / Publish / Measure.
     // Guide, Settings and Check-for-updates moved into the account menu, where people look for
-    // them anyway â€” that is what bought the height back without hiding any module.
+    // them anyway — that is what bought the height back without hiding any module.
     'body{padding-left:72px !important;}' +
     '.topbar,.nav-tabs,#va-badge{display:none !important;}' +
-    '#va-rail{position:fixed;left:0;top:0;bottom:0;width:72px;z-index:90000;background:linear-gradient(180deg,#0e1016,#0a0b0f);border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;padding:12px 10px 10px;overflow-y:auto;overflow-x:hidden;transition:width .18s cubic-bezier(.2,.7,.2,1);font-family:"Public Sans",system-ui,sans-serif;}' +
+    '#va-rail{position:fixed;left:0;top:0;bottom:0;width:72px;z-index:90000;background:linear-gradient(180deg,#0e1016,#0a0b0f);border-right:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;padding:12px 10px 10px;overflow-y:auto;overflow-x:hidden;transition:width .18s cubic-bezier(.2,.7,.2,1);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
     '#va-rail:hover{width:232px;box-shadow:24px 0 60px -30px rgba(0,0,0,.9);}' +
     '#va-rail::-webkit-scrollbar{width:0;}' +
     '#va-rail .r-logo{display:flex;align-items:center;gap:10px;height:32px;padding:0 7px;margin-bottom:8px;text-decoration:none;flex:none;overflow:hidden;}' +
-    '#va-rail .r-logo .m{width:30px;height:30px;flex:none;border-radius:9px;background:#B6FF3D;color:#0A0B0F;display:grid;place-items:center;font-family:"Fraunces",system-ui;font-weight:800;font-size:16px;}' +
-    '#va-rail .r-logo .lb{font-family:"Fraunces",system-ui;font-weight:800;font-size:16px;color:#ECEEF3;white-space:nowrap;opacity:0;transition:opacity .14s;}' +
+    '#va-rail .r-logo .m{width:30px;height:30px;flex:none;border-radius:9px;background:#B6FF3D;color:#0A0B0F;display:grid;place-items:center;font-family:"Unbounded",system-ui;font-weight:800;font-size:16px;}' +
+    '#va-rail .r-logo .lb{font-family:"Unbounded",system-ui;font-weight:800;font-size:16px;color:#ECEEF3;white-space:nowrap;opacity:0;transition:opacity .14s;}' +
     '#va-rail:hover .r-logo .lb{opacity:1;}' +
     '.r-grp{font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#4E5563;padding:0 9px;white-space:nowrap;opacity:0;height:0;overflow:hidden;transition:opacity .14s;flex:none;}' +
     '#va-rail:hover .r-grp{opacity:1;height:22px;line-height:26px;}' +
@@ -373,12 +373,12 @@
     '#va-rail .r-spacer{flex:1;min-height:6px;}' +
     '#va-rail .r-av{display:flex;align-items:center;gap:11px;height:40px;padding:0 6px;border-radius:10px;cursor:pointer;flex:none;}' +
     '#va-rail .r-av:hover{background:rgba(255,255,255,.06);}' +
-    '#va-rail .r-av .cir{width:30px;height:30px;flex:none;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;display:grid;place-items:center;font-weight:800;font-size:12.5px;font-family:"Fraunces",sans-serif;}' +
+    '#va-rail .r-av .cir{width:30px;height:30px;flex:none;border-radius:50%;background:linear-gradient(135deg,#B6FF3D,#57E39A);color:#0A0B0F;display:grid;place-items:center;font-weight:800;font-size:12.5px;font-family:"Unbounded",sans-serif;}' +
     '#va-rail .r-av .lb{font-size:12.5px;font-weight:600;color:#B9BFCB;white-space:nowrap;opacity:0;transition:opacity .14s;}' +
     '#va-rail:hover .r-av .lb{opacity:1;}' +
     // The account menu is appended to BODY, not into the rail: the rail is a scrolling box, and a
     // popover nested inside one gets clipped by its own overflow.
-    '#va-pop{position:fixed;left:8px;z-index:90001;width:212px;background:#161A22;border:1px solid rgba(255,255,255,.13);border-radius:13px;padding:6px;box-shadow:0 20px 50px -14px rgba(0,0,0,.85);font-family:"Public Sans",system-ui,sans-serif;}' +
+    '#va-pop{position:fixed;left:8px;z-index:90001;width:212px;background:#161A22;border:1px solid rgba(255,255,255,.13);border-radius:13px;padding:6px;box-shadow:0 20px 50px -14px rgba(0,0,0,.85);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
     '#va-pop .em{font-size:11px;color:#5B616D;padding:5px 10px 7px;font-family:"JetBrains Mono",monospace;overflow:hidden;text-overflow:ellipsis;}' +
     '#va-pop a,#va-pop button{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:9px 10px;border-radius:9px;color:#C3C9D4;font-size:13px;font-weight:600;text-decoration:none;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;}' +
     '#va-pop a svg,#va-pop button svg{width:17px;height:17px;flex:none;}' +
@@ -388,16 +388,16 @@
 
   function injectCSS() { injectRainCSS(); if (document.getElementById("va-style")) return; var st = document.createElement("style"); st.id = "va-style"; st.textContent = CSS; document.head.appendChild(st); }
 
-  // The one page-chrome detail volt-auth.js doesn't itself draw: each page's own <title>Volt â€”
+  // The one page-chrome detail volt-auth.js doesn't itself draw: each page's own <title>Volt —
   // X</title>. Rewriting it here (rather than editing every page's <head>) keeps this file the
-  // single place a new brand gets wired up. Zero-op for Volt â€” every page's title already reads
-  // "Volt â€” X", so the replace is a no-op string-for-itself swap, and the early return skips it
+  // single place a new brand gets wired up. Zero-op for Volt — every page's title already reads
+  // "Volt — X", so the replace is a no-op string-for-itself swap, and the early return skips it
   // entirely anyway. BRAND.favicon is blank for both brands today (no icon asset made yet for
   // either); the hook is wired and ready for whenever one is supplied.
   function applyBrandChrome() {
     // Runs for EVERY brand, before the Volt early-return below. These placeholders are empty in
-    // the markup, so skipping this leaves a hole where the product name should be â€” Volt's own
-    // footer read "Â© 2026  Â· All rights reserved" until this moved above the guard.
+    // the markup, so skipping this leaves a hole where the product name should be — Volt's own
+    // footer read "© 2026  · All rights reserved" until this moved above the guard.
     // Static copy that names the product. Pages write <span data-brand-name></span> rather than
     // the literal word, so the same markup reads "Volt" or "Vantly" with no per-brand template.
     try {
@@ -407,7 +407,7 @@
     if (BRAND === BRANDS.volt) return;
     try {
       if (document.title && /^Volt\b/.test(document.title)) document.title = document.title.replace(/^Volt\b/, BRAND.name);
-      // Copy Lab's own hero heading spells the brand name out as page content, not chrome â€” the
+      // Copy Lab's own hero heading spells the brand name out as page content, not chrome — the
       // one such case found across Copy Lab/Campaign/SmartClip (Campaign and SmartClip's headings
       // were already brand-neutral copy). Rewritten by id rather than by matching "Volt" as text,
       // so it can't accidentally catch something that isn't actually the wordmark. The trailing
@@ -429,13 +429,13 @@
     injectBrandStyles();
   }
 
-  // Full visual reskin, driven entirely by BRAND.theme â€” a no-op whenever that field is absent
+  // Full visual reskin, driven entirely by BRAND.theme — a no-op whenever that field is absent
   // (Volt has none). Two layers, because the app's colour system has two layers:
-  //   1. Every page (Copy Lab, Campaign, SmartClip â€” Studio uses a different system, not covered
+  //   1. Every page (Copy Lab, Campaign, SmartClip — Studio uses a different system, not covered
   //      here yet) already defines its OWN `:root{ --bg / --accent / --fd / ... }` tokens. Redefining
   //      those with `!important` re-skins all of them from this one file, with zero per-page edits.
   //   2. volt-auth.js's OWN injected CSS (the rail, the sign-in gate, popovers, the command palette)
-  //      only threads a handful of rules through `var(--accent, #B6FF3D)` â€” most of it hardcodes the
+  //      only threads a handful of rules through `var(--accent, #B6FF3D)` — most of it hardcodes the
   //      lime hex directly, since the rail predates this file having any notion of a second brand.
   //      Those need their OWN explicit overrides, listed out below rather than guessed at.
   // `!important` throughout is load-bearing, not decoration: this script runs and can inject before
@@ -465,14 +465,14 @@
         "--ink-line:" + t.inkLine + " !important;--ink-abyss:" + t.inkAbyss + " !important;" +
         "--vt-accent:" + t.accent + ";--vt-display:" + t.fd + ";--accent-rgb:" + t.accentRgb + ";" +
       "}" +
-      // the decorative ambient glow every one of these pages paints behind .wrap â€” hardcoded lime/
+      // the decorative ambient glow every one of these pages paints behind .wrap — hardcoded lime/
       // blue rgba literals, not tokens, so it needs its own rule rather than riding the block above.
       ".bg{background:" +
         "radial-gradient(820px 540px at 8% -6%," + t.glow1 + ",transparent 60%)," +
         "radial-gradient(720px 520px at 102% 4%," + t.glow2 + ",transparent 58%)," +
         "radial-gradient(600px 600px at 50% 120%," + t.glow3 + ",transparent 60%) !important;" +
       "}" +
-      // volt-auth.js's own chrome â€” the rail, gate, popovers â€” hardcodes lime rather than reading
+      // volt-auth.js's own chrome — the rail, gate, popovers — hardcodes lime rather than reading
       // the tokens above (see the comment on injectBrandStyles). Explicit per-selector overrides.
       ".va-tip-i{color:" + t.accent + " !important;}" +
       ".va-forgot:hover{color:" + t.accent + " !important;}" +
@@ -498,7 +498,7 @@
       // its own <style> block hardcodes the lime hex across ~15 component rules. Those are listed
       // out here rather than left to bleed lime through an otherwise copper page.
       // NOT touched on purpose: .bg-sme-red / .text-sme-navy / :root{--bp,--bs}. Those aren't app
-      // chrome â€” they're the user's own Brand Kit colours driving the graphic being designed, and
+      // chrome — they're the user's own Brand Kit colours driving the graphic being designed, and
       // re-skinning them would change the artwork, not the interface around it.
       "body{background-color:" + t.bg + " !important;font-family:" + t.fb + " !important;}" +
       "::-webkit-scrollbar-track{background:" + t.bg + " !important;}" +
@@ -543,10 +543,10 @@
   // Everything above re-points COLOUR. This is the part that makes Vantly feel like a product
   // someone pays for rather than a recoloured internal tool: elevation, focus, motion, and the
   // native controls the browser would otherwise draw in its own chrome. Kept separate from the
-  // palette block on purpose â€” that one is a mechanical re-map and should stay easy to scan;
+  // palette block on purpose — that one is a mechanical re-map and should stay easy to scan;
   // this one is design judgement and will get edited far more often.
   // Scoped to class names Studio does not use (it lives in a `vt-*` / Tailwind namespace), so
-  // none of this reaches the design canvas â€” a hover transform on the artboard would be a bug,
+  // none of this reaches the design canvas — a hover transform on the artboard would be a bug,
   // not a flourish. Returns "" for any brand without a theme, so Volt is untouched.
   function brandPolish(t) {
     var a = t.accentRgb || "226,146,74";
@@ -565,7 +565,7 @@
         "transition:all .16s cubic-bezier(.4,0,.2,1) !important;}" +
       "input[type=file]::file-selector-button:hover{background:" + t.surfaceHover + " !important;border-color:" + t.accent + " !important;color:" + t.accentHi + " !important;}" +
       // One focus ring everywhere, rather than each page's own border-colour swap. A visible ring
-      // is also the accessibility floor â€” a border recolour alone is far too easy to miss.
+      // is also the accessibility floor — a border recolour alone is far too easy to miss.
       "input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none !important;" +
         "border-color:" + t.accent + " !important;box-shadow:0 0 0 3px rgba(" + a + ",.22) !important;}" +
       "button:focus-visible,a:focus-visible,[role=button]:focus-visible{outline:2px solid rgba(" + a + ",.75) !important;outline-offset:2px !important;}" +
@@ -579,7 +579,7 @@
       ".btn:hover:not(:disabled){background:linear-gradient(180deg," + t.accentHi + "," + t.accentPress + ") !important;" +
         "box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 16px 36px -12px rgba(" + a + ",.8) !important;}" +
       ".btn:active:not(:disabled){box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 6px 16px -8px rgba(" + a + ",.6) !important;}" +
-      // Secondary / segmented controls â€” the flattest thing on the page before this.
+      // Secondary / segmented controls — the flattest thing on the page before this.
       ".seg button,.mini{transition:all .16s cubic-bezier(.4,0,.2,1) !important;}" +
       ".seg button:hover:not(.on){background:" + t.surfaceHover + " !important;border-color:" + t.borderHover + " !important;color:" + t.text + " !important;}" +
       ".seg button.on{background:linear-gradient(180deg," + t.accentHi + "," + t.accent + ") !important;color:" + t.ink + " !important;" +
@@ -599,7 +599,7 @@
       "@keyframes vtRise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}}" +
       // ---- volt-auth.js's own late-injected chrome -----------------------------------------
       // The sleep screen and the first-run welcome inject their CSS AFTER this stylesheet, so at
-      // equal specificity they win â€” landing these needs the !important every rule here carries.
+      // equal specificity they win — landing these needs the !important every rule here carries.
       // Both were built pure lime, and the sleep screen is the most-seen surface on an idle
       // machine, which makes a leak there the most visible one in the product.
       "#va-sleep .vs-corner{border-color:rgba(" + a + ",.5) !important;}" +
@@ -619,13 +619,13 @@
   function showGate(errMsg) {
     injectCSS();
     hideBoot();
-    if (errMsg === "SETUP_INCOMPLETE") errMsg = BRAND.name + " isnâ€™t fully set up yet â€” its Supabase project hasnâ€™t been connected. Expected before launch, not a bug.";
+    if (errMsg === "SETUP_INCOMPLETE") errMsg = BRAND.name + " isn’t fully set up yet — its Supabase project hasn’t been connected. Expected before launch, not a bug.";
     document.documentElement.style.overflow = "hidden";
     var g = document.getElementById("va-gate");
     if (!g) {
       g = document.createElement("div"); g.id = "va-gate";
       // Google's redirect-based OAuth flow needs the app running as a real page at a fixed
-      // origin Google can redirect back to â€” that's the web deployment, not the desktop shell
+      // origin Google can redirect back to — that's the web deployment, not the desktop shell
       // (an Electron renderer has no such origin, and wiring a custom-protocol callback for it
       // is a separate, main-process-level change nobody's asked for yet). Web-only for now.
       var GOOGLE_G_SVG = '<svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>';
@@ -652,8 +652,8 @@
       function busy(on) { inB.disabled = on; upB.disabled = on; if (gB) gB.disabled = on; }
       function fail(m) { err.textContent = m || ""; busy(false); }
       if (gB) gB.addEventListener("click", function () {
-        if (!sb) return; busy(true); err.style.color = ""; err.textContent = "Redirecting to Googleâ€¦";
-        // No .then/.catch needed for the success path â€” signInWithOAuth navigates the whole
+        if (!sb) return; busy(true); err.style.color = ""; err.textContent = "Redirecting to Google…";
+        // No .then/.catch needed for the success path — signInWithOAuth navigates the whole
         // page away to Google immediately; supabase-js picks the session back up on its own
         // once Google redirects here, via the same onAuthStateChange listener init() already
         // wires up. A rejected promise here means the redirect itself never happened (provider
@@ -663,26 +663,26 @@
           .catch(function (e) { fail(e.message); });
       });
       inB.addEventListener("click", function () {
-        if (!sb) return; busy(true); err.textContent = "Signing inâ€¦";
+        if (!sb) return; busy(true); err.textContent = "Signing in…";
         sb.auth.signInWithPassword({ email: email.value.trim(), password: pw.value })
           .then(function (r) { if (r.error) fail(r.error.message); }).catch(function (e) { fail(e.message); });
       });
       upB.addEventListener("click", function () {
         if (!sb) return;
         // A handful of individually-named personal addresses get their own private workspace (see
-        // ALLOWED_EMAIL_EXTRA in api/_guard.js, which is the real enforcement â€” this is just the
+        // ALLOWED_EMAIL_EXTRA in api/_guard.js, which is the real enforcement — this is just the
         // matching client-side message so sign-up doesn't reject an address the server would accept).
         // Volt-only: Vantly is a commercial product open to any email, so this pre-flight check (a
-        // nicer message, not the real gate â€” that's ALLOWED_EMAIL_DOMAIN server-side) only applies
+        // nicer message, not the real gate — that's ALLOWED_EMAIL_DOMAIN server-side) only applies
         // to Volt's own domain-restricted internal deployment.
         if (BRAND === BRANDS.volt) {
           var EXTRA_ALLOWED = ["joelbosega@gmail.com"];
           var typed = email.value.trim().toLowerCase();
           if (!/@smesouthafrica\.co\.za$/i.test(typed) && EXTRA_ALLOWED.indexOf(typed) === -1) { fail("Please use your @smesouthafrica.co.za work email."); return; }
         }
-        busy(true); err.textContent = "Creating accountâ€¦";
+        busy(true); err.textContent = "Creating account…";
         sb.auth.signUp({ email: email.value.trim(), password: pw.value })
-          .then(function (r) { if (r.error) fail(r.error.message); else if (!r.data.session) fail("Account made â€” now click Sign in."); })
+          .then(function (r) { if (r.error) fail(r.error.message); else if (!r.data.session) fail("Account made — now click Sign in."); })
           .catch(function (e) { fail(e.message); });
       });
       pw.addEventListener("keydown", function (e) { if (e.key === "Enter") inB.click(); });
@@ -691,7 +691,7 @@
         if (!sb) return;
         var em = email.value.trim();
         if (!em) { fail("Type your email above first, then tap Forgot password."); email.focus(); return; }
-        busy(true); err.style.color = ""; err.textContent = "Sending reset linkâ€¦";
+        busy(true); err.style.color = ""; err.textContent = "Sending reset link…";
         sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + location.pathname })
           .then(function (r) {
             busy(false);
@@ -727,11 +727,11 @@
     setB.addEventListener("click", function () {
       var p = np.value || "";
       if (p.length < 6) { rerr.style.color = "#FF7C7C"; rerr.textContent = "Use at least 6 characters."; return; }
-      setB.disabled = true; rerr.style.color = ""; rerr.textContent = "Updatingâ€¦";
+      setB.disabled = true; rerr.style.color = ""; rerr.textContent = "Updating…";
       sb.auth.updateUser({ password: p }).then(function (r) {
         if (r.error) { setB.disabled = false; rerr.style.color = "#FF7C7C"; rerr.textContent = r.error.message; return; }
         try { history.replaceState(null, "", location.pathname); } catch (e) {}
-        m.remove(); showToast("âœ“ Password updated â€” you're in."); showApp();
+        m.remove(); showToast("✓ Password updated — you're in."); showApp();
       }).catch(function (e) { setB.disabled = false; rerr.style.color = "#FF7C7C"; rerr.textContent = e.message; });
     });
     np.addEventListener("keydown", function (e) { if (e.key === "Enter") setB.click(); });
@@ -766,7 +766,7 @@
   // GROUPED, but note the name. build-sync.cjs regexes for this exact declaration and fails the
   // build if a routable page's href is missing from inside it, so: keep the variable named
   // RAIL_TILES, keep every href a literal here, and do NOT repeat that declaration's opening
-  // text anywhere above this line â€” the guard's match is non-greedy, so an earlier copy of it
+  // text anywhere above this line — the guard's match is non-greedy, so an earlier copy of it
   // (in a comment, say) captures a few characters instead of this array and the check silently
   // passes for every page. That exact mistake was made and caught while writing this rail.
   var RAIL_TILES = [
@@ -813,13 +813,13 @@
     if (parts.length < 2) return parts.join("");
     return parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1];
   }
-  function showBadge() { // builds the left rail â€” the app's only navigation surface
+  function showBadge() { // builds the left rail — the app's only navigation surface
     injectCSS();
     var old = document.getElementById("va-rail"); if (old) old.remove();
     closeRailPop();
     var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     if (here === "") here = "index.html";
-    var kbd = isMac() ? "âŒ˜K" : "Ctrl K";
+    var kbd = isMac() ? "⌘K" : "Ctrl K";
     var rail = document.createElement("aside"); rail.id = "va-rail";
     var html =
       '<a class="r-logo" href="home.html" title="' + esc(BRAND.name) + '"><span class="m">' + esc(BRAND.mark) + '</span><span class="lb">' + esc(BRAND.wordmark) + '</span></a>' +
@@ -838,7 +838,7 @@
     var byId = function (id) { return document.getElementById(id); };
     if (byId("r-av")) byId("r-av").addEventListener("click", function (e) { e.stopPropagation(); toggleRailPop(byId("r-av")); });
     if (byId("r-cmdk")) byId("r-cmdk").addEventListener("click", function () { if (window.voltOpenCommand) window.voltOpenCommand(); });
-    // The rail is built here, from showApp(), which runs only once a session resolves â€” i.e. AFTER
+    // The rail is built here, from showApp(), which runs only once a session resolves — i.e. AFTER
     // the DOMContentLoaded/load passes of applyOrgSettings have already been and gone. Re-applying
     // here is what actually removes a retired module's tile; refreshOrgSettings() can't be relied
     // on for it, since it bails early for an org that has no settings row saved yet.
@@ -860,7 +860,7 @@
     return 0;
   }
   function maybeUpdateCheck() {
-    // Only the desktop shell needs manual updating â€” web pages are always live from Vercel.
+    // Only the desktop shell needs manual updating — web pages are always live from Vercel.
     if (!isDesktop() || typeof window.voltNative.getVersion !== "function") return;
     var cur = null;
     Promise.resolve(window.voltNative.getVersion())
@@ -892,9 +892,9 @@
     }
     var bar = document.createElement("div"); bar.id = "va-update-bar";
     bar.innerHTML =
-      '<span class="va-ub-txt">âœ¨ ' + esc(BRAND.name) + ' <b>' + esc(latest) + "</b> is available" + (notes ? " â€” " + esc(notes) : "") + ' <span class="va-ub-cur">(you have ' + esc(cur) + ")</span></span>" +
+      '<span class="va-ub-txt">✨ ' + esc(BRAND.name) + ' <b>' + esc(latest) + "</b> is available" + (notes ? " — " + esc(notes) : "") + ' <span class="va-ub-cur">(you have ' + esc(cur) + ")</span></span>" +
       '<span class="va-ub-actions">' +
-        (url ? '<a class="va-ub-btn" href="' + esc(url) + '" target="_blank" rel="noopener">Download update â†—</a>' : "") +
+        (url ? '<a class="va-ub-btn" href="' + esc(url) + '" target="_blank" rel="noopener">Download update ↗</a>' : "") +
         '<button class="va-ub-x" id="va-ub-x">Later</button>' +
       "</span>";
     document.body.appendChild(bar);
@@ -905,11 +905,11 @@
 
   /* ---------- content update notifier (for a tab left open across a deploy) ---------- */
   // "Web pages are always live from Vercel" is only true for a page that reloads. A tab left open
-  // all day is running whatever JS was current when it loaded â€” Studio's field registry, a bug
-  // fix, anything â€” and nothing ever told it a newer version had shipped. This polls a timestamp
+  // all day is running whatever JS was current when it loaded — Studio's field registry, a bug
+  // fix, anything — and nothing ever told it a newer version had shipped. This polls a timestamp
   // build-sync.cjs stamps on every successful sync and, if it has moved on since THIS tab loaded,
   // offers a one-click refresh. Shares va-update-bar with the desktop shell notifier above so the
-  // two can never stack â€” whichever has something to say fires first and wins.
+  // two can never stack — whichever has something to say fires first and wins.
   var CONTENT_VERSION_URL = "build-version.json";
   var CONTENT_POLL_MS = 4 * 60 * 1000;
   var _contentBuiltAt = null, _contentDismissed = false, _contentPollT = null;
@@ -928,12 +928,12 @@
   /* ---------- Friday Roundup nudge ---------- */
   // Joel's ask: every Friday, everyone using Volt should see a prompt to bundle the week's reads
   // into a Roundup post instead of posting articles one at a time. Dismiss is scoped to TODAY's
-  // date, not "forever" â€” the whole point is it comes back next Friday. Shares the update banner's
+  // date, not "forever" — the whole point is it comes back next Friday. Shares the update banner's
   // DOM id/classes on purpose (same reason showContentUpdateBanner does): one shared stylesheet,
-  // and it makes the two mutually exclusive for free â€” only one #va-update-bar can exist at a time,
+  // and it makes the two mutually exclusive for free — only one #va-update-bar can exist at a time,
   // and a real update notice deliberately outranks this weekly nudge.
   function maybeFridayRoundupNudge() {
-    if (new Date().getDay() !== 5) return;   // 0=Sun â€¦ 5=Fri
+    if (new Date().getDay() !== 5) return;   // 0=Sun … 5=Fri
     var today = new Date().toISOString().slice(0, 10);
     var dismissed = null; try { dismissed = localStorage.getItem("volt_friday_nudge_dismissed"); } catch (e) {}
     if (dismissed === today) return;
@@ -957,9 +957,9 @@
     }
     var bar = document.createElement("div"); bar.id = "va-update-bar";
     bar.innerHTML =
-      '<span class="va-ub-txt">ðŸ“° Itâ€™s Friday â€” bundle this weekâ€™s reads into one Roundup post</span>' +
+      '<span class="va-ub-txt">📰 It’s Friday — bundle this week’s reads into one Roundup post</span>' +
       '<span class="va-ub-actions">' +
-        '<a class="va-ub-btn" id="va-fb-go" href="studio.html?family=roundup">Open Roundup â†’</a>' +
+        '<a class="va-ub-btn" id="va-fb-go" href="studio.html?family=roundup">Open Roundup →</a>' +
         '<button class="va-ub-x" id="va-fb-x">Dismiss</button>' +
       "</span>";
     document.body.appendChild(bar);
@@ -973,7 +973,7 @@
   function showContentUpdateBanner() {
     if (document.getElementById("va-update-bar")) return;
     if (!document.getElementById("va-ub-style")) {
-      // Same stylesheet the desktop notifier defines (same class names) â€” write it if this page
+      // Same stylesheet the desktop notifier defines (same class names) — write it if this page
       // reaches an update before that one ever has.
       var st = document.createElement("style"); st.id = "va-ub-style";
       st.textContent =
@@ -989,7 +989,7 @@
     }
     var bar = document.createElement("div"); bar.id = "va-update-bar";
     bar.innerHTML =
-      '<span class="va-ub-txt">âœ¨ ' + esc(BRAND.name) + ' has been updated since you opened this page</span>' +
+      '<span class="va-ub-txt">✨ ' + esc(BRAND.name) + ' has been updated since you opened this page</span>' +
       '<span class="va-ub-actions">' +
         '<button class="va-ub-btn" id="va-ub-refresh">Refresh now</button>' +
         '<button class="va-ub-x" id="va-ub-x">Later</button>' +
@@ -1007,11 +1007,11 @@
 
   /* ---------- Sleep mode (Jarvis-style ambient screen after inactivity) ---------- */
   /* ==================================================================
-     SLEEP / STANDBY UI  â€”  SAFE TO EDIT (visual only)
+     SLEEP / STANDBY UI  —  SAFE TO EDIT (visual only)
      Everything between this fence and the "END SLEEP UI" fence is the
      standby screen's look & feel. You (or Gemini) can freely restyle the
      canvas rain, console log, reactor and CSS here WITHOUT touching the
-     rest of volt-auth.js. Do NOT rename these functions â€” they're called
+     rest of volt-auth.js. Do NOT rename these functions — they're called
      from init and the Settings > Sleep pane:
         getSleepCfg / setSleepCfg / initSleep / scheduleSleep
         onActivity  / showSleep(force) / hideSleep
@@ -1019,20 +1019,20 @@
      (onActivity) intact so the screen dismisses on mouse/key.
      ================================================================== */
   var _sleepT = null, _sleepWired = false, _sleepRainT = null, _sleepLogT = null, _sleepResize = null, _sleepLogI = 0;
-  // Fake "brain" telemetry â€” the lines that scroll in the standby console.
+  // Fake "brain" telemetry — the lines that scroll in the standby console.
   // Purely cosmetic flavour text; tweak freely. {n}/{p} get random numbers.
   var SLEEP_LOG = [
-    "core â–¸ booting volt.intelligence â€¦",
-    "brain â–¸ loading model weights â€¦â€¦ ok",
-    "brain â–¸ analyzing {n} posts",
-    "brain â–¸ ranking ad angles â€” {p} candidates",
-    "brain â–¸ scoring hooks â€” top {p}%",
-    "learn â–¸ +{p} signals from live performance",
-    "vision â–¸ synthesising supporting image â€¦",
-    "queue â–¸ {p} posts scheduled this week",
-    "kit â–¸ open-rate model refreshed",
-    "stats â–¸ recomputing engagement curve",
-    "core â–¸ all systems nominal â€” standby"
+    "core ▸ booting volt.intelligence …",
+    "brain ▸ loading model weights …… ok",
+    "brain ▸ analyzing {n} posts",
+    "brain ▸ ranking ad angles — {p} candidates",
+    "brain ▸ scoring hooks — top {p}%",
+    "learn ▸ +{p} signals from live performance",
+    "vision ▸ synthesising supporting image …",
+    "queue ▸ {p} posts scheduled this week",
+    "kit ▸ open-rate model refreshed",
+    "stats ▸ recomputing engagement curve",
+    "core ▸ all systems nominal — standby"
   ];
   function _sn(a, b) { return Math.floor(a + Math.random() * (b - a)); }
   function getSleepCfg() { try { return JSON.parse(localStorage.getItem("volt_sleep") || "{}"); } catch (e) { return {}; } }
@@ -1061,9 +1061,9 @@
   function startRain() {
     var cv = document.getElementById("va-sleep-rain"); if (!cv || !cv.getContext) return;
     var ctx = cv.getContext("2d");
-    // The tail of this string spells the product name, so it can't stay hardcoded â€” a Vantly
+    // The tail of this string spells the product name, so it can't stay hardcoded — a Vantly
     // machine idling into a screen that rains "VOLT" is the most visible brand leak in the app.
-    var glyphs = "ï½±ï½²ï½³ï½´ï½µï½¶ï½·ï½¸ï½¹ï½ºï½»ï½¼ï½½ï½¾ï½¿ï¾€ï¾ï¾‚ï¾ƒï¾„ï¾…ï¾†ï¾‡ï¾ˆ0123456789<>[]{}=+*/#$%âš¡â—‡" + String(BRAND.name || "").toUpperCase();
+    var glyphs = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈ0123456789<>[]{}=+*/#$%⚡◇" + String(BRAND.name || "").toUpperCase();
     var _th = BRAND.theme || null;
     var _rainRgb = (_th && _th.accentRgb) || "182,255,61";
     var _rainFade = _th ? "rgba(10,12,26,.14)" : "rgba(6,7,10,.14)";
@@ -1100,8 +1100,8 @@
     var box = document.getElementById("va-sleep-log"); if (!box) return;
     var raw = SLEEP_LOG[_sleepLogI % SLEEP_LOG.length]; _sleepLogI++;
     var line = raw.replace(/\{n\}/g, _sn(400, 2400).toLocaleString()).replace(/\{p\}/g, _sn(3, 42));
-    var parts = line.split(" â–¸ ");
-    var html = parts.length > 1 ? '<span class="mut">' + esc(parts[0]) + "</span> â–¸ " + esc(parts.slice(1).join(" â–¸ ")) : esc(line);
+    var parts = line.split(" ▸ ");
+    var html = parts.length > 1 ? '<span class="mut">' + esc(parts[0]) + "</span> ▸ " + esc(parts.slice(1).join(" ▸ ")) : esc(line);
     var d = document.createElement("div"); d.className = "ln"; d.innerHTML = html;
     box.appendChild(d);
     while (box.children.length > 6) box.removeChild(box.firstChild);
@@ -1127,7 +1127,7 @@
         "#va-sleep .r2{stroke:rgba(127,200,255,.6);stroke-width:1.5;stroke-dasharray:2 7;animation:vjspin 5s linear infinite reverse;}" +
         "#va-sleep .r3{stroke:rgba(182,255,61,.7);stroke-width:2;stroke-dasharray:46 14;animation:vjspin 16s linear infinite;}" +
         "#va-sleep .core{fill:rgba(182,255,61,.1);stroke:rgba(182,255,61,.95);stroke-width:2;transform-origin:100px 100px;animation:vjpulse 2s ease-in-out infinite;}" +
-        "#va-sleep .vs-word{font-family:var(--fd,'Fraunces',system-ui);font-weight:800;font-size:32px;letter-spacing:4px;color:#fff;margin-top:14px;text-shadow:0 0 30px rgba(182,255,61,.35);animation:vsglitch 5.5s steps(1) infinite;}#va-sleep .vs-word span{color:var(--accent,#B6FF3D);}" +
+        "#va-sleep .vs-word{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:32px;letter-spacing:4px;color:#fff;margin-top:14px;text-shadow:0 0 30px rgba(182,255,61,.35);animation:vsglitch 5.5s steps(1) infinite;}#va-sleep .vs-word span{color:var(--accent,#B6FF3D);}" +
         "#va-sleep .vs-console{margin-top:24px;width:min(520px,86vw);height:150px;overflow:hidden;border:1px solid rgba(182,255,61,.2);border-radius:12px;background:rgba(9,13,11,.5);padding:13px 16px;font-family:'JetBrains Mono',var(--fm,monospace);font-size:12.5px;line-height:1.68;color:rgba(182,255,61,.82);box-shadow:inset 0 0 44px rgba(182,255,61,.05);display:flex;flex-direction:column;justify-content:flex-end;}" +
         "#va-sleep .vs-console .ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.85;animation:vsln .45s ease both;}" +
         "#va-sleep .vs-console .ln .mut{color:rgba(127,200,255,.72);}" +
@@ -1155,7 +1155,7 @@
         '<div class="vs-word">VOLT<span>_</span></div>' +
         '<div class="vs-console"><div id="va-sleep-log"></div>' +
           '<div class="ln prompt"><span class="mut">volt@brain</span>:~<span class="cur"></span></div></div>' +
-        '<div class="vs-standby">â—‡ Standby â€” move to wake</div>' +
+        '<div class="vs-standby">◇ Standby — move to wake</div>' +
       '</div>';
     document.body.appendChild(o);
     startRain();
@@ -1174,25 +1174,25 @@
   /* ---------- settings (keys on desktop + sign out) ---------- */
   function keyFieldsHTML() {
     var k = getKeys();
-    var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Add as many AI keys as you like â€” ' + esc(BRAND.name) + ' tries them top-to-bottom and auto-falls-over to the next when one is rate-limited or out of quota. More keys = fewer interruptions.</p>';
+    var out = '<div class="va-keys"><p class="va-keys-h">Your API keys</p><p class="va-keys-note">Studio needs no key. Add as many AI keys as you like — ' + esc(BRAND.name) + ' tries them top-to-bottom and auto-falls-over to the next when one is rate-limited or out of quota. More keys = fewer interruptions.</p>';
     ["gemini", "gemini2", "groq", "cerebras", "openrouter", "mistral", "openai", "postiz", "kit", "wpUrl", "wpUser", "wpKey"].forEach(function (id) {
       var i = KEYS[id];
-      var link = i.url ? '<a class="va-get" href="' + i.url + '" target="_blank" rel="noopener">' + (/wordpress|postiz/i.test(i.url) ? "Guide â†—" : "Get key â†—") + '</a>' : "";
+      var link = i.url ? '<a class="va-get" href="' + i.url + '" target="_blank" rel="noopener">' + (/wordpress|postiz/i.test(i.url) ? "Guide ↗" : "Get key ↗") + '</a>' : "";
       var ph = i.ph || ("Paste your " + i.label + (/wordpress|username/i.test(i.label) ? "" : " key"));
-      out += '<div class="va-field"><div><span class="nm">' + i.label + ' <span class="pw">Â· ' + esc(i.sub) + '</span></span>' + link + '</div>' +
+      out += '<div class="va-field"><div><span class="nm">' + i.label + ' <span class="pw">· ' + esc(i.sub) + '</span></span>' + link + '</div>' +
         '<input class="va-input" id="va-k-' + id + '" type="text" autocomplete="off" spellcheck="false" placeholder="' + esc(ph) + '" value="' + esc(k[id] || "") + '" style="margin-top:6px;" /></div>';
     });
-    out += '<div class="va-field"><span class="nm">Postiz API URL <span class="pw">Â· blank = cloud</span></span><input class="va-input" id="va-k-postizUrl" type="text" autocomplete="off" placeholder="https://api.postiz.com/public/v1" value="' + esc(k.postizUrl || "") + '" style="margin-top:6px;" /></div></div>';
+    out += '<div class="va-field"><span class="nm">Postiz API URL <span class="pw">· blank = cloud</span></span><input class="va-input" id="va-k-postizUrl" type="text" autocomplete="off" placeholder="https://api.postiz.com/public/v1" value="' + esc(k.postizUrl || "") + '" style="margin-top:6px;" /></div></div>';
     return out;
   }
   function ollamaFieldsHTML() {
     var c = ollamaCfg();
     return '<div class="va-keys" style="margin-top:16px;">' +
-      '<p class="va-keys-h">Local AI <span style="font-size:11px;color:#57E39A;font-weight:700;letter-spacing:.04em;">FREE Â· OFFLINE</span></p>' +
-      '<p class="va-keys-note">Run Copy &amp; Email on your own machine with <b style="color:#ECEEF3;">Ollama</b> â€” no API cost, fully private. Install it from ollama.com, run <code style="color:#B6FF3D;">ollama pull llama3.1</code>, then switch this on. If it canâ€™t reach Ollama it quietly falls back to the cloud.</p>' +
+      '<p class="va-keys-h">Local AI <span style="font-size:11px;color:#57E39A;font-weight:700;letter-spacing:.04em;">FREE · OFFLINE</span></p>' +
+      '<p class="va-keys-note">Run Copy &amp; Email on your own machine with <b style="color:#ECEEF3;">Ollama</b> — no API cost, fully private. Install it from ollama.com, run <code style="color:#B6FF3D;">ollama pull llama3.1</code>, then switch this on. If it can’t reach Ollama it quietly falls back to the cloud.</p>' +
       '<label class="va-field" style="display:flex;align-items:center;gap:10px;cursor:pointer;"><input type="checkbox" id="va-oll-on" ' + (c.on ? "checked" : "") + ' style="width:18px;height:18px;accent-color:#B6FF3D;"><span class="nm">Use local AI for Copy &amp; Email</span></label>' +
       '<div class="va-field"><span class="nm">Model</span><input class="va-input" id="va-oll-model" type="text" autocomplete="off" spellcheck="false" placeholder="llama3.1" value="' + esc(c.model || "") + '" style="margin-top:6px;" /></div>' +
-      '<div class="va-field"><span class="nm">Ollama URL <span class="pw">Â· blank = localhost</span></span><input class="va-input" id="va-oll-url" type="text" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:11434" value="' + esc(c.url || "") + '" style="margin-top:6px;" /></div>' +
+      '<div class="va-field"><span class="nm">Ollama URL <span class="pw">· blank = localhost</span></span><input class="va-input" id="va-oll-url" type="text" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:11434" value="' + esc(c.url || "") + '" style="margin-top:6px;" /></div>' +
       '</div>';
   }
   function saveOllama() {
@@ -1204,12 +1204,12 @@
   function loadBilling() {
     var box = document.getElementById("va-bill");
     if (!box) return;
-    box.innerHTML = '<p class="va-keys-note" style="margin:12px 0 2px;"><span class="spinner"></span> Loading planâ€¦</p>';
+    box.innerHTML = '<p class="va-keys-note" style="margin:12px 0 2px;"><span class="spinner"></span> Loading plan…</p>';
     fetch(BILL_API + "?action=usage").then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); }).then(function (o) {
       if (!o.ok) { box.innerHTML = ""; return; }
       var j = o.j;
       // An UNCAPPED plan gets a plain count, not a progress bar. Showing "320 / 150" with a red
-      // bar announced a limit that does not exist and cannot be collected on â€” it read as a
+      // bar announced a limit that does not exist and cannot be collected on — it read as a
       // warning when the number is only there so you can watch cost.
       var capped = j.limit > 0;
       var pct = capped ? Math.min(100, Math.round((j.used / j.limit) * 100)) : 0;
@@ -1222,16 +1222,16 @@
           '<div style="height:7px;border-radius:99px;background:#1A1E28;overflow:hidden;margin-bottom:8px;"><i style="display:block;height:100%;width:' + pct + '%;background:' + (pct >= 90 ? "#FF7C7C" : "#B6FF3D") + ';"></i></div>';
       } else {
         html += '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:2px;">' +
-          '<span style="font-family:\'Fraunces\',system-ui;font-size:26px;font-weight:800;color:#ECEEF3;line-height:1;">' + j.used + '</span>' +
+          '<span style="font-family:\'Unbounded\',system-ui;font-size:26px;font-weight:800;color:#ECEEF3;line-height:1;">' + j.used + '</span>' +
           '<span style="font-size:12px;color:#888F9D;">AI generations this month</span></div>' +
-          '<p class="va-keys-note" style="margin:6px 0 0;">No limit â€” this is here so you can see what youâ€™re using, not to cap you.</p>';
+          '<p class="va-keys-note" style="margin:6px 0 0;">No limit — this is here so you can see what you’re using, not to cap you.</p>';
       }
       if (j.billingReady) {
         html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">';
         ["starter", "pro"].forEach(function (p) { if (p !== j.plan) html += '<button class="va-btn va-ghost va-up" data-plan="' + p + '" style="flex:1;">Upgrade to ' + p.charAt(0).toUpperCase() + p.slice(1) + '</button>'; });
         html += "</div>";
       } else if (capped && !j.enforced) {
-        html += '<p class="va-keys-note" style="margin:2px 0 0;">Usage is tracked; limits arenâ€™t enforced yet.</p>';
+        html += '<p class="va-keys-note" style="margin:2px 0 0;">Usage is tracked; limits aren’t enforced yet.</p>';
       }
       html += '<div id="va-bill-status" style="font-size:12px;color:#7FC8FF;margin-top:8px;"></div></div>';
       box.innerHTML = html;
@@ -1240,12 +1240,12 @@
   }
   function upgrade(plan) {
     var st = document.getElementById("va-bill-status");
-    if (st) st.textContent = "Starting secure checkoutâ€¦";
+    if (st) st.textContent = "Starting secure checkout…";
     fetch(BILL_API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "subscribe", plan: plan }) })
       .then(function (r) { return r.json(); }).then(function (j) {
         if (j && j.authorization_url) { window.open(j.authorization_url, "_blank", "noopener"); if (st) st.textContent = "Complete payment in the new tab, then reopen Settings."; }
         else if (st) st.textContent = (j && j.error) || "Could not start checkout.";
-      }).catch(function () { if (st) st.textContent = "Network error â€” try again."; });
+      }).catch(function () { if (st) st.textContent = "Network error — try again."; });
   }
   function ensureAcctStyle() {
     if (document.getElementById("va-acct-style")) return;
@@ -1276,22 +1276,22 @@
   function sleepPaneHTML() {
     var cfg = getSleepCfg();
     var opts = [1, 2, 5, 10, 15, 30].map(function (n) { return '<option value="' + n + '"' + ((parseInt(cfg.mins, 10) || 5) === n ? " selected" : "") + '>' + n + " minute" + (n > 1 ? "s" : "") + "</option>"; }).join("");
-    return '<p class="va-pane-h">ðŸŒ™ Sleep mode</p>' +
-      '<p class="va-pane-sub">When you go idle, ' + esc(BRAND.name) + ' drops into an ambient standby screen â€” a live clock and glowing reactor, great as a desk display. Any mouse move or key press wakes it instantly.</p>' +
+    return '<p class="va-pane-h">🌙 Sleep mode</p>' +
+      '<p class="va-pane-sub">When you go idle, ' + esc(BRAND.name) + ' drops into an ambient standby screen — a live clock and glowing reactor, great as a desk display. Any mouse move or key press wakes it instantly.</p>' +
       '<label class="va-toggle-row"><span>Enable sleep mode</span><input type="checkbox" id="va-sleep-on"' + (cfg.on ? " checked" : "") + ' style="width:18px;height:18px;accent-color:#B6FF3D;cursor:pointer;"></label>' +
       '<div class="va-field" style="margin-top:6px;"><span class="nm">Sleep after</span><select class="va-input" id="va-sleep-mins" style="margin-top:6px;cursor:pointer;">' + opts + "</select></div>" +
-      '<button class="va-btn va-ghost" id="va-sleep-preview" style="margin-top:14px;">â–¶ Preview standby screen</button>';
+      '<button class="va-btn va-ghost" id="va-sleep-preview" style="margin-top:14px;">▶ Preview standby screen</button>';
   }
   function accountPaneHTML(email) {
     var org = (session && session.user && (session.user.user_metadata && session.user.user_metadata.org)) || "";
     var appv = (isDesktop() && window.voltNative && window.voltNative.isDesktop) ? "Desktop app" : "Web";
-    return '<p class="va-pane-h">ðŸ‘¤ Account</p>' +
+    return '<p class="va-pane-h">👤 Account</p>' +
       '<p class="va-pane-sub">You\'re signed in to ' + esc(BRAND.name) + '. Manage your keys, sleep mode and usage from the tabs on the left.</p>' +
       '<div class="va-info-row"><span class="l">Email</span><span class="r">' + esc(email) + '</span></div>' +
       (org ? '<div class="va-info-row"><span class="l">Organisation</span><span class="r">' + esc(org) + '</span></div>' : "") +
       '<div class="va-info-row"><span class="l">Running on</span><span class="r">' + appv + '</span></div>' +
       '<div style="margin-top:20px;border-top:1px solid var(--border,rgba(255,255,255,.09));padding-top:18px;">' +
-        '<button class="va-btn va-ghost" id="va-cp-toggle" style="width:100%;">ðŸ”’ Change password</button>' +
+        '<button class="va-btn va-ghost" id="va-cp-toggle" style="width:100%;">🔒 Change password</button>' +
         '<div id="va-cp-fields" hidden style="margin-top:12px;">' +
           '<input class="va-input" id="va-cp-new" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" spellcheck="false" style="margin-bottom:8px;">' +
           '<input class="va-input" id="va-cp-confirm" type="password" placeholder="Confirm new password" autocomplete="new-password" spellcheck="false">' +
@@ -1299,7 +1299,7 @@
           '<div class="va-saved" id="va-cp-msg" style="margin-top:8px;"></div>' +
         '</div>' +
       '</div>' +
-      '<div class="va-row" style="margin-top:22px;"><button class="va-btn va-primary" id="va-signout-2" style="background:var(--low,#FF7C7C);border-color:var(--low,#FF7C7C);color:#0A0B0F;">ðŸšª Sign out</button></div>';
+      '<div class="va-row" style="margin-top:22px;"><button class="va-btn va-primary" id="va-signout-2" style="background:var(--low,#FF7C7C);border-color:var(--low,#FF7C7C);color:#0A0B0F;">🚪 Sign out</button></div>';
   }
   function showSettings(initialTab) {
     injectCSS(); ensureAcctStyle();
@@ -1311,18 +1311,18 @@
       '<div class="va-acct">' +
         '<div class="va-acct-nav">' +
           '<div class="va-acct-me"><div class="va-acct-av">' + initial + '</div><div class="va-acct-meta"><div class="nm">' + (esc(firstName(email)) || "Your account") + '</div><div class="em">' + email + "</div></div></div>" +
-          '<button class="va-tab active" data-tab="account">ðŸ‘¤ Account</button>' +
-          (isDesktop() ? '<button class="va-tab" data-tab="keys">ðŸ”‘ API Keys</button>' : "") +
-          '<button class="va-tab" data-tab="sleep">ðŸŒ™ Sleep Mode</button>' +
-          '<button class="va-tab" data-tab="billing">ðŸ’³ Usage &amp; Billing</button>' +
-          '<button class="va-tab va-tab-out" id="va-signout">ðŸšª Sign out</button>' +
+          '<button class="va-tab active" data-tab="account">👤 Account</button>' +
+          (isDesktop() ? '<button class="va-tab" data-tab="keys">🔑 API Keys</button>' : "") +
+          '<button class="va-tab" data-tab="sleep">🌙 Sleep Mode</button>' +
+          '<button class="va-tab" data-tab="billing">💳 Usage &amp; Billing</button>' +
+          '<button class="va-tab va-tab-out" id="va-signout">🚪 Sign out</button>' +
         "</div>" +
         '<div class="va-acct-body">' +
-          '<button class="va-acct-x" id="va-close">âœ•</button>' +
+          '<button class="va-acct-x" id="va-close">✕</button>' +
           '<div class="va-pane" data-pane="account">' + accountPaneHTML(email) + "</div>" +
-          (isDesktop() ? '<div class="va-pane" data-pane="keys" hidden><p class="va-pane-h">ðŸ”‘ API Keys</p>' + keyFieldsHTML() + '<button class="va-btn va-primary" id="va-save" style="width:100%;margin-top:8px;">Save keys</button><div class="va-saved" id="va-saved"></div>' + ollamaFieldsHTML() + "</div>" : "") +
+          (isDesktop() ? '<div class="va-pane" data-pane="keys" hidden><p class="va-pane-h">🔑 API Keys</p>' + keyFieldsHTML() + '<button class="va-btn va-primary" id="va-save" style="width:100%;margin-top:8px;">Save keys</button><div class="va-saved" id="va-saved"></div>' + ollamaFieldsHTML() + "</div>" : "") +
           '<div class="va-pane" data-pane="sleep" hidden>' + sleepPaneHTML() + "</div>" +
-          '<div class="va-pane" data-pane="billing" hidden><p class="va-pane-h">ðŸ’³ Usage &amp; Billing</p><div id="va-bill"></div></div>' +
+          '<div class="va-pane" data-pane="billing" hidden><p class="va-pane-h">💳 Usage &amp; Billing</p><div id="va-bill"></div></div>' +
         "</div>" +
       "</div>";
     document.body.appendChild(m);
@@ -1339,7 +1339,7 @@
     var save = document.getElementById("va-save");
     if (save) save.addEventListener("click", function () {
       saveKeys({ gemini: acctVal("gemini"), gemini2: acctVal("gemini2"), groq: acctVal("groq"), cerebras: acctVal("cerebras"), openrouter: acctVal("openrouter"), mistral: acctVal("mistral"), openai: acctVal("openai"), postiz: acctVal("postiz"), postizUrl: acctVal("postizUrl"), kit: acctVal("kit"), wpUrl: acctVal("wpUrl"), wpUser: acctVal("wpUser"), wpKey: acctVal("wpKey") });
-      var s = document.getElementById("va-saved"); if (s) { s.textContent = "Saved âœ“"; setTimeout(function () { s.textContent = ""; }, 1500); }
+      var s = document.getElementById("va-saved"); if (s) { s.textContent = "Saved ✓"; setTimeout(function () { s.textContent = ""; }, 1500); }
     });
     // Sleep controls.
     function saveSleep() { var on = document.getElementById("va-sleep-on"), mn = document.getElementById("va-sleep-mins"); setSleepCfg({ on: !!(on && on.checked), mins: parseInt(mn && mn.value, 10) || 5 }); scheduleSleep(); }
@@ -1361,23 +1361,23 @@
       var p = (np && np.value) || "", c = (cf && cf.value) || "";
       function setMsg(t, ok) { if (msg) { msg.textContent = t; msg.style.color = ok ? "#57E39A" : "#FF7C7C"; } }
       if (p.length < 6) return setMsg("Password must be at least 6 characters.");
-      if (p !== c) return setMsg("Those passwords donâ€™t match.");
-      if (!sb) return setMsg("Not connected â€” try again.");
-      cpS.disabled = true; setMsg("Updatingâ€¦", true);
+      if (p !== c) return setMsg("Those passwords don’t match.");
+      if (!sb) return setMsg("Not connected — try again.");
+      cpS.disabled = true; setMsg("Updating…", true);
       sb.auth.updateUser({ password: p }).then(function (r) {
         cpS.disabled = false;
-        if (r && r.error) return setMsg(r.error.message || "Couldnâ€™t update password.");
-        setMsg("âœ“ Password updated.", true);
+        if (r && r.error) return setMsg(r.error.message || "Couldn’t update password.");
+        setMsg("✓ Password updated.", true);
         if (np) np.value = ""; if (cf) cf.value = "";
       }).catch(function (e) { cpS.disabled = false; setMsg((e && e.message) || "Something went wrong."); });
     });
   }
 
   /* ---------- app shown / hidden ---------- */
-  /* ---------- command palette (Ctrl/Cmd-K) â€” jump to any tool, run any action ---------- */
+  /* ---------- command palette (Ctrl/Cmd-K) — jump to any tool, run any action ---------- */
   function isMac() { return /Mac|iPhone|iPad/.test(navigator.platform || ""); }
   var CMDK_CSS =
-    '#vk-ov{position:fixed;inset:0;z-index:100050;display:none;align-items:flex-start;justify-content:center;padding:13vh 20px 20px;background:rgba(6,7,10,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-family:"Public Sans",system-ui,sans-serif;}' +
+    '#vk-ov{position:fixed;inset:0;z-index:100050;display:none;align-items:flex-start;justify-content:center;padding:13vh 20px 20px;background:rgba(6,7,10,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
     '#vk-ov.open{display:flex;}' +
     '#vk{width:100%;max-width:560px;background:linear-gradient(180deg,#171a22,#111319);border:1px solid rgba(255,255,255,.14);border-radius:16px;box-shadow:0 40px 100px -30px rgba(0,0,0,.9);overflow:hidden;animation:vkin .16s ease;}' +
     '@keyframes vkin{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}' +
@@ -1399,17 +1399,17 @@
   // Pages can add their own commands: window.voltRegisterCommand({title, sub, emoji, run})
   window.voltRegisterCommand = function (c) { (window.__voltCmds = window.__voltCmds || []).push(c); };
 
-  // Actions for the current tool â€” detected by which buttons exist + are enabled on this page.
+  // Actions for the current tool — detected by which buttons exist + are enabled on this page.
   function pageCommands() {
     var page = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     var defs = {
-      "": [["gen", "Generate ad angles", "âœ¨"], ["saveDraftBtn", "Save this brief", "ðŸ’¾"]],
-      "index.html": [["gen", "Generate ad angles", "âœ¨"], ["saveDraftBtn", "Save this brief", "ðŸ’¾"]],
-      "analytics.html": [["run", "Analyze performance", "ðŸ“Š"]],
-      "email.html": [["run", "Build the email", "âœ‰ï¸"], ["kitBtn", "Send to Kit", "ðŸ“¤"], ["saveDraftBtn", "Save draft", "ðŸ’¾"]],
-      "video.html": [["capBtn", "Generate captions", "ðŸ’¬"], ["exportBtn", "Export the short", "â¬‡ï¸"]],
-      "smartclip.html": [["scan", "Find the moments", "ðŸŽ¯"], ["frameAll", "Auto-frame every clip", "ðŸŽž"], ["sendSel", "Send selected to the editor", "â†’"]],
-      "studio.html": [["btn-download", "Download HD PNG", "ðŸ–¼ï¸"], ["btn-download-all", "Resize to all 3 formats", "âœ¨"], ["btn-download-zip", "Export all 6 slides (ZIP)", "ðŸ—‚ï¸"]]
+      "": [["gen", "Generate ad angles", "✨"], ["saveDraftBtn", "Save this brief", "💾"]],
+      "index.html": [["gen", "Generate ad angles", "✨"], ["saveDraftBtn", "Save this brief", "💾"]],
+      "analytics.html": [["run", "Analyze performance", "📊"]],
+      "email.html": [["run", "Build the email", "✉️"], ["kitBtn", "Send to Kit", "📤"], ["saveDraftBtn", "Save draft", "💾"]],
+      "video.html": [["capBtn", "Generate captions", "💬"], ["exportBtn", "Export the short", "⬇️"]],
+      "smartclip.html": [["scan", "Find the moments", "🎯"], ["frameAll", "Auto-frame every clip", "🎞"], ["sendSel", "Send selected to the editor", "→"]],
+      "studio.html": [["btn-download", "Download HD PNG", "🖼️"], ["btn-download-all", "Resize to all 3 formats", "✨"], ["btn-download-zip", "Export all 6 slides (ZIP)", "🗂️"]]
     };
     var list = defs[page] || [], out = [];
     list.forEach(function (a) {
@@ -1420,20 +1420,20 @@
   }
   function baseCommands() {
     var tools = [
-      { t: "Copy Lab", s: "Write ranked ad angles", e: "âœï¸", href: "index.html" },
-      { t: "Campaign", s: "One brief â†’ whole campaign", e: "âš¡", href: "campaign.html" },
-      { t: "Studio", s: "Design graphics", e: "ðŸŽ¨", href: "studio.html" },
-      { t: "Stats", s: "Performance & insights", e: "ðŸ“Š", href: "analytics.html" },
-      { t: "Email", s: "Build a newsletter", e: "âœ‰ï¸", href: "email.html" },
-      { t: "Video", s: "Make a short", e: "ðŸŽ¬", href: "video.html" },
-      { t: "Guide", s: "How to use " + BRAND.name, e: "ðŸ“–", href: "guide.html" }
+      { t: "Copy Lab", s: "Write ranked ad angles", e: "✍️", href: "index.html" },
+      { t: "Campaign", s: "One brief → whole campaign", e: "⚡", href: "campaign.html" },
+      { t: "Studio", s: "Design graphics", e: "🎨", href: "studio.html" },
+      { t: "Stats", s: "Performance & insights", e: "📊", href: "analytics.html" },
+      { t: "Email", s: "Build a newsletter", e: "✉️", href: "email.html" },
+      { t: "Video", s: "Make a short", e: "🎬", href: "video.html" },
+      { t: "Guide", s: "How to use " + BRAND.name, e: "📖", href: "guide.html" }
     ];
     var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
     var cmds = tools.filter(function (x) { return x.href.toLowerCase() !== here; })
       .map(function (x) { return { title: "Go to " + x.t, sub: x.s, emoji: x.e, run: function () { location.href = x.href; } }; });
-    cmds.push({ title: "Settings & API keys", sub: "Manage your account", emoji: "âš™ï¸", run: showSettings });
-    cmds.push({ title: "Check for updates", sub: "Reload the latest version", emoji: "â†»", run: function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); } });
-    cmds.push({ title: "Sign out", sub: "", emoji: "ðŸšª", run: function () { if (sb) sb.auth.signOut(); } });
+    cmds.push({ title: "Settings & API keys", sub: "Manage your account", emoji: "⚙️", run: showSettings });
+    cmds.push({ title: "Check for updates", sub: "Reload the latest version", emoji: "↻", run: function () { try { localStorage.setItem("volt_just_updated", "1"); } catch (e) {} location.reload(); } });
+    cmds.push({ title: "Sign out", sub: "", emoji: "🚪", run: function () { if (sb) sb.auth.signOut(); } });
     return pageCommands().concat(window.__voltCmds || []).concat(cmds);
   }
   function vkScore(q, s) {
@@ -1448,7 +1448,7 @@
     if (cmdkReady) return; cmdkReady = true;
     var st = document.createElement("style"); st.id = "va-cmdk-style"; st.textContent = CMDK_CSS; document.head.appendChild(st);
     var ov = document.createElement("div"); ov.id = "vk-ov";
-    ov.innerHTML = '<div id="vk"><input id="vk-in" type="text" placeholder="Search ' + esc(BRAND.name) + ' â€” jump to a tool or run an actionâ€¦" autocomplete="off" spellcheck="false" /><div id="vk-list"></div><div id="vk-foot"><span><b>â†‘â†“</b> move</span><span><b>â†µ</b> open</span><span><b>esc</b> close</span></div></div>';
+    ov.innerHTML = '<div id="vk"><input id="vk-in" type="text" placeholder="Search ' + esc(BRAND.name) + ' — jump to a tool or run an action…" autocomplete="off" spellcheck="false" /><div id="vk-list"></div><div id="vk-foot"><span><b>↑↓</b> move</span><span><b>↵</b> open</span><span><b>esc</b> close</span></div></div>';
     document.body.appendChild(ov);
     var inp = document.getElementById("vk-in"), list = document.getElementById("vk-list");
     function closeK() { ov.classList.remove("open"); }
@@ -1462,7 +1462,7 @@
       if (vkSel >= vkItems.length) vkSel = 0;
       if (!vkItems.length) { list.innerHTML = '<div class="vk-empty">No matches.</div>'; return; }
       list.innerHTML = vkItems.map(function (c, i) {
-        return '<div class="vk-item' + (i === vkSel ? " sel" : "") + '" data-i="' + i + '"><span class="vk-e">' + (c.emoji || "â€¢") + '</span><div><div class="vk-t">' + esc(c.title) + "</div>" + (c.sub ? '<div class="vk-s">' + esc(c.sub) + "</div>" : "") + "</div></div>";
+        return '<div class="vk-item' + (i === vkSel ? " sel" : "") + '" data-i="' + i + '"><span class="vk-e">' + (c.emoji || "•") + '</span><div><div class="vk-t">' + esc(c.title) + "</div>" + (c.sub ? '<div class="vk-s">' + esc(c.sub) + "</div>" : "") + "</div></div>";
       }).join("");
     }
     function setSel(i) { vkSel = i; var els = list.querySelectorAll(".vk-item"); for (var k = 0; k < els.length; k++) els[k].classList.toggle("sel", k === i); var s = els[i]; if (s) s.scrollIntoView({ block: "nearest" }); }
@@ -1484,7 +1484,7 @@
 
   /* ---------- module RESULTS persistence ----------
      The field autosave below only restores what you TYPED. This keeps what a module
-     GENERATED (campaign results, copy angles, email bodyâ€¦) so leaving a tool and coming
+     GENERATED (campaign results, copy angles, email body…) so leaving a tool and coming
      back doesn't start you from scratch. Per-module key, TTL'd, size-capped. */
   var STATE_TTL_DAYS = 14, STATE_MAX = 400000; // ~400KB per module
   window.voltState = {
@@ -1493,7 +1493,7 @@
       try {
         if (data == null) return this.clear(name);
         var s = JSON.stringify({ t: Date.now(), v: data });
-        if (s.length > STATE_MAX) return false;       // too big â€” skip rather than blow the quota
+        if (s.length > STATE_MAX) return false;       // too big — skip rather than blow the quota
         localStorage.setItem(this.key(name), s);
         return true;
       } catch (e) { return false; }
@@ -1516,7 +1516,7 @@
   };
 
   /* ---------- org settings: which modules / designs are retired ----------
-     Written only by the owner (server-enforced in api/projects.js), READ by everyone â€” this is
+     Written only by the owner (server-enforced in api/projects.js), READ by everyone — this is
      where the reading half happens. Cached so nav doesn't flicker on load; refreshed in the
      background. Retiring hides a thing from the pickers; it never deletes anything. */
   var OS_LS = "volt_orgsettings";
@@ -1535,7 +1535,7 @@
   }
   // Brand-level module defaults (BRAND.hiddenModules). Runs ahead of the org-settings early-return
   // because a brand-new org has no saved settings at all and must STILL get the brand's default
-  // module set â€” otherwise Vantly's first-ever sign-in shows the three families it doesn't ship.
+  // module set — otherwise Vantly's first-ever sign-in shows the three families it doesn't ship.
   // An org that has explicitly re-enabled one (modules[k] === true) overrides the brand default.
   function applyBrandModules(s) {
     var hidden = BRAND.hiddenModules; if (!hidden || !hidden.length) return;
@@ -1564,7 +1564,7 @@
   function applyOrgSettings() {
     var s = orgSettings();
     // Business News SA (Studio's editorial family) is OFF by default for every org, opt-IN rather
-    // than the opt-OUT the loop below uses for every other family â€” checked unconditionally, ahead
+    // than the opt-OUT the loop below uses for every other family — checked unconditionally, ahead
     // of the early-return, since a brand-new org with zero saved settings at all must still not
     // show it. Everything else here defaults ON; this one key alone defaults off.
     if (!(s && s.premium && s.premium.bizsa === true)) {
@@ -1573,9 +1573,9 @@
     applyBrandModules(s);
     if (!s || (!s.modules && !s.themes && !s.premium)) { pruneRailGroups(); return; }
     // nav tabs + rail entries for retired modules. Used to only hide an <a> carrying one of three
-    // class names (tab / nav-tab / r-t) â€” leftover from the old per-page topbar this app no longer
+    // class names (tab / nav-tab / r-t) — leftover from the old per-page topbar this app no longer
     // uses (see "Nav lives in the rail"). The rail's real tile class is "r-tile", which matched
-    // NONE of those, so retiring a module in Admin never actually removed it from the sidebar â€”
+    // NONE of those, so retiring a module in Admin never actually removed it from the sidebar —
     // the one place every page's nav lives today. Hide any matching link, full stop; there's no
     // real case where a link to a retired module's page should stay visible somewhere.
     Object.keys(s.modules || {}).forEach(function (k) {
@@ -1583,7 +1583,7 @@
       hideModule(k);
     });
     pruneRailGroups();
-    // Studio theme buttons (#theme-classicâ€¦) and premium content types (#ct-fundingâ€¦)
+    // Studio theme buttons (#theme-classic…) and premium content types (#ct-funding…)
     Object.keys(s.themes || {}).forEach(function (k) {
       if (s.themes[k] === false) { var el = document.getElementById("theme-" + k); if (el) el.style.display = "none"; }
     });
@@ -1593,7 +1593,7 @@
     announceRetired(s);
     try { document.dispatchEvent(new CustomEvent("volt:orgsettings", { detail: s })); } catch (e) {}
   }
-  // Tell the team WHY something vanished â€” once per retired design, not on every load. Without
+  // Tell the team WHY something vanished — once per retired design, not on every load. Without
   // this a design silently disappears and people assume the tool broke.
   var RETIRE_SEEN = "volt_retire_seen_v1";
   var RETIRE_LABEL = {
@@ -1613,7 +1613,7 @@
     var k = fresh[0], meta = RETIRE_LABEL[k] || { n: k, why: "that design", to: "another design" };
     fresh.forEach(function (x) { seen[x] = Date.now(); });
     try { localStorage.setItem(RETIRE_SEEN, JSON.stringify(seen)); } catch (e) {}
-    // A 2.6s toast is too easy to miss for something that changes what the team can use â€”
+    // A 2.6s toast is too easy to miss for something that changes what the team can use —
     // this stays until it's dismissed.
     setTimeout(function () {
       if (document.getElementById("va-retire")) return;
@@ -1622,11 +1622,11 @@
       n.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:100060;max-width:390px;" +
         "background:linear-gradient(180deg,#14171F,#11141b);border:1px solid rgba(182,255,61,.35);" +
         "border-radius:14px;padding:16px 18px;box-shadow:0 18px 44px rgba(0,0,0,.55);" +
-        "font-family:'Public Sans',system-ui,sans-serif;color:#ECEEF3;font-size:13.5px;line-height:1.55;";
+        "font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#ECEEF3;font-size:13.5px;line-height:1.55;";
       n.innerHTML =
-        '<div style="font-weight:800;margin-bottom:6px;">ðŸŽ¨ ' + meta.n + ' has been retired</div>' +
+        '<div style="font-weight:800;margin-bottom:6px;">🎨 ' + meta.n + ' has been retired</div>' +
         '<div style="color:#888F9D;">' + meta.why.charAt(0).toUpperCase() + meta.why.slice(1) +
-        ' has been used a lot lately â€” time to switch things up. Studio now opens on <b style="color:#B6FF3D;">' +
+        ' has been used a lot lately — time to switch things up. Studio now opens on <b style="color:#B6FF3D;">' +
         meta.to + '</b>.</div>' +
         '<div style="color:#5B616D;font-size:12px;margin-top:8px;">Nothing you\'ve already made has changed.</div>' +
         '<button style="margin-top:12px;background:#B6FF3D;color:#0A0B0F;border:none;border-radius:9px;' +
@@ -1658,14 +1658,14 @@
   window.addEventListener("load", applyOrgSettings);
   window.addEventListener("volt:ready", refreshOrgSettings);
 
-  /* ---------- universal autosave â€” never lose typed work ----------
+  /* ---------- universal autosave — never lose typed work ----------
      Text fields alone were not enough. A user would generate an email, edit it in the preview,
-     set up a Studio design or a Video look, come back and find it gone â€” because none of that
+     set up a Studio design or a Video look, come back and find it gone — because none of that
      lives in an <input>. Autosave now covers four things:
        1. text inputs / textareas / selects with an id   (as before)
        2. checkboxes + radios                            (toggles: caption bg, show-footer, ...)
        3. [contenteditable][id]                          (the email preview editor)
-       4. registered MODULE STATE via window.voltRegisterAutosave â€” each tool hands over a
+       4. registered MODULE STATE via window.voltRegisterAutosave — each tool hands over a
           snapshot of its own state object, which is where the real work actually is.
      It also flushes on tab-hide and pagehide, because a debounce does not fire if you close fast. */
   function autosaveKey() { return "volt_autosave_" + (location.pathname.split("/").pop() || "index").toLowerCase(); }
@@ -1710,7 +1710,7 @@
     if (autosaveRestored) {
       var saved = autosaveStored();
       if (saved && saved.mods && saved.mods[name] != null) {
-        try { if (handlers.restore(saved.mods[name]) !== false) showToast("â†© Restored your unsaved work"); } catch (e) {}
+        try { if (handlers.restore(saved.mods[name]) !== false) showToast("↩ Restored your unsaved work"); } catch (e) {}
       }
     }
   };
@@ -1735,7 +1735,7 @@
       if (empty) localStorage.removeItem(autosaveKey());
       else localStorage.setItem(autosaveKey(), JSON.stringify(payload));
     } catch (err) {
-      // Quota blown (a Video look or a big email body can be large) â€” drop module state and retry
+      // Quota blown (a Video look or a big email body can be large) — drop module state and retry
       // with just the fields, so a big snapshot never costs the user their typed copy too.
       try { localStorage.setItem(autosaveKey(), JSON.stringify({ t: payload.t, m: m, c: c, e: e2, mods: {} })); } catch (e3) {}
     }
@@ -1746,7 +1746,7 @@
     var data = autosaveStored();
     if (!data) return; var n = 0;
     var fire = function (el) { try { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); } catch (e) {} };
-    // Text: only fill fields that are currently EMPTY â€” never clobber a tool's defaults or a hand-off.
+    // Text: only fill fields that are currently EMPTY — never clobber a tool's defaults or a hand-off.
     if (data.m) autosaveValueFields().forEach(function (el) {
       var val = data.m[el.id];
       if (val != null && val !== "" && !el.value) { el.value = val; fire(el); n++; }
@@ -1762,12 +1762,12 @@
       var val = data.e[el.id];
       if (val && !(el.textContent || "").trim()) { el.innerHTML = val; n++; }
     });
-    // Module state LAST â€” a tool's restore() typically re-renders from the fields above.
+    // Module state LAST — a tool's restore() typically re-renders from the fields above.
     if (data.mods) Object.keys(autosaveMods).forEach(function (k) {
       if (data.mods[k] == null) return;
       try { if (autosaveMods[k].restore(data.mods[k]) !== false) n++; } catch (err) {}
     });
-    if (n) showToast("â†© Restored your unsaved work");
+    if (n) showToast("↩ Restored your unsaved work");
   }
   function initAutosave() {
     if (autosaveOn) return; autosaveOn = true;
@@ -1777,7 +1777,7 @@
     };
     document.addEventListener("input", touch, true);
     document.addEventListener("change", touch, true);          // selects, checkboxes, radios
-    // The email/Studio editors mutate the DOM and JS state without any input event â€” a heartbeat
+    // The email/Studio editors mutate the DOM and JS state without any input event — a heartbeat
     // is the only thing that reliably catches "generated a draft then walked away".
     setInterval(function () { if (document.visibilityState !== "hidden") saveAutosave(); }, 15000);
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flushAutosave(); });
@@ -1798,11 +1798,11 @@
     var m = document.createElement("div"); m.id = "va-welcome";
     m.innerHTML = '<div class="va-card">' +
       '<p class="va-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
-      '<p class="va-sub" style="margin-bottom:18px;">Welcome, ' + esc(firstName(session && session.user && session.user.email)) + '. Your AI marketing suite â€” ' + welcomeBlurb() + ', all in one place.</p>' +
+      '<p class="va-sub" style="margin-bottom:18px;">Welcome, ' + esc(firstName(session && session.user && session.user.email)) + '. Your AI marketing suite — ' + welcomeBlurb() + ', all in one place.</p>' +
       '<div class="va-tips">' +
-        vaTip("ðŸŽ¨", "Set your brand once", "Do it in Studio â€” every tool then uses your colours, logo and voice.") +
-        vaTip(isMac() ? "âŒ˜" : "^K", "Jump anywhere, instantly", "Press " + (isMac() ? "âŒ˜K" : "Ctrl K") + " from any tool to switch or run an action.") +
-        vaTip("ðŸ’¾", "Never lose your work", "Everything you type autosaves â€” reload and it's still there.") +
+        vaTip("🎨", "Set your brand once", "Do it in Studio — every tool then uses your colours, logo and voice.") +
+        vaTip(isMac() ? "⌘" : "^K", "Jump anywhere, instantly", "Press " + (isMac() ? "⌘K" : "Ctrl K") + " from any tool to switch or run an action.") +
+        vaTip("💾", "Never lose your work", "Everything you type autosaves — reload and it's still there.") +
       '</div>' +
       '<div class="va-row"><button class="va-btn va-primary" id="va-welcome-go">Start creating</button></div>' +
     '</div>';
@@ -1816,7 +1816,7 @@
   /* ---------- personalized "Jarvis" welcome (everyone) ---------- */
   // How each person is addressed. The owner keeps "Master"; teammates are greeted formally by
   // honorific + surname. Supabase gives us an email and nothing else, so a surname has to be
-  // recorded here (or arrive as `first.last@`) â€” it cannot be guessed from "karabo@...".
+  // recorded here (or arrive as `first.last@`) — it cannot be guessed from "karabo@...".
   //
   // Deliberately NO default honorific for people who aren't listed: guessing "Mr" from a name or
   // an email would misgender real colleagues, so unknown users are greeted by first name until
@@ -1831,7 +1831,7 @@
       var label = who.surname || who.name || firstName(em);
       return (who.title ? who.title + " " : "") + label;
     }
-    // `first.last@domain` carries a real surname â€” use it, but still without an assumed honorific.
+    // `first.last@domain` carries a real surname — use it, but still without an assumed honorific.
     var local = String(em).split("@")[0], parts = local.split(/[._-]+/).filter(Boolean);
     if (parts.length > 1) {
       var last = parts[parts.length - 1];
@@ -1873,7 +1873,7 @@
         // Boot lines + welcome.
         "#va-jarvis .vj-boot{margin-top:26px;text-align:center;font-family:var(--fm,monospace);font-size:12px;letter-spacing:2.5px;text-transform:uppercase;color:var(--accent,#B6FF3D);line-height:2;}" +
         "#va-jarvis .vj-line{opacity:0;animation:vjline .5s ease forwards;}" +
-        "#va-jarvis .vj-hi{font-family:var(--fd,'Fraunces',system-ui);font-weight:800;font-size:clamp(30px,5.5vw,52px);color:#fff;margin:20px 0 6px;text-align:center;opacity:0;animation:vjhi .8s cubic-bezier(.2,.9,.3,1.1) forwards 1.4s;text-shadow:0 0 30px rgba(182,255,61,.35);}" +
+        "#va-jarvis .vj-hi{font-family:var(--fd,'Unbounded',system-ui);font-weight:800;font-size:clamp(30px,5.5vw,52px);color:#fff;margin:20px 0 6px;text-align:center;opacity:0;animation:vjhi .8s cubic-bezier(.2,.9,.3,1.1) forwards 1.4s;text-shadow:0 0 30px rgba(182,255,61,.35);}" +
         "#va-jarvis .vj-sub{font-family:var(--fb,system-ui);font-size:14px;color:var(--dim,#888F9D);opacity:0;animation:vjfade .7s ease forwards 1.9s;letter-spacing:.5px;}" +
         "@keyframes vjspin{to{transform:rotate(360deg);}}" +
         "@keyframes vjpulse{0%,100%{opacity:.6;}50%{opacity:1;}}" +
@@ -1893,9 +1893,9 @@
         '<circle class="dot" cx="100" cy="100" r="6"></circle>' +
       '</svg>' +
       '<div class="vj-boot">' +
-        '<div class="vj-line" style="animation-delay:.25s">â—‡ ' + esc(BRAND.name) + ' Intelligence â€” Online</div>' +
-        '<div class="vj-line" style="animation-delay:.65s">â–¸ Calibrating modules â€¦ OK</div>' +
-        '<div class="vj-line" style="animation-delay:1.05s">â–¸ Secure session verified</div>' +
+        '<div class="vj-line" style="animation-delay:.25s">◇ ' + esc(BRAND.name) + ' Intelligence — Online</div>' +
+        '<div class="vj-line" style="animation-delay:.65s">▸ Calibrating modules … OK</div>' +
+        '<div class="vj-line" style="animation-delay:1.05s">▸ Secure session verified</div>' +
       '</div>' +
       '<div class="vj-hi">' + esc(text) + '</div>' +
       '<div class="vj-sub">All systems ready.</div>';
@@ -1924,22 +1924,22 @@
     window.voltSession = session;
     try { window.dispatchEvent(new Event("volt:ready")); } catch (e) {}
     var f = null; try { f = localStorage.getItem("volt_just_updated"); } catch (e) {}
-    if (f) { try { localStorage.removeItem("volt_just_updated"); } catch (e) {} showToast("âœ“ You're on the latest version"); }
+    if (f) { try { localStorage.removeItem("volt_just_updated"); } catch (e) {} showToast("✓ You're on the latest version"); }
   }
 
   /* ---------- lightning rain: THE loading state ---------- */
   // Joel, 2026-09-29: "going forward when there is loading, render the lightning design like
   // rain drops." So loading has ONE look across the whole app, and it lives here, in the file
   // every page already loads first:
-  //   Â· .spinner â€” every page's little inline spinner (7 pages each defined their own spinning
+  //   · .spinner — every page's little inline spinner (7 pages each defined their own spinning
   //     ring) is restyled into bolts falling through a 14px window. No page needed editing.
-  //   Â· .skel â€” the skeleton cards shown while results load get bolts raining through them.
-  //   Â· the boot screen â€” a full-screen downpour while the session is checked (this used to flash
+  //   · .skel — the skeleton cards shown while results load get bolts raining through them.
+  //   · the boot screen — a full-screen downpour while the session is checked (this used to flash
   //     the sign-in form on every page load, even for someone already signed in).
-  //   Â· window.voltRain.mount(el) / .overlay(label) â€” for any NEW loading state. Use these; don't
+  //   · window.voltRain.mount(el) / .overlay(label) — for any NEW loading state. Use these; don't
   //     add another spinner.
   // The glyph is Volt's own bolt (the same path as the rail's Campaign icon). Another brand gets a
-  // plain raindrop â€” a Vantly screen raining Volt's lightning would be a brand leak (same reason
+  // plain raindrop — a Vantly screen raining Volt's lightning would be a brand leak (same reason
   // the sleep screen's rain spells BRAND.name, not "VOLT").
   var RAIN_IS_VOLT = BRAND === BRANDS.volt;
   var RAIN_PATH = RAIN_IS_VOLT ? "M13 2.5L4.5 13.2h6.2L10 21.5l8.9-11H12z"
@@ -1948,7 +1948,7 @@
   function rainSvgUri(inner, vb) {
     return 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="' + vb + '">' + inner + '</svg>') + '")';
   }
-  // One glyph, for the inline spinner. A tile of scattered glyphs, for skeletons â€” scattered so a
+  // One glyph, for the inline spinner. A tile of scattered glyphs, for skeletons — scattered so a
   // repeating mask reads as rain, not wallpaper.
   var RAIN_ONE = rainSvgUri('<path d="' + RAIN_PATH + '"/>', "0 0 24 24");
   var RAIN_TILE = rainSvgUri([[14, 6, 1.1], [112, 44, 1.5], [168, 4, .9], [58, 108, 1.3], [150, 150, 1], [8, 186, .85], [196, 96, 1.2]]
@@ -1975,11 +1975,11 @@
       ".skel::after{top:-168px;opacity:.5;" + m(RAIN_TILE, "90px 0/161px 168px repeat") + "animation:vrSkelB 1.05s linear infinite;}" +
       "@keyframes vrSkelA{to{transform:translateY(240px)}}@keyframes vrSkelB{to{transform:translateY(168px)}}" +
       // Boot screen.
-      "#va-boot{position:fixed;inset:0;z-index:100000;background:#06070A;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease;font-family:'Public Sans',system-ui,sans-serif;}" +
+      "#va-boot{position:fixed;inset:0;z-index:100000;background:#06070A;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}" +
       "#va-boot.out{opacity:0;pointer-events:none;}" +
       "#va-boot canvas,.vr-cv{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;}" +
       "#va-boot .vb-in{position:relative;text-align:center;}" +
-      "#va-boot .vb-logo{font-family:Fraunces,system-ui,sans-serif;font-weight:800;font-size:38px;color:#ECEEF3;margin:0;letter-spacing:-.01em;}" +
+      "#va-boot .vb-logo{font-family:Unbounded,system-ui,sans-serif;font-weight:800;font-size:38px;color:#ECEEF3;margin:0;letter-spacing:-.01em;}" +
       "#va-boot .vb-logo .d{color:rgb(" + RAIN_RGB + ");}" +
       "#va-boot .vb-sub{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#888F9D;margin:10px 0 0;}" +
       ".vr-host{position:relative;overflow:hidden;}" +
@@ -2004,7 +2004,7 @@
     var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var W = 0, H = 0, drops = [], splashes = [], raf = 0, stopped = false, SLANT = 0.14;
     function spawn(d, anywhere) {
-      var z = Math.random();                               // depth: 0 far â€¦ 1 near
+      var z = Math.random();                               // depth: 0 far … 1 near
       d.s = (9 + z * 20) * dpr;                            // glyph size
       d.v = (5 + z * 9) * dpr * (opts.speed || 1);         // px per frame
       d.a = 0.25 + z * 0.75;
@@ -2049,7 +2049,7 @@
       }
     }
     resize();
-    if (still) {   // reduced motion: one quiet, static scatter â€” no animation loop at all
+    if (still) {   // reduced motion: one quiet, static scatter — no animation loop at all
       for (var k = 0; k < drops.length; k++) drawGlyph(drops[k].x, drops[k].y, drops[k].s, drops[k].a * 0.5);
     } else frame();
     return { stop: function () { stopped = true; cancelAnimationFrame(raf); } };
@@ -2059,7 +2059,7 @@
     host.insertBefore(cv, host.firstChild);
     return cv;
   }
-  var RAIN_MIN_MS = 2000; // "a couple more seconds" (Joel) â€” a floor under how briefly the rain can show
+  var RAIN_MIN_MS = 2000; // "a couple more seconds" (Joel) — a floor under how briefly the rain can show
   function rainDelay(startedAt, cb) { var left = RAIN_MIN_MS - (Date.now() - startedAt); if (left > 0) setTimeout(cb, left); else cb(); }
 
   window.voltRain = {
@@ -2077,7 +2077,7 @@
       injectRainCSS();
       var ov = document.createElement("div"); ov.id = "va-rainov"; ov.setAttribute("role", "status");
       ov.innerHTML = '<div class="vr-lbl"></div>';
-      ov.firstChild.textContent = label || "Workingâ€¦";
+      ov.firstChild.textContent = label || "Working…";
       document.body.appendChild(ov);
       var startedAt = Date.now();
       var h = rainOn(rainCanvas(ov));
@@ -2089,7 +2089,7 @@
     path: RAIN_PATH
   };
 
-  // Boot screen: covers the page (same job the gate used to do on load â€” nothing shows
+  // Boot screen: covers the page (same job the gate used to do on load — nothing shows
   // unauthenticated) but says "one moment" instead of asking an already-signed-in person to sign in.
   var _bootRain = null, _bootShownAt = 0;
   function showBoot() {
@@ -2098,7 +2098,7 @@
     document.documentElement.style.overflow = "hidden";
     var b = document.createElement("div"); b.id = "va-boot"; b.setAttribute("role", "status");
     b.innerHTML = '<div class="vb-in"><p class="vb-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
-      '<p class="vb-sub">Charging upâ€¦</p></div>';
+      '<p class="vb-sub">Charging up…</p></div>';
     (document.body || document.documentElement).appendChild(b);
     _bootShownAt = Date.now();
     _bootRain = rainOn(rainCanvas(b));
@@ -2118,23 +2118,23 @@
     var s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
     s.onload = cb;
-    s.onerror = function () { showGate("Couldnâ€™t load sign-in. Check your connection and reload."); };
+    s.onerror = function () { showGate("Couldn’t load sign-in. Check your connection and reload."); };
     document.head.appendChild(s);
   }
   function init() {
     injectCSS();
     applyBrandChrome();
     if (!BRAND_READY) { showGate("SETUP_INCOMPLETE"); return; } // fail closed, never touch Volt's real project
-    // Cover the page immediately so nothing shows unauthenticated â€” with the lightning-rain boot
+    // Cover the page immediately so nothing shows unauthenticated — with the lightning-rain boot
     // screen, not the sign-in form: most loads are someone already signed in, and flashing a
     // login form at them on every page was the old behaviour. The form only appears once we KNOW
-    // there's no session (or if the check hangs â€” 9s is a broken network, not a slow one).
+    // there's no session (or if the check hangs — 9s is a broken network, not a slow one).
     showBoot();
     setTimeout(function () { if (document.getElementById("va-boot") && !session) showGate(); }, 9000);
     loadSb(function () {
       sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
       // A brand-neutral marketing page (signup.html, say) can carry its own polished form and
-      // still need the real client to submit against â€” exposed as soon as it exists, not gated
+      // still need the real client to submit against — exposed as soon as it exists, not gated
       // behind a session or 'volt:ready' (that event only fires once a session already exists,
       // which is exactly backwards for a page whose whole job is creating one).
       window._voltSupabase = sb;
