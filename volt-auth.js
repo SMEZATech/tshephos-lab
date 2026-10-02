@@ -1601,7 +1601,8 @@
     navy: { n: "Navy", why: "the navy look", to: "Classic" },
     cinematic: { n: "Cinematic", why: "the full-bleed look", to: "another design" },
     modern: { n: "Modern", why: "the light look", to: "another design" },
-    editorial: { n: "Editorial", why: "the paper look", to: "another design" },
+    editorial: { n: "Editorial", why: "the paper look", to: "Spotlight" },
+    spotlight: { n: "Spotlight", why: "the warm-paper look", to: "another design" },
     bold: { n: "Bold", why: "the oversized-type look", to: "another design" }
   };
   function announceRetired(s) {

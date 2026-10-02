@@ -373,6 +373,7 @@
                             <button onclick="setTheme('cinematic')" id="theme-cinematic" class="vt-opt theme-btn">Cinematic</button>
                             <button onclick="setTheme('modern')"    id="theme-modern"    class="vt-opt theme-btn">Modern</button>
                             <button onclick="setTheme('editorial')" id="theme-editorial" class="vt-opt theme-btn">Editorial</button>
+                            <button onclick="setTheme('spotlight')" id="theme-spotlight" class="vt-opt theme-btn">Spotlight</button>
                             <button onclick="setTheme('bold')"      id="theme-bold"      class="vt-opt theme-btn">Bold</button>
                         </div>
                     </div>
@@ -1608,7 +1609,7 @@
     // =============================================================
     // Preference order when the current theme has been retired. Navy first — it's the calm
     // counterpart to Classic, so the fallback still looks deliberate rather than random.
-    const THEME_ORDER = ['navy', 'classic', 'cinematic', 'modern', 'editorial', 'bold'];
+    const THEME_ORDER = ['navy', 'spotlight', 'classic', 'cinematic', 'modern', 'editorial', 'bold'];
     function themeRetired(k) { return !!(window.voltRetired && window.voltRetired('themes', k)); }
     function avoidRetiredTheme() {
         if (!themeRetired(state.theme)) return false;
@@ -3153,7 +3154,7 @@
     }
     function lookId(rec) { return rec.campaign === 'standard' ? ('standard:' + rec.theme) : rec.campaign; }
     function lookLabel(rec) {
-        if (rec.campaign === 'standard') return ({ classic: 'Classic', cinematic: 'Cinematic', modern: 'Modern' }[rec.theme] || 'Standard');
+        if (rec.campaign === 'standard') return ({ classic: 'Classic', cinematic: 'Cinematic', modern: 'Modern', spotlight: 'Spotlight' }[rec.theme] || 'Standard');
         return ({ carousel: 'Carousel', poll: 'Poll', whatsapp: 'WhatsApp', stat: 'Stat Spotlight', quote: 'Quote' }[rec.campaign] || rec.campaign);
     }
 
@@ -3270,6 +3271,7 @@
             { id: 'standard:classic',   label: 'Classic',          apply: () => { setCampaign('standard'); setTheme('classic'); } },
             { id: 'standard:cinematic', label: 'Cinematic',        apply: () => { setCampaign('standard'); setTheme('cinematic'); } },
             { id: 'standard:modern',    label: 'Modern',           apply: () => { setCampaign('standard'); setTheme('modern'); } },
+            { id: 'standard:spotlight', label: 'Spotlight',        apply: () => { setCampaign('standard'); setTheme('spotlight'); } },
             { id: 'carousel',           label: 'a Carousel',       apply: () => setCampaign('carousel') },
             { id: 'poll',               label: 'a Poll',           apply: () => setCampaign('poll') },
             { id: 'whatsapp',           label: 'a WhatsApp post',  apply: () => setCampaign('whatsapp') },

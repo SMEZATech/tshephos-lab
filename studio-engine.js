@@ -741,6 +741,104 @@ const Layouts = {
         }
     },
 
+    // ----- STANDARD: SPOTLIGHT (headline first, photo bleeds off the corner) -----
+    // Exists because the white Editorial post — photo in a frame on top, headline underneath —
+    // had become most of the feed, and a feed of one silhouette reads as repetitive however good
+    // each post is. This one flips the order: headline leads on warm paper, the photo anchors the
+    // bottom and bleeds off the right and bottom edges, and a round arrow button sits on the photo's
+    // edge as the "read it" affordance. Side by side with Editorial the grid visibly changes shape.
+    // Landscape turns it 90 degrees: text left, photo bleeding off the right.
+    spotlight(r, s, assets) {
+        const W = r.w, H = r.h;
+        const isLand = s.format === 'landscape';
+        const paper = '#f4eee3';
+        // Never assume the brand's navy is dark: ink comes from real luminance (see pIsLight).
+        const ink = pIsLight(BRAND.navy) ? '#14171f' : BRAND.navy;
+        const onRed = pIsLight(BRAND.red) ? ink : '#ffffff';
+        r.fillBg(paper);
+        const pad = Math.round(W * (isLand ? 0.05 : 0.075));
+        const top = pad + (s.format === 'story' ? 110 : 0);   // clear of Instagram's story chrome
+        const base = Math.min(W, 1080);
+        const tagSize = Math.round(base * 0.0175);
+        const tagFont = { family: 'Roboto', weight: '700', size: tagSize };
+        const tagText = String(s.tag || '').toUpperCase();
+        const tagW = r.textWidth(tagText, tagFont) + 44;
+        const tagH = tagSize + 24;
+        const d = Math.round(base * (isLand ? 0.115 : 0.125));   // arrow button diameter
+        const footerH = s.showFooter ? 64 : 0;
+        const urlFont = { family: 'Roboto', weight: '700', size: Math.round(base * 0.0175) };
+        const ctaFont = { family: 'Oswald', weight: '700', size: Math.round(base * 0.02) };
+        const bottomY = H - pad - pSafeB();
+        // A headline size the longest WORD fits at. fitFontSize will happily pick a size that only
+        // fits the box by breaking a word mid-letter (RETRENCHMEN / T) when the canvas is tall, as a
+        // story is — so the ceiling is capped by the widest word before it ever sees the box.
+        const wordCap = (text, w, ceil) => {
+            let widest = 1;
+            String(text).split(/\s+/).forEach(wd => { widest = Math.max(widest, r.textWidth(wd, { family: 'Oswald', weight: '700', size: 100 })); });
+            return Math.max(24, Math.min(ceil, Math.floor(100 * w * 0.95 / widest)));   // fitFontSize wraps at 97% of the box, so stay inside that
+        };
+
+        // The photo (or a navy block standing in for it).
+        const photo = (x, y, w, h, radii) => {
+            r.fillRoundRect(x, y, w, h, radii, BRAND.navy);
+            if (assets.featured) r.drawCover(assets.featured, x, y, w, h, s.focalX, s.focalY, radii);
+        };
+        const arrow = (cx, cy) => {
+            r.fillRoundRect(cx - d / 2 - 9, cy - d / 2 - 9, d + 18, d + 18, (d + 18) / 2, paper);   // ring separates it from the photo
+            r.fillRoundRect(cx - d / 2, cy - d / 2, d, d, d / 2, BRAND.red);
+            r.drawIconPath(ICON.arrowRight, cx - d * 0.26, cy - d * 0.26, d * 0.52, onRed, 2.6);
+        };
+
+        if (!isLand) {
+            // ---- vertical: header, headline, then the photo takes the rest of the canvas ----
+            const innerX = pad, innerW = W - pad * 2;
+            if (assets.logo) r.drawContain(assets.logo, innerX, top, 170, 46, { filter: 'grayscale(1) brightness(0)', alpha: 0.85 });
+            r.drawTag(tagText, tagFont, 22, 12, innerX + innerW - tagW, top + (46 - tagH) / 2, { radii: 4, bg: BRAND.red, fg: onRed });
+            const titleTop = top + 46 + Math.round(H * 0.035);
+            const minPhotoH = Math.round(H * (s.format === 'story' ? 0.40 : 0.36));
+            const gap = 28;
+            const boxH = Math.max(80, (H - minPhotoH) - titleTop - d / 2 - gap);
+            const ceiling = (s.format === 'portrait' ? 96 : (s.format === 'square' ? 84 : 100)) * s.userScale * 1.4;
+            const fit = r.fitFontSize(String(s.title || '').toUpperCase(), { family: 'Oswald', weight: '700' }, innerW, boxH, 1.04, { max: wordCap(String(s.title || '').toUpperCase(), innerW, ceiling), min: 24 });
+            // The photo starts under the headline, so a short headline earns a taller photo; it
+            // never climbs above 38% of the canvas or the headline floats in dead paper.
+            const photoTop = Math.max(Math.round(H * 0.38), Math.round(titleTop + fit.totalH + gap + d / 2));
+            const slack = photoTop - d / 2 - gap - (titleTop + fit.totalH);
+            r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleTop + Math.max(0, slack / 2), innerW, { align: 'left', color: ink, lineHeight: 1.04 });
+            photo(pad, photoTop, W - pad, H - photoTop, { tl: 48, tr: 0, br: 0, bl: 0 });
+            if (s.showFooter) {
+                const scrimH = Math.min(Math.round((H - photoTop) * 0.5), 300);
+                r.linearGradient(pad, H - scrimH, W - pad, scrimH, [[0, 'rgba(8,20,30,0)'], [1, 'rgba(8,20,30,0.78)']], 'bottom');
+                const fy = bottomY - 30;
+                r.drawIconPath(ICON.book, innerX + 24, fy - 2, 26, '#ffffff', 2.2);
+                r.drawLines([BRAND.cta.toUpperCase()], ctaFont, innerX + 24 + 38, fy - 2, innerW, { align: 'left', color: '#ffffff' });
+                const urlW = r.textWidth(BRAND.url, urlFont);
+                r.drawIconPath(ICON.globe, innerX + innerW - urlW - 34, fy - 1, 24, '#ffffff', 2.5);
+                r.drawLines([BRAND.url], urlFont, innerX + innerW - urlW, fy + 1, urlW, { color: '#ffffff' });
+            }
+            arrow(W - pad - d / 2, photoTop);
+        } else {
+            // ---- landscape: text column left, photo bleeding off the right ----
+            const photoX = Math.round(W * 0.52);
+            photo(photoX, 0, W - photoX, H, { tl: 56, tr: 0, br: 0, bl: 56 });
+            const innerX = pad, innerW = photoX - pad * 2 + 10;
+            if (assets.logo) r.drawContain(assets.logo, innerX, pad - 4, 150, 40, { filter: 'grayscale(1) brightness(0)', alpha: 0.85 });
+            r.drawTag(tagText, tagFont, 22, 12, innerX, pad + 46, { radii: 4, bg: BRAND.red, fg: onRed });
+            const titleTop = pad + 46 + tagH + 22;
+            const footBlock = s.showFooter ? 84 : 0;
+            const boxH = Math.max(60, bottomY - footBlock - titleTop - 14);
+            const fit = r.fitFontSize(String(s.title || '').toUpperCase(), { family: 'Oswald', weight: '700' }, innerW, boxH, 1.04, { max: wordCap(String(s.title || '').toUpperCase(), innerW, 70 * s.userScale * 1.4), min: 22 });
+            r.drawLines(fit.lines, { family: 'Oswald', weight: '700', size: fit.size }, innerX, titleTop + Math.max(0, (boxH - fit.totalH) / 2), innerW, { align: 'left', color: ink, lineHeight: 1.04 });
+            if (s.showFooter) {
+                const fy = bottomY - 56;
+                r.drawIconPath(ICON.book, innerX, fy, 24, BRAND.red, 2.2);
+                r.drawLines([BRAND.cta.toUpperCase()], ctaFont, innerX + 34, fy + 1, innerW, { align: 'left', color: BRAND.red });
+                r.drawLines([BRAND.url], urlFont, innerX, fy + 34, innerW, { align: 'left', color: ink });
+            }
+            arrow(photoX, H - pad - d / 2);
+        }
+    },
+
     // ----- STANDARD: BOLD (typographic statement, brand red) -----
     bold(r, s, assets) {
         const W = r.w, H = r.h;
@@ -1181,6 +1279,7 @@ function renderSlide(state, slideIdx, assets, scale, trace) {
         else if (state.theme === 'editorial') Layouts.editorial(r, state, assets);
         else if (state.theme === 'bold')      Layouts.bold(r, state, assets);
         else if (state.theme === 'navy')      Layouts.navy(r, state, assets);
+        else if (state.theme === 'spotlight') Layouts.spotlight(r, state, assets);
         else                                  Layouts.classic(r, state, assets);
     } else if (state.campaign === 'carousel') {
         const slideText = state.slides[slideIdx] || '';
