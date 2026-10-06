@@ -1563,13 +1563,6 @@
   }
   function applyOrgSettings() {
     var s = orgSettings();
-    // Business News SA (Studio's editorial family) is OFF by default for every org, opt-IN rather
-    // than the opt-OUT the loop below uses for every other family — checked unconditionally, ahead
-    // of the early-return, since a brand-new org with zero saved settings at all must still not
-    // show it. Everything else here defaults ON; this one key alone defaults off.
-    if (!(s && s.premium && s.premium.bizsa === true)) {
-      var bizEl = document.getElementById("ct-bizsa"); if (bizEl) bizEl.style.display = "none";
-    }
     applyBrandModules(s);
     if (!s || (!s.modules && !s.themes && !s.premium)) { pruneRailGroups(); return; }
     // nav tabs + rail entries for retired modules. Used to only hide an <a> carrying one of three

@@ -6,7 +6,7 @@
 // /api/copyuse has the log), so a design can go out 30 times per size before any wording repeats.
 //
 // Content designs — Solutions, Feature, Founder, Roundup, Podcast, Merch, Glossary, Webinars,
-// Business News, Newsletter "This Week Inside" — are NOT here on purpose: their copy comes from the
+// Newsletter "This Week Inside" — are NOT here on purpose: their copy comes from the
 // real article, event or product. Inventing it would put made-up guests, dates and prices on a
 // banner. They get the duplicate guard only.
 //

@@ -333,7 +333,6 @@
                         <button onclick="setContentType('hub')"        id="ct-hub"        class="vt-opt ct-btn">🏛️ SME Hub</button>
                         <button onclick="setContentType('glossary')"   id="ct-glossary"   class="vt-opt ct-btn">📖 Glossary</button>
                         <button onclick="setContentType('webinar')"    id="ct-webinar"    class="vt-opt ct-btn">🎟️ Webinars</button>
-                        <button onclick="setContentType('bizsa')"      id="ct-bizsa"      class="vt-opt ct-btn">🗞️ Business News</button>
                     </div>
                     </div>
                     <p class="vt-note mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
@@ -744,16 +743,10 @@
     // =============================================================
     const BRAND = { red: '#9c1c1f', navy: '#0a2c3d', black: '#000000', white: '#ffffff', gray: '#f8fafc' };
 
-    // Newsreader/Inter added for the 'bizsa' family only (its own fixed editorial identity, not
-    // brand-driven) — every other family keeps using Oswald/Roboto exactly as before.
+    // Newsreader/Inter are used by exactly one design now — Funding › The Editorial Brief — and
+    // are loaded for it here. Every other family uses Oswald/Roboto.
     const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap';
     const WHITE_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png';
-    // Business News SA's real site icon — confirmed live (200, image/png, 512x512) at
-    // businessnewssouthafrica.co.za's own <link rel="apple-touch-icon">. A self-contained square
-    // mark (dark navy tile behind the gold bars), so unlike SME's white-on-transparent logo it
-    // doesn't need a separate light/dark variant — one asset works on both bizsa's paper and ink
-    // backgrounds.
-    const BIZSA_LOGO = 'https://businessnewssouthafrica.co.za/wp-content/uploads/2026/08/bnsa-logo-512.png';
     // External images come back through OUR origin so no cross-origin fetch is needed — that is
     // what lets the desktop shell run with webSecurity ON. Falls back to the raw URL if volt-auth
     // isn't present, so a standalone page still renders.
@@ -1082,10 +1075,9 @@
     // 5. ASSET LOADERS (Blob storage for worker handoff)
     // =============================================================
     async function ensureLogoBlob() {
-        // Business News SA carries its own fixed logo, same as its fixed ink/gold/paper palette —
-        // not the active Brand Kit's logo. Cached by source so switching content types (or brands)
-        // correctly refetches instead of reusing whichever logo happened to load first.
-        const src = (state.contentType === 'bizsa') ? BIZSA_LOGO : (currentBrand().logo || WHITE_LOGO);
+        // Cached by source so switching brands correctly refetches instead of reusing whichever
+        // logo happened to load first.
+        const src = currentBrand().logo || WHITE_LOGO;
         if (logoBlob && _logoSrc === src) return logoBlob;
         _logoSrc = src;
         try {
@@ -1263,12 +1255,6 @@
                 set('t3', s[2] && s[2].t); set('d3', s[2] && s[2].d);
             }
             // url is left alone — every glossary CTA points at the full glossary, not one term.
-        } else if (state.contentType === 'bizsa') {
-            if (dir === 'a') { set('head', d.title || d.head); set('byline', d.byline); set('readtime', d.readtime); }
-            else if (dir === 'b') { set('i1', d.takeaways[0]); set('i2', d.takeaways[1]); set('i3', d.takeaways[2]); }
-            else if (dir === 'c') { set('quote', d.quote); set('author', d.author); set('role', d.authorRole); }
-            else if (dir === 'd') { set('big', d.big); set('label', d.bigLabel); set('context', d.sub); }
-            set('url', d.url);
         } else if (state.contentType === 'founder') {
             // Every direction wants name + role, so set both regardless of dir before the per-dir extras.
             set('name', d.name); set('authorRole', d.role);
@@ -1306,17 +1292,6 @@
             if (gr.status === 401) throw new Error('Please sign in.');
             if (!gr.ok || !data.insight) throw new Error((data && data.error) || 'Could not read that page.');
             premAutofill = data.insight;
-            // Read time is pure arithmetic off the article text already in hand — no reason to ask
-            // the model for something a word count answers exactly. The real, full page title is
-            // stashed too: insightcards' own `head` field is a deliberately-different "fresh claim"
-            // for Feature's card (see its prompt — explicitly NOT the headline reworded), clipped to
-            // 70 chars there, which truncated real news headlines mid-word when reused for Business
-            // News's Headline Card. A news headline card needs the actual headline, unclipped.
-            if (state.contentType === 'bizsa') {
-                const words = text.trim().split(/\s+/).filter(Boolean).length;
-                premAutofill.readtime = Math.max(1, Math.round(words / 200)) + ' min read';
-                premAutofill.title = title;
-            }
             applyAutofillToDir(); renderPremFields(); renderPremiumPreview();
             // Say plainly what came back empty. A silent gap looks like a bug; "no figure in this
             // article" is information, and it tells you B isn't the direction to use.
@@ -1332,12 +1307,6 @@
                 if (!premAutofill.myth) gaps.push('no common misconception to correct');
                 if (!(premAutofill.subterms && premAutofill.subterms.length)) gaps.push('no related terms on this page');
                 say(gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '.' : 'Filled all three directions ✓');
-            } else if (state.contentType === 'bizsa') {
-                if (!premAutofill.quote) gaps.push('no quotable line for Pull-Quote');
-                if (!premAutofill.big) gaps.push('no figure for Market Bulletin');
-                if (!premAutofill.takeaways.length) gaps.push('no takeaways for The Short Version');
-                if (!premAutofill.head) gaps.push('nothing beyond the headline');
-                say((gaps.length ? 'Filled what it could — ' + gaps.join(', ') + '. ' : 'Filled all four directions ✓ ') + 'Category and market movement are yours to set.');
             } else if (state.contentType === 'founder') {
                 if (!premAutofill.name) gaps.push('no named founder found on that page');
                 if (!premAutofill.quote) gaps.push('no quotable line for the Interview direction');
@@ -1764,18 +1733,6 @@
         e:{ name:'The Takeaway (quote)', fields:{ eyebrow:'From the session', quote:'Most founders do not have a funding problem. They have a record-keeping problem that shows up when they ask for funding.', speaker:'Thabo Mokoena', role:'Founder & CEO, Fundrr', runtime:'48 min', cta:'Watch the full session →', url:'smesouthafrica.co.za/events' } },
         f:{ name:'Missed It?', fields:{ pill:'Missed it?', head:'The SME Funding Summit is up on demand', sub:'The full session is up. Nothing gated, nothing expired.', coveredLabel:'What it covered', i1:'What lenders check before they read your numbers', i2:'The three documents that decide the answer', i3:'What to fix first if you were declined', runtime:'1 hr 12 min', recorded:'18 June 2026', cta:'Watch it now →', url:'smesouthafrica.co.za/events' } }
       }},
-      // ---- BUSINESS NEWS SA — a fixed editorial identity (ink/gold/paper, Newsreader + Inter),
-      // NOT the active Brand Kit. Built for editorial/news-style client brands run from the private
-      // per-person workspace — see BLUEPRINT.html's 2026-08 entries. Drawn by drawBizSA() in
-      // studio-engine.js, which ignores PC/BRAND entirely and uses its own palette constants —
-      // every other family in this file is untouched. Kept OFF by default for every org via
-      // volt-auth.js's applyOrgSettings(); an org turns it on itself in Admin → Premium content types.
-      bizsa: { label:'Business News', dirs:{
-        a:{ name:'Headline Card', fields:{ eyebrow:'Markets & Finance', head:'Reserve Bank fines forex dealer', byline:'By Karabo Kgophane', readtime:'3 min read', url:'businessnewssouthafrica.co.za' } },
-        b:{ name:'The Short Version', fields:{ label:'The short version', i1:'NEC Money is a foreign-exchange dealer, not a lender', i2:'Fined R75,000 for anti-money-laundering control gaps', i3:'Comparable bank penalties have run into the millions', url:'businessnewssouthafrica.co.za' } },
-        c:{ name:'Pull-Quote', fields:{ quote:'You do not need more funding. You need a business a funder can actually say yes to.', author:'Jenna Sprenger', role:'Founder & CEO, Fundrr', url:'businessnewssouthafrica.co.za' } },
-        d:{ name:'Market Bulletin', fields:{ eyebrow:'Markets & Finance', big:'+3.2%', label:'JSE All Share', context:'Financials led gains after Absa beat earnings estimates.', movement:'up', url:'businessnewssouthafrica.co.za' } }
-      }},
       resources: { label:'Resources', dirs:{
         a:{ name:'Guide Mockup', fields:{ pill:'Free Download', coverTitle:'Funding Readiness Checklist', coverSub:'Everything a lender checks — before you apply.', head:'Get funding-ready', cta:'Download free →' } },
         b:{ name:'Checklist Preview', fields:{ eyebrow:'Free Resource', head:'Funding readiness checklist', i1:'Up-to-date management accounts', i2:'Clean, separate bank statements', i3:'Tax & CIPC compliance sorted', locked:'+ 9 more inside…', cta:'Get the full checklist →' } },
@@ -2051,14 +2008,6 @@
                   hint: 'Pulls a verbatim quote, a real figure and three takeaways — and fills every direction at once, so you can pick whichever the article actually supports.' },
       glossary: { task: 'glossaryfill', label: 'Auto-fill from the glossary page', placeholder: 'Paste the glossary term link…',
                   hint: 'Pulls the definition, a myth it corrects and any related terms the page itself defines — and fills every direction at once, so you can pick whichever the page actually supports.' },
-      // Reuses the SAME insightcards task as Feature — it already extracts exactly what Business
-      // News needs (a verbatim quote, three takeaways, a lead figure), no separate backend task
-      // required. Category (eyebrow) and market movement (up/down) are deliberately left for you
-      // to fill by hand: neither is something the article text can honestly answer, and this
-      // brand's own editorial rules are explicit about never inventing a fact the source doesn't
-      // state — see docs/editorial-style.md's "Accuracy rules".
-      bizsa: { task: 'insightcards', label: 'Auto-fill from the article', placeholder: 'Paste the article link…',
-                  hint: 'Pulls a verbatim quote, three takeaways and a lead figure, plus a read-time estimate — fills every direction at once. Category and market movement are left for you, since the article can’t honestly answer either.' },
       // Its own task, not a reuse of insightcards: a profile piece needs name/role/company as
       // first-class fields, not a guess at whether insightcards' quote-attribution happens to be
       // the founder rather than someone else quoted in passing.
