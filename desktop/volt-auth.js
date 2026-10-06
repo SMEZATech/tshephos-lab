@@ -756,6 +756,7 @@
     schedule:'<rect x="3.2" y="5" width="17.6" height="16" rx="2.3"/><path d="M3.2 10h17.6M8.5 3v4M15.5 3v4"/>',
     stats:'<path d="M3.5 20.5h17"/><path d="M6.8 20.5v-6.2M11.6 20.5V7.4M16.4 20.5v-9.4"/>',
     guide:'<path d="M4 5.2A2.2 2.2 0 016.2 3H19v15.6H6.2A2.2 2.2 0 004 20.8z"/><path d="M4 18.6h15"/>',
+    download:'<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>',
     gear:'<circle cx="12" cy="12" r="3"/><path d="M19.1 14.9a1.5 1.5 0 00.3 1.7l.1.1a1.9 1.9 0 11-2.7 2.7l-.1-.1a1.5 1.5 0 00-2.6 1.1v.2a1.9 1.9 0 01-3.8 0v-.1a1.5 1.5 0 00-2.6-1.1l-.1.1a1.9 1.9 0 11-2.7-2.7l.1-.1a1.5 1.5 0 00-1.1-2.6H3.8a1.9 1.9 0 010-3.8h.1a1.5 1.5 0 001.1-2.6l-.1-.1a1.9 1.9 0 112.7-2.7l.1.1a1.5 1.5 0 002.6-1.1V3.8a1.9 1.9 0 013.8 0v.1a1.5 1.5 0 002.6 1.1l.1-.1a1.9 1.9 0 112.7 2.7l-.1.1a1.5 1.5 0 001.1 2.6h.2a1.9 1.9 0 010 3.8h-.1a1.5 1.5 0 00-1.4.8z"/>',
     refresh:'<path d="M20.4 12a8.4 8.4 0 11-2.5-6"/><path d="M20.5 4.3v5.1h-5.1"/>',
     exit:'<path d="M9.5 20.5H5.2A2.2 2.2 0 013 18.3V5.7a2.2 2.2 0 012.2-2.2h4.3"/><path d="M16 16.5l4.5-4.5L16 7.5M20.5 12H9.5"/>'
@@ -776,6 +777,38 @@
     { h: "Publish", items: [ { t: "Email", i: "email", href: "email.html" }, { t: "Schedule", i: "schedule", href: "schedule.html" } ] },
     { h: "Measure", items: [ { t: "Stats", i: "stats", href: "analytics.html" } ] }
   ];
+  /* ---------- "Get the desktop app" (web only) ---------- */
+  // The desktop shell is a Windows installer published as a public GitHub release. version.json
+  // (the same file that drives the in-app "update available" bar) carries the current download
+  // address, so publishing a new release and bumping version.json updates every button below with
+  // no code change. Offered only where it makes sense: on the WEB (never inside the shell itself),
+  // for Volt (the installer is Volt's — Vantly has none), on Windows (it is a Windows installer).
+  var DESKTOP_FALLBACK = "https://github.com/SMEZATech/tshephos-lab/releases/latest";
+  var _desk = { url: DESKTOP_FALLBACK, ver: "" };
+  function desktopOffer() { return !isDesktop() && BRAND === BRANDS.volt && /Windows/i.test(navigator.userAgent || ""); }
+  function loadDesktopInfo(cb) {
+    fetch(VERSION_URL + "?ts=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (info) {
+        if (!info) return;
+        if (info.download && /^https:\/\//.test(info.download)) _desk.url = info.download;   // https only
+        if (info.desktopVersion) _desk.ver = String(info.desktopVersion);
+      })
+      .catch(function () {})
+      .then(function () { if (cb) cb(); });
+  }
+  function desktopPaneHTML() {
+    return '<p class="va-pane-h">🖥️ Desktop app</p>' +
+      '<p style="color:var(--dim,#888F9D);font-size:13.5px;line-height:1.6;margin:6px 0 14px;">Volt for Windows. Everything works in the browser — the desktop app is for people who edit a lot of video: it exports faster, straight to MP4, and keeps your own API keys on your computer.</p>' +
+      '<a class="va-btn va-primary" id="va-dl" href="' + esc(_desk.url) + '" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;text-align:center;">⬇ Download for Windows</a>' +
+      '<p id="va-dl-ver" style="color:var(--faint,#5B616D);font-size:12px;margin:10px 0 0;font-family:var(--fm,monospace);"></p>' +
+      '<p style="color:var(--dim,#888F9D);font-size:12.5px;line-height:1.6;margin:16px 0 0;">First install: Windows may show an “unknown publisher” notice. That is expected for this app — ask your admin for the one-time certificate step before installing.</p>';
+  }
+  function paintDesktopInfo() {
+    var a = document.getElementById("va-dl"); if (a) a.href = _desk.url;
+    var p = document.getElementById("vp-dl"); if (p) p.href = _desk.url;
+    var v = document.getElementById("va-dl-ver"); if (v && _desk.ver) v.textContent = "Latest version: " + _desk.ver;
+  }
   function closeRailPop() { var p = document.getElementById("va-pop"); if (p) p.remove(); }
   function toggleRailPop(anchor) {
     if (document.getElementById("va-pop")) { closeRailPop(); return; }
@@ -785,10 +818,12 @@
       '<div class="em">' + esc(mail) + "</div>" +
       '<a href="guide.html">' + railSvg("guide") + "Guide</a>" +
       '<button type="button" id="vp-set">' + railSvg("gear") + "Settings</button>" +
+      (desktopOffer() ? '<a id="vp-dl" href="' + esc(_desk.url) + '" target="_blank" rel="noopener">' + railSvg("download") + "Get the desktop app</a>" : "") +
       '<button type="button" id="vp-upd">' + railSvg("refresh") + "Check for updates</button>" +
       '<div class="sep"></div>' +
       '<button type="button" id="vp-out">' + railSvg("exit") + "Sign out</button>";
     document.body.appendChild(p);
+    if (desktopOffer()) loadDesktopInfo(paintDesktopInfo);
     // Anchor above the avatar, but never off the top of a short window.
     var r = anchor.getBoundingClientRect(), h = p.offsetHeight;
     p.style.top = Math.max(8, Math.min(r.top - h - 6, window.innerHeight - h - 8)) + "px";
@@ -1312,6 +1347,7 @@
         '<div class="va-acct-nav">' +
           '<div class="va-acct-me"><div class="va-acct-av">' + initial + '</div><div class="va-acct-meta"><div class="nm">' + (esc(firstName(email)) || "Your account") + '</div><div class="em">' + email + "</div></div></div>" +
           '<button class="va-tab active" data-tab="account">👤 Account</button>' +
+          (desktopOffer() ? '<button class="va-tab" data-tab="desktop">🖥️ Desktop app</button>' : "") +
           (isDesktop() ? '<button class="va-tab" data-tab="keys">🔑 API Keys</button>' : "") +
           '<button class="va-tab" data-tab="sleep">🌙 Sleep Mode</button>' +
           '<button class="va-tab" data-tab="billing">💳 Usage &amp; Billing</button>' +
@@ -1320,12 +1356,14 @@
         '<div class="va-acct-body">' +
           '<button class="va-acct-x" id="va-close">✕</button>' +
           '<div class="va-pane" data-pane="account">' + accountPaneHTML(email) + "</div>" +
+          (desktopOffer() ? '<div class="va-pane" data-pane="desktop" hidden>' + desktopPaneHTML() + "</div>" : "") +
           (isDesktop() ? '<div class="va-pane" data-pane="keys" hidden><p class="va-pane-h">🔑 API Keys</p>' + keyFieldsHTML() + '<button class="va-btn va-primary" id="va-save" style="width:100%;margin-top:8px;">Save keys</button><div class="va-saved" id="va-saved"></div>' + ollamaFieldsHTML() + "</div>" : "") +
           '<div class="va-pane" data-pane="sleep" hidden>' + sleepPaneHTML() + "</div>" +
           '<div class="va-pane" data-pane="billing" hidden><p class="va-pane-h">💳 Usage &amp; Billing</p><div id="va-bill"></div></div>' +
         "</div>" +
       "</div>";
     document.body.appendChild(m);
+    if (desktopOffer()) loadDesktopInfo(paintDesktopInfo);
     loadBilling();
     // Tab switching.
     function selectTab(name) {
