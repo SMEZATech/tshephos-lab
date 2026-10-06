@@ -775,7 +775,8 @@
     { h: "Design",  items: [ { t: "Studio", i: "studio", href: "studio.html" }, { t: "Freeform", i: "freeform", href: "freeform.html" } ] },
     { h: "Video",   items: [ { t: "Video", i: "video", href: "video.html" }, { t: "SmartClip", i: "smartclip", href: "smartclip.html" }, { t: "Transcribe", i: "transcribe", href: "videotok.html" } ] },
     { h: "Publish", items: [ { t: "Email", i: "email", href: "email.html" }, { t: "Schedule", i: "schedule", href: "schedule.html" } ] },
-    { h: "Measure", items: [ { t: "Stats", i: "stats", href: "analytics.html" } ] }
+    { h: "Measure", items: [ { t: "Stats", i: "stats", href: "analytics.html" } ] },
+    { h: "Settings", items: [ { t: "Brand Kit", i: "gear", href: "brand-kit.html" } ] }
   ];
   /* ---------- "Get the desktop app" (web only) ---------- */
   // The desktop shell is a Windows installer published as a public GitHub release. version.json

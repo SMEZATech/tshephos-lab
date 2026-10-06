@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<!-- Vantly — Brand Kit. © 2026 Tshepho Joel. All rights reserved. -->
+<html lang="en">
+<head>
+<script src="volt-auth.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vantly — Brand Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link id="baseFonts" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #12162a;
+    --surface: #191d36;
+    --surface-2: #212752;
+    --border: rgba(244,239,230,.09);
+    --border-2: rgba(244,239,230,.17);
+    --text: #f4efe6;
+    --dim: #a29cc2;
+    --faint: #6d688a;
+    --accent: #e2924a;
+    --accent-press: #c97a35;
+    --accent-hi: #f4c88b;
+    --good: #6bd39a;
+    --info: #7fc8ff;
+    --mid: #f0b95e;
+    --low: #e8746f;
+    --violet: #a06bff;
+    --fd: 'Fraunces', Georgia, serif;
+    --fb: 'Public Sans', system-ui, sans-serif;
+    --fm: 'JetBrains Mono', monospace;
+    --accent-rgb: 226,146,74;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--fb);
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    overflow-x: hidden;
+  }
+  .bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(820px 540px at 8% -6%, rgba(226,146,74,.14), transparent 60%),
+      radial-gradient(720px 520px at 102% 4%, rgba(58,64,112,.22), transparent 58%),
+      radial-gradient(600px 600px at 50% 120%, rgba(226,146,74,.06), transparent 60%);
+  }
+  .wrap {
+    position: relative; z-index: 1;
+    max-width: 1100px; margin: 0 auto;
+    padding: 32px 28px 80px;
+  }
+
+  /* ---- Page header ---- */
+  .page-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 24px; margin-bottom: 36px; flex-wrap: wrap;
+  }
+  .page-header-left { flex: 1; min-width: 260px; }
+  .eyebrow {
+    font-family: var(--fm); font-size: 11px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 10px;
+  }
+  h1.page-title {
+    font-family: var(--fd); font-weight: 800;
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1; letter-spacing: -.022em;
+    margin: 0 0 12px; color: var(--text);
+    font-optical-sizing: auto;
+  }
+  .page-sub {
+    color: var(--dim); font-size: 15px; line-height: 1.6;
+    max-width: 56ch; margin: 0;
+  }
+  .header-actions {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; flex-shrink: 0; padding-top: 8px;
+  }
+  .btn {
+    font-family: var(--fb); font-weight: 700; font-size: 14px;
+    border: none; border-radius: 11px; padding: 11px 20px;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-accent {
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+    color: var(--bg);
+    box-shadow: 0 1px 0 rgba(255,255,255,.22) inset, 0 8px 22px -8px rgba(226,146,74,.6);
+  }
+  .btn-accent:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent-press));
+    box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 12px 30px -10px rgba(226,146,74,.75);
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border-2);
+    color: var(--dim);
+  }
+  .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: rgba(244,239,230,.35); }
+
+  /* Save status badge */
+  #saveStatus {
+    font-family: var(--fm); font-size: 11.5px; font-weight: 700;
+    padding: 5px 12px; border-radius: 100px; letter-spacing: .04em;
+    transition: all .2s; border: 1px solid transparent;
+  }
+  #saveStatus.saved {
+    color: var(--good); background: rgba(107,211,154,.1);
+    border-color: rgba(107,211,154,.22);
+  }
+  #saveStatus.unsaved {
+    color: var(--mid); background: rgba(240,185,94,.1);
+    border-color: rgba(240,185,94,.22);
+  }
+  #saveStatus.saving {
+    color: var(--dim); background: rgba(162,156,194,.1);
+    border-color: var(--border);
+  }
+  #saveStatus.error {
+    color: var(--low); background: rgba(232,116,111,.1);
+    border-color: rgba(232,116,111,.22);
+  }
+
+  /* ---- Grid layout ---- */
+  .bk-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "identity identity"
+      "colors   typo"
+      "voice    voice";
+    gap: 18px;
+  }
+  @media (max-width: 720px) {
+    .bk-grid {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "identity"
+        "colors"
+        "typo"
+        "voice";
+    }
+  }
+
+  /* ---- Panels ---- */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 1px 0 rgba(244,239,230,.04) inset, 0 18px 44px -24px rgba(0,0,0,.7);
+  }
+  .panel-identity { grid-area: identity; }
+  .panel-colors   { grid-area: colors; }
+  .panel-typo     { grid-area: typo; }
+  .panel-voice    { grid-area: voice; }
+
+  .panel-title {
+    font-family: var(--fm); font-size: 10.5px; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-hi); margin: 0 0 20px;
+  }
+
+  /* ---- Form elements ---- */
+  .bk-lbl {
+    display: block; font-family: var(--fm); font-size: 11px;
+    font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 8px;
+  }
+  .bk-in {
+    width: 100%; font-family: var(--fb); font-size: 14.5px;
+    color: var(--text); background: rgba(0,0,0,.25);
+    border: 1px solid var(--border-2); border-radius: 12px;
+    padding: 12px 15px; outline: none;
+    transition: border-color .16s, box-shadow .16s;
+  }
+  .bk-in::placeholder { color: var(--faint); }
+  .bk-in:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(226,146,74,.2);
+  }
+  textarea.bk-in { resize: vertical; line-height: 1.6; }
+  select.bk-in {
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23a29cc2' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 13px center;
+    background-size: 11px;
+    padding-right: 36px;
+    cursor: pointer;
+    background-color: rgba(0,0,0,.25);
+  }
+  select.bk-in:hover { border-color: rgba(244,239,230,.3); }
+
+  .bk-row { display: flex; gap: 16px; margin-bottom: 16px; }
+  .bk-row:last-child { margin-bottom: 0; }
+  .bk-field { flex: 1; }
+  .bk-field.full { flex: 0 0 100%; }
+
+  /* ---- Logo upload ---- */
+  .logo-zone {
+    border: 1.5px dashed var(--border-2);
+    border-radius: 14px; padding: 28px 20px;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 10px;
+    cursor: pointer; transition: all .18s;
+    background: rgba(0,0,0,.15); position: relative;
+    min-height: 110px; text-align: center;
+  }
+  .logo-zone:hover, .logo-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(226,146,74,.06);
+  }
+  .logo-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .logo-zone .lz-icon { font-size: 28px; }
+  .logo-zone .lz-text { font-size: 13px; color: var(--dim); }
+  .logo-zone .lz-sub { font-size: 11.5px; color: var(--faint); font-family: var(--fm); }
+  .logo-zone .lz-name {
+    font-size: 12px; color: var(--accent-hi);
+    font-family: var(--fm); word-break: break-all;
+  }
+  #logoPreview {
+    max-width: 180px; max-height: 60px; border-radius: 8px;
+    object-fit: contain; display: none;
+  }
+
+  /* ---- Color rows ---- */
+  .color-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .color-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .color-swatch-wrap { position: relative; flex-shrink: 0; }
+  .color-swatch {
+    width: 40px; height: 40px; border-radius: 10px;
+    border: 1.5px solid var(--border-2); cursor: pointer;
+    overflow: hidden; padding: 0; appearance: none;
+    -webkit-appearance: none;
+  }
+  .color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+  .color-swatch::-webkit-color-swatch { border: none; border-radius: 8px; }
+  .color-hex {
+    flex: 1; font-family: var(--fm); font-size: 13px;
+    font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text); background: rgba(0,0,0,.22);
+    border: 1px solid var(--border-2); border-radius: 9px;
+    padding: 8px 11px; outline: none;
+    transition: border-color .14s, box-shadow .14s;
+    width: 110px;
+  }
+  .color-hex:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(226,146,74,.18);
+  }
+  .color-lbl {
+    font-size: 13.5px; font-weight: 600; color: var(--dim);
+    min-width: 90px;
+  }
+
+  /* Color preview strip */
+  .color-strip {
+    display: flex; gap: 6px; margin-top: 16px;
+    border-radius: 12px; overflow: hidden; height: 32px;
+  }
+  .color-strip-swatch {
+    flex: 1; border-radius: 6px;
+    transition: flex .2s;
+  }
+  .color-strip-swatch:hover { flex: 1.5; }
+
+  /* ---- Typography panel ---- */
+  .typo-fields { display: flex; flex-direction: column; gap: 16px; }
+  .typo-preview {
+    margin-top: 20px;
+    background: rgba(0,0,0,.2);
+    border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px 18px;
+    transition: all .2s;
+    min-height: 100px;
+  }
+  .typo-preview .tp-heading {
+    font-size: 22px; font-weight: 800;
+    color: var(--text); margin: 0 0 8px;
+    line-height: 1.2;
+  }
+  .typo-preview .tp-body {
+    font-size: 14.5px; color: var(--dim);
+    line-height: 1.6; margin: 0;
+  }
+
+  /* ---- Brand Voice panel ---- */
+  .voice-subtitle {
+    font-size: 13.5px; color: var(--dim); line-height: 1.55;
+    margin: -10px 0 18px; max-width: 60ch;
+  }
+  .charcount {
+    font-family: var(--fm); font-size: 11px;
+    color: var(--faint); margin-top: 7px; text-align: right;
+  }
+  .charcount.warn { color: var(--mid); }
+  .charcount.over { color: var(--low); }
+  .tone-chips {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+  }
+  .tone-chip {
+    font-family: var(--fb); font-size: 13px; font-weight: 600;
+    padding: 8px 14px; border-radius: 100px;
+    border: 1px solid var(--border-2); background: transparent;
+    color: var(--dim); cursor: pointer;
+    transition: all .14s;
+  }
+  .tone-chip:hover {
+    border-color: var(--accent); color: var(--accent-hi);
+    background: rgba(226,146,74,.08);
+  }
+  .tone-chip.active {
+    background: rgba(226,146,74,.15); color: var(--accent-hi);
+    border-color: rgba(226,146,74,.4);
+  }
+
+  /* Tone strength slider */
+  .slider-wrap { margin-top: 20px; }
+  .slider-lbl {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .slider-lbl span { font-family: var(--fm); font-size: 11px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .slider-lbl strong { font-family: var(--fm); font-size: 13px; color: var(--accent-hi); }
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 6px; border-radius: 99px;
+    background: var(--surface-2); outline: none; cursor: pointer;
+    accent-color: var(--accent);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(226,146,74,.5);
+    border: 2px solid var(--bg);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+    cursor: pointer; box-shadow: 0 2px 8px rgba(226,146,74,.5);
+    border: 2px solid var(--bg);
+  }
+  .slider-labels {
+    display: flex; justify-content: space-between;
+    margin-top: 6px;
+    font-family: var(--fm); font-size: 10px; color: var(--faint);
+  }
+
+  /* ---- Bottom CTA bar ---- */
+  #bottomBar {
+    position: fixed; bottom: 0; left: 72px; right: 0; z-index: 9000;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    padding: 14px 28px;
+    background: linear-gradient(180deg, rgba(18,22,42,.0), rgba(18,22,42,.98) 30%);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-2);
+    transform: translateY(100%);
+    transition: transform .25s cubic-bezier(.2,.7,.2,1);
+  }
+  #bottomBar.visible { transform: translateY(0); }
+  .bb-msg { font-size: 13.5px; color: var(--dim); }
+  .bb-msg strong { color: var(--mid); }
+  .bb-actions { display: flex; align-items: center; gap: 12px; }
+  .bb-discard {
+    font-size: 13px; font-weight: 600; color: var(--faint);
+    background: none; border: none; cursor: pointer; padding: 4px;
+    transition: color .14s; font-family: var(--fb);
+  }
+  .bb-discard:hover { color: var(--low); }
+
+  @media (max-width: 640px) {
+    #bottomBar { left: 0; }
+    .bk-row { flex-direction: column; }
+    .color-lbl { min-width: unset; }
+  }
+</style>
+</head>
+<body>
+<div class="bg" aria-hidden="true"></div>
+<main class="wrap">
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div class="page-header-left">
+      <p class="eyebrow">Your workspace identity</p>
+      <h1 class="page-title">Brand Kit</h1>
+      <p class="page-sub">Set your brand once. Every tool in Vantly reads it automatically — so every output always sounds and looks like you.</p>
+    </div>
+    <div class="header-actions">
+      <span id="saveStatus" class="saved">Saved</span>
+      <button class="btn btn-ghost" id="resetBtn">Reset to defaults</button>
+      <button class="btn btn-accent" id="saveBtn">Save changes</button>
+    </div>
+  </div>
+
+  <!-- Panels grid -->
+  <div class="bk-grid">
+
+    <!-- Panel A: Brand Identity (full width) -->
+    <div class="panel panel-identity">
+      <p class="panel-title">Brand Identity</p>
+      <div class="bk-row">
+        <div class="bk-field">
+          <label class="bk-lbl" for="brandName">Brand Name</label>
+          <input class="bk-in" id="brandName" type="text" placeholder="e.g. Vantly" autocomplete="off" />
+        </div>
+        <div class="bk-field">
+          <label class="bk-lbl" for="brandTagline">Tagline</label>
+          <input class="bk-in" id="brandTagline" type="text" placeholder="e.g. Your vantage point." autocomplete="off" />
+        </div>
+      </div>
+      <div class="bk-field" style="margin-top:4px;">
+        <label class="bk-lbl">Logo</label>
+        <div class="logo-zone" id="logoZone">
+          <input type="file" accept="image/*" id="logoInput" tabindex="-1" />
+          <img id="logoPreview" alt="Logo preview" />
+          <span class="lz-icon" id="logoIcon">🖼️</span>
+          <span class="lz-text" id="logoText">Drop your logo here, or click to upload</span>
+          <span class="lz-sub" id="logoSub">PNG, SVG, WEBP — max 2 MB</span>
+          <span class="lz-name" id="logoName" style="display:none;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel B: Brand Colors -->
+    <div class="panel panel-colors">
+      <p class="panel-title">Colors</p>
+
+      <div class="color-row">
+        <div class="color-swatch-wrap">
+          <input type="color" class="color-swatch" id="colorPrimary" value="#e2924a" title="Primary color" />
+        </div>
+        <input class="color-hex" id="hexPrimary" type="text" value="#e2924a" maxlength="7" spellcheck="false" />
+        <span class="color-lbl">Primary</span>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch-wrap">
+          <input type="color" class="color-swatch" id="colorSecondary" value="#3a4070" title="Secondary color" />
+        </div>
+        <input class="color-hex" id="hexSecondary" type="text" value="#3a4070" maxlength="7" spellcheck="false" />
+        <span class="color-lbl">Secondary</span>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch-wrap">
+          <input type="color" class="color-swatch" id="colorAccent" value="#f4c88b" title="Highlight color" />
+        </div>
+        <input class="color-hex" id="hexAccent" type="text" value="#f4c88b" maxlength="7" spellcheck="false" />
+        <span class="color-lbl">Highlight</span>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch-wrap">
+          <input type="color" class="color-swatch" id="colorBg" value="#12162a" title="Background color" />
+        </div>
+        <input class="color-hex" id="hexBg" type="text" value="#12162a" maxlength="7" spellcheck="false" />
+        <span class="color-lbl">Background</span>
+      </div>
+
+      <!-- Live color strip -->
+      <div class="color-strip" id="colorStrip" aria-hidden="true">
+        <div class="color-strip-swatch" id="strip0" title="Primary"></div>
+        <div class="color-strip-swatch" id="strip1" title="Secondary"></div>
+        <div class="color-strip-swatch" id="strip2" title="Highlight"></div>
+        <div class="color-strip-swatch" id="strip3" title="Background"></div>
+      </div>
+    </div>
+
+    <!-- Panel C: Typography -->
+    <div class="panel panel-typo">
+      <p class="panel-title">Typography</p>
+      <div class="typo-fields">
+        <div>
+          <label class="bk-lbl" for="fontPrimary">Primary / Display font</label>
+          <select class="bk-in" id="fontPrimary">
+            <option value="Fraunces">Fraunces</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="DM Serif Display">DM Serif Display</option>
+            <option value="Merriweather">Merriweather</option>
+            <option value="Inter">Inter</option>
+            <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+            <option value="Public Sans">Public Sans</option>
+            <option value="Poppins">Poppins</option>
+          </select>
+        </div>
+        <div>
+          <label class="bk-lbl" for="fontBody">Body font</label>
+          <select class="bk-in" id="fontBody">
+            <option value="Public Sans" selected>Public Sans</option>
+            <option value="Fraunces">Fraunces</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="DM Serif Display">DM Serif Display</option>
+            <option value="Merriweather">Merriweather</option>
+            <option value="Inter">Inter</option>
+            <option value="Plus Jakarta Sans">Plus Jakarta Sans</option>
+            <option value="Poppins">Poppins</option>
+          </select>
+        </div>
+        <div>
+          <label class="bk-lbl" for="fontSize">Base font size</label>
+          <select class="bk-in" id="fontSize">
+            <option value="14px">14px — Compact</option>
+            <option value="15px">15px — Comfortable</option>
+            <option value="16px" selected>16px — Default</option>
+            <option value="17px">17px — Spacious</option>
+            <option value="18px">18px — Large</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Live typography preview -->
+      <div class="typo-preview" id="typoPreview">
+        <p class="tp-heading" id="tpHeading">Your brand headline</p>
+        <p class="tp-body" id="tpBody">This is how your body copy will look across every Vantly output — emails, ads, captions, and reports. Clean and readable.</p>
+      </div>
+    </div>
+
+    <!-- Panel D: Brand Voice (full width) -->
+    <div class="panel panel-voice">
+      <p class="panel-title">Brand Voice</p>
+      <p class="voice-subtitle">This is the single most important setting. Describe your tone and the AI will use it across every tool.</p>
+      <label class="bk-lbl" for="brandVoice">Voice & Tone</label>
+      <textarea
+        class="bk-in"
+        id="brandVoice"
+        rows="5"
+        maxlength="500"
+        placeholder="e.g. We write in plain, direct language — no jargon, no buzzwords. We're confident but never arrogant. We speak to ambitious South African business owners who don't have time to waste. Warm, smart, and to the point."
+      ></textarea>
+      <p class="charcount" id="charCount">0 / 500</p>
+
+      <div class="tone-chips" id="toneChips">
+        <button class="tone-chip" data-tone="professional">Professional</button>
+        <button class="tone-chip" data-tone="conversational">Conversational</button>
+        <button class="tone-chip" data-tone="bold">Bold &amp; Direct</button>
+        <button class="tone-chip" data-tone="warm">Warm &amp; Friendly</button>
+      </div>
+
+      <div class="slider-wrap">
+        <div class="slider-lbl">
+          <span>AI adherence strength</span>
+          <strong id="toneStrengthVal">70</strong>
+        </div>
+        <input type="range" id="toneStrength" min="0" max="100" value="70" />
+        <div class="slider-labels">
+          <span>Loose</span>
+          <span>Strict</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- .bk-grid -->
+</main>
+
+<!-- Bottom unsaved changes bar -->
+<div id="bottomBar">
+  <p class="bb-msg"><strong>You have unsaved changes</strong></p>
+  <div class="bb-actions">
+    <button class="bb-discard" id="discardBtn">Discard</button>
+    <button class="btn btn-accent" id="bbSaveBtn">Save Brand Kit</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- constants ---------- */
+const API = 'https://tshephos-lab.vercel.app/api';
+const MAX_CHARS = 500;
+const FONT_OPTIONS = [
+  'Fraunces','Playfair Display','DM Serif Display','Merriweather',
+  'Inter','Plus Jakarta Sans','Public Sans','Poppins'
+];
+
+const TONE_PRESETS = {
+  professional: "We communicate clearly and precisely. Our tone is formal but approachable — authoritative without being cold. We avoid slang and keep every sentence purposeful.",
+  conversational: "We write the way we talk — casual, friendly, and human. No stiff corporate speak. We use contractions, short sentences, and speak directly to the reader.",
+  bold: "We don't hedge. We say what we mean, mean what we say, and back it up. Punchy. Confident. Every word earns its place.",
+  warm: "We lead with empathy. Our voice is supportive, encouraging, and never intimidating. We celebrate small wins and make complex things feel simple."
+};
+
+const DEFAULTS = {
+  name: '',
+  tagline: '',
+  logo: '',
+  colors: { primary: '#e2924a', secondary: '#3a4070', accent: '#f4c88b', bg: '#12162a' },
+  fonts: { primary: 'Fraunces', body: 'Public Sans', size: '16px' },
+  voice: '',
+  toneStrength: 70
+};
+
+/* ---------- state ---------- */
+let isDirty = false;
+let logoDataUrl = '';
+let loadedFonts = new Set(['Fraunces', 'Public Sans', 'JetBrains Mono']);
+
+/* ---------- DOM refs ---------- */
+const $ = id => document.getElementById(id);
+
+/* ---------- dirty state ---------- */
+function markDirty() {
+  if (isDirty) return;
+  isDirty = true;
+  $('saveStatus').className = 'unsaved';
+  $('saveStatus').textContent = 'Unsaved changes';
+  $('bottomBar').classList.add('visible');
+}
+function markClean() {
+  isDirty = false;
+  $('saveStatus').className = 'saved';
+  $('saveStatus').textContent = 'Saved';
+  $('bottomBar').classList.remove('visible');
+}
+function markSaving() {
+  $('saveStatus').className = 'saving';
+  $('saveStatus').textContent = 'Saving…';
+}
+function markError(msg) {
+  $('saveStatus').className = 'error';
+  $('saveStatus').textContent = msg || 'Save failed';
+}
+
+/* ---------- collect current form state ---------- */
+function collectState() {
+  return {
+    name: $('brandName').value.trim(),
+    tagline: $('brandTagline').value.trim(),
+    logo: logoDataUrl || '',
+    colors: {
+      primary:   $('hexPrimary').value.trim() || $('colorPrimary').value,
+      secondary: $('hexSecondary').value.trim() || $('colorSecondary').value,
+      accent:    $('hexAccent').value.trim() || $('colorAccent').value,
+      bg:        $('hexBg').value.trim() || $('colorBg').value
+    },
+    fonts: {
+      primary: $('fontPrimary').value,
+      body:    $('fontBody').value,
+      size:    $('fontSize').value
+    },
+    voice: $('brandVoice').value,
+    toneStrength: parseInt($('toneStrength').value, 10)
+  };
+}
+
+/* ---------- populate form from data ---------- */
+function populateForm(data) {
+  if (!data) return;
+  if (data.name != null) $('brandName').value = data.name;
+  if (data.tagline != null) $('brandTagline').value = data.tagline;
+  if (data.logo) {
+    logoDataUrl = data.logo;
+    showLogoPreview(data.logo, '');
+  }
+  if (data.colors) {
+    const c = data.colors;
+    if (c.primary)   { $('colorPrimary').value   = c.primary;   $('hexPrimary').value   = c.primary;   }
+    if (c.secondary) { $('colorSecondary').value = c.secondary; $('hexSecondary').value = c.secondary; }
+    if (c.accent)    { $('colorAccent').value    = c.accent;    $('hexAccent').value    = c.accent;    }
+    if (c.bg)        { $('colorBg').value        = c.bg;        $('hexBg').value        = c.bg;        }
+    updateColorStrip();
+  }
+  if (data.fonts) {
+    const f = data.fonts;
+    if (f.primary) $('fontPrimary').value = f.primary;
+    if (f.body)    $('fontBody').value    = f.body;
+    if (f.size)    $('fontSize').value    = f.size;
+    updateTypoPreview();
+  }
+  if (data.voice != null) {
+    $('brandVoice').value = data.voice;
+    updateCharCount();
+  }
+  if (data.toneStrength != null) {
+    $('toneStrength').value = data.toneStrength;
+    $('toneStrengthVal').textContent = data.toneStrength;
+  }
+}
+
+/* ---------- save ---------- */
+async function save() {
+  markSaving();
+  $('saveBtn').disabled = true;
+  $('bbSaveBtn').disabled = true;
+  try {
+    const payload = collectState();
+    const r = await fetch(API + '/brand-kit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (r.status === 401) {
+      markError('Sign in to save');
+      showSignInMessage();
+      return;
+    }
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.error || ('HTTP ' + r.status));
+    }
+    markClean();
+  } catch (e) {
+    markError('Save failed');
+    console.error('[brand-kit] save error:', e);
+  } finally {
+    $('saveBtn').disabled = false;
+    $('bbSaveBtn').disabled = false;
+  }
+}
+
+/* ---------- load ---------- */
+async function load() {
+  try {
+    const r = await fetch(API + '/brand-kit');
+    if (r.status === 401) { showSignInMessage(); return; }
+    if (r.status === 404) { populateForm(DEFAULTS); return; }
+    if (!r.ok) return;
+    const data = await r.json();
+    if (data && (data.name != null || data.colors || data.fonts || data.voice != null)) {
+      populateForm(data);
+    } else {
+      populateForm(DEFAULTS);
+    }
+  } catch (e) {
+    console.error('[brand-kit] load error:', e);
+    populateForm(DEFAULTS);
+  }
+}
+
+/* ---------- reset ---------- */
+function resetToDefaults() {
+  if (!confirm('Reset all Brand Kit settings to defaults?')) return;
+  logoDataUrl = '';
+  resetLogoZone();
+  populateForm(DEFAULTS);
+  updateColorStrip();
+  updateTypoPreview();
+  markDirty();
+}
+
+/* ---------- 401 sign-in message ---------- */
+function showSignInMessage() {
+  $('saveStatus').className = 'error';
+  $('saveStatus').textContent = 'Sign in to save';
+}
+
+/* ---------- color sync: swatch ↔ hex ---------- */
+function wireColorPair(swatchId, hexId, stripIndex) {
+  const swatch = $(swatchId), hex = $(hexId);
+  swatch.addEventListener('input', () => {
+    hex.value = swatch.value;
+    updateColorStrip();
+    markDirty();
+  });
+  hex.addEventListener('input', () => {
+    const v = hex.value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) { swatch.value = v; updateColorStrip(); }
+    markDirty();
+  });
+  hex.addEventListener('blur', () => {
+    const v = hex.value.trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(v)) hex.value = swatch.value;
+    updateColorStrip();
+  });
+}
+
+function updateColorStrip() {
+  const colors = [
+    $('colorPrimary').value,
+    $('colorSecondary').value,
+    $('colorAccent').value,
+    $('colorBg').value
+  ];
+  colors.forEach((c, i) => {
+    const el = $('strip' + i);
+    if (el) el.style.background = c;
+  });
+}
+
+/* ---------- font loading & typography preview ---------- */
+const loadedFontLinks = new Set();
+function ensureFontLoaded(family) {
+  if (loadedFonts.has(family)) return;
+  const encoded = encodeURIComponent(family) + ':wght@400;600;700;800';
+  const href = 'https://fonts.googleapis.com/css2?family=' + encoded + '&display=swap';
+  if (!loadedFontLinks.has(href)) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet'; link.href = href;
+    document.head.appendChild(link);
+    loadedFontLinks.add(href);
+  }
+  loadedFonts.add(family);
+}
+
+function updateTypoPreview() {
+  const pf = $('fontPrimary').value;
+  const bf = $('fontBody').value;
+  const fs = $('fontSize').value;
+  ensureFontLoaded(pf);
+  ensureFontLoaded(bf);
+  $('tpHeading').style.fontFamily = "'" + pf + "', Georgia, serif";
+  $('tpHeading').style.fontSize = 'calc(' + fs + ' * 1.5)';
+  $('tpBody').style.fontFamily   = "'" + bf + "', system-ui, sans-serif";
+  $('tpBody').style.fontSize     = fs;
+}
+
+/* ---------- character count ---------- */
+function updateCharCount() {
+  const len = $('brandVoice').value.length;
+  const el = $('charCount');
+  el.textContent = len + ' / ' + MAX_CHARS;
+  el.className = 'charcount' + (len >= MAX_CHARS ? ' over' : len > MAX_CHARS * 0.85 ? ' warn' : '');
+}
+
+/* ---------- tone chips ---------- */
+function wireChips() {
+  document.querySelectorAll('.tone-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const tone = chip.dataset.tone;
+      $('brandVoice').value = TONE_PRESETS[tone] || '';
+      updateCharCount();
+      document.querySelectorAll('.tone-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      markDirty();
+    });
+  });
+  $('brandVoice').addEventListener('input', () => {
+    document.querySelectorAll('.tone-chip').forEach(c => c.classList.remove('active'));
+    updateCharCount();
+    markDirty();
+  });
+}
+
+/* ---------- logo upload ---------- */
+function showLogoPreview(src, name) {
+  const preview = $('logoPreview');
+  const icon    = $('logoIcon');
+  const text    = $('logoText');
+  const sub     = $('logoSub');
+  const nameEl  = $('logoName');
+  if (src) {
+    preview.src = src; preview.style.display = 'block';
+    icon.style.display = 'none';
+    text.style.display = 'none';
+    sub.style.display  = 'none';
+    if (name) { nameEl.textContent = name; nameEl.style.display = ''; }
+    else { nameEl.style.display = 'none'; }
+  } else {
+    preview.style.display = 'none'; preview.src = '';
+    icon.style.display = ''; text.style.display = ''; sub.style.display = '';
+    nameEl.style.display = 'none';
+  }
+}
+function resetLogoZone() {
+  $('logoInput').value = '';
+  showLogoPreview('', '');
+}
+function wireLogoUpload() {
+  const zone  = $('logoZone');
+  const input = $('logoInput');
+  function handleFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Logo must be under 2 MB.'); return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      logoDataUrl = e.target.result;
+      showLogoPreview(logoDataUrl, file.name);
+      markDirty();
+    };
+    reader.readAsDataURL(file);
+  }
+  input.addEventListener('change', () => { if (input.files[0]) handleFile(input.files[0]); });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => { zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+}
+
+/* ---------- wire all change listeners ---------- */
+function wireChanges() {
+  ['brandName', 'brandTagline'].forEach(id => {
+    $(id).addEventListener('input', markDirty);
+  });
+  wireColorPair('colorPrimary',   'hexPrimary',   0);
+  wireColorPair('colorSecondary', 'hexSecondary', 1);
+  wireColorPair('colorAccent',    'hexAccent',    2);
+  wireColorPair('colorBg',        'hexBg',        3);
+  $('fontPrimary').addEventListener('change', () => { updateTypoPreview(); markDirty(); });
+  $('fontBody').addEventListener('change',    () => { updateTypoPreview(); markDirty(); });
+  $('fontSize').addEventListener('change',    () => { updateTypoPreview(); markDirty(); });
+  $('toneStrength').addEventListener('input', () => {
+    $('toneStrengthVal').textContent = $('toneStrength').value;
+    markDirty();
+  });
+  wireChips();
+  wireLogoUpload();
+}
+
+/* ---------- button wires ---------- */
+function wireButtons() {
+  $('saveBtn').addEventListener('click', save);
+  $('bbSaveBtn').addEventListener('click', save);
+  $('resetBtn').addEventListener('click', resetToDefaults);
+  $('discardBtn').addEventListener('click', () => {
+    if (!confirm('Discard unsaved changes and reload?')) return;
+    isDirty = false;
+    $('bottomBar').classList.remove('visible');
+    load().then(() => markClean());
+  });
+}
+
+/* ---------- init ---------- */
+function init() {
+  wireChanges();
+  wireButtons();
+  updateColorStrip();
+  updateTypoPreview();
+  load().then(() => markClean());
+}
+
+// Runs when volt-auth.js has resolved the session
+window.addEventListener('volt:ready', init);
+// If session already present (hot reload / no-op gate)
+if (window.voltSession) init();
+</script>
+</body>
+</html>

@@ -34,6 +34,7 @@
       <li><a href="<?php echo $anchor_base; ?>#how-it-works">How it works</a></li>
       <li><a href="<?php echo $anchor_base; ?>#modules">Tools</a></li>
       <li><a href="<?php echo $anchor_base; ?>#pricing">Pricing</a></li>
+      <li><a href="<?php echo esc_url(home_url('/insights')); ?>">Blog</a></li>
     </ul>
 
     <div class="nav-right">

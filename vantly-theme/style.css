@@ -911,3 +911,129 @@ footer {
 .insight-card h3 { font-family: var(--fd); font-weight: 700; font-size: 18px; color: var(--text); line-height: 1.35; }
 .insight-card .date { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--faint); }
 .insights-empty { text-align: center; color: var(--dim); padding: 60px 24px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   V-* DESIGN SYSTEM — About & Contact page layout classes
+   These map to the standalone vantly.html design system so the WP pages
+   stay pixel-accurate with the Vercel app without needing a rebuild.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Ambient animated background */
+.v-ambient {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 900px 600px at 15% -10%, rgba(226,146,74,.08) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 500px at 90% 5%, rgba(58,64,112,.15) 0%, transparent 55%);
+}
+.v-rel { position: relative; z-index: 1; }
+.vantly-page { background: var(--bg); color: var(--text); font-family: var(--fb); min-height: 100vh; }
+
+/* Layout system */
+.v-wrap { max-width: 1100px; margin: 0 auto; padding: 0 28px; }
+.v-section { position: relative; z-index: 1; padding: 80px 0; }
+.tc { text-align: center; }
+.mxa { margin-left: auto; margin-right: auto; }
+
+/* Typography */
+.v-h1 {
+  font-family: var(--fd); font-weight: 800;
+  font-size: clamp(36px, 5.5vw, 58px);
+  color: var(--text); line-height: 1.1;
+  letter-spacing: -.03em; margin: 0 0 22px; display: block;
+}
+.v-h2 {
+  font-family: var(--fd); font-weight: 800;
+  font-size: clamp(26px, 3.5vw, 38px);
+  color: var(--text); line-height: 1.15;
+  letter-spacing: -.02em; margin: 0 0 18px;
+}
+.v-h3 {
+  font-family: var(--fd); font-weight: 700;
+  font-size: 20px; color: var(--text);
+  letter-spacing: -.01em; margin: 0 0 10px;
+}
+.v-sub {
+  font-size: 18px; color: var(--dim);
+  line-height: 1.7; margin: 0 0 32px;
+  max-width: 640px; display: block;
+}
+.v-em { color: var(--accent); }
+
+/* Grid helpers */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+@media (max-width: 900px) { .g2 { grid-template-columns: 1fr; gap: 32px; } .g3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .g3 { grid-template-columns: 1fr; } }
+
+/* Cards */
+.v-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 32px 28px;
+  transition: border-color .2s, transform .2s;
+}
+.v-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+
+/* Chips / tag strip */
+.v-chips { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 32px 0; }
+.v-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 100px; padding: 10px 20px;
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+
+/* CTA button */
+.v-btn-hero {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--accent); color: var(--bg);
+  font-weight: 800; font-size: 16px;
+  padding: 16px 32px; border-radius: 14px;
+  text-decoration: none; border: none; cursor: pointer;
+  transition: transform .15s, opacity .15s;
+}
+.v-btn-hero:hover { transform: translateY(-2px); opacity: .9; }
+
+/* Contact form */
+.v-form { display: flex; flex-direction: column; gap: 16px; }
+.v-field {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13.5px; font-weight: 600; color: var(--dim);
+}
+.v-field input,
+.v-field select,
+.v-field textarea {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 12px; padding: 13px 16px;
+  font-size: 15px; color: var(--text); font-family: var(--fb);
+  outline: none; transition: border-color .2s;
+  resize: vertical;
+}
+.v-field input:focus,
+.v-field select:focus,
+.v-field textarea:focus { border-color: var(--accent); }
+.v-field select option { background: var(--surface2); }
+
+/* FAQ accordion */
+.v-faq { display: flex; flex-direction: column; gap: 0; }
+.v-faq-item { border-bottom: 1px solid var(--border); }
+.v-faq-q {
+  width: 100%; background: none; border: none; text-align: left;
+  padding: 18px 0; cursor: pointer; display: flex;
+  justify-content: space-between; align-items: center;
+  font-size: 15px; font-weight: 600; color: var(--text);
+  font-family: var(--fb);
+}
+.v-faq-q::after { content: '+'; color: var(--accent); font-size: 22px; transition: transform .2s; }
+.v-faq-item.open .v-faq-q::after { transform: rotate(45deg); }
+.v-faq-a {
+  display: none; font-size: 14.5px; color: var(--dim);
+  line-height: 1.65; padding: 0 0 18px;
+}
+.v-faq-item.open .v-faq-a { display: block; }
+
+/* Eyebrow (already in theme but ensure it works on pages too) */
+.v-section .eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--dim); margin-bottom: 18px;
+}
