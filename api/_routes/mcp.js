@@ -25,7 +25,7 @@
 // Authorization: Bearer <key>. See SETUP-MCP.md.
 
 import crypto from "crypto";
-import { setCors, blocked, rateLimit, sbRest, sbWrite, sbPatch, logContent, isOrgAdmin } from "../_guard.js";
+import { setCors, blocked, rateLimit, sbRest, sbWrite, sbPatch, logContent, isOrgAdmin, meterOrg } from "../_guard.js";
 import { chatComplete, resolveLlmKeys, llmOrder } from "../_ai.js";
 import { SYSTEM, SYSTEM_EMAIL, buildPrompt, buildEmailPrompt, safeParse } from "../generate.js";
 
@@ -111,6 +111,8 @@ async function callTool(req, msg, ctx) {
     const brandVoice = await activeBrandVoice(ctx.orgId);
     const voiceNote = brandVoice ? "\n\nBRAND VOICE — write ALL copy in exactly this voice and tone (embody it, don't describe it): " + brandVoice : "";
     const prompt = buildPrompt({ offer, audience: args.audience, platform: args.platform, count }) + voiceNote;
+    // MCP calls spend the same shared provider keys as the app but were never metered.
+    if (await meterOrg(ctx.orgId, { kind: "mcp" })) return toolError(msg.id, "Daily AI limit reached for this workspace. It resets at 02:00 SAST.");
     const out = await chatComplete({ system: SYSTEM, prompt, temperature: 0.85, json: true }, resolveLlmKeys(req), llmOrder());
     const parsed = safeParse(out.text);
     const variations = Array.isArray(parsed && parsed.variations)
@@ -135,6 +137,7 @@ async function callTool(req, msg, ctx) {
   if (name === "generate_email_copy") {
     const brief = String(args.brief || "").trim();
     if (!brief) return toolError(msg.id, "Missing required argument: brief");
+    if (await meterOrg(ctx.orgId, { kind: "mcp" })) return toolError(msg.id, "Daily AI limit reached for this workspace. It resets at 02:00 SAST.");
     const out = await chatComplete({ system: SYSTEM_EMAIL, prompt: buildEmailPrompt({ brief }), temperature: 0.7 }, resolveLlmKeys(req), llmOrder());
     await logContent(ctx.orgId, { tool: "mcp:generate_email_copy", input: { brief: brief.slice(0, 200) }, output: { chars: out.text.length }, provider: out.provider, model: out.model, userId: ctx.userId });
     return toolResult(msg.id, out.text);

@@ -365,6 +365,50 @@ async function monthUsage(orgId) {
     return rows.reduce((a, r) => a + (Number(r.units) || 1), 0);
   } catch (e) { return 0; }
 }
+// ---- Daily safety ceiling -----------------------------------------------------------------------
+// Metering used to RECORD usage but never BLOCK anything unless BILLING_ENFORCE=1 and a plan had a
+// limit — and the free plan has none. So a runaway loop, a bug, or one leaked session could spend the
+// shared provider keys without limit. This is the backstop that is always on: a generous per-org
+// ceiling per UTC day (that is 02:00 SAST), well above a busy real team day, far below "runaway".
+//   DAILY_AI_CEILING in Vercel overrides it. Defaults: 1500 per shared company workspace, 400 for a
+//   personal-address (single-person) workspace.
+// Counted in memory per warm instance (cheap) and verified against the database every ~15 units,
+// because other warm instances are counting too. Fail-OPEN on any error: a limiter that can take the
+// app down is worse than the problem it solves.
+const _dayCount = new Map();
+function dayStartIso() { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString(); }
+async function dayUsage(orgId) {
+  const rows = await sbRest("usage_event?select=units&org_id=eq." + encodeURIComponent(orgId) + "&created_at=gte." + encodeURIComponent(dayStartIso()) + "&limit=5000");
+  return rows ? rows.reduce((a, r) => a + (Number(r.units) || 1), 0) : 0;
+}
+async function overDailyCeiling(orgId, user, units) {
+  const perUser = !!(user && user.id && orgKeyFor(user).startsWith("user:"));
+  const ceiling = Number(process.env.DAILY_AI_CEILING) || (perUser ? 400 : 1500);
+  const day = dayStartIso();
+  let c = _dayCount.get(orgId);
+  if (!c || c.day !== day) c = { day, n: 0, checked: 0, fresh: true };
+  c.n += units; _dayCount.set(orgId, c);
+  if (c.n >= ceiling) return { over: true, ceiling };
+  if (c.fresh || c.n - c.checked >= 15) {
+    c.fresh = false; c.checked = c.n;
+    const used = await dayUsage(orgId);
+    if (used >= ceiling) return { over: true, ceiling, used };
+  }
+  return { over: false, ceiling };
+}
+const CAP_MESSAGE = (ceiling) => "Daily AI limit reached for this workspace (" + ceiling + " requests). It resets at 02:00 SAST. If you genuinely need more today, ask the workspace owner.";
+
+// For callers with no req/res to hand in (the MCP endpoint answers in JSON-RPC, not plain HTTP).
+// Records the usage and returns true if the workspace is over its daily ceiling.
+async function meterOrg(orgId, opts = {}) {
+  try {
+    if (!orgId) return false;
+    const units = opts.units || 1;
+    await recordUsage(orgId, opts.kind || "ai", units, opts.userId || null, { tool: opts.kind });
+    return (await overDailyCeiling(orgId, opts.user || null, units)).over;
+  } catch (e) { return false; }
+}
+
 // Call AFTER blocked() (so req.volt is set). Returns true if the request should STOP
 // (over quota → 402). Records the usage either way. No-op in app-key mode (no orgId).
 async function meter(req, res, opts = {}) {
@@ -374,6 +418,9 @@ async function meter(req, res, opts = {}) {
     const units = opts.units || 1;
     const userId = req.volt.user && req.volt.user.id;
     await recordUsage(orgId, opts.kind || "ai", units, userId, { tool: opts.kind, provider: opts.provider || (process.env.LLM_PROVIDER || "gemini"), model: opts.model }); // awaited so the write isn't dropped on return
+    // Always-on backstop, independent of billing (see "Daily safety ceiling" above).
+    const cap = await overDailyCeiling(orgId, req.volt.user, units);
+    if (cap.over) { res.status(429).json({ error: CAP_MESSAGE(cap.ceiling), code: "DAILY_CAP", limit: cap.ceiling }); return true; }
     if (process.env.BILLING_ENFORCE !== "1") return false;
     const plan = await getOrgPlan(orgId);
     const def = PLANS[plan] || PLANS.free;
@@ -485,4 +532,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner };
+export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, meterOrg, _dayCount, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner };

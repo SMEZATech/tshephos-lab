@@ -5,7 +5,7 @@
 // small, plain-English insight block. Costs ~one Gemini Flash call per refresh (pennies).
 // Everything is per-org, service-role only. This is the compounding, un-copyable asset.
 
-import { blocked, sbRest, sbBase, logEvent, writeStats } from "../_guard.js";
+import { blocked, sbRest, sbBase, logEvent, writeStats, meterOrg } from "../_guard.js";
 
 const STALE_DAYS = 7;
 const MIN_POSTS = 5;
@@ -180,6 +180,11 @@ export default async function handler(req, res) {
       if (!key) {
         if (existing) return res.status(200).json({ summary: existing.data, updatedAt: existing.updated_at });
         return res.status(503).json({ error: "Insights need a Gemini key.", code: "NOT_CONFIGURED" });
+      }
+      // Each recompute is a paid-quota AI call; "Refresh" used to be unmetered and unlimited.
+      if (await meterOrg(orgId, { kind: "brain", user: req.volt.user, userId: req.volt.user && req.volt.user.id })) {
+        if (existing) return res.status(200).json({ summary: existing.data, updatedAt: existing.updated_at });
+        return res.status(429).json({ error: "Daily AI limit reached for this workspace. It resets at 02:00 SAST.", code: "DAILY_CAP" });
       }
       const summary = await compute(orgId, key);
       return res.status(200).json({ summary, updatedAt: new Date().toISOString() });

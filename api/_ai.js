@@ -41,6 +41,37 @@ function llmOrder() {
   return wanted.concat(DEFAULT_ORDER.filter((p) => !wanted.includes(p))); // listed first, defaults as fallback
 }
 
+// ---- Time budget, cooldown, observability ------------------------------------------------------
+// The chain used to have NO timeouts: one provider that accepts the connection and never answers
+// consumed the whole function budget, and the person got a bare platform timeout instead of the
+// friendly "AI is busy" message — or the next provider never got a chance. It also retried a provider
+// whose daily quota was already gone, and re-hit a dead provider on every single request.
+//   · each provider call is cut off after AI_CALL_TIMEOUT_MS (default 25 s)
+//   · the whole chain stops starting new providers after AI_TOTAL_DEADLINE_MS (default 50 s)
+//   · a provider that just failed with a limit/overload/timeout is skipped for a short cooldown
+//     (60 s; 10 min when it says its DAILY quota is spent) — per warm instance, which is enough to
+//     stop hammering it, and it never skips the last resort: if everything is cooling, all are tried
+//   · every failure is logged with the provider name and status (never keys or prompts)
+const callTimeoutMs = () => Number(process.env.AI_CALL_TIMEOUT_MS) || 25000;
+const totalDeadlineMs = () => Number(process.env.AI_TOTAL_DEADLINE_MS) || 50000;
+async function timedFetch(url, init) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), callTimeoutMs());
+  try { return await fetch(url, Object.assign({}, init, { signal: ctrl.signal })); }
+  catch (e) { if (e && e.name === "AbortError") { const te = new Error("timed out"); te.status = 504; throw te; } throw e; }
+  finally { clearTimeout(t); }
+}
+const _cooldown = new Map();
+const DAILY_LIMIT = /per day|daily|\bTPD\b|\bRPD\b|resource has been exhausted|exceeded your current quota/i;
+function noteFailure(name, e) {
+  const status = e && e.status, msg = String((e && e.message) || "");
+  console.warn("[ai] " + name + " failed: " + (status || "error") + " " + msg.slice(0, 140));
+  if (status === 429 || status === 503 || status === 504 || (status >= 500 && status < 600)) {
+    _cooldown.set(name, Date.now() + (DAILY_LIMIT.test(msg) ? 10 * 60000 : 60000));
+  }
+}
+const coolingDown = (name) => (_cooldown.get(name) || 0) > Date.now();
+
 async function callGemini(key, { system, prompt, temperature, maxTokens, json }) {
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
@@ -57,7 +88,7 @@ async function callGemini(key, { system, prompt, temperature, maxTokens, json })
   let lastErr;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await new Promise((res) => setTimeout(res, 600 * attempt));
-    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body: payload });
+    const r = await timedFetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body: payload });
     const data = await r.json().catch(() => ({}));
     if (r.ok) {
       const parts = (((data.candidates || [])[0] || {}).content || {}).parts || [];
@@ -65,7 +96,10 @@ async function callGemini(key, { system, prompt, temperature, maxTokens, json })
     }
     const msg = (data && data.error && data.error.message) || ("Gemini " + r.status);
     lastErr = new Error(msg); lastErr.status = r.status;
-    if (!(r.status === 503 || r.status === 429 || /overload|unavailable|exhausted|try again|high demand|resource/i.test(msg))) break;
+    // Retry only what a retry can fix: a momentary overload, or a per-MINUTE rate limit. A spent DAILY
+    // quota ("exhausted") will not recover in 600 ms — retrying it just burns the time budget.
+    if (DAILY_LIMIT.test(msg)) break;
+    if (!(r.status === 503 || r.status === 429 || /overload|unavailable|try again|high demand/i.test(msg))) break;
   }
   throw lastErr || new Error("Gemini request failed");
 }
@@ -82,7 +116,7 @@ async function callOpenAICompat(name, key, { system, prompt, temperature, maxTok
   if (cfg.json && json !== false) bodyObj.response_format = { type: "json_object" };
   const headers = { "Content-Type": "application/json", Authorization: "Bearer " + key };
   if (name === "openrouter") { headers["HTTP-Referer"] = "https://tshephos-lab.vercel.app"; headers["X-Title"] = "Volt"; }
-  const r = await fetch(cfg.base + "/chat/completions", { method: "POST", headers, body: JSON.stringify(bodyObj) });
+  const r = await timedFetch(cfg.base + "/chat/completions", { method: "POST", headers, body: JSON.stringify(bodyObj) });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) { const m = data && data.error && (data.error.message || data.error); const e = new Error((typeof m === "string" ? m : null) || (cfg.label + " " + r.status)); e.status = r.status; throw e; }
   return { text: (((data.choices || [])[0] || {}).message || {}).content || "", model };
@@ -90,7 +124,7 @@ async function callOpenAICompat(name, key, { system, prompt, temperature, maxTok
 
 async function callClaude(key, { system, prompt, maxTokens }) {
   const model = process.env.CLAUDE_MODEL || "claude-haiku-4-5-20251001";
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const r = await timedFetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({ model, max_tokens: maxTokens || 2000, system: system || "", messages: [{ role: "user", content: prompt }] }),
@@ -112,13 +146,18 @@ async function chatComplete(opts, keys, order) {
   const chain = (order && order.length ? order : DEFAULT_ORDER).filter((p) => keys && keys[p]);
   if (!chain.length) { const e = new Error("No AI key configured. Add a Gemini, Groq, Cerebras, OpenRouter, Mistral or OpenAI key in Settings."); e.code = "NO_AI_KEY"; throw e; }
   let lastErr; const tried = [];
-  for (const name of chain) {
+  // Skip providers that just failed — unless that would leave nothing to try.
+  const warm = chain.filter((n) => !coolingDown(n));
+  const ordered = warm.length ? warm : chain;
+  const started = Date.now();
+  for (const name of ordered) {
+    if (tried.length && Date.now() - started > totalDeadlineMs()) break;   // out of time: stop starting new providers
     tried.push(name);
     try {
       const out = await callOne(name, keys[name], opts);
-      if (out && out.text && out.text.trim()) return { text: out.text, provider: name, model: out.model };
+      if (out && out.text && out.text.trim()) { _cooldown.delete(name); return { text: out.text, provider: name, model: out.model }; }
       lastErr = new Error(name + " returned an empty response");
-    } catch (e) { lastErr = e; } // any failure → fall over to the next provider
+    } catch (e) { lastErr = e; noteFailure(name, e); } // any failure → fall over to the next provider
   }
   // All providers failed — give a clean, human message (never the raw upstream/quota dump).
   const detail = (lastErr && lastErr.message) ? lastErr.message : "";
@@ -191,4 +230,4 @@ async function probeProviders(req) {
   };
 }
 
-export { chatComplete, resolveLlmKeys, llmOrder, DEFAULT_ORDER, probeProviders };
+export { _cooldown as _aiCooldown, chatComplete, resolveLlmKeys, llmOrder, DEFAULT_ORDER, probeProviders };
