@@ -73,6 +73,24 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     await ctx.close();
   }
 
+  console.log('Scheduler health banner (browser):');
+  for (const [label, summary, want] of [
+    ['a late post shows a warning banner on Schedule', { healthy: false, overdue: 2, oldestOverdueMinutes: 190, stuck: 0, errors24h: 0, unreachable: false }, /2 scheduled posts are running late.*190 min/s],
+    ['an interrupted post is flagged so nobody re-posts blindly', { healthy: false, overdue: 0, oldestOverdueMinutes: 0, stuck: 1, errors24h: 0, unreachable: false }, /interrupted while publishing/i],
+    ['an unreachable database is flagged', { healthy: false, overdue: 0, oldestOverdueMinutes: 0, stuck: 0, errors24h: 0, unreachable: true }, /can.t be read/i],
+    ['a healthy scheduler shows NOTHING', { healthy: true, overdue: 0, oldestOverdueMinutes: 0, stuck: 0, errors24h: 0, unreachable: false }, null],
+  ]) {
+    const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}), async (p) => {
+      await p.route('**/api/queuehealth*', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, summary }) }));
+    });
+    await page.goto(base + '/schedule.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
+    await page.waitForTimeout(2500);
+    const b = await page.evaluate(() => { const el = document.getElementById('qhBanner'); return el ? { shown: getComputedStyle(el).display !== 'none', text: el.textContent } : null; });
+    expect(label, b && (want ? (b.shown && want.test(b.text)) : !b.shown) && errors.length === 0, { b, errors });
+    await ctx.close();
+  }
+
   console.log('Email preview sandbox (browser):');
   {
     const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}));

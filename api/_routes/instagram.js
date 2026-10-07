@@ -33,6 +33,7 @@
 // scheduled story goes out whether or not anyone has Volt open.
 
 import { blocked, sbRest, sbBase, encryptSecret, decryptSecret, recordMetric, cronKeyOk, isOrgAdmin } from "../_guard.js";
+import { reapStuck } from "../_queue.js";
 
 const V = process.env.IG_API_VERSION || "v23.0";
 const G = "https://graph.facebook.com/" + V;
@@ -457,10 +458,18 @@ export default async function handler(req, res) {
     if (!cronKeyOk(req)) return res.status(401).json({ error: "Bad cron key" });
 
     const now = new Date().toISOString();
-    const due = (await sbRest(
+    // A row stuck in 'publishing' (the function died after claiming it) becomes a visible error
+    // instead of a silent loss — see api/_queue.js.
+    await reapStuck("ig_queue");
+    const dueRows = await sbRest(
       "ig_queue?select=id,org_id,kind,image_url,caption,run_at,attempts&status=eq.pending&run_at=lte." +
-      encodeURIComponent(now) + "&order=run_at.asc&limit=20"
-    )) || [];
+      encodeURIComponent(now) + "&order=run_at.asc&limit=8"
+    );
+    // sbRest returns null when Supabase is unreachable or the key is wrong. Reading that as "nothing
+    // due" made this drain report SUCCESS while no post could ever go out. Fail loudly so the cron run
+    // turns red and someone is told.
+    if (dueRows === null) return res.status(502).json({ error: "Could not read the publish queue — is the database reachable?" });
+    const due = dueRows;
     const done = [];
     for (const row of due) {
       const mine = await claim(row.id);

@@ -212,6 +212,10 @@
        Replaces the old flat chronological list. Three sources (Postiz, Volt's own Instagram
        queue, Volt's own Facebook queue) are merged into one set of cards bucketed by day — see
        buildUnifiedItems() — so "what's going out this week" is one glance, not three lists. -->
+  <!-- Scheduler health. Scheduled posts go out when an external trigger calls the drain endpoints; if
+       that trigger stops (or runs hours late) nothing else says so. A post whose time has passed and is
+       STILL pending proves it, so this reads /api/queuehealth and shouts only when something is wrong. -->
+  <div id="qhBanner" role="status" style="display:none;margin:0 0 14px;padding:12px 16px;border-radius:12px;border:1px solid rgba(255,124,124,.45);background:rgba(255,124,124,.08);color:#ffb4b4;font-size:13.5px;line-height:1.55;"></div>
   <div class="card">
     <div class="cal-toolbar">
       <div class="cal-nav">
@@ -1053,7 +1057,23 @@ $('#scPull').addEventListener('click', ()=>{
 
 // loadIg() before loadQueue(), because the queue list renders Volt's own Instagram rows and needs
 // ig.queue populated first.
-async function boot(){ await loadIg(); loadTt(); loadChannels(); loadQueue(); }
+// Scheduler health: silent when fine, loud when posts are late, stuck, or the queue can't be read.
+async function checkQueueHealth(){
+  const el = document.getElementById('qhBanner'); if(!el) return;
+  try{
+    const r = await fetch(API + '/queuehealth', { cache:'no-store' });
+    if(!r.ok) return;                                   // not signed in / endpoint unavailable: stay quiet
+    const s = (await r.json()).summary; if(!s) return;
+    const msgs = [];
+    if(s.unreachable) msgs.push('<b>The schedule can’t be read right now</b> (database unreachable). Scheduled posts will not go out until it is back.');
+    if(s.overdue) msgs.push('<b>' + s.overdue + ' scheduled post' + (s.overdue>1?'s are':' is') + ' running late</b> — the oldest was due ' + s.oldestOverdueMinutes + ' min ago. The publisher that sends scheduled posts may not be running; tell Joel.');
+    if(s.stuck) msgs.push('<b>' + s.stuck + ' post' + (s.stuck>1?'s were':' was') + ' interrupted while publishing.</b> Check the platform before re-posting — it may already be live.');
+    el.innerHTML = msgs.join('<br>');
+    el.style.display = msgs.length ? 'block' : 'none';
+  }catch(e){ /* a health banner must never break the page */ }
+}
+async function boot(){ await loadIg(); loadTt(); loadChannels(); loadQueue(); checkQueueHealth(); }
+setInterval(checkQueueHealth, 120000);
 window.addEventListener('volt:ready', boot);
 if(window.voltSession){ boot(); }
 updatePreview();

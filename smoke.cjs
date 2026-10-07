@@ -85,7 +85,7 @@ for (const f of fs.readdirSync('.').filter(n => /\.html$/.test(n))) {
 // in three places that must agree: the selection logic (copy-rotation.js), the server log
 // (api/_routes/copyuse.js) and the written library (copy-library.js). Each has a test here.
 console.log('Copy rotation:');
-for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs', 'tests/security.test.mjs']) {
+for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs', 'tests/security.test.mjs', 'tests/queue.test.mjs']) {
   try {
     const out = cp.execSync('node "' + t + '"', { stdio: 'pipe' }).toString().trim().split('\n').pop();
     console.log('  ok ' + t + ' — ' + out);

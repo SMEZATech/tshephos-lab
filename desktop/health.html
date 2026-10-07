@@ -235,6 +235,17 @@ function sessionReady(){
     const n = (d.uses || []).length;
     return { detail: n ? n + ' recent download(s) logged · last ' + new Date(d.uses[0].created_at).toLocaleString('en-ZA') : 'table ready · no downloads logged yet' };
   }, { skipWhy:'needs sign-in' }));
+  // The scheduler is an EXTERNAL trigger calling the drain endpoints. A dead one used to look exactly
+  // like "nothing is scheduled". A due post that is still pending proves the drain isn't keeping up.
+  reads.push(await check('scheduler · queue health', async () => {
+    if (!signedIn()) return 'SKIP';
+    const d = await api('/queuehealth');
+    const s = d.summary || {};
+    if (s.unreachable) throw new Error('the queue tables could not be read — scheduled posts will not publish');
+    if (s.stuck) throw new Error(s.stuck + ' post(s) stuck in "publishing" (interrupted) — check the platform before re-posting');
+    if (s.overdue) return { warn:true, detail: s.overdue + ' post(s) overdue, oldest ' + s.oldestOverdueMinutes + ' min — the external publisher trigger may not be running' };
+    return { detail: 'nothing overdue or stuck' + (s.errors24h ? ' · ' + s.errors24h + ' failed post(s) in the last 24h (see Schedule)' : '') };
+  }, { skipWhy:'needs sign-in' }));
   reads.push(await check('postiz · channels', async () => {
     if (!signedIn()) return 'SKIP';
     const d = await api('/postiz?action=channels');
