@@ -2690,10 +2690,18 @@
         };
     }
 
+    // Every request gets an id and only its own replies are accepted (the worker echoes it back). Without
+    // it, any 'done' from ANY render resolved whichever promise happened to be listening: a preview in
+    // flight could hand an export the 1x preview blob. A reply with no id (an older cached engine)
+    // is accepted as before, so a stale cache can never hang a render.
+    let _reqSeq = 0;
     function postAndWait(worker, payload, quiet) {
         return new Promise((resolve, reject) => {
+            const reqId = ++_reqSeq;
+            payload = Object.assign({}, payload, { id: reqId });
             const onMsg = (ev) => {
                 const m = ev.data;
+                if (m && m.id !== undefined && m.id !== reqId) return;     // somebody else's reply
                 if (m.type === 'progress') {
                     if (!quiet) setProgress(m.percent || 0, m.label || '');
                 } else if (m.type === 'done') {

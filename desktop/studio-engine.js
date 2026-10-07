@@ -1270,6 +1270,13 @@ function renderSlide(state, slideIdx, assets, scale, trace) {
         else { w = 1080; h = 1350; }
     }
 
+    // Creative layouts read the Story safe-zone via pSafeB()/pSafeT(), which come from the module-level
+    // PG — set only by premium renders. So after any premium Story render the stale 260 px bottom inset
+    // stayed behind in this long-lived worker and pushed every later Creative footer up at ANY size,
+    // while in a fresh worker (PG null) a Creative Story got none at all: the same post rendered
+    // differently depending on what was exported before it. Setting the geometry here makes it a pure
+    // function of the canvas: 0 at every size except 9:16, exactly as every premium design already does.
+    pGeom(w, h);
     const r = new CanvasRenderer(w, h, scale);
     if (trace) r.trace = [];
 
@@ -3384,8 +3391,17 @@ function drawResources(r, dir, v, a) {
     pButton(r, pad, btnY, iW, v.cta, PC.red, PC.white); return;
 }
 
-self.onmessage = async (e) => {
+// Messages are processed strictly ONE AT A TIME, and every reply carries the id of the request it
+// answers. Before, the handler was a bare async function: two overlapping renders interleaved at their
+// awaits, sharing the module-level PC/BRAND/PG that each one rewrites at the top — so a preview in
+// flight could repaint an export in a different brand or geometry, and the client resolved whichever
+// 'done' arrived first (it had no way to tell whose it was). The client now sends an id and ignores
+// replies that aren't its own; a client that sends none (an older cached page) gets the old behaviour.
+let _msgChain = Promise.resolve();
+self.onmessage = (e) => { _msgChain = _msgChain.then(() => handleMessage(e)).catch(() => {}); };
+async function handleMessage(e) {
     const msg = e.data;
+    const post = (m) => self.postMessage(msg && msg.id !== undefined ? Object.assign({ id: msg.id }, m) : m);
     try {
         applyBrandToWorker(msg.brand);
         if (msg.type === 'render-premium') {
@@ -3408,27 +3424,27 @@ self.onmessage = async (e) => {
             }
             const blob = await r.toBlob('image/png', 1.0);
             if (logoW) logoW.close(); if (logoC) logoC.close(); if (featured) featured.close();
-            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_premium.png', trace: r.trace || null });
+            post({ type: 'done', blob, filename: msg.filename || 'SME_premium.png', trace: r.trace || null });
             return;
         }
         if (msg.type === 'render-single') {
-            self.postMessage({ type: 'progress', percent: 5,  label: 'Loading fonts' });
+            post({ type: 'progress', percent: 5,  label: 'Loading fonts' });
             await loadFonts(msg.fontBuffers);
 
-            self.postMessage({ type: 'progress', percent: 20, label: 'Decoding images' });
+            post({ type: 'progress', percent: 20, label: 'Decoding images' });
             const featured = await blobToBitmap(msg.featuredBlob);
             const logo     = await blobToBitmap(msg.logoBlob);
             const assets   = { featured, logo };
 
-            self.postMessage({ type: 'progress', percent: 55, label: 'Rendering canvas' });
+            post({ type: 'progress', percent: 55, label: 'Rendering canvas' });
             const slideIdx = msg.slideIdx !== undefined ? msg.slideIdx : 0;
             const r = renderSlide(msg.state, slideIdx, assets, msg.scale || 3, msg.trace);
 
-            self.postMessage({ type: 'progress', percent: 85, label: 'Encoding PNG' });
+            post({ type: 'progress', percent: 85, label: 'Encoding PNG' });
             const blob = await r.toBlob('image/png', 1.0);
 
-            self.postMessage({ type: 'progress', percent: 100, label: 'Done' });
-            self.postMessage({ type: 'done', blob, filename: msg.filename || 'SME_Graphic.png', trace: r.trace || null });
+            post({ type: 'progress', percent: 100, label: 'Done' });
+            post({ type: 'done', blob, filename: msg.filename || 'SME_Graphic.png', trace: r.trace || null });
 
             if (featured) featured.close();
             if (logo) logo.close();
@@ -3436,10 +3452,10 @@ self.onmessage = async (e) => {
         }
 
         if (msg.type === 'render-premium-carousel-zip') {
-            self.postMessage({ type: 'progress', percent: 3, label: 'Loading fonts' });
+            post({ type: 'progress', percent: 3, label: 'Loading fonts' });
             await loadFonts(msg.fontBuffers);
 
-            self.postMessage({ type: 'progress', percent: 8, label: 'Decoding images' });
+            post({ type: 'progress', percent: 8, label: 'Decoding images' });
             const logoW = await blobToBitmap(msg.logoWhiteBlob);
             const logoC = await blobToBitmap(msg.logoColorBlob);
             const featured = await blobToBitmap(msg.featuredBlob);
@@ -3452,7 +3468,7 @@ self.onmessage = async (e) => {
             for (let i = 0; i < slides.length; i++) {
                 const s = slides[i];
                 const pct = 10 + Math.round((i / slides.length) * 80);
-                self.postMessage({ type: 'progress', percent: pct, label: 'Rendering slide ' + (i + 1) + '/' + slides.length });
+                post({ type: 'progress', percent: pct, label: 'Rendering slide ' + (i + 1) + '/' + slides.length });
                 const r = new CanvasRenderer(W, H, msg.scale || 2);
                 if (msg.trace) r.trace = [];
                 if (s.kind === 'hook') drawCarouselHook(r, msg.label, s.vals, assets, msg.premType);
@@ -3464,25 +3480,25 @@ self.onmessage = async (e) => {
                 zip.file('SME_Premium_Carousel_' + String(i + 1).padStart(2, '0') + '.png', buf);
             }
 
-            self.postMessage({ type: 'progress', percent: 92, label: 'Compressing ZIP' });
+            post({ type: 'progress', percent: 92, label: 'Compressing ZIP' });
             const zipBlob = await zip.generateAsync({
                 type: 'blob',
                 compression: 'DEFLATE',
                 compressionOptions: { level: 6 }
             });
 
-            self.postMessage({ type: 'progress', percent: 100, label: 'Done' });
-            self.postMessage({ type: 'done', blob: zipBlob, filename: msg.filename || 'SME_Premium_Carousel.zip', traces: traces });
+            post({ type: 'progress', percent: 100, label: 'Done' });
+            post({ type: 'done', blob: zipBlob, filename: msg.filename || 'SME_Premium_Carousel.zip', traces: traces });
 
             if (logoW) logoW.close(); if (logoC) logoC.close(); if (featured) featured.close();
             return;
         }
 
         if (msg.type === 'render-carousel-zip') {
-            self.postMessage({ type: 'progress', percent: 3, label: 'Loading fonts' });
+            post({ type: 'progress', percent: 3, label: 'Loading fonts' });
             await loadFonts(msg.fontBuffers);
 
-            self.postMessage({ type: 'progress', percent: 8, label: 'Decoding images' });
+            post({ type: 'progress', percent: 8, label: 'Decoding images' });
             const featured = await blobToBitmap(msg.featuredBlob);
             const logo     = await blobToBitmap(msg.logoBlob);
             const assets   = { featured, logo };
@@ -3491,32 +3507,32 @@ self.onmessage = async (e) => {
             const zip = new JSZip();
             for (let i = 0; i < numSlides; i++) {
                 const pct = 10 + Math.round((i / numSlides) * 78);
-                self.postMessage({ type: 'progress', percent: pct, label: 'Rendering slide ' + (i + 1) + '/' + numSlides });
+                post({ type: 'progress', percent: pct, label: 'Rendering slide ' + (i + 1) + '/' + numSlides });
                 const r = renderSlide(msg.state, i, assets, msg.scale || 3);
                 const blob = await r.toBlob('image/png', 1.0);
                 const buf  = await blob.arrayBuffer();
                 zip.file('SME_Carousel_Slide_' + (i + 1) + '.png', buf);
             }
 
-            self.postMessage({ type: 'progress', percent: 92, label: 'Compressing ZIP' });
+            post({ type: 'progress', percent: 92, label: 'Compressing ZIP' });
             const zipBlob = await zip.generateAsync({
                 type: 'blob',
                 compression: 'DEFLATE',
                 compressionOptions: { level: 6 }
             });
 
-            self.postMessage({ type: 'progress', percent: 100, label: 'Done' });
-            self.postMessage({ type: 'done', blob: zipBlob, filename: msg.filename || 'SME_Carousel.zip' });
+            post({ type: 'progress', percent: 100, label: 'Done' });
+            post({ type: 'done', blob: zipBlob, filename: msg.filename || 'SME_Carousel.zip' });
 
             if (featured) featured.close();
             if (logo) logo.close();
             return;
         }
     } catch (err) {
-        self.postMessage({
+        post({
             type: 'error',
             message: err && err.message ? err.message : String(err),
             stack: err && err.stack ? err.stack : ''
         });
     }
-};
+}

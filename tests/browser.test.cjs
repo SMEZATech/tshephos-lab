@@ -98,6 +98,34 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     await ctx.close();
   }
 
+  console.log('Studio render worker (browser):');
+  {
+    // Both of these FAILED on the old engine (verified against it): a Creative post rendered differently
+    // after a premium Story export, and an overlapping Creative request came back with the Story's image.
+    const ctx = await browser.newContext(); const page = await ctx.newPage();
+    await page.goto(base + '/welcome.html', { waitUntil: 'domcontentloaded' });
+    const r = await page.evaluate(async () => {
+      const w = new Worker('/studio-engine.js'); let seq = 0;
+      const post = (payload) => new Promise((resolve, reject) => {
+        const id = ++seq, p = Object.assign({}, payload, { id });
+        const on = (ev) => { const m = ev.data; if (m.id !== undefined && m.id !== id) return; if (m.type === 'done') { w.removeEventListener('message', on); resolve(m); } else if (m.type === 'error') { w.removeEventListener('message', on); reject(new Error(m.message)); } };
+        w.addEventListener('message', on); w.postMessage(p);
+      });
+      const brand = { primary: '#9c1c1f', secondary: '#0a2c3d', cta: 'Read Insight', url: 'smesouthafrica.co.za' };
+      const creative = () => ({ type: 'render-single', state: { campaign: 'standard', format: 'square', theme: 'editorial', showFooter: true, currentSlide: 0, slides: ['x'], title: 'Hello world headline', tag: 'TAG', stat: '1', author: 'a', pollOpts: ['a', 'b', 'c'], focalX: .5, focalY: .5, userScale: 1 }, brand, slideIdx: 0, featuredBlob: null, logoBlob: null, fontBuffers: {}, scale: 0.3, filename: 't.png' });
+      const story = () => ({ type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: null, logoColorBlob: null, premType: 'funding', dir: 'a', vals: {}, w: 1080, h: 1920, scale: 0.3, filename: 's.png' });
+      const hash = async (blob) => { const b = new Uint8Array(await blob.arrayBuffer()); let h = 0; for (let i = 0; i < b.length; i++) h = (h * 31 + b[i]) >>> 0; return h; };
+      const dims = async (blob) => { const bmp = await createImageBitmap(blob); const d = bmp.width + 'x' + bmp.height; bmp.close(); return d; };
+      const a = await post(creative()); await post(story()); const b = await post(creative());
+      const [s, c] = await Promise.all([post(story()), post(creative())]);
+      const out = { same: (await hash(a.blob)) === (await hash(b.blob)), story: await dims(s.blob), creative: await dims(c.blob) };
+      w.terminate(); return out;
+    });
+    expect('a Creative post renders identically before and after a premium Story export (no leaked safe-zone)', r.same === true, r);
+    expect('overlapping renders each get their own result (the worker tags replies with the request id)', r.story === '324x576' && r.creative === '324x324', r);
+    await ctx.close();
+  }
+
   console.log('Email preview sandbox (browser):');
   {
     const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}));
