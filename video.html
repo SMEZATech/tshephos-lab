@@ -3572,7 +3572,7 @@ async function openLooks(){
       return;
     }
     list.innerHTML = whoLine + ps.map(p=>'<div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;"><button class="mini" data-load="'+p.id+'" style="flex:1; justify-content:flex-start;">'+(p.title||'Untitled').replace(/[<>&]/g,'')+'</button><button class="mini" data-del="'+p.id+'" title="Delete">✕</button></div>').join('');
-  }catch(e){ list.innerHTML='<p class="capstatus err" style="margin:0;">'+e.message+'</p>'; }
+  }catch(e){ list.innerHTML='<p class="capstatus err" style="margin:0;">'+escAttr(e.message)+'</p>'; }
 }
 async function loadLook(id){
   setLookStatus('Loading…','busy');

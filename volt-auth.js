@@ -2178,7 +2178,15 @@
   function loadSb(cb) {
     if (window.supabase && window.supabase.createClient) return cb();
     var s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
+    // PINNED to an exact version with a Subresource Integrity hash. This is the library that holds the
+    // user's session token on every page, loaded from a third-party CDN; with a floating "@2" a
+    // compromised or buggy release would reach every user instantly and could read the session. With
+    // the hash, the browser refuses the file unless it is byte-identical to the one reviewed here
+    // (2.117.2 — verified identical to what "@2" served when this was pinned). To upgrade: pick the
+    // new version, recompute the hash (openssl dgst -sha384 -binary file | openssl base64 -A), test.
+    s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js";
+    s.integrity = "sha384-WgXwGL6fUsYJWNaKJgVbrJKGRQwc1vieh2oy4kw9nXqpNDz3tdSsqEYUgeHD/NuF";
+    s.crossOrigin = "anonymous";
     s.onload = cb;
     s.onerror = function () { showGate("Couldn’t load sign-in. Check your connection and reload."); };
     document.head.appendChild(s);

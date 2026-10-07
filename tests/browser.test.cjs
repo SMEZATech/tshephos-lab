@@ -30,6 +30,13 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
   const open = async (email, apiHandler, extra) => {
     const ctx = await browser.newContext({ viewport: { width: 1300, height: 900 } });
     const page = await ctx.newPage(); const errors = []; page.on('pageerror', e => errors.push(String(e)));
+    // volt-auth.js pins the real Supabase library with a Subresource Integrity hash, so the browser
+    // (rightly) refuses our stub. For THESE tests only, drop the integrity line before the page sees
+    // it; a separate smoke.cjs check guarantees the shipping file still carries it.
+    await page.route('**/volt-auth.js*', async (r) => {
+      const resp = await r.fetch(); const t = (await resp.text()).replace(/s\.integrity\s*=\s*"sha384-[^"]*";/, '');
+      r.fulfill({ response: resp, body: t });
+    });
     await page.route('**/*supabase*', r => r.fulfill({ contentType: 'text/javascript', body: stub(email) }));
     await page.route('**/api/**', apiHandler);
     if (extra) await extra(page);

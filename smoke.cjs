@@ -181,6 +181,22 @@ console.log('Secret scan (tracked files):');
   else console.log('  ok no secrets found in ' + files.length + ' tracked files');
 })();
 
+// SUPPLY CHAIN. The sign-in library (which holds every user's session) loads from a third-party CDN on
+// every page. It must be pinned to an exact version AND carry an integrity hash, or a compromised
+// release reaches everyone instantly. (Other CDN scripts — the Tailwind runtime — can't be hashed;
+// that is tracked in the audit as "replace with built CSS".)
+console.log('Supply chain:');
+(function supplyChain() {
+  const f = 'volt-auth.js';
+  if (!fs.existsSync(f)) { console.log('  · skipped'); return; }
+  const t = fs.readFileSync(f, 'utf8');
+  const floating = /supabase-js@\d+\/dist/.test(t);                 // "@2/" with no minor.patch
+  const pinned = /supabase-js@\d+\.\d+\.\d+\/dist\/umd\/supabase\.min\.js/.test(t);
+  const hashed = /s\.integrity\s*=\s*"sha384-[A-Za-z0-9+\/=]{60,}"/.test(t) && /crossOrigin\s*=\s*"anonymous"/.test(t);
+  if (floating || !pinned || !hashed) { fail++; console.error('  x volt-auth.js: supabase-js must be pinned to an exact version with an SRI hash (floating=' + floating + ', pinned=' + pinned + ', hashed=' + hashed + ')'); }
+  else console.log('  ok supabase-js is pinned to an exact version with an integrity hash');
+})();
+
 // Optional: verify the live API rejects unauthenticated requests (fail-closed).
 const base = process.argv[2];
 async function live() {

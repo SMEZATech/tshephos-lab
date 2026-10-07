@@ -186,7 +186,7 @@
       if(d.note && !(d.results||[]).length){ note.textContent = d.note; return; }
       if(!(d.results||[]).length){ note.textContent = 'Nothing found — try another word.'; return; }
       note.textContent = (d.results.length) + ' from ' + d.provider + ' — click to add';
-      grid.innerHTML = d.results.map((a,i)=>'<img data-i="'+i+'" src="'+a.thumb+'" title="'+String(a.alt||'').replace(/"/g,'&quot;')+' ('+String(a.credit||'').replace(/"/g,'&quot;')+')" loading="lazy" class="w-full h-14 object-cover rounded cursor-pointer border border-slate-700 ff-hover-accent" style="background:var(--ink-track,#1a1e28);">').join('');
+      grid.innerHTML = d.results.map((a,i)=>'<img data-i="'+i+'" src="'+String(/^https:\/\//i.test(a.thumb||'') ? a.thumb : '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" title="'+String(a.alt||'').replace(/"/g,'&quot;')+' ('+String(a.credit||'').replace(/"/g,'&quot;')+')" loading="lazy" class="w-full h-14 object-cover rounded cursor-pointer border border-slate-700 ff-hover-accent" style="background:var(--ink-track,#1a1e28);">').join('');
       grid.querySelectorAll('img').forEach(el => el.addEventListener('click', ()=>{
         const a = d.results[parseInt(el.dataset.i,10)]; if(!a) return;
         addImageFromURL(a.full); ffStatus('Added — ' + (a.credit || d.provider));
