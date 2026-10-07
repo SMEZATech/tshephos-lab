@@ -32,7 +32,7 @@
 // ?action=drain. See .github/workflows/ig-drain.yml. Nothing is published from the browser, so a
 // scheduled story goes out whether or not anyone has Volt open.
 
-import { blocked, sbRest, sbBase, encryptSecret, decryptSecret, recordMetric } from "../_guard.js";
+import { blocked, sbRest, sbBase, encryptSecret, decryptSecret, recordMetric, cronKeyOk, isOrgAdmin } from "../_guard.js";
 
 const V = process.env.IG_API_VERSION || "v23.0";
 const G = "https://graph.facebook.com/" + V;
@@ -453,10 +453,8 @@ export default async function handler(req, res) {
   // ---- CRON: publish everything due. No user session (nobody is logged in at 06:00), so it is
   // gated on a shared secret instead. Deliberately the only action that skips requireSession.
   if (action === "drain") {
-    const given = String((req.query && req.query.key) || req.headers["x-volt-cron"] || "");
-    const want = process.env.CRON_SECRET || "";
-    if (!want) return res.status(503).json({ error: "CRON_SECRET is not set — scheduled posting is off." });
-    if (given !== want) return res.status(401).json({ error: "Bad cron key" });
+    if (!process.env.CRON_SECRET) return res.status(503).json({ error: "CRON_SECRET is not set — scheduled posting is off." });
+    if (!cronKeyOk(req)) return res.status(401).json({ error: "Bad cron key" });
 
     const now = new Date().toISOString();
     const due = (await sbRest(
@@ -547,6 +545,7 @@ export default async function handler(req, res) {
 
     // ---- Connect / re-connect
     if (action === "connect") {
+      if (!isOrgAdmin(req.volt)) return res.status(403).json({ error: "Only the workspace owner can connect a social account.", code: "OWNER_ONLY" });
       const token = String(body.token || "").trim();
       if (!token) return res.status(400).json({ error: "Paste your access token." });
       const acct = await resolveAccount(token, String(body.igUserId || "").trim() || null, String(body.pageId || "").trim() || null);
@@ -564,6 +563,7 @@ export default async function handler(req, res) {
     }
 
     if (action === "disconnect") {
+      if (!isOrgAdmin(req.volt)) return res.status(403).json({ error: "Only the workspace owner can disconnect a social account.", code: "OWNER_ONLY" });
       await clearCreds(orgId);
       return res.status(200).json({ ok: true });
     }

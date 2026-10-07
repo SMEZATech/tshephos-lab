@@ -12,7 +12,7 @@
 import crypto from "crypto";
 
 const ALLOWED_HEADERS =
-  "Content-Type, Authorization, x-app-key, x-client, x-gemini-key, x-groq-key, x-postiz-key, x-postiz-url, x-kit-key, x-wp-url, x-wp-user, x-wp-key";
+  "Content-Type, Authorization, x-client, x-gemini-key, x-groq-key, x-postiz-key, x-postiz-url, x-kit-key, x-wp-url, x-wp-user, x-wp-key";
 
 function isAllowedOrigin(o) {
   if (!o) return false;
@@ -33,12 +33,6 @@ function setCors(req, res, methods) {
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", methods || "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", ALLOWED_HEADERS);
-}
-
-function appKeyOk(req) {
-  const APP_KEY = process.env.APP_KEY;
-  if (!APP_KEY) return true; // unset = open (backwards compatible)
-  return req.headers["x-app-key"] === APP_KEY;
 }
 
 function clientIp(req) {
@@ -251,6 +245,15 @@ async function requireSession(req) {
   if (!ur.ok) return { error: "INVALID_SESSION" };
   const user = await ur.json();
   if (!user || !user.id) return { error: "INVALID_SESSION" };
+  // The org gate below trusts the ADDRESS, so the address has to be proven, not merely typed. With
+  // email confirmation off at Supabase, anyone could register ceo@<any-company-domain> and be placed
+  // in that company's workspace. GoTrue reports email_confirmed_at: null until the link is clicked
+  // (and set at once for Google sign-in). Only an explicit null/empty rejects — a user object with no
+  // such field at all is NOT treated as unconfirmed, because failing closed on a missing field would
+  // lock everyone out. ALLOW_UNCONFIRMED_EMAIL=1 in Vercel is the emergency off-switch.
+  if (process.env.ALLOW_UNCONFIRMED_EMAIL !== "1" && "email_confirmed_at" in user && !user.email_confirmed_at) {
+    return { error: "EMAIL_UNCONFIRMED" };
+  }
   // Only org-domain accounts may use the API — protects the shared provider keys / budget.
   // Configurable via ALLOWED_EMAIL_DOMAIN (set to "" to allow any, e.g. when commercialising).
   const email = String(user.email || "").toLowerCase();
@@ -392,6 +395,25 @@ function isOwner(s) {
   return String(raw).toLowerCase().split(",").map((x) => x.trim()).filter(Boolean).includes(email);
 }
 
+// Org-LEVEL actions — connecting a social account, minting the API key — belong to whoever owns the
+// workspace. On a company domain that is the owner (isOwner); a personal-address workspace has exactly
+// one member, who is by definition its owner. Everyone else on a shared workspace can USE the
+// connections, not replace or revoke them.
+function isOrgAdmin(s) {
+  if (isOwner(s)) return true;
+  return !!(s && s.user && orgKeyFor(s.user).startsWith("user:"));
+}
+
+// Cron secret: header only (a ?key= in the URL lands in access logs) and constant-time.
+function cronKeyOk(req) {
+  const want = String(process.env.CRON_SECRET || "");
+  const given = String((req.headers && req.headers["x-volt-cron"]) || "");
+  if (!want || !given) return false;
+  const a = crypto.createHash("sha256").update(want).digest();
+  const b = crypto.createHash("sha256").update(given).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
 // ===== Org-scoped DB access (H1) — every call REQUIRES an orgId and injects org_id=eq.,
 // so an endpoint physically cannot issue an unscoped query. Use for ALL per-org tables. =====
 function db(orgId) {
@@ -463,4 +485,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, appKeyOk, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner };
+export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner };

@@ -32,7 +32,7 @@
 //   POST /v2/post/publish/status/fetch/                publish_id -> PROCESSING_DOWNLOAD | ... | PUBLISH_COMPLETE | FAILED
 
 import crypto from "crypto";
-import { blocked, sbRest, sbBase, encryptSecret, decryptSecret } from "../_guard.js";
+import { blocked, sbRest, sbBase, encryptSecret, decryptSecret, cronKeyOk, isOrgAdmin } from "../_guard.js";
 
 const PROVIDER = "tiktok";
 const AUTH_BASE = "https://www.tiktok.com";
@@ -279,10 +279,8 @@ export default async function handler(req, res) {
   // ---- CRON: publish everything due. Same shared secret and atomic-claim pattern as Instagram/
   // Facebook's drain — nobody is signed in when this fires.
   if (action === "drain") {
-    const given = String(q.key || req.headers["x-volt-cron"] || "");
-    const want = process.env.CRON_SECRET || "";
-    if (!want) return res.status(503).json({ error: "CRON_SECRET is not set — scheduled posting is off." });
-    if (given !== want) return res.status(401).json({ error: "Bad cron key" });
+    if (!process.env.CRON_SECRET) return res.status(503).json({ error: "CRON_SECRET is not set — scheduled posting is off." });
+    if (!cronKeyOk(req)) return res.status(401).json({ error: "Bad cron key" });
 
     const now = new Date().toISOString();
     const due = (await sbRest(
@@ -318,6 +316,7 @@ export default async function handler(req, res) {
     // ---- Start the OAuth dance. Returns a URL for the client to navigate to — this can't just be
     // a redirect from here, because the browser needs to actually land on TikTok's own domain.
     if (action === "authstart") {
+      if (!isOrgAdmin(req.volt)) return res.status(403).json({ error: "Only the workspace owner can connect a social account.", code: "OWNER_ONLY" });
       if (!process.env.TIKTOK_CLIENT_KEY) return res.status(503).json({ error: "TikTok isn't configured yet — TIKTOK_CLIENT_KEY is missing." });
       const state = signState(orgId);
       const url = AUTH_BASE + "/v2/auth/authorize/?" + new URLSearchParams({
@@ -347,7 +346,10 @@ export default async function handler(req, res) {
       });
     }
 
-    if (action === "disconnect") { await clearCreds(orgId); return res.status(200).json({ ok: true }); }
+    if (action === "disconnect") {
+      if (!isOrgAdmin(req.volt)) return res.status(403).json({ error: "Only the workspace owner can disconnect a social account.", code: "OWNER_ONLY" });
+      await clearCreds(orgId); return res.status(200).json({ ok: true });
+    }
 
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
     const body = (req.body && typeof req.body === "object") ? req.body : JSON.parse(req.body || "{}");

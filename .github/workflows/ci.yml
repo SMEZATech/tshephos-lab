@@ -25,11 +25,18 @@ jobs:
       - name: Static checks
         run: node smoke.cjs
 
-      # Renders ~180 designs through the production worker and asserts on the draw trace.
+      # Pinned: an unpinned "playwright@1" meant a new browser build could change render results (or
+      # break the job) on a day nothing in this repo changed, and there is no lockfile to catch it.
       - name: Install Playwright (chromium only)
         run: |
-          npm install --no-save playwright@1
+          npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium
 
+      # Renders every design AND every copy-library line (about 2,600) through the production worker
+      # and asserts on the draw trace. Fails the build if Playwright is missing (CI=true).
       - name: Render checks
         run: node ci-render.cjs
+
+      # Real-browser checks of the sign-in behaviour and the sandboxed email preview.
+      - name: Browser tests
+        run: node tests/browser.test.cjs

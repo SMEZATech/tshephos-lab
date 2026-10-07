@@ -8,7 +8,7 @@
 // Get a V4 API key in Kit → Settings → Developer (Advanced → API Keys).
 // Docs: https://developers.kit.com/api-reference/broadcasts/create-a-broadcast
 
-import { blocked } from "../_guard.js";
+import { blocked, rateLimit, isOwner, orgKeyFor } from "../_guard.js";
 
 const KIT_BASE = "https://api.kit.com/v4";
 const KIT_URL = KIT_BASE + "/broadcasts";
@@ -61,6 +61,26 @@ async function handleTestSend(req, res, body) {
   if (!to.length) return res.status(400).json({ error: "Add at least one email address to send the test to." });
   const bad = to.filter((e) => !EMAIL_RE.test(e));
   if (bad.length) return res.status(400).json({ error: "That doesn't look like a valid email address: " + bad[0] });
+
+  // WHO a test may go to. This endpoint sends FROM the company's own address with the org's mail key,
+  // so without a rule any signed-in user could mail anyone as the company (phishing, and a hit to the
+  // domain's reputation). A test exists so a person can see their own newsletter: their own address,
+  // or a teammate on the same COMPANY domain. The workspace owner may test to anyone.
+  {
+    const me = String((req.volt && req.volt.user && req.volt.user.email) || "").toLowerCase();
+    const orgKey = req.volt && req.volt.user ? orgKeyFor(req.volt.user) : "";
+    const companyDomain = orgKey && !orgKey.startsWith("user:") ? orgKey : "";
+    if (!isOwner(req.volt)) {
+      const outside = to.find((e) => {
+        const addr = e.toLowerCase();
+        return addr !== me && !(companyDomain && addr.endsWith("@" + companyDomain));
+      });
+      if (outside) return res.status(403).json({ error: "For safety, test emails can only go to your own address or a teammate on your company domain.", code: "RECIPIENT_NOT_ALLOWED" });
+    }
+    // A daily ceiling on top of the per-minute limit.
+    const rl = await rateLimit(req, { id: "kit-test-day", limit: 30, windowSec: 86400 });
+    if (!rl.ok) return res.status(429).json({ error: "Daily test-send limit reached. Try again tomorrow." });
+  }
 
   const html = String(body.html || "").trim();
   if (!html) return res.status(400).json({ error: "Build the email first — there's nothing to send." });

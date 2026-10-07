@@ -14,22 +14,7 @@
 // path, where returning HTML would only ever be a redirect page or an error.
 
 import { blocked } from "../_guard.js";
-
-function isPrivateHost(host) {
-  host = String(host || "").toLowerCase();
-  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) return true;
-  if (host.includes(":")) return true; // raw IPv6 (covers ::1, etc.)
-  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (m) {
-    const a = +m[1], b = +m[2];
-    if (a === 0 || a === 10 || a === 127) return true;
-    if (a === 169 && b === 254) return true;          // link-local / cloud metadata
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a >= 224) return true;                          // multicast / reserved
-  }
-  return false;
-}
+import { isPrivateHost, safeFetch } from "../_net.js";
 
 export default async function handler(req, res) {
   // blocked() does CORS, session auth and rate limiting, and fails CLOSED.
@@ -40,21 +25,16 @@ export default async function handler(req, res) {
   let u;
   try { u = new URL(target); } catch { return res.status(400).json({ error: "Invalid URL." }); }
   if (!/^https?:$/.test(u.protocol)) return res.status(400).json({ error: "Only http/https URLs are allowed." });
-  if (isPrivateHost(u.hostname)) return res.status(400).json({ error: "That host isn't allowed." });
+  if (isPrivateHost(u.hostname)) return res.status(400).json({ error: "That host isn't allowed." });   // fast path; safeFetch re-checks every hop
 
   try {
-    const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 10000);
-    const r = await fetch(u.toString(), {
-      signal: ctrl.signal,
-      redirect: "follow",
+    const { res: r, buf } = await safeFetch(u.toString(), {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
       },
-    });
-    clearTimeout(tid);
+    }, { maxBytes: 8 * 1024 * 1024, timeoutMs: 10000 });
     if (!r.ok) return res.status(502).json({ error: "Could not fetch the page (" + r.status + ")." });
 
     const ct = r.headers.get("content-type") || (wantImage ? "application/octet-stream" : "text/html; charset=utf-8");
@@ -62,15 +42,16 @@ export default async function handler(req, res) {
     // we asked for — say so instead of handing the canvas a chunk of HTML to choke on.
     if (wantImage && !/^image\//i.test(ct)) return res.status(415).json({ error: "That URL didn't return an image (" + ct.split(";")[0] + ")." });
 
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > 8 * 1024 * 1024) return res.status(413).json({ error: "Resource too large." });
-
     res.setHeader("Content-Type", ct);
     // Brand logos and featured images don't change; a long immutable cache keeps this off the
     // critical path (and off the bandwidth bill) after the first load.
     res.setHeader("Cache-Control", wantImage ? "public, max-age=86400, immutable" : "public, max-age=300");
     return res.status(200).send(buf);
   } catch (err) {
+    const m = String((err && err.message) || "");
+    if (m === "TOO_LARGE") return res.status(413).json({ error: "Resource too large." });
+    if (m === "HOST_NOT_ALLOWED" || m === "BAD_PROTOCOL") return res.status(400).json({ error: "That host isn't allowed." });
+    if (m === "TOO_MANY_REDIRECTS") return res.status(502).json({ error: "That link redirects too many times." });
     const msg = (err && err.name === "AbortError") ? "The site took too long to respond." : "Cannot reach that site.";
     return res.status(502).json({ error: msg });
   }

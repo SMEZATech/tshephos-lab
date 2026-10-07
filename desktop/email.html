@@ -1489,7 +1489,7 @@ function renderPreview(bodyHtml){
       <p class="editing-hint">✏️ <b>Edit straight in the preview</b> — fix wording, format text, add images. Your changes flow into the exported HTML. The header, footer and promo blocks stay locked to the template.</p>
       <div class="pas-banner" id="pasBanner">👁 Previewing as <b class="who"></b> — merge tags resolved to their real values. Read-only while previewing. <button type="button" id="pasBack">← Back to editing</button></div>
       <div class="stage">
-        <iframe class="frame ${isM?'mobile':''}" id="frame" title="Email preview"></iframe>
+        <iframe class="frame ${isM?'mobile':''}" id="frame" title="Email preview" sandbox="allow-same-origin"></iframe>
       </div>
     </div>`;
   _previewingAsSub = null; // a fresh render is always the real, editable draft — never mid-preview

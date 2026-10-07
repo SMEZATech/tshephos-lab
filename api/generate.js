@@ -5,6 +5,7 @@
 
 import { blocked, meter, logContent, sbRest } from "./_guard.js";
 import { chatComplete, resolveLlmKeys, llmOrder, probeProviders } from "./_ai.js";
+import { sanitizeEmailHtml } from "./_sanitize.js";
 
 const SYSTEM =
   "You are an elite direct-response performance-marketing copywriter and a brutally honest creative strategist. " +
@@ -618,7 +619,9 @@ export default async function handler(req, res) {
       const { brief } = body;
       if (!brief || !String(brief).trim()) return res.status(400).json({ error: "Missing brief" });
       const text = await callProvider(buildEmailPrompt({ brief }) + promptExtras + pubNote, { system: SYSTEM_EMAIL, json: false, temperature: 0.7, maxTokens: 3000 });
-      let html = String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim();
+      // Model output is untrusted (the brief may contain pasted/scraped text that tries to steer it), so
+      // it is sanitised before it is stored, previewed or sent. See api/_sanitize.js.
+      let html = sanitizeEmailHtml(String(text || "").replace(/```html\s*/gi, "").replace(/```/g, "").trim());
       if (!html) return res.status(502).json({ error: "Model returned an empty body — try again." });
       const contentId = await logContent(req.volt && req.volt.orgId, {
         tool: "email", input: { brief: String(brief).slice(0, 2000) }, output: { emailBody: html.slice(0, 8000) },

@@ -15,7 +15,7 @@
 //   POST /{page-id}/feed     message=...                     -> { id: "pageId_postId" }
 //   POST /{page-id}/photos   url=...&caption=...              -> { id, post_id }
 
-import { blocked, sbRest, sbBase, recordMetric } from "../_guard.js";
+import { blocked, sbRest, sbBase, recordMetric, cronKeyOk } from "../_guard.js";
 import { graph, loadCreds } from "./instagram.js";
 
 const MAX_ATTEMPTS = 3;
@@ -165,10 +165,8 @@ export default async function handler(req, res) {
   // ---- CRON: publish everything due. Same shared secret as Instagram's drain, same reasoning —
   // nobody is signed in when this fires, so it's gated on the secret rather than a session.
   if (action === "drain") {
-    const given = String((req.query && req.query.key) || req.headers["x-volt-cron"] || "");
-    const want = process.env.CRON_SECRET || "";
-    if (!want) return res.status(503).json({ error: "CRON_SECRET is not set — scheduled posting is off." });
-    if (given !== want) return res.status(401).json({ error: "Bad cron key" });
+    if (!process.env.CRON_SECRET) return res.status(503).json({ error: "CRON_SECRET is not set — scheduled posting is off." });
+    if (!cronKeyOk(req)) return res.status(401).json({ error: "Bad cron key" });
 
     const now = new Date().toISOString();
     const due = (await sbRest(

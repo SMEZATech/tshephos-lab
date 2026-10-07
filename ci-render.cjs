@@ -44,6 +44,9 @@ function serve() {
   let chromium;
   try { ({ chromium } = require("playwright")); }
   catch (e) {
+    // Locally, no Playwright is fine (static checks still run). In CI it is NOT: a render check that
+    // quietly passes because its browser failed to install is a check that has stopped existing.
+    if (process.env.CI) { console.log("✗ render check cannot run — playwright is missing in CI."); process.exit(1); }
     console.log("· render check SKIPPED — playwright not installed (npm i -D playwright && npx playwright install chromium)");
     process.exit(0);
   }

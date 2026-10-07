@@ -296,8 +296,30 @@
       }
       var oll = maybeOllama(url, input, init);
       if (oll) return oll;
-      return _fetch(input, init);
+      var p = _fetch(input, init);
+      // If the SERVER refuses this session (an account outside the allowed domain, or an unconfirmed
+      // email), say so and return to the sign-in screen. Without this a Google sign-in from any
+      // address loaded the whole app shell and then every tool failed with a bare 401 — a worse dead
+      // end than being told up front.
+      if (/\/api\//.test(url)) {
+        p = p.then(function (resp) {
+          if (resp && resp.status === 401) {
+            try { resp.clone().json().then(function (b) { refuseSession(b && b.code); }).catch(function () {}); } catch (e) {}
+          }
+          return resp;
+        });
+      }
+      return p;
     };
+  }
+  var _authRefusal = null, _refusing = false;
+  function refuseSession(code) {
+    if (_refusing || (code !== "NOT_AUTHORIZED" && code !== "EMAIL_UNCONFIRMED")) return;
+    _refusing = true;
+    _authRefusal = code === "EMAIL_UNCONFIRMED"
+      ? "Please confirm your email address first. We sent you a link — check your inbox (and spam), then sign in again."
+      : "Volt is invite-only for now, so this account can’t be used yet. To join the waitlist, email info@smesouthafrica.co.za.";
+    try { if (sb) sb.auth.signOut(); else showGate(); } catch (e) { showGate(); }
   }
 
   /* ---------- styles ---------- */
@@ -619,6 +641,7 @@
   function showGate(errMsg) {
     injectCSS();
     hideBoot();
+    if (_authRefusal && !errMsg) { errMsg = _authRefusal; _authRefusal = null; _refusing = false; }
     if (errMsg === "SETUP_INCOMPLETE") errMsg = BRAND.name + " isn’t fully set up yet — its Supabase project hasn’t been connected. Expected before launch, not a bug.";
     document.documentElement.style.overflow = "hidden";
     var g = document.getElementById("va-gate");
@@ -665,7 +688,10 @@
       inB.addEventListener("click", function () {
         if (!sb) return; busy(true); err.textContent = "Signing in…";
         sb.auth.signInWithPassword({ email: email.value.trim(), password: pw.value })
-          .then(function (r) { if (r.error) fail(r.error.message); }).catch(function (e) { fail(e.message); });
+          .then(function (r) {
+            if (!r.error) return;
+            fail(/not confirmed/i.test(r.error.message) ? "Please confirm your email first — check your inbox (and spam) for the link, then sign in." : r.error.message);
+          }).catch(function (e) { fail(e.message); });
       });
       upB.addEventListener("click", function () {
         if (!sb) return;
@@ -682,7 +708,7 @@
         }
         busy(true); err.textContent = "Creating account…";
         sb.auth.signUp({ email: email.value.trim(), password: pw.value })
-          .then(function (r) { if (r.error) fail(r.error.message); else if (!r.data.session) fail("Account made — now click Sign in."); })
+          .then(function (r) { if (r.error) fail(r.error.message); else if (!r.data.session) fail("Account created. Check your email for a confirmation link, then come back and sign in."); })
           .catch(function (e) { fail(e.message); });
       });
       pw.addEventListener("keydown", function (e) { if (e.key === "Enter") inB.click(); });
@@ -775,7 +801,8 @@
     { h: "Design",  items: [ { t: "Studio", i: "studio", href: "studio.html" }, { t: "Freeform", i: "freeform", href: "freeform.html" } ] },
     { h: "Video",   items: [ { t: "Video", i: "video", href: "video.html" }, { t: "SmartClip", i: "smartclip", href: "smartclip.html" }, { t: "Transcribe", i: "transcribe", href: "videotok.html" } ] },
     { h: "Publish", items: [ { t: "Email", i: "email", href: "email.html" }, { t: "Schedule", i: "schedule", href: "schedule.html" } ] },
-    { h: "Measure", items: [ { t: "Stats", i: "stats", href: "analytics.html" } ] }
+    { h: "Measure", items: [ { t: "Stats", i: "stats", href: "analytics.html" } ] },
+    { h: "Settings", items: [ { t: "Brand Kit", i: "gear", href: "brand-kit.html" } ] }
   ];
   /* ---------- "Get the desktop app" (web only) ---------- */
   // The desktop shell is a Windows installer published as a public GitHub release. version.json
@@ -784,6 +811,9 @@
   // no code change. Offered only where it makes sense: on the WEB (never inside the shell itself),
   // for Volt (the installer is Volt's — Vantly has none), on Windows (it is a Windows installer).
   var DESKTOP_FALLBACK = "https://github.com/SMEZATech/tshephos-lab/releases/latest";
+  // version.json is a plain unauthenticated file; whatever it says, a download link is only trusted
+  // if it points at this project's own GitHub releases. Anything else falls back to the known-good one.
+  function trustedDownload(u) { return (typeof u === "string" && /^https:\/\/github\.com\/SMEZATech\//.test(u)) ? u : DESKTOP_FALLBACK; }
   var _desk = { url: DESKTOP_FALLBACK, ver: "" };
   function desktopOffer() { return !isDesktop() && BRAND === BRANDS.volt && /Windows/i.test(navigator.userAgent || ""); }
   function loadDesktopInfo(cb) {
@@ -791,7 +821,7 @@
       .then(function (r) { return r && r.ok ? r.json() : null; })
       .then(function (info) {
         if (!info) return;
-        if (info.download && /^https:\/\//.test(info.download)) _desk.url = info.download;   // https only
+        if (info.download) _desk.url = trustedDownload(info.download);
         if (info.desktopVersion) _desk.ver = String(info.desktopVersion);
       })
       .catch(function () {})
@@ -929,7 +959,7 @@
     bar.innerHTML =
       '<span class="va-ub-txt">✨ ' + esc(BRAND.name) + ' <b>' + esc(latest) + "</b> is available" + (notes ? " — " + esc(notes) : "") + ' <span class="va-ub-cur">(you have ' + esc(cur) + ")</span></span>" +
       '<span class="va-ub-actions">' +
-        (url ? '<a class="va-ub-btn" href="' + esc(url) + '" target="_blank" rel="noopener">Download update ↗</a>' : "") +
+        (url ? '<a class="va-ub-btn" href="' + esc(trustedDownload(url)) + '" target="_blank" rel="noopener">Download update ↗</a>' : "") +
         '<button class="va-ub-x" id="va-ub-x">Later</button>' +
       "</span>";
     document.body.appendChild(bar);

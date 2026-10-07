@@ -25,7 +25,7 @@
 // Authorization: Bearer <key>. See SETUP-MCP.md.
 
 import crypto from "crypto";
-import { setCors, blocked, rateLimit, sbRest, sbWrite, sbPatch, logContent } from "../_guard.js";
+import { setCors, blocked, rateLimit, sbRest, sbWrite, sbPatch, logContent, isOrgAdmin } from "../_guard.js";
 import { chatComplete, resolveLlmKeys, llmOrder } from "../_ai.js";
 import { SYSTEM, SYSTEM_EMAIL, buildPrompt, buildEmailPrompt, safeParse } from "../generate.js";
 
@@ -205,6 +205,9 @@ export default async function handler(req, res) {
 
     const body = req._parsedBody || {};
     const op = String(body.op || "");
+    // Seeing whether a key exists (GET above) is open to the workspace; minting, rotating or revoking
+    // the key that can call the API as this workspace is the owner's.
+    if (!isOrgAdmin(req.volt)) return res.status(403).json({ error: "Only the workspace owner can manage the API key.", code: "OWNER_ONLY" });
     if (op === "create" || op === "rotate") {
       // Revoke any existing key first — one active key per org keeps "who can call the API" a
       // single answerable question, and rotating is the only way to invalidate a leaked key.

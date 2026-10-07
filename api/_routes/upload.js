@@ -7,6 +7,7 @@
 // In WordPress: Users → Profile → Application Passwords → add one for "Volt".
 
 import { blocked, sbBase } from "../_guard.js";
+import { assertPublicHost } from "../_net.js";
 
 const BUCKET = "volt-media";
 const VIDEO_BUCKET = "volt-video";
@@ -109,12 +110,27 @@ export default async function handler(req, res) {
       }
     }
 
-    // Personal creds win when supplied; otherwise the org's env creds — a desktop user without
-    // personal WP creds was silently skipping the org's WordPress and landing on Supabase.
-    const wpUrl = (req.headers["x-wp-url"] || process.env.WP_URL || "").toString().trim();
-    const wpUser = (req.headers["x-wp-user"] || process.env.WP_USER || "").toString().trim();
-    const wpKey = (req.headers["x-wp-key"] || process.env.WP_APP_PASSWORD || "").toString().trim();
-    const wpReady = !!(wpUrl && wpUser && wpKey);
+    // A COMPLETE personal set (all three headers) wins; otherwise the org's COMPLETE env set. Never a
+    // mix. Mixing — header URL with env username/password — meant a caller could send only
+    // x-wp-url: https://their-server and have the org's WordPress password POSTed to it.
+    const hv = (n) => (req.headers[n] || "").toString().trim();
+    let wpUrl, wpUser, wpKey;
+    if (hv("x-wp-url") && hv("x-wp-user") && hv("x-wp-key")) {
+      wpUrl = hv("x-wp-url"); wpUser = hv("x-wp-user"); wpKey = hv("x-wp-key");
+    } else {
+      wpUrl = (process.env.WP_URL || "").trim(); wpUser = (process.env.WP_USER || "").trim(); wpKey = (process.env.WP_APP_PASSWORD || "").trim();
+    }
+    let wpReady = !!(wpUrl && wpUser && wpKey);
+    if (wpReady) {
+      // The credential only ever goes to a public https WordPress — not an internal address.
+      try {
+        const wu = new URL(wpUrl);
+        if (wu.protocol !== "https:" && wu.protocol !== "http:") throw new Error("bad protocol");
+        await assertPublicHost(wu.hostname);
+      } catch (e) {
+        return res.status(400).json({ error: "That WordPress address isn't allowed." });
+      }
+    }
 
     const dataBase64 = String(body.dataBase64 || "").replace(/^data:[^;]+;base64,/, "");
     const filename = String(body.filename || "image.png").replace(/[^\w.\-]+/g, "_").slice(-80) || "image.png";
@@ -147,6 +163,7 @@ export default async function handler(req, res) {
         "Content-Disposition": 'attachment; filename="' + filename + '"',
       },
       body: buf,
+      redirect: "manual",   // never follow a redirect with the Authorization header attached
     });
     const txt = await r.text();
     let data; try { data = JSON.parse(txt); } catch { data = txt; }

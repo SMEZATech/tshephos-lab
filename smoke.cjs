@@ -85,7 +85,7 @@ for (const f of fs.readdirSync('.').filter(n => /\.html$/.test(n))) {
 // in three places that must agree: the selection logic (copy-rotation.js), the server log
 // (api/_routes/copyuse.js) and the written library (copy-library.js). Each has a test here.
 console.log('Copy rotation:');
-for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs']) {
+for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs', 'tests/security.test.mjs']) {
   try {
     const out = cp.execSync('node "' + t + '"', { stdio: 'pipe' }).toString().trim().split('\n').pop();
     console.log('  ok ' + t + ' — ' + out);
@@ -145,6 +145,40 @@ for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs']) {
   }
   if (problems.length) { fail++; console.error('  x copy-library.js:\n      ' + problems.slice(0, 40).join('\n      ') + (problems.length > 40 ? '\n      …and ' + (problems.length - 40) + ' more' : '')); }
   else console.log('  ok copy-library.js — ' + Object.keys(LIB).length + ' designs, ' + variants + ' copies, all match the registry');
+})();
+
+// SECRET SCAN. This repo is PUBLIC and served as a website, so a committed key is a published key.
+// (The GitHub gitleaks action needs a paid licence for organisations; this covers the formats that
+// actually matter here.) The Supabase ANON key and Google Fonts keys are public by design: a JWT is
+// only flagged if its payload says service_role.
+console.log('Secret scan (tracked files):');
+(function secretScan() {
+  let files;
+  try { files = cp.execSync('git ls-files', { stdio: 'pipe' }).toString().split('\n').filter(Boolean); }
+  catch (e) { console.log('  · skipped (not a git checkout)'); return; }
+  const SKIP = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|zip|exe|bin|pdf|mp4|webm|mp3|svg)$/i;
+  const PATTERNS = [
+    ['private key block', /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/],
+    ['Stripe/Paystack live secret', /\b(?:sk_live|rk_live)_[A-Za-z0-9]{16,}/],
+    ['Google API key', /\bAIza[0-9A-Za-z_-]{35}\b/],
+    ['GitHub token', /\bgh[pousr]_[A-Za-z0-9]{30,}/],
+    ['Slack token', /\bxox[abprs]-[A-Za-z0-9-]{10,}/],
+    ['AWS access key', /\bAKIA[0-9A-Z]{16}\b/],
+    ['Groq key', /\bgsk_[A-Za-z0-9]{30,}/],
+    ['Resend key', /\bre_[A-Za-z0-9]{20,}/],
+  ];
+  const hits = [];
+  for (const f of files) {
+    if (SKIP.test(f) || f.startsWith('node_modules/') || f.startsWith('tests/')) continue;
+    let txt; try { txt = fs.readFileSync(f, 'utf8'); } catch (e) { continue; }
+    if (txt.length > 3e6) continue;
+    for (const [name, re] of PATTERNS) if (re.test(txt)) hits.push(f + ': ' + name);
+    for (const m of txt.matchAll(/eyJ[A-Za-z0-9_-]{10,}\.([A-Za-z0-9_-]{10,})\.[A-Za-z0-9_-]{10,}/g)) {
+      try { const p = JSON.parse(Buffer.from(m[1], 'base64').toString('utf8')); if (p && p.role === 'service_role') hits.push(f + ': Supabase SERVICE-ROLE key'); } catch (e) { /* not a JWT */ }
+    }
+  }
+  if (hits.length) { fail++; console.error('  x possible secret(s) committed to a PUBLIC repo:\n      ' + hits.join('\n      ')); }
+  else console.log('  ok no secrets found in ' + files.length + ' tracked files');
 })();
 
 // Optional: verify the live API rejects unauthenticated requests (fail-closed).
