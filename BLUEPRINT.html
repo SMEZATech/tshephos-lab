@@ -99,7 +99,7 @@ git add -A && git commit -m "..." && git push   # Vercel auto-deploys; desktop a
                                                  # /desktop/ pages live, no reinstall needed
 cd ../volt-desktop && git add -A && git commit -m "..." && git push  # keep app/ history matched</pre>
   <p><strong>Currently synced pages</strong> (<code>build-sync.cjs</code> <code>PAGES</code>): <code>home, index, campaign, studio, freeform, analytics, email, video, smartclip, videotok, schedule, guide, health, admin</code>.</p>
-  <p><strong>Currently synced shared scripts</strong> (<code>ASSETS</code>): <code>volt-auth.js, email-blocks.js, studio-engine.js, volt-stt.js, smartclip.js, autoframe.js</code>.</p>
+  <p><strong>Currently synced shared scripts</strong> (<code>ASSETS</code>): <code>volt-auth.js, email-blocks.js, studio-engine.js, volt-stt.js, smartclip.js, autoframe.js, render-checks.js, design-bridge.js, motion.js, copy-rotation.js, copy-library.js</code> (the authoritative list is <code>ASSETS</code> in <code>build-sync.cjs</code>). Web-only pages that are <em>not</em> in <code>app/</code> — <code>welcome</code>, <code>signup</code>, <code>vantly</code> and the Vantly <code>brand-kit</code> — are edited in this repo directly; <code>npm run sync</code> must never be run over a shared file that has uncommitted or non-sync commits here.</p>
   <p><strong>Deliberately NOT synced</strong> (web-only, on purpose): <code>welcome.html</code> (public front door — no desktop equivalent makes sense), <code>BLUEPRINT.html</code> (this file), <code>api/</code> (backend).</p>
   <div class="card">
     <h3>Gotcha this file exists partly to prevent <span class="tag ok">RESOLVED 2026-08-13</span></h3>
@@ -157,10 +157,39 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
     <li><strong>New API endpoints go in <code>api/_routes/</code> + the router's <code>ROUTES</code> map</strong>, never as a new top-level file (the 12-function cap).</li>
   </ul>
 
+  <h2>Objectives (from the 2026-10 audit)</h2>
+  <div class="card">
+    <p>A full platform audit was done on 2026-10-07 (six independent reviews plus live measurements). The detailed findings are kept <strong>privately</strong>; this is the sanitised plan. Sequenced by dependency: the product can't open to outside customers until Phases 0–1 are done.</p>
+    <h3>Phase 0 — Close the doors (first)</h3>
+    <ul>
+      <li><strong>0.1</strong> Verified sign-in and an honest front door.</li>
+      <li><strong>0.2</strong> Harden credential handling, owner-only actions and outbound email.</li>
+      <li><strong>0.3</strong> A scheduler you can trust: reliable trigger, self-healing queue, visible heartbeat. <em>Known:</em> the GitHub Actions cron is best-effort and has been observed running every 3–9 hours, not every 5 minutes.</li>
+      <li><strong>0.4</strong> Browser hardening (security headers, pinned scripts) and stop publishing internal documents on the public site.</li>
+      <li><strong>0.5</strong> Spend backstop: provider caps, per-org daily caps, AI timeouts and cooldowns.</li>
+    </ul>
+    <h3>Phase 1 — Safe to scale the team</h3>
+    <ul>
+      <li><strong>1.1</strong> Tests for generate/billing/publish paths; deploy gating and a rollback runbook.</li>
+      <li><strong>1.2</strong> Sync safety (never silently overwrite) and a single source of truth for the schema.</li>
+      <li><strong>1.3</strong> Desktop v1.0.2 and video robustness (capability handshake, long files, captions in the speaker's language, signing).</li>
+      <li><strong>1.4</strong> A design freshness engine: usage visibility, per-direction retire, all exports logged, real landscape layouts, new silhouettes.</li>
+      <li><strong>1.5</strong> Email and Stats truth: live benchmarks, sample sizes shown, footer assertions.</li>
+      <li><strong>1.6</strong> Documentation that tells the truth (Guide rewrite, this file).</li>
+    </ul>
+    <h3>Phase 2 — Open for business</h3>
+    <ul>
+      <li><strong>2.1</strong> Invite-based membership, roles and an audit log. <strong>2.2</strong> POPIA data lifecycle (deletion, retention, processor list).</li>
+      <li><strong>2.3</strong> Billing as a real subscription with weighted metering and cost control. <strong>2.4</strong> Volt Brain wired content → outcome, with sample sizes and consent.</li>
+      <li><strong>2.5</strong> Growth loops (every output markets Volt). <strong>2.6</strong> Platform polish and Vantly decoupling.</li>
+    </ul>
+    <p class="small">Status is tracked in the change log below as each objective lands.</p>
+  </div>
+
   <h2>Open items right now</h2>
   <div class="card">
     <h3>Joel's to do (nobody else has DB/dashboard access)</h3>
-    <p><strong>Run <code>sql/studio_copy_use.sql</code> in the Supabase SQL Editor</strong> — until it exists, Studio's copy rotation only guards each browser separately (it says so on the status line, and Health shows a WARN). Idempotent; safe to re-run.</p>
+    <p><strong>Done 2026-10-06:</strong> <code>studio_copy_use</code> exists in Supabase (all 14 columns verified), so copy rotation is guarding the whole team, not each browser separately.</p>
     <p>Hard spend caps / budget alerts on Gemini, Groq and Vercel — the plan is uncapped, so this is the only backstop against a runaway loop or a leaked session.</p>
   </div>
   <div class="card">
@@ -169,10 +198,14 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
   <div class="card">
     <h3>Known gap in this file <span class="tag open">owed a proper pass</span></h3>
-    <p>31 commits landed between the last full verification pass and this edit — direct Facebook + TikTok publishing (riding on the same Instagram connection/queue pattern), a Schedule calendar redesign (week/month view, modal composer), private per-person workspaces for personal emails, and more Studio families (Business News SA) — none individually re-verified against the live code the way the rest of this file was. Only the one section this edit actually touched (Studio's family list) was corrected. Don't trust the Tool inventory / API surface tables blindly for anything from that window — spot-check the relevant file before asserting it as fact, same as this file's own rule already says to.</p>
+    <p>31 commits landed between the last full verification pass and this edit — direct Facebook + TikTok publishing (riding on the same Instagram connection/queue pattern), a Schedule calendar redesign (week/month view, modal composer), private per-person workspaces for personal emails, and more Studio families — none individually re-verified against the live code the way the rest of this file was. Only the one section this edit actually touched (Studio's family list) was corrected. Don't trust the Tool inventory / API surface tables blindly for anything from that window — spot-check the relevant file before asserting it as fact, same as this file's own rule already says to.</p>
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-10-07</span>
+    <strong>Full platform audit; objectives set</strong> — Joel asked for an audit of the entire platform and objectives from it. Six independent read-only reviews (security, reliability/CI, backend/billing/Brain, Studio/design, video/desktop, funnel/email/schedule/UX) plus live measurements; the highest-impact findings were re-verified against the code and the live deployment before being reported. Results: the core is sound for an internal tool (org-scoped data access, encrypted per-org secrets, draft-only email, atomic publish claim, a single render engine for preview/export/CI); the gaps cluster in sign-in trust and credential handling, scheduler reliability and alerting, deploy safety, and commercial readiness (subscription billing, metering, POPIA lifecycle, the closed funnel). The detailed report is private; the sanitised objectives are in the Objectives card above. Also corrected here: the stale ASSETS list, the already-completed SQL item, and a reference to the removed Business News family. <strong>Housekeeping from the audit:</strong> the web repo is public and served as a website, so internal audit/architecture documents must not be added to it.
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-10-06</span>
     <strong>The web app now offers the desktop installer</strong> — a new colleague was getting access and Joel wanted a download option on tshephos-lab.vercel.app. Added in <code>volt-auth.js</code> (so every page has it): <strong>"Get the desktop app"</strong> in the account menu (avatar, bottom-left) and a <strong>Desktop app</strong> tab in Settings with a Download for Windows button, the latest version, and an honest note about the "unknown publisher" notice (the installer is self-signed — see the desktop release process). It reads the address and version from <code>version.json</code>, the same file that drives the in-app update bar, so publishing a new GitHub release and bumping <code>version.json</code> updates the button with no code change; the default is the repo's <code>releases/latest</code> page, and only an <code>https</code> address is accepted. <strong>Shown only where it makes sense:</strong> on the web (never inside the shell itself), for Volt (the installer is Volt's; Vantly has none), and on Windows (it is a Windows installer). Tested in a real browser as a signed-in user with only Supabase stubbed: Windows web shows both entries and the right link/version; a Mac user and the desktop shell show neither; no page errors. <strong>Caveat:</strong> the published installer is still v1.0.1 (built Aug 12), so it does not yet include the 4K export option or any other shell change since — those need a rebuilt .exe and a new release (publish the release first, then bump <code>version.json</code>).
