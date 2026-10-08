@@ -68,9 +68,10 @@ function serve() {
     const warnings = r.results.filter((x) => x.warn);
     console.log(`\n  ${r.passed}/${r.total} designs OK` + (warnings.length ? `  ·  ${warnings.length} warning(s)` : ""));
     // The stress/* backlog (see smoke.html): known gaps, ceilinged so it can only shrink.
-    const STRESS_CEILING = 100;
+    const STRESS_CEILING = 20;
     const stress = warnings.filter((w) => w.name.indexOf("stress/") === 0);
     for (const w of warnings.filter((w) => w.name.indexOf("stress/") !== 0)) console.log(`  ⚠ ${w.name}\n      ${w.warn}`);
+    if (process.env.STRESS_ALL) for (const w of stress) console.log(`     · ${w.name}: ${w.warn}`);
     if (stress.length) console.log(`  ⚠ stress backlog: ${stress.length} known gap(s) (ceiling ${STRESS_CEILING}) — e.g. ${stress[0].name}: ${stress[0].warn}`);
     if (stress.length > STRESS_CEILING) failures.push({ name: "stress backlog grew", why: `${stress.length} > ${STRESS_CEILING}` });
     for (const f of failures) console.log(`  ✗ ${f.name}\n      ${f.why}`);

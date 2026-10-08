@@ -340,6 +340,8 @@
       }
     }
 
+    // (The hostile word goes into the free-text HEADLINE-type fields only — a pill, CTA or badge label
+    // holding 47 unbroken characters isn't a design anyone makes, and it drowned the real findings.)
     // 7) STRESS. Everything above uses tidy copy on two brands. Real input is neither: a long
     // unbroken word (a place name, a hyphenated programme title), an emoji, a brand whose PRIMARY is
     // light (yellow/mint — white text on it vanishes), and a Creative post as an Instagram STORY.
@@ -359,7 +361,7 @@
     for (const pt of PREM_TYPES) {
       for (const dir of (DIRS[pt] || [])) {
         const base = valsFor(pt, dir), hv = {};
-        for (const k of Object.keys(base)) hv[k] = (typeof base[k] === 'string' && base[k].length > 10 && !/^(url|date|time)$/.test(k)) ? HOSTILE + ' ' + base[k] : base[k];
+        for (const k of Object.keys(base)) hv[k] = (typeof base[k] === 'string' && /^(head|quote|sub|big|bigLabel|term|definition|name|coverTitle|why|myth|truth|title|i1|i2|i3)$/.test(k)) ? HOSTILE + ' ' + base[k] : base[k];
         for (const [sz, wh] of [['square', [1080, 1080]], ['story', [1080, 1920]]]) {
           await run('stress/premium-hostile/' + pt + '/' + dir + '/' + sz,
             { type: 'render-premium', brand: brandYellow, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: hv, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
