@@ -804,6 +804,10 @@
     { h: "Measure", items: [ { t: "Stats", i: "stats", href: "analytics.html" } ] },
     { h: "Settings", items: [ { t: "Brand Kit", i: "gear", href: "brand-kit.html" } ] }
   ];
+  // brand-kit.html is VANTLY's own page (web-only, titled "Vantly — Brand Kit", Vantly palette and
+  // fonts). Volt's brand kit lives inside Studio, so Volt's rail must not link to it — it did, and
+  // Volt users landed on a Vantly screen.
+  if (BRAND === BRANDS.volt) RAIL_TILES = RAIL_TILES.filter(function (g) { return g.h !== "Settings"; });
   /* ---------- "Get the desktop app" (web only) ---------- */
   // The desktop shell is a Windows installer published as a public GitHub release. version.json
   // (the same file that drives the in-app "update available" bar) carries the current download

@@ -67,6 +67,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     await page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
     await page.waitForTimeout(3500);
     expect(label, !(await page.evaluate(() => !!document.getElementById('va-gate'))));
+    if (label === 'a normal session is untouched') expect("Volt's rail does not link to Vantly's Brand Kit page", await page.evaluate(() => !document.querySelector('#va-rail a[href="brand-kit.html"]')));
     await ctx.close();
   }
   for (const [label, dl] of [['a tampered update link (other host) is replaced with the real releases page', 'https://evil.example/Volt-Setup.exe'], ['a javascript: update link is neutralised', 'javascript:alert(1)']]) {
