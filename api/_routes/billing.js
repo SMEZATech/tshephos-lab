@@ -9,6 +9,7 @@
 // Dormant until env is set: needs SUPABASE_* (auth) + PAYSTACK_SECRET_KEY (paid plans).
 // Reading usage works with just Supabase; subscribe/verify need Paystack.
 
+import { paymentMatchesPlan } from "../_paystack.js";
 import { setCors, requireSession, PLANS, monthUsage, getOrgPlan, setOrgPlan, sbRest } from "../_guard.js";
 
 const PAYSTACK = "https://api.paystack.co";
@@ -77,7 +78,8 @@ export default async function handler(req, res) {
         const md = j.data.metadata || {};
         const plan = md.plan;
         const vorg = md.orgId || orgId;
-        if (plan && PLANS[plan]) await setOrgPlan(vorg, plan);
+        if (!paymentMatchesPlan(j.data, plan)) return res.status(200).json({ ok: false, status: "amount_mismatch" });
+        await setOrgPlan(vorg, plan);
         return res.status(200).json({ ok: true, plan });
       }
       return res.status(200).json({ ok: false, status: (j && j.data && j.data.status) || "unknown" });

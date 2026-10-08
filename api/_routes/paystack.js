@@ -8,6 +8,7 @@
 
 import crypto from "crypto";
 import { PLANS, setOrgPlan } from "../_guard.js";
+import { paymentMatchesPlan } from "../_paystack.js";
 
 function rawBody(req) {
   return new Promise((resolve) => {
@@ -37,18 +38,25 @@ export default async function handler(req, res) {
     } catch (_) {}
   }
 
+  // Permanent outcomes (bad event, payment doesn't match the plan) answer 200 so Paystack stops
+  // retrying. TRANSIENT failures (Paystack unreachable, our DB write failing) answer 503 so Paystack
+  // retries later instead of the customer paying and never being upgraded.
   try {
     if (evt && evt.event === "charge.success" && evt.data) {
       const ref = evt.data.reference;
+      if (!ref) { res.status(200).json({ received: true, note: "no reference" }); return; }
       // Authoritative re-verify with our secret key — never trust the payload alone.
       const v = await fetch("https://api.paystack.co/transaction/verify/" + encodeURIComponent(ref), { headers: { Authorization: "Bearer " + sk } });
+      if (!v.ok && v.status >= 500) throw new Error("paystack " + v.status);
       const j = await v.json();
       if (j && j.status && j.data && j.data.status === "success") {
         const md = j.data.metadata || {};
-        if (md.orgId && md.plan && PLANS[md.plan]) await setOrgPlan(md.orgId, md.plan);
+        if (md.orgId && md.plan && PLANS[md.plan] && paymentMatchesPlan(j.data, md.plan)) {
+          if ((await setOrgPlan(md.orgId, md.plan)) === null) throw new Error("plan write failed");   // → 503, Paystack retries
+        }
       }
     }
-  } catch (e) { /* swallow — always 200 so Paystack doesn't retry-storm */ }
+  } catch (e) { res.status(503).json({ error: "temporary failure, please retry" }); return; }
 
   res.status(200).json({ received: true });
 }
