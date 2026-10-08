@@ -129,7 +129,12 @@
         else {
           // The design assertions run on LOGICAL coordinates, which is what the trace records.
           const v = assertDesign(done.trace, payload.w || (expectW / S), payload.h || (expectH / S));
-          if (v.error) { r.ok = false; r.why = v.error; }
+          // stress/* fixtures are hostile on purpose (light-primary brand, a 47-char unbroken word, emoji).
+          // They measure a KNOWN backlog — designs that hard-code white-on-primary, label slots that
+          // don't wrap — so they report as warnings rather than breaking the build; the count must
+          // not grow (ci-render.cjs enforces a ceiling), and fixing one lowers it.
+          if (v.error && name.indexOf('stress/') === 0) r.warn = 'KNOWN GAP: ' + v.error;
+          else if (v.error) { r.ok = false; r.why = v.error; }
           else if (v.warn) r.warn = v.warn;
         }
       } catch (e) { r = { ok: false, why: e.message }; }
@@ -330,6 +335,34 @@
         for (const [sz, wh] of [['story', [1080, 1920]], ['landscape', [1200, 628]], ['square', [1080, 1080]], ['portrait', [1080, 1350]]]) {
           await run('library/' + v.id + '/' + sz,
             { type: 'render-premium', brand: b, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
+            wh[0] * S, wh[1] * S);
+        }
+      }
+    }
+
+    // 7) STRESS. Everything above uses tidy copy on two brands. Real input is neither: a long
+    // unbroken word (a place name, a hyphenated programme title), an emoji, a brand whose PRIMARY is
+    // light (yellow/mint — white text on it vanishes), and a Creative post as an Instagram STORY.
+    // Names start with "stress/" so a failure here is easy to tell from a fixture regression.
+    const brandYellow = { primary: '#f5e642', secondary: '#12162a', cta: 'Get Started', url: 'yellow.co.za' };
+    const HOSTILE = '\u{1F680} Telecommunications-Infrastructure-Modernisation';
+    for (const th of ['classic', 'navy', 'spotlight', 'cinematic', 'modern', 'editorial', 'bold']) {
+      await run('stress/creative-story/' + th,
+        { type: 'render-single', state: { ...baseState, theme: th, format: 'story' }, brand, slideIdx: 0, featuredBlob, logoBlob, fontBuffers: {}, scale: S, trace: true, filename: 't.png' }, 1080 * S, 1920 * S);
+      for (const f of ['square', 'story']) {
+        const wh = f === 'story' ? [1080, 1920] : EXPECT[f];
+        await run('stress/creative-hostile/' + th + '/' + f,
+          { type: 'render-single', state: { ...baseState, theme: th, format: f, title: HOSTILE + ' Programme Launch', tag: HOSTILE.slice(0, 22) }, brand: brandYellow, slideIdx: 0, featuredBlob, logoBlob, fontBuffers: {}, scale: S, trace: true, filename: 't.png' },
+          wh[0] * S, wh[1] * S);
+      }
+    }
+    for (const pt of PREM_TYPES) {
+      for (const dir of (DIRS[pt] || [])) {
+        const base = valsFor(pt, dir), hv = {};
+        for (const k of Object.keys(base)) hv[k] = (typeof base[k] === 'string' && base[k].length > 10 && !/^(url|date|time)$/.test(k)) ? HOSTILE + ' ' + base[k] : base[k];
+        for (const [sz, wh] of [['square', [1080, 1080]], ['story', [1080, 1920]]]) {
+          await run('stress/premium-hostile/' + pt + '/' + dir + '/' + sz,
+            { type: 'render-premium', brand: brandYellow, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, premType: pt, dir, vals: hv, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
             wh[0] * S, wh[1] * S);
         }
       }
