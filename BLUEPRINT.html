@@ -203,6 +203,10 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>Change log</h2>
   <div class="log-entry">
+    <span class="log-date">2026-10-08</span>
+    <strong>Phase 0 and early Phase 1 shipped</strong> — Studio worker: Creative geometry is now a pure function of canvas size and worker replies carry request ids (browser-tested). Paystack: a payment only upgrades a plan if it is ZAR and at least the plan price (<code>api/_paystack.js</code>); transient failures return 503 so Paystack retries. Left rail: Volt no longer links to the Vantly-only <code>brand-kit.html</code> (shared <code>volt-auth.js</code> must keep Volt-only/Vantly-only items brand-gated). Guide corrected (sign-in, left menu, 14 families, Create and Freeform added).
+  </div>
+  <div class="log-entry">
     <span class="log-date">2026-10-07</span>
     <strong>Full platform audit; objectives set</strong> — Joel asked for an audit of the entire platform and objectives from it. Six independent read-only reviews (security, reliability/CI, backend/billing/Brain, Studio/design, video/desktop, funnel/email/schedule/UX) plus live measurements; the highest-impact findings were re-verified against the code and the live deployment before being reported. Results: the core is sound for an internal tool (org-scoped data access, encrypted per-org secrets, draft-only email, atomic publish claim, a single render engine for preview/export/CI); the gaps cluster in sign-in trust and credential handling, scheduler reliability and alerting, deploy safety, and commercial readiness (subscription billing, metering, POPIA lifecycle, the closed funnel). The detailed report is private; the sanitised objectives are in the Objectives card above. Also corrected here: the stale ASSETS list, the already-completed SQL item, and a reference to the removed Business News family. <strong>Housekeeping from the audit:</strong> the web repo is public and served as a website, so internal audit/architecture documents must not be added to it.
   </div>
