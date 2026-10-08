@@ -68,9 +68,22 @@ export default async function handler(req, res) {
         return res.status(200).json({ uses: rows.map((r) => ({ brand: r.brand_key, family: r.family, dir: r.dir, size: r.size, variant: r.variant_id, at: r.created_at })) });
       }
       if (q.action === "recent") {
-        const rows = await store.select(TABLE, "select=brand_key,family,dir,size,variant_id,source,override,regrace,recycled,user_email,created_at&order=created_at.desc&limit=60");
+        const rows = await store.select(TABLE, "select=brand_key,family,dir,size,variant_id,source,override,regrace,recycled,user_email,created_at&family=neq.creative&order=created_at.desc&limit=60");
         if (rows == null) return notConfigured(res);
         return res.status(200).json({ uses: rows });
+      }
+      if (q.action === "designs") {
+        // How often each design (family.direction) went out in the last 30 days, across every brand —
+        // the Admin "design usage" panel. Creative themes are tracked here too (see "track" below).
+        const since = new Date(Date.now() - 30 * 86400000).toISOString();
+        const rows = await store.select(TABLE, "select=family,dir,created_at&created_at=gte." + enc(since) + "&order=created_at.desc&limit=5000");
+        if (rows == null) return notConfigured(res);
+        const m = new Map();
+        for (const r of rows) {
+          const k = r.family + "." + r.dir, e = m.get(k) || { family: r.family, dir: r.dir, uses: 0, last: r.created_at };
+          e.uses++; m.set(k, e);
+        }
+        return res.status(200).json({ days: 30, total: rows.length, designs: [...m.values()].sort((x, y) => y.uses - x.uses) });
       }
       const brand = slug(q.brand), family = slug(q.family);
       if (!brand || !family) return res.status(400).json({ error: "brand and family are required." });
@@ -86,6 +99,22 @@ export default async function handler(req, res) {
 
     // ---- POST: record a download (or refuse it)
     const body = (req.body && typeof req.body === "object") ? req.body : JSON.parse(req.body || "{}");
+    if (body.action === "track") {
+      // Creative designs have no copy guard (the copy is typed fresh each time), but we still want to
+      // SEE which themes the team leans on. Count-only: never blocks, never reads the log, one row
+      // per size exported.
+      const t = (Array.isArray(body.items) ? body.items : []).slice(0, 20).map((it) => it && ({ brand: slug(it.brand), dir: slug(it.dir), size: String(it.size || "") }));
+      if (!t.length || t.some((x) => !x || !x.brand || !x.dir || !SIZES.has(x.size))) return res.status(400).json({ error: "Malformed items." });
+      for (const x of t) {
+        const row = await store.insert(TABLE, {
+          brand_key: x.brand, family: "creative", dir: x.dir, size: x.size, copy_hash: "t" + Math.random().toString(36).slice(2, 12),
+          variant_id: null, source: "single", override: false, regrace: false, recycled: false,
+          user_id: user.id, user_email: user.email || null,
+        });
+        if (row == null) return notConfigured(res);
+      }
+      return res.status(200).json({ ok: true, tracked: t.length });
+    }
     if (body.action !== "record") return res.status(400).json({ error: "Unknown action." });
     const raw = Array.isArray(body.items) ? body.items : [];
     if (!raw.length || raw.length > 20) return res.status(400).json({ error: "Send between 1 and 20 items." });

@@ -2762,6 +2762,15 @@
     // =============================================================
     // 11. EXPORT PIPELINE (single + zip)
     // =============================================================
+    // Creative designs have no copy guard (the copy is typed fresh), but Admin → Design usage still
+    // wants to see which themes the team leans on. Count-only, fire-and-forget: never blocks a download.
+    function trackCreative(sizes) {
+        try {
+            if (!CR || !CR.API) return;
+            const items = sizes.map(sz => ({ brand: crBrand(), dir: state.theme || 'classic', size: sz }));
+            fetch(CR.API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'track', items }) }).catch(() => {});
+        } catch (e) {}
+    }
     async function triggerExport() {
         if (state.isExporting) return;
         if (state.contentType !== 'creative') { try { await exportPremium(); } catch(e){ console.error(e); } return; }  // premium PNG path
@@ -2785,6 +2794,7 @@
             downloadBlob(result.blob, result.filename);
             showToast('Exported: ' + result.filename, 'success');
             recordExport();
+            trackCreative([state.format]);
             nudgeStory();
         } catch (err) {
             console.error('Export failed:', err);
@@ -3069,6 +3079,7 @@
             showToast('Exported all 4 formats, story included — check your downloads.', 'success');
             bumpStoryLog();
             recordExport();
+            trackCreative(formats.map(f => f[0]));
         } catch (err) {
             console.error('Resize-all failed:', err);
             showToast('Export failed: ' + err.message);

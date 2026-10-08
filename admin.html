@@ -134,6 +134,15 @@
     <div class="cr-log" id="crLog"></div>
   </div>
 
+  <!-- ================= DESIGN USAGE =================
+       Which designs the team actually leans on (last 30 days, all brands) — the "this white post has
+       been used a lot" question answered with numbers, and the designs that are resting. Read-only. -->
+  <div class="card" id="duCard">
+    <h2>Design usage <span style="font-weight:400;color:var(--faint);font-size:13px;">· last 30 days</span></h2>
+    <p class="h-note">One count per size exported. A design taking more than a quarter of everything made is flagged <b>overused</b> — rest it from the list above, or lean on a different one. Designs with no exports are <b>resting</b>. Creative themes are counted from the day this panel shipped.</p>
+    <div id="duBody"><p class="h-note">Loading…</p></div>
+  </div>
+
   <div class="bar">
     <button class="btn" id="saveBtn">Save changes</button>
     <button class="btn ghost" id="resetBtn">Reset to all-on</button>
@@ -330,6 +339,34 @@ async function loadCopyRotation(){
     : '<div style="color:var(--faint)">No Studio downloads logged yet.</div>';
 }
 
+// ---- Design usage -------------------------------------------------------------------------
+const DU_THEMES = ['navy','spotlight','classic','cinematic','modern','editorial','bold'];
+async function loadDesignUsage(){
+  const box = $('#duBody');
+  let d;
+  try {
+    const r = await fetch(API + '/copyuse?action=designs');
+    if (r.status === 503) { box.innerHTML = '<p class="h-note">The shared log isn’t set up yet (see Copy rotation above).</p>'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    d = await r.json();
+  } catch (e) { box.innerHTML = '<p class="h-note">Couldn’t load design usage right now.</p>'; return; }
+  const name = (x) => x.family === 'creative' ? 'Creative · ' + x.dir : (CR_FAM[x.family] || x.family) + ' · ' + String(x.dir).toUpperCase();
+  const rows = d.designs || [], total = d.total || 0;
+  if (!rows.length) { box.innerHTML = '<p class="h-note">No exports in the last 30 days.</p>'; return; }
+  const max = rows[0].uses;
+  let html = rows.slice(0, 15).map(x => {
+    const share = total ? x.uses / total : 0, over = share > 0.25 && total >= 12;
+    return '<div style="display:flex;align-items:center;gap:10px;margin:6px 0;font-size:13px;"><span style="width:190px;">' + esc(name(x)) + '</span>'
+      + '<span style="flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden;"><i style="display:block;height:100%;width:' + Math.round(100 * x.uses / max) + '%;background:' + (over ? 'var(--low,#ff8a5c)' : 'var(--accent,#b6ff3d)') + ';"></i></span>'
+      + '<span style="width:90px;text-align:right;">' + x.uses + ' · ' + Math.round(share * 100) + '%</span>'
+      + (over ? '<span class="cr-flag rc">overused</span>' : '') + '</div>';
+  }).join('');
+  const seen = new Set(rows.filter(x => x.family === 'creative').map(x => x.dir));
+  const resting = DU_THEMES.filter(t => !seen.has(t));
+  if (resting.length) html += '<p class="h-note" style="margin-top:10px;"><b>Resting Creative themes:</b> ' + resting.map(esc).join(', ') + '</p>';
+  box.innerHTML = html;
+}
+
 async function loadConnections(){
   const box = $('#connBody');
   let ig;
@@ -488,7 +525,7 @@ async function loadTikTok(){
       if(!confirm('Disconnect TikTok from Volt? Scheduled TikTok posts will stop publishing.')) return;
       try{ await connFetch('tiktok','disconnect',{}); }catch(e){}
       loadTikTok();
-  loadCopyRotation();
+  loadCopyRotation(); loadDesignUsage();
     });
   } else {
     box.innerHTML = (tt.error ? '<p class="h-note" style="color:var(--low)">'+esc(tt.error)+'</p>' : '')

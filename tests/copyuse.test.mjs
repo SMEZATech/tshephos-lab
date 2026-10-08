@@ -151,6 +151,21 @@ TABLE_EXISTS = false;
 r = await record("thabo", [item({ hash: "brandnew01" })]);
 expect("missing table → 503 NOT_CONFIGURED", r.status === 503 && r.body.error === "NOT_CONFIGURED", r);
 
+// 11. Design usage: Creative exports are counted (never blocked) and the aggregate ranks designs.
+TABLE_EXISTS = true; rows = [];
+const track = (user, items) => call(user, "POST", { body: { action: "track", items } });
+r = await track("thabo", [{ brand: "sme", dir: "editorial", size: "square" }, { brand: "sme", dir: "editorial", size: "portrait" }]);
+expect("tracking Creative exports records one row per size", r.status === 200 && r.body.tracked === 2 && rows.length === 2 && rows.every((x) => x.family === "creative"), r);
+r = await track("thabo", [{ brand: "sme", dir: "editorial", size: "square" }]);
+expect("tracking the SAME theme+size again is never blocked", r.status === 200, r);
+r = await track("thabo", [{ brand: "sme", dir: "x y", size: "square" }]);
+expect("a malformed track item is rejected", r.status === 400, r);
+r = await track("thabo", [{ brand: "sme", dir: "navy", size: "banner" }]);
+expect("an unknown size is rejected", r.status === 400, r);
+await record("thabo", [item({ hash: "usage0001" })]);
+r = await call("thabo", "GET", { query: { action: "designs" } });
+expect("the design-usage aggregate ranks Creative editorial first with 3 uses", r.status === 200 && r.body.designs[0].family === "creative" && r.body.designs[0].dir === "editorial" && r.body.designs[0].uses === 3 && r.body.total === 4, r.body);
+
 Date.now = realNow;
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);
