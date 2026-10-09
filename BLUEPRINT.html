@@ -203,6 +203,10 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>Change log</h2>
   <div class="log-entry">
+    <span class="log-date">2026-10-09</span>
+    <strong>Scheduler false alarm fixed</strong> — the 7 Oct fail-loudly change made the Facebook and TikTok drains return 502 (red GitHub runs, false “schedule can’t be read” banner) because <code>fb_queue</code> and <code>tiktok_queue</code> were never created in Supabase. A missing table is now reported as <code>notSetUp</code> (200 + the sql file to run); a real outage is still 502. Run <code>sql/fb_queue.sql</code> / <code>sql/tiktok_queue.sql</code> to enable those platforms. Lesson: distinguish “not set up” from “down” whenever a failure is made loud.
+  </div>
+  <div class="log-entry">
     <span class="log-date">2026-10-08</span>
     <strong>Phase 0 and early Phase 1 shipped</strong> — Studio worker: Creative geometry is now a pure function of canvas size and worker replies carry request ids (browser-tested). Paystack: a payment only upgrades a plan if it is ZAR and at least the plan price (<code>api/_paystack.js</code>); transient failures return 503 so Paystack retries. Left rail: Volt no longer links to the Vantly-only <code>brand-kit.html</code> (shared <code>volt-auth.js</code> must keep Volt-only/Vantly-only items brand-gated). Guide corrected (sign-in, left menu, 14 families, Create and Freeform added).
   </div>
