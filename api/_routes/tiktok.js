@@ -33,7 +33,7 @@
 
 import crypto from "crypto";
 import { blocked, sbRest, sbBase, encryptSecret, decryptSecret, cronKeyOk, isOrgAdmin } from "../_guard.js";
-import { reapStuck } from "../_queue.js";
+import { reapStuck, probeTable } from "../_queue.js";
 
 const PROVIDER = "tiktok";
 const AUTH_BASE = "https://www.tiktok.com";
@@ -294,7 +294,11 @@ export default async function handler(req, res) {
     // sbRest returns null when Supabase is unreachable or the key is wrong. Reading that as "nothing
     // due" made this drain report SUCCESS while no post could ever go out. Fail loudly so the cron run
     // turns red and someone is told.
-    if (dueRows === null) return res.status(502).json({ error: "Could not read the publish queue — is the database reachable?" });
+    if (dueRows === null) {
+      // Missing table = this platform was never set up (not an outage); anything else is.
+      if ((await probeTable("tiktok_queue")) === "missing") return res.status(200).json({ ok: true, checked: 0, results: [], notSetUp: "tiktok_queue table not created — run sql/tiktok_queue.sql to enable scheduling for this platform." });
+      return res.status(502).json({ error: "Could not read the publish queue — is the database reachable?" });
+    }
     const due = dueRows;
     const done = [];
     for (const row of due) {

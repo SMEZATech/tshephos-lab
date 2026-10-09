@@ -28,6 +28,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (u.pathname.startsWith("/rest/v1/member")) return json(200, [{ user_id: "x" }]);
   const table = u.pathname.replace("/rest/v1/", "");
   if (/_queue$/.test(table)) {
+    if (mode.missing && mode.missing[table] && (init.method || "GET") !== "POST") return json(404, { code: "PGRST205", message: "Could not find the table" });
     if (table === "ig_queue" && mode.igReadFails && (init.method || "GET") === "GET") return json(500, { message: "db down" });
     if ((init.method || "GET") === "PATCH") return json(200, []);
     const q = (mode.queues && mode.queues[table]) || {};
@@ -70,6 +71,16 @@ expect("when the queue can't be read the drain FAILS (502) instead of reporting 
 mode.igReadFails = false;
 r = await drain(ig);
 expect("…and runs normally once the database is back", r.status === 200 && r.body.checked === 0, r);
+
+console.log("A platform that was never set up:");
+calls = []; mode = { igReadFails: false, queues: {}, missing: { fb_queue: true, tiktok_queue: true } };
+r = await drain(fb);
+expect("a missing queue table is a SETUP state, not an outage: drain answers 200 and says what to run", r.status === 200 && /fb_queue\.sql/.test(r.body.notSetUp || ""), r);
+r = await drain(ig);
+expect("…Instagram, whose table exists, is untouched", r.status === 200 && r.body.checked === 0 && !r.body.notSetUp, r);
+r = await call(qh, "thabo", { method: "GET" });
+expect("queue health lists them as notSetUp and stays HEALTHY (no false outage banner)", r.body.summary.healthy === true && r.body.summary.unreachable === false && r.body.summary.notSetUp.join() === "facebook,tiktok", r.body.summary);
+mode = { igReadFails: false, queues: {} };
 
 console.log("Queue health:");
 const ago = (min) => new Date(Date.now() - min * 60000).toISOString();

@@ -11,7 +11,7 @@
 // live and only the bookkeeping failed; an automatic retry would then post it twice. The honest
 // state is "interrupted — check the platform", and a person decides.
 
-import { sbPatch, db } from "./_guard.js";
+import { sbPatch, sbBase, db } from "./_guard.js";
 
 export const STUCK_MINUTES = 15;     // far longer than any real publish (IG polls ~40 s at most)
 export const OVERDUE_MINUTES = 10;   // a due post still pending this long means the drain isn't running
@@ -27,6 +27,21 @@ export async function reapStuck(table, minutes = STUCK_MINUTES) {
   return Array.isArray(rows) ? rows.length : 0;
 }
 
+// Is the queue table there at all? sbRest/select return null for ANY failure, which conflated "this
+// platform's table was never created" (Facebook/TikTok queues exist only once their sql file has been run) with
+// "the database is down". The first is a setup state and must not turn the drain red or raise the
+// Schedule page's outage banner; the second must. Returns "ok" | "missing" | "unreachable".
+export async function probeTable(table) {
+  try {
+    const svc = process.env.SUPABASE_SERVICE_KEY;
+    const r = await fetch(sbBase() + "/rest/v1/" + table + "?select=id&limit=1", { headers: { apikey: svc, Authorization: "Bearer " + svc } });
+    if (r.ok) return "ok";
+    if (r.status === 404) return "missing";
+    const b = await r.json().catch(() => ({}));
+    return (b && (b.code === "42P01" || b.code === "PGRST205")) ? "missing" : "unreachable";
+  } catch (e) { return "unreachable"; }
+}
+
 // One org's view of its queues. `unreachable` means the database call itself failed — which is a
 // different (and worse) state than "no posts waiting".
 export async function queueHealth(orgId, now = Date.now()) {
@@ -34,6 +49,7 @@ export async function queueHealth(orgId, now = Date.now()) {
   const iso = (ms) => encodeURIComponent(new Date(ms).toISOString());
   const out = {};
   for (const [name, table] of Object.entries(QUEUES)) {
+    if ((await probeTable(table)) === "missing") { out[name] = { notSetUp: true }; continue; }
     const overdue = await store.select(table, "select=id,run_at&status=eq.pending&run_at=lt." + iso(now - OVERDUE_MINUTES * 60000) + "&order=run_at.asc&limit=100");
     const stuck = await store.select(table, "select=id&status=eq.publishing&updated_at=lt." + iso(now - STUCK_MINUTES * 60000) + "&limit=100");
     const errors = await store.select(table, "select=id&status=eq.error&updated_at=gt." + iso(now - 24 * 3600000) + "&limit=100");
@@ -52,6 +68,7 @@ export async function queueHealth(orgId, now = Date.now()) {
     stuck: all.reduce((n, q) => n + (q.stuck || 0), 0),
     errors24h: all.reduce((n, q) => n + (q.errors24h || 0), 0),
     unreachable: all.some((q) => q.unreachable),
+    notSetUp: Object.keys(out).filter((k) => out[k].notSetUp),
   };
   summary.healthy = !summary.unreachable && summary.overdue === 0 && summary.stuck === 0;
   return { queues: out, summary };
