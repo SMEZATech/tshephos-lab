@@ -1691,6 +1691,12 @@ function preflightRun(){
   } catch(e){}
 
   const anchors = [].slice.call(doc.querySelectorAll('a[href]'));
+  // ---- legal footer: every marketing email needs a working unsubscribe (POPIA / CAN-SPAM, and Kit's own
+  // rules). The footer is part of the fixed template, so this only fires if a section removed it or the
+  // template changed — which is exactly when nobody would otherwise notice.
+  if(!anchors.some(a => /unsubscribe/i.test(a.getAttribute('href') || '') || /unsubscribe/i.test(a.textContent || ''))){
+    add('fail','Footer','No unsubscribe link in this email. Every marketing email must carry one — restore the footer before sending.');
+  }
   let placeholder = 0, insecure = 0, empty = 0, untagged = 0, taggable = 0;
   anchors.forEach(a => {
     const href = (a.getAttribute('href') || '').trim();

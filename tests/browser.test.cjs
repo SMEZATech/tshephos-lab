@@ -149,6 +149,18 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     expect('the preview frame is sandboxed', r.sandbox === 'allow-same-origin', r);
     expect('HTML injected into the preview (onerror / <script>) does NOT execute', r.pwned === null, r);
     expect('inline editing still works inside the sandboxed preview', r.editable === 'true' && r.synced === '<p>edited</p>', r);
+    const pf = await page.evaluate(() => {
+      lastFragment = assemble('<p>Hello</p>', false);
+      const has = () => preflightRun().some(x => x.level === 'fail' && x.area === 'Footer');
+      const normal = has();
+      const orig = window.previewDoc;
+      window.previewDoc = (f) => orig(f).replace(/unsubscribe/gi, 'x');
+      const stripped = has();
+      window.previewDoc = orig;
+      return { normal, stripped };
+    });
+    expect('pre-flight does not flag the normal footer', pf.normal === false, pf);
+    expect('pre-flight BLOCKS an email whose footer has lost its unsubscribe link', pf.stripped === true, pf);
     expect('no page errors', errors.length === 0, errors);
     await ctx.close();
   }
