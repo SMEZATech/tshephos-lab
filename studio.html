@@ -1855,6 +1855,17 @@
       if (crRotate(true)) { renderPremFields(); renderPremiumPreview(); }
     }
 
+    // Back: step to the copy BEFORE the one on screen (wraps). A copy that has already gone out on this
+    // size still shows as published in the status line — going back never bypasses the guard.
+    function crPrev() {
+        const pool = crPool(); if (!crOn() || !pool) return;
+        const cur = crVariantOnScreen();
+        const i = cur < 0 ? pool.length - 1 : (cur - 1 + pool.length) % pool.length;
+        premVals = Object.assign({}, premVals, pool[i].f);
+        copyRot.index = i;
+        renderPremFields(); renderPremiumPreview();
+    }
+
     // ---- status line ----
     function crWhen(ms) {
       const d = new Date(ms), now = new Date();
@@ -1896,14 +1907,14 @@
       if (full) {
         full.dataset.tone = v.tone;
         const meter = (v.pool && v.st) ? '<div class="cr-meter" title="Unused copies on this size"><i style="width:' + Math.round(100 * v.st.fresh / Math.max(1, v.st.poolSize)) + '%"></i></div>' : '';
-        const next = v.pool && v.tone !== 'idle' ? '<div class="cr-actions"><button type="button" class="cr-btn' + (v.tone === 'bad' ? ' primary' : '') + '" onclick="crNext()">Next copy ↻</button></div>' : '';
+        const next = v.pool && v.tone !== 'idle' ? '<div class="cr-actions"><button type="button" class="cr-btn" onclick="crPrev()">↺ Back</button><button type="button" class="cr-btn' + (v.tone === 'bad' ? ' primary' : '') + '" onclick="crNext()">Next copy ↻</button></div>' : '';
         full.innerHTML = '<div class="cr-row"><span class="cr-dot"></span><div><div class="cr-main">' + esc(v.main) + '</div>'
           + (v.sub ? '<div class="cr-sub">' + esc(v.sub) + '</div>' : '') + '</div></div>' + meter + next;
       }
       if (foot) {
         foot.dataset.tone = v.tone;
         foot.innerHTML = '<span class="cr-dot"></span><span class="cr-foot-txt" title="' + esc(v.main) + '">' + esc(v.main) + '</span>'
-          + (v.pool && v.tone !== 'idle' ? '<button type="button" class="cr-mini" onclick="crNext()" title="Load the next copy from the library">Next ↻</button>' : '');
+          + (v.pool && v.tone !== 'idle' ? '<button type="button" class="cr-mini" onclick="crPrev()" title="Go back to the previous copy">↺ Back</button><button type="button" class="cr-mini" onclick="crNext()" title="Load the next copy from the library">Next ↻</button>' : '');
       }
     }
     setInterval(() => { if (crOn()) crPaint(); }, 60000);   // keeps the grace-hour countdown honest

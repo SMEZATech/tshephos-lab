@@ -2024,22 +2024,12 @@
     return "" +
       // Inline spinner. !important because every page ships its own .spinner (a bordered ring on
       // a rotate animation) and this has to win regardless of which loaded first.
-      ".spinner{display:inline-block;width:17px !important;height:18px !important;border:0 !important;border-radius:0 !important;background:none !important;animation:none !important;position:relative !important;overflow:hidden !important;vertical-align:-3px;color:rgb(" + RAIN_RGB + ");}" +
-      // On a filled (accent) button the bolts take the button's own label colour, or they'd be
-      // lime-on-lime. Loose status text keeps the brand colour.
+      // Loading look (Joel, 2026-10-12: the lightning rain is OUT — plain spinner, no animation theatre).
+      // !important because every page ships its own .spinner and this has to win regardless of order.
+      ".spinner{display:inline-block;width:16px !important;height:16px !important;border:2px solid currentColor !important;border-right-color:transparent !important;border-radius:50% !important;background:none !important;position:relative !important;vertical-align:-3px;color:rgb(" + RAIN_RGB + ");animation:vrSpin .7s linear infinite !important;}" +
       "button .spinner,[class*=btn] .spinner{color:inherit;}" +
       ".spinner.hidden{display:none !important;}" +
-      ".spinner::before,.spinner::after{content:'';position:absolute;top:0;left:0;width:10px;height:13px;background:currentColor;" + m(RAIN_ONE, "center/contain no-repeat") + "animation:vrDrop .8s linear infinite;}" +
-      ".spinner::after{left:9px;width:8px;height:10px;opacity:.7;animation-delay:-.31s;animation-duration:.68s;}" +
-      "@keyframes vrDrop{0%{transform:translateY(-14px);opacity:0}18%{opacity:1}82%{opacity:1}100%{transform:translateY(19px);opacity:0}}" +
-      // Skeletons: two layers of rain at different sizes and speeds (parallax), over the page's
-      // own shimmer. Each layer starts one tile above the card and falls exactly one tile, so the
-      // loop is seamless.
-      ".skel{position:relative;overflow:hidden;}" +
-      ".skel::before,.skel::after{content:'';position:absolute;left:0;right:0;bottom:0;pointer-events:none;background:rgba(" + RAIN_RGB + ",.26);}" +
-      ".skel::before{top:-240px;" + m(RAIN_TILE, "0 0/230px 240px repeat") + "animation:vrSkelA 1.7s linear infinite;}" +
-      ".skel::after{top:-168px;opacity:.5;" + m(RAIN_TILE, "90px 0/161px 168px repeat") + "animation:vrSkelB 1.05s linear infinite;}" +
-      "@keyframes vrSkelA{to{transform:translateY(240px)}}@keyframes vrSkelB{to{transform:translateY(168px)}}" +
+      "@keyframes vrSpin{to{transform:rotate(360deg)}}" +
       // Boot screen.
       "#va-boot{position:fixed;inset:0;z-index:100000;background:#06070A;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease;font-family:'Plus Jakarta Sans',system-ui,sans-serif;}" +
       "#va-boot.out{opacity:0;pointer-events:none;}" +
@@ -2051,7 +2041,8 @@
       ".vr-host{position:relative;overflow:hidden;}" +
       "#va-rainov{position:fixed;inset:0;z-index:99990;background:rgba(6,7,10,.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;transition:opacity .3s;}" +
       "#va-rainov .vr-lbl{position:relative;font-family:'JetBrains Mono',monospace;font-size:13px;color:#ECEEF3;background:rgba(10,11,15,.7);border:1px solid rgba(255,255,255,.1);padding:10px 16px;border-radius:12px;}" +
-      "@media(prefers-reduced-motion:reduce){.spinner::before,.spinner::after,.skel::before,.skel::after{animation:none !important;}}";
+      "#va-boot .vb-spin{margin:16px auto 0;}" +
+      "@media(prefers-reduced-motion:reduce){.spinner{animation-duration:2s !important;}}";
   }
   function injectRainCSS() {
     if (document.getElementById("va-rain-style")) return;
@@ -2063,6 +2054,9 @@
   // lands with a small splash and respawns at the top. Stops by itself once the canvas leaves the
   // page, so a caller that forgets stop() can't leak an animation loop.
   function rainOn(cv, opts) {
+    return { stop: function () {} };   // lightning rain removed 2026-10-12 — kept as a no-op so callers need no change
+  }
+  function _rainOnOld(cv, opts) {
     opts = opts || {};
     var ctx = cv.getContext && cv.getContext("2d"); if (!ctx) return { stop: function () {} };
     var glyph = (typeof Path2D === "function") ? new Path2D(RAIN_PATH) : null;
@@ -2121,11 +2115,14 @@
     return { stop: function () { stopped = true; cancelAnimationFrame(raf); } };
   }
   function rainCanvas(host) {
+    return document.createElement("canvas");   // detached: nothing is drawn any more
+  }
+  function _rainCanvasOld(host) {
     var cv = document.createElement("canvas"); cv.className = "vr-cv"; cv.setAttribute("aria-hidden", "true");
     host.insertBefore(cv, host.firstChild);
     return cv;
   }
-  var RAIN_MIN_MS = 2000; // "a couple more seconds" (Joel) — a floor under how briefly the rain can show
+  var RAIN_MIN_MS = 0; // no artificial minimum any more (the rain that needed one is gone)
   function rainDelay(startedAt, cb) { var left = RAIN_MIN_MS - (Date.now() - startedAt); if (left > 0) setTimeout(cb, left); else cb(); }
 
   window.voltRain = {
@@ -2164,7 +2161,7 @@
     document.documentElement.style.overflow = "hidden";
     var b = document.createElement("div"); b.id = "va-boot"; b.setAttribute("role", "status");
     b.innerHTML = '<div class="vb-in"><p class="vb-logo">' + esc(BRAND.wordmark.replace(/\.$/, "")) + (BRAND.wordmark.slice(-1) === "." ? '<span class="d">.</span>' : "") + '</p>' +
-      '<p class="vb-sub">Charging up…</p></div>';
+      '<p class="vb-sub">Loading…</p><span class="spinner vb-spin" style="display:block"></span></div>';
     (document.body || document.documentElement).appendChild(b);
     _bootShownAt = Date.now();
     _bootRain = rainOn(rainCanvas(b));
