@@ -204,6 +204,8 @@
         .vt-opt.on { background:#B6FF3D; color:var(--ink,#0A0B0F); border-color:#B6FF3D; font-weight:800; }
         .vt-opt .sub { font-size:9px; font-weight:600; letter-spacing:0.04em; opacity:0.6; text-transform:none; }
         /* The direction buttons are wider and left-read, with the letter as a prefix. */
+        .vt-opt.brand-off { display:none !important; }
+        .vt-opt.brand-other { opacity:.7; border-style:dashed; }
         .vt-opt.wide { flex-direction:row; justify-content:flex-start; text-align:left; gap:7px; }
         .vt-opt .k { font-family:'JetBrains Mono',monospace; font-size:9px; opacity:0.5; }
         /* The collapsed post-type summary: reads as a settled choice, not a live option, so it
@@ -334,6 +336,7 @@
                         <button onclick="setContentType('glossary')"   id="ct-glossary"   class="vt-opt ct-btn">📖 Glossary</button>
                         <button onclick="setContentType('webinar')"    id="ct-webinar"    class="vt-opt ct-btn">🎟️ Webinars</button>
                     </div>
+                    <button type="button" id="ct-outside" class="hidden w-full mt-2" onclick="toggleOutsideDesigns()" style="background:none;border:0;color:var(--vt-accent,#B6FF3D);font-size:11px;font-weight:700;text-align:left;cursor:pointer;padding:4px 2px;"></button>
                     </div>
                     <p class="vt-note mt-2" id="ct-hint">Creative = the full article/graphic studio. Pick a content type to design ready-made social posts for it.</p>
                 </div>
@@ -823,6 +826,45 @@
     function currentBrand() { const a = loadBrands(); return a.find(b => b.id === getActiveBrandId()) || a[0] || SME_BRAND; }
     function brandPayload() { const b = currentBrand(); return { primary: b.primary, secondary: b.secondary, cta: b.cta, url: b.url }; }
 
+    // ---- Designs curated per brand ----
+    // A brand shows only the designs made for it; the rest sit behind "Show designs outside <brand>".
+    // brand.designs (an array of family keys, edited in the Brand Kit) wins. Without one: SME South
+    // Africa gets everything except the Serv marketplace families, a brand named Serv gets only
+    // those, and any other brand is unrestricted (null) until somebody curates it.
+    const MARKETPLACE_FAMILIES = ['providers', 'findpros'];
+    const OUTSIDE_KEY = 'volt_show_outside_designs';
+    let designsShowOutside = false;
+    try { designsShowOutside = localStorage.getItem(OUTSIDE_KEY) === '1'; } catch (e) {}
+    function familyKeys() { return [].map.call(document.querySelectorAll('#content-type-switch .ct-btn'), el => el.id.replace(/^ct-/, '')); }
+    function brandFamilies(b) {
+        if (b && Array.isArray(b.designs)) return b.designs;
+        const all = familyKeys();
+        if (b && b.id === 'sme') return all.filter(k => MARKETPLACE_FAMILIES.indexOf(k) < 0);
+        if (b && /\bserv\b/i.test(b.name || '')) return MARKETPLACE_FAMILIES.slice();
+        return null;
+    }
+    function applyDesignScope() {
+        const b = currentBrand(), set = brandFamilies(b);
+        let outside = 0;
+        familyKeys().forEach(k => {
+            const el = document.getElementById('ct-' + k); if (!el) return;
+            const out = !!set && set.indexOf(k) < 0;
+            if (out) outside++;
+            el.classList.toggle('brand-off', out && !designsShowOutside);
+            el.classList.toggle('brand-other', out && designsShowOutside);
+            el.title = out ? 'Made for another brand' : '';
+        });
+        const btn = document.getElementById('ct-outside'); if (!btn) return;
+        btn.classList.toggle('hidden', !outside);
+        btn.textContent = designsShowOutside ? '▴ Hide designs outside ' + (b.name || 'this brand') : '▾ Show designs outside ' + (b.name || 'this brand') + ' (' + outside + ')';
+    }
+    function toggleOutsideDesigns() {
+        designsShowOutside = !designsShowOutside;
+        try { localStorage.setItem(OUTSIDE_KEY, designsShowOutside ? '1' : '0'); } catch (e) {}
+        applyDesignScope();
+    }
+    window.toggleOutsideDesigns = toggleOutsideDesigns;
+
     function applyBrand() {
         const b = currentBrand();
         document.documentElement.style.setProperty('--bp', b.primary);
@@ -833,6 +875,7 @@
         const tagEl = document.getElementById('in-tag');
         if (tagEl) tagEl.value = b.tag;
         updateBrandChip();
+        applyDesignScope();
         renderLayout();
         crRefresh();   // each brand keeps its own log — SME and Serv never block each other
     }
@@ -889,6 +932,9 @@
           + '<div class="mb-5"><label class="bk-lbl">Brand voice <span class="text-slate-500 font-normal">— how your copy should sound (used by the Copy Lab &amp; Email AI)</span></label>'
           +   '<textarea id="bk-voice" class="bk-in" rows="3" placeholder="e.g. Confident, practical and warm. Plain English, short punchy sentences, no jargon. Speaks to founders like a knowledgeable mentor.">' + sanitizeHTML(editing.voice || '') + '</textarea>'
           + '</div>'
+          + '<div class="mb-5"><label class="bk-lbl">Designs for this brand <span class="text-slate-500 font-normal">— only these show in the post-type menu; the rest stay one click away under “Show designs outside this brand”</span></label>'
+          +   '<div class="grid grid-cols-2 gap-1" id="bk-designs">' + bkDesignBoxes(editing) + '</div>'
+          + '</div>'
           + '<div class="flex items-center gap-2 pt-4 border-t border-slate-700">'
           +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:var(--ink,#0A0B0F);">Save &amp; apply</button>'
           +   (isExisting && !isDefault ? '<button id="bk-delete" class="text-[11px] font-bold py-2 px-3 rounded uppercase border border-red-500/50 text-red-300 hover:bg-red-500/10">Delete</button>' : '')
@@ -928,10 +974,21 @@
             rd.onload = () => { _bkEditing.logoDark = rd.result; renderBrandKit(); };
             rd.readAsDataURL(f);
         };
+        const dsg = document.getElementById('bk-designs');
+        if (dsg) dsg.onchange = () => {
+            _bkEditing.designs = [].filter.call(dsg.querySelectorAll('input'), i => i.checked).map(i => i.value);
+        };
         const sv = document.getElementById('bk-save'); if (sv) sv.onclick = bkSave;
         const dl = document.getElementById('bk-delete'); if (dl) dl.onclick = bkDelete;
     }
 
+    function bkDesignBoxes(editing) {
+        const set = brandFamilies(editing), all = familyKeys();
+        return all.map(k => {
+            const label = (document.getElementById('ct-' + k) || {}).textContent || k;
+            return '<label class="flex items-center gap-2 text-[12px] text-slate-200"><input type="checkbox" value="' + k + '"' + (!set || set.indexOf(k) >= 0 ? ' checked' : '') + '> ' + sanitizeHTML(label.trim()) + '</label>';
+        }).join('');
+    }
     function bkSave() {
         if (!_bkEditing) return;
         if (!_bkEditing.name || !_bkEditing.name.trim()) { showToast('Give the brand a name first.'); return; }

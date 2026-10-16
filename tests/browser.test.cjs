@@ -76,8 +76,8 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
       await p.addInitScript(() => { window.voltNative = { getVersion: () => '1.0.0' }; });
     });
     await page.goto(base + '/home.html', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.va-ub-btn', { timeout: 20000 });
-    expect(label, (await page.evaluate(() => document.querySelector('.va-ub-btn').href)) === 'https://github.com/SMEZATech/tshephos-lab/releases/latest');
+    await page.waitForSelector('.va-ub-btn:not(#va-fb-go)', { timeout: 20000 });
+    { const href = await page.evaluate(() => document.querySelector('.va-ub-btn:not(#va-fb-go)').href); expect(label, href === 'https://github.com/SMEZATech/tshephos-lab/releases/latest', href); }
     await ctx.close();
   }
 
@@ -124,6 +124,41 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     });
     expect('a Creative post renders identically before and after a premium Story export (no leaked safe-zone)', r.same === true, r);
     expect('overlapping renders each get their own result (the worker tags replies with the request id)', r.story === '324x576' && r.creative === '324x324', r);
+    await ctx.close();
+  }
+
+  console.log('Designs curated per brand (browser):');
+  {
+    const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}));
+    await page.goto(base + '/studio.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#ct-funding', { state: 'attached', timeout: 20000 });
+    const w = await page.$('#va-welcome-go'); if (w) await w.click();
+    await page.waitForTimeout(800);
+    const state = () => page.evaluate(() => {
+      const vis = (id) => { const e = document.getElementById(id); return !!e && getComputedStyle(e).display !== 'none'; };
+      const b = document.getElementById('ct-outside');
+      return { funding: vis('ct-funding'), podcast: vis('ct-podcast'), providers: vis('ct-providers'), findpros: vis('ct-findpros'), toggle: b ? b.textContent : '', toggleShown: !!b && !b.classList.contains('hidden') };
+    });
+    let r = await state();
+    expect('SME South Africa shows its own designs (Funding, Podcast…)', r.funding && r.podcast, r);
+    expect('…and hides the Serv marketplace designs', !r.providers && !r.findpros, r);
+    expect('…with a "Show designs outside" option that says how many', r.toggleShown && /Show designs outside SME South Africa \(2\)/.test(r.toggle), r);
+    await page.click('#ct-outside');
+    r = await state();
+    expect('"Show designs outside" reveals them, marked as made for another brand', r.providers && r.findpros && /Hide designs outside/.test(r.toggle), r);
+    await page.click('#ct-outside');
+    await page.evaluate(() => {
+      localStorage.setItem('volt_brands_v1', JSON.stringify([{ id: 'sme', name: 'SME South Africa', primary: '#9c1c1f', secondary: '#0a2c3d', tag: 't', cta: 'c', url: 'u' }, { id: 'serv1', name: 'Serv', primary: '#3d1152', secondary: '#e9e9ec', tag: 't', cta: 'c', url: 'serv.co.za' }]));
+      localStorage.setItem('volt_active_brand', 'serv1'); applyBrand();
+    });
+    r = await state();
+    expect('a brand named Serv shows only the marketplace designs', r.providers && r.findpros && !r.funding && !r.podcast, r);
+    await page.evaluate(() => { const b = loadBrands(); b[1].designs = ['funding']; localStorage.setItem('volt_brands_v1', JSON.stringify(b)); applyBrand(); });
+    r = await state();
+    expect('a curated list on the brand overrides the defaults', r.funding && !r.providers && !r.podcast, r);
+    const boxes = await page.evaluate(() => { openBrandKit(); const c = [...document.querySelectorAll('#bk-designs input')]; return { n: c.length, checked: c.filter(i => i.checked).map(i => i.value) }; });
+    expect('the Brand Kit editor lists every design, ticking only the ones curated for this brand', boxes.n === 14 && boxes.checked.join() === 'funding', boxes);
+    expect('no page errors', errors.length === 0, errors);
     await ctx.close();
   }
 

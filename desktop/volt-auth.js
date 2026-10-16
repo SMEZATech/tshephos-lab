@@ -945,7 +945,11 @@
       .catch(function () {});
   }
   function showUpdateBanner(cur, latest, url, notes) {
-    if (document.getElementById("va-update-bar")) return;
+    // The Friday Roundup nudge is synchronous and this check is async, so on a Friday the nudge always
+    // got the (single) bar first and a real update notice was silently dropped. A real update outranks
+    // the nudge: take its place. Any other existing bar (another update notice) still wins.
+    var ex = document.getElementById("va-update-bar");
+    if (ex) { if (ex.querySelector("#va-fb-go")) ex.remove(); else return; }
     if (!document.getElementById("va-ub-style")) {
       var st = document.createElement("style"); st.id = "va-ub-style";
       st.textContent =
