@@ -316,6 +316,7 @@
           <button data-l="sme" class="on">SME</button>
           <button data-l="clean">Clean</button>
           <button data-l="bold">Bold</button>
+          <button data-l="natural">Natural</button>
         </div>
       </div>
 
@@ -680,6 +681,7 @@ let summitLogoImg=null, summitLogoReady=false;
 (function(){ const im=new Image(); im.onload=()=>{ summitLogoImg=im; summitLogoReady=true; }; im.src=SUMMIT_LOGO_SRC; })();
 let brandLogoImg=null, brandLogoSrc='';   // logo from the active brand (fallback when no upload)
 let t=0, lastTime=performance.now(), recStart=0, mainPlaying=false, activeSegIdx=-1;
+let _vfCount=0;   // real-time export: source frames actually presented — a frozen-footage detector
 let _recStopAt=null;   // real-time export: a short hold before stop(), see the note at stopExport's call site
 let mainClipName = '';
 let mediaRecorder=null, chunks=[];
@@ -1057,6 +1059,7 @@ function vignette(strength){
   ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
 }
 function applyLook(){
+  if(state.look === 'natural') return;   // untouched footage — the Summit package grades nothing
   if(state.look === 'clean'){ vignette(0.45); return; }
   if(state.look === 'bold'){
     ctx.globalCompositeOperation='overlay';
@@ -1516,25 +1519,34 @@ function summitGrab(inOutro, inClip){
       try{
         if(!summitSnap) summitSnap = document.createElement('canvas');
         summitSnap.width = W; summitSnap.height = H;
-        summitSnap.getContext('2d').drawImage(cv, 0, 0, W, H);
+        summitBakeBg();
         summitSnapOk = true;
       }catch(e){ summitSnapOk = false; }
     }
   }
   summitPrevWasClip = inClip;
 }
+// Blur + red grade, done ONCE into summitSnap. The first version ran ctx.filter blur on a full
+// frame every outro frame — ~400ms a frame at 4K, which is what dropped that outro to ~7fps.
+// Shrinking to a few dozen pixels and scaling back up is a free blur, and the grade bakes in too.
+function summitBakeBg(){
+  const sw = Math.max(8, Math.round(W/28)), sh = Math.max(8, Math.round(H/28));
+  const tiny = document.createElement('canvas'); tiny.width = sw; tiny.height = sh;
+  const tx = tiny.getContext('2d'); tx.imageSmoothingQuality = 'high'; tx.drawImage(cv, 0, 0, sw, sh);
+  const mid = document.createElement('canvas'); mid.width = sw*4; mid.height = sh*4;
+  const mx = mid.getContext('2d'); mx.imageSmoothingQuality = 'high'; mx.drawImage(tiny, 0, 0, mid.width, mid.height);
+  summitSnap.width = W; summitSnap.height = H;
+  const sx = summitSnap.getContext('2d'); sx.imageSmoothingQuality = 'high';
+  sx.drawImage(mid, 0, 0, W, H);
+  sx.globalCompositeOperation = 'multiply'; sx.fillStyle = SUMMIT_RED; sx.fillRect(0,0,W,H);
+  sx.globalCompositeOperation = 'source-over'; sx.fillStyle = hexA(SUMMIT_RED, 0.55); sx.fillRect(0,0,W,H);
+}
 function summitOutroBg(p){
-  const R = summitR();
-  if(summitSnapOk && summitSnap){
-    // slow push-in + heavy blur: the room reads as atmosphere, and the last caption line baked
-    // into that frame dissolves instead of hanging there
+  if(summitSnapOk && summitSnap && summitSnap.width === W){
+    // slow push-in: the room reads as atmosphere, and the last caption line baked into that
+    // frame has already dissolved in the blur
     const z = 1.04 + 0.05*p;
-    ctx.save();
-    try{ ctx.filter = 'blur('+Math.round(R*0.012)+'px)'; }catch(e){}
     ctx.drawImage(summitSnap, W/2 - W*z/2, H/2 - H*z/2, W*z, H*z);
-    ctx.restore();
-    ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = SUMMIT_RED; ctx.fillRect(0,0,W,H); ctx.restore();
-    ctx.fillStyle = hexA(SUMMIT_RED, 0.55); ctx.fillRect(0,0,W,H);
   } else {
     const g = ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0, shade(SUMMIT_RED,0.10)); g.addColorStop(1, shade(SUMMIT_RED,-0.45));
@@ -1550,17 +1562,25 @@ function drawSummitOutro(p){
   const aA = eoc(segT(p,0,0.10)) * (1 - eoc(segT(p,0.48,0.56)));
   if(aA > 0){
     ctx.save(); ctx.globalAlpha = aA;
-    const words = (summitField('outroHead') || 'Funding Summit').toUpperCase().split(/\s+/).filter(Boolean);
-    const outlined = words.length > 1 ? words.pop() : '';
-    const solid = words.join(' ');
-    let fs = R*0.27;
-    ctx.font = '700 '+Math.round(fs)+'px Oswald, sans-serif';
-    const widest = Math.max(ctx.measureText(solid).width, outlined ? ctx.measureText(outlined).width : 0);
-    if(widest > W*0.82) fs *= W*0.82/widest;
+    // Two words stack as the event lockup (FUNDING solid / SUMMIT outlined). Anything longer — a
+    // real one was "Be on the look out for the Funding Summit 2027" — wraps as a fitted block with
+    // only its LAST line outlined; splitting that by word shrank all nine words onto one tiny line.
+    const head = (summitField('outroHead') || 'Funding Summit').toUpperCase();
+    const words = head.split(/\s+/).filter(Boolean);
+    let lines, fs;
+    if(words.length <= 2){
+      lines = words; fs = R*0.27;
+      ctx.font = '700 '+Math.round(fs)+'px Oswald, sans-serif';
+      const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
+      if(widest > W*0.82) fs *= W*0.82/widest;
+    } else {
+      const f = fitLines(head, '700', 'Oswald, sans-serif', W*0.84, H*0.30, R*0.17, R*0.07);
+      lines = f.lines; fs = f.size;
+    }
     const tag = String((state.brand && state.brand.name) || 'SME South Africa').toUpperCase();
     const tagline = summitField('outroSub') || 'NO.1 FUNDING EVENT FOR SMMEs';
     const tagFs = Math.round(R*0.048), tagH = tagFs*1.7, lh = fs*1.0, ruleGap = fs*0.16, tlFs = Math.round(R*0.052);
-    const total = tagH + R*0.02 + lh*(outlined?2:1) + ruleGap + R*0.006 + R*0.04 + tlFs;
+    const total = tagH + R*0.02 + lh*lines.length + ruleGap + R*0.006 + R*0.04 + tlFs;
     let y = H*0.47 - total/2;
     // tag pill
     ctx.font = '700 '+tagFs+'px Oswald, sans-serif'; ctx.textBaseline = 'middle';
@@ -1570,11 +1590,13 @@ function drawSummitOutro(p){
     y += tagH + R*0.02;
     ctx.font = '700 '+Math.round(fs)+'px Oswald, sans-serif'; ctx.textBaseline = 'top';
     const lift = (1 - eoc(segT(p,0.02,0.14))) * R*0.06;
-    ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillText(solid, W/2, y - fs*0.04 + lift); y += lh;
-    if(outlined){
-      ctx.strokeStyle = 'rgba(255,255,255,0.88)'; ctx.lineWidth = Math.max(2, fs*0.025); ctx.lineJoin = 'round';
-      ctx.strokeText(outlined, W/2, y - fs*0.04 + lift*1.4); y += lh;
-    }
+    ctx.fillStyle = ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+    ctx.lineWidth = Math.max(2, fs*0.025); ctx.lineJoin = 'round';
+    lines.forEach((l, i) => {
+      const yy = y - fs*0.04 + lift*(1 + i*0.4);
+      if(i === lines.length - 1 && lines.length > 1) ctx.strokeText(l, W/2, yy); else ctx.fillText(l, W/2, yy);
+      y += lh;
+    });
     y += ruleGap;
     const rw = W*0.76*eoc(segT(p,0.08,0.2));
     ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.fillRect(W/2 - rw/2, y, rw, Math.max(2, R*0.006));
@@ -2071,7 +2093,18 @@ async function startExport(fileName){
   videoEl.muted = false;
   if(musicEl.src){ musicEl.currentTime = 0; musicEl.play().catch(()=>{}); }
 
-  applyRenderScale(state.upscale); // Ultra 2× → record at double resolution for a sharper export
+  // The real-time recorder draws, decodes the source AND encodes VP9 inside wall-clock time. At 2x
+  // (Ultra / 4K: a 2160x3840 canvas) that's more than a normal laptop can do at once, and the video
+  // decoder is what loses — a real Funding Summit export came back with 45s of footage frozen on a
+  // single frame (audio fine) and the intro cards at ~4fps. So this path always records at 1x.
+  // Ultra / 4K stay fast-export features: frame-by-frame, no clock to fall behind.
+  const rtDowngraded = state.upscale > 1;
+  applyRenderScale(1);
+  _vfCount = 0;
+  if(typeof videoEl.requestVideoFrameCallback === 'function'){
+    const onVf = () => { if(!state.recording) return; _vfCount++; videoEl.requestVideoFrameCallback(onVf); };
+    videoEl.requestVideoFrameCallback(onVf);
+  } else _vfCount = -1;
   const canvasStream = cv.captureStream(30);
   let finalStream = canvasStream;
   if(dest && dest.stream.getAudioTracks().length){
@@ -2083,7 +2116,7 @@ async function startExport(fileName){
   if(!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
 
   try{
-    mediaRecorder = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: (state.fourK ? 35000000 : state.upscale>1 ? 20000000 : 8000000) });
+    mediaRecorder = new MediaRecorder(finalStream, { mimeType: mime, videoBitsPerSecond: 10000000 });
   }catch(err){
     applyRenderScale(1);
     setStatus('Could not start the recorder on this device: '+err.message, true);
@@ -2099,7 +2132,8 @@ async function startExport(fileName){
 
   $('#exportBtn').disabled = true;
   $('#exportLbl').innerHTML = '<span class="spinner"></span> Recording '+totalDur().toFixed(0)+'s…';
-  setStatus('⏺ Recording in real time — leave this tab in focus until it finishes.', true);
+  setStatus('⏺ Recording in real time — leave this tab in focus until it finishes.'
+            + (rtDowngraded ? ' Saving at 1080p: Ultra 2× / 4K need the desktop app\'s fast export.' : ''), true);
   return done;
 }
 
@@ -2359,6 +2393,17 @@ function exportDone(ok){
   if(_exportResolve){ const r = _exportResolve; _exportResolve = null; r({ ok: ok !== false }); }
   _exportName = null;
 }
+// The recorder can't tell when the machine fell behind: audio keeps flowing and the canvas keeps
+// redrawing the last decoded frame, so the file LOOKS fine until someone watches it. Counting the
+// source frames that actually arrived catches it — anything under ~8 new frames a second of
+// footage means visible freezing, and the person should hear that before they post it.
+function warnIfFootageStalled(){
+  if(_vfCount < 0) return;
+  const secs = Math.min(clipDur(), Math.max(0, state.trimEnd - state.trimStart));
+  if(secs > 2 && _vfCount < secs * 8)
+    setStatus('⚠ Exported, but this machine couldn\'t keep up — the footage froze in places (' + Math.round(_vfCount/secs) +
+              ' new frames/s). Close other tabs and apps and keep this tab in front, or export from the desktop app, which never drops frames.', true);
+}
 function finalizeExport(){
   const blob = new Blob(chunks, { type:'video/webm' });
   // Captured here regardless of which download format the user ends up with — MP4 conversion
@@ -2372,6 +2417,7 @@ function finalizeExport(){
   $('#exportBtn').disabled = false;
   $('#exportLbl').textContent = exportLabel();
   setStatus('✅ Exported — check your downloads.');
+  warnIfFootageStalled();
   exportDone(true);
   resetAfterExport();
 }
@@ -2381,7 +2427,7 @@ async function exportToMp4(blob){
   try{
     const buf = await blob.arrayBuffer();
     const res = await window.voltNative.toMp4(buf, (_exportName ? _exportName + '.mp4' : 'sme-short-'+state.format+'.mp4'), { enhance: state.upscale>1 && !state.fourK, fourK: state.fourK });
-    if(res && res.ok){ setStatus('✅ Saved MP4 — '+res.path); }
+    if(res && res.ok){ setStatus('✅ Saved MP4 — '+res.path); warnIfFootageStalled(); }
     else if(res && res.canceled){ setStatus('Export canceled.'); }
     else { throw new Error((res && res.error) || 'Conversion failed.'); }
   }catch(err){
@@ -2627,7 +2673,7 @@ function drawProgressAt(tt){
   const p = Math.max(0, Math.min(1, tt / Math.max(0.001, totalDur())));
   const h = Math.max(5, Math.round(H*0.008));
   ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(0, H - h, W, h);
-  ctx.fillStyle='#B6FF3D'; ctx.fillRect(0, H - h, W*p, h);
+  ctx.fillStyle = state.template==='summit' ? '#ffffff' : '#B6FF3D'; ctx.fillRect(0, H - h, W*p, h);
 }
 // speaker name lower-third (brief, fades; flips away from the caption zone)
 // ============================================================================================
@@ -2674,7 +2720,7 @@ const VIDEO_TEMPLATES = {
     note: 'SME Funding Summit package: talk-title card, speaker card, red-box captions, FUNDING/SUMMIT outro. Fill in the intro title + speaker name/title.',
     apply: { introOn:true, outroOn:true, outroDur:5.0, nameOn:true, captionsOn:true, hookOn:false,
              progressOn:false, brandFlashOn:false, markOn:false, waveOn:false, qaOn:false,
-             capPos:'bottom', capSize:'S', capBg:'box', capColor:'#9c1c1f', capsOn:false, capFont:'sans' }
+             capPos:'bottom', capSize:'S', capBg:'box', capColor:'#9c1c1f', capsOn:false, capFont:'sans', look:'natural' }
   },
   free: { label: 'Freeform', note: 'Nothing forced — every control is yours.', apply: null }
 };
@@ -2708,6 +2754,7 @@ function syncTemplateUI(){
   });
   syncSeg('#capPosSeg', state.capPos); syncSeg('#capSizeSeg', state.capSize);
   syncSeg('#capBgSeg', state.capBg);   syncSeg('#hookDurSeg', state.hookDur);
+  syncSeg('#lookSeg', state.look);
   const bf = $('#tog-brandflash'); if(bf){ bf.classList.toggle('on', !!state.brandFlashOn); }
   const mk = $('#tog-mark');       if(mk){ mk.classList.toggle('on', !!state.markOn); }
   const wv = $('#tog-wave');       if(wv){ wv.classList.toggle('on', !!state.waveOn); }
@@ -3691,6 +3738,8 @@ $('#qualPick').addEventListener('click', e => {
   document.querySelectorAll('#qualPick button').forEach(x=>x.classList.toggle('on', x===b));
   setStatus(state.fourK ? '4K on — saves a true 4K file. Export takes roughly 4× longer and the file is much bigger; some older phones and TVs may not play it.'
           : state.upscale>1 ? 'Ultra 2× on — sharper text and edges, saved at standard 1080 size (plays everywhere, a bit slower to export).' : '');
+  if(state.upscale > 1 && !canFastExport())
+    setStatus('Ultra 2× / 4K render frame-by-frame in the desktop app. In the browser the export records in real time, so it saves at 1080p — recording 4K live freezes the footage on most machines.');
 });
 // pick up brand changes made in another tab (e.g. Studio) live, or when returning to this tab
 window.addEventListener('storage', e=>{ if(e.key===BRANDS_KEY || e.key===ACTIVE_BRAND_KEY) refreshBrand(); });
