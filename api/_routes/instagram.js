@@ -61,6 +61,40 @@ async function graph(path, params, method) {
   return data;
 }
 
+// Meta answers every dead-token case with OAuthException code 190 (subcode 460 = password changed,
+// 463 = expired, 467 = invalid session) and 102 for a lost session. That is the ONE class of failure
+// no retry can fix and only a human reconnect can, so it gets its own plain-English reason and its
+// own handling in the queue drain and the status banner, instead of the raw Graph sentence.
+function authDead(e) {
+  return !!e && (e.igCode === 190 || e.igCode === 102);
+}
+function authReason(e) {
+  const sub = e && e.igSub;
+  if (sub === 460) return "The Facebook password was changed, so Meta signed Volt out of Instagram.";
+  if (sub === 463) return "The Instagram access token has expired.";
+  return "Meta has revoked Volt's Instagram access (a security reset or a permission change).";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Long-lived token swap. A token generated in Graph API Explorer lasts about an hour; a Page token
+// derived from it inherits that. Swapping the pasted USER token for a long-lived one BEFORE the Page
+// token is derived makes the stored Page token non-expiring (see resolveAccount). Needs the Meta
+// app's own id+secret, so it is a no-op until FB_APP_ID/FB_APP_SECRET exist in Vercel — and a Page
+// token pasted directly has nothing to exchange, which Meta reports as an error; both fall back to
+// the pasted token rather than failing the connect.
+// ---------------------------------------------------------------------------------------------
+async function exchangeLongLived(token) {
+  const app = process.env.FB_APP_ID, sec = process.env.FB_APP_SECRET;
+  if (!app || !sec) return { token, exchanged: false, reason: "no-app-credentials" };
+  try {
+    const d = await graph("/oauth/access_token", {
+      grant_type: "fb_exchange_token", client_id: app, client_secret: sec, fb_exchange_token: token,
+    });
+    if (d && d.access_token) return { token: d.access_token, exchanged: true };
+  } catch (e) { /* a Page token, or an app mismatch: keep what was pasted */ }
+  return { token, exchanged: false, reason: "exchange-failed" };
+}
+
 // ---------------------------------------------------------------------------------------------
 // Per-org credentials. Stored in org_secret, encrypted with SECRETS_MASTER_KEY (same envelope as
 // every other org secret) — a long-lived Instagram token is exactly as sensitive as an API key.
@@ -487,13 +521,16 @@ export default async function handler(req, res) {
         try { await recordMetric(row.org_id, { platform: "instagram", external_id: out.mediaId, posted_text: row.caption || "", published_at: new Date().toISOString() }); } catch (e) {}
       } catch (e) {
         const attempts = (row.attempts || 0) + 1;
-        const giveUp = attempts >= MAX_ATTEMPTS;
+        // A revoked token fails identically on every retry, and retrying just burns the three
+        // attempts in 15 minutes; fail it now, say why, and let the person reconnect and reschedule.
+        const dead = authDead(e);
+        const giveUp = dead || attempts >= MAX_ATTEMPTS;
         // Back to pending so the next run retries — unless it has failed enough times that
         // retrying is just noise. A permanently stuck row is worse than a visible failure.
         await finish(row.id, {
           status: giveUp ? "error" : "pending",
           attempts,
-          error: String((e && e.message) || "Publish failed").slice(0, 400),
+          error: (dead ? "Instagram disconnected — " + authReason(e) + " Reconnect it in Admin, then reschedule this." : String((e && e.message) || "Publish failed")).slice(0, 400),
         });
         done.push({ id: row.id, ok: false, error: (e && e.message) || "failed", attempts, giveUp });
       }
@@ -519,20 +556,29 @@ export default async function handler(req, res) {
           queue: await queueList(orgId),
         });
       }
-      let account = null, err = null;
+      let account = null, err = null, acctErr = null;
       try {
         account = await graph("/" + creds.igUserId, { fields: "id,username,name,profile_picture_url,followers_count", access_token: creds.token });
-      } catch (e) { err = (e && e.message) || "Token check failed"; }
+      } catch (e) { acctErr = e; err = (e && e.message) || "Token check failed"; }
       const ti = await tokenInfo(creds.token);
+      // A dead token is detected from the account read above. needsReconnect is what the Schedule
+      // banner keys off — distinct from "never connected", which is a different message entirely.
+      const queue = await queueList(orgId);
+      const dead = !!err && (authDead(acctErr) || ti.valid === false);
+      const soon = !err && ti.expiresAt && !ti.neverExpires && (new Date(ti.expiresAt).getTime() - Date.now()) < 7 * 86400000;
       return res.status(200).json({
         connected: !err,
         error: err,
+        needsReconnect: dead,
+        reconnectReason: dead ? authReason(acctErr) : null,
+        expiringSoon: !!soon,
+        failedCount: queue.filter((r) => r.status === "error").length,
         apiVersion: V,
         cron: !!process.env.CRON_SECRET,
         account: account ? { id: account.id, username: account.username, name: account.name, picture: account.profile_picture_url, followers: account.followers_count } : { id: creds.igUserId, username: creds.username || "" },
         token: ti,
         quota: err ? null : await quota(creds),
-        queue: await queueList(orgId),
+        queue,
         // The same connection also carries the Facebook Page — see facebook.js. `ready` needs BOTH
         // the Page id (only present since the pageId field was added; an older connection needs a
         // reconnect to pick it up) AND the pages_manage_posts scope, which has to be requested up
@@ -561,9 +607,10 @@ export default async function handler(req, res) {
       if (!isOrgAdmin(req.volt)) return res.status(403).json({ error: "Only the workspace owner can connect a social account.", code: "OWNER_ONLY" });
       const token = String(body.token || "").trim();
       if (!token) return res.status(400).json({ error: "Paste your access token." });
-      const acct = await resolveAccount(token, String(body.igUserId || "").trim() || null, String(body.pageId || "").trim() || null);
+      const swap = await exchangeLongLived(token);
+      const acct = await resolveAccount(swap.token, String(body.igUserId || "").trim() || null, String(body.pageId || "").trim() || null);
       // Prefer the Page token when we found one — see resolveAccount: it is the one that lasts.
-      const keep = acct.pageToken || token;
+      const keep = acct.pageToken || swap.token;
       // Prove it can actually see the account with the token we are about to store, so "Connected"
       // never means "we stored something and hoped".
       const me = await graph("/" + acct.igUserId, { fields: "id,username", access_token: keep });
@@ -572,7 +619,7 @@ export default async function handler(req, res) {
       // Page token, one more scope", not a separate auth flow — see facebook.js's header comment).
       const ok = await saveCreds(orgId, { igUserId: acct.igUserId, token: keep, username: me.username || acct.username || "", pageId: acct.pageId || null });
       if (!ok) return res.status(502).json({ error: "Could not save the connection. Is SECRETS_MASTER_KEY set in Vercel?" });
-      return res.status(200).json({ ok: true, account: { id: me.id, username: me.username || "" }, via: acct.via, page: acct.page || null, token: await tokenInfo(keep) });
+      return res.status(200).json({ ok: true, account: { id: me.id, username: me.username || "" }, via: acct.via, page: acct.page || null, token: await tokenInfo(keep), longLived: swap.exchanged, swapSkipped: swap.reason || null });
     }
 
     if (action === "disconnect") {

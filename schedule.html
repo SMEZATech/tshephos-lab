@@ -185,6 +185,10 @@
   <h1>📅 Schedule</h1>
   <p class="sub">Compose once, then choose where it goes. Volt sends your post to the channels you pick — direct to Instagram and Facebook, or through your connected Postiz for everything else.</p>
 
+  <!-- Filled by renderIgAlert(): a dead or soon-to-die Meta token. Scheduled stories fail silently
+       otherwise, which is how a revoked token went unnoticed until a story didn't go out. -->
+  <div id="igAlert" style="display:none;"></div>
+
   <!-- Weekly shape — see the WEEKLY SHAPE block in the script for where every target comes from. -->
   <div class="card" id="shapeCard" style="margin-bottom:18px;">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
@@ -481,7 +485,16 @@ async function loadIg(){
   }catch(e){
     st.textContent='unavailable';
     body.innerHTML = '';
-    renderIgChip(); renderFbChip(); return;
+    renderIgAlert(); renderIgChip(); renderFbChip(); return;
+  }
+  renderIgAlert();
+  if(ig.needsReconnect){
+    st.textContent = 'disconnected';
+    st.style.color = 'var(--low)';
+    body.innerHTML = '<p class="note" style="margin:0 0 8px;">Instagram needs to be reconnected — see the notice above.</p>'
+      + '<a href="admin.html" class="chip" style="text-decoration:none;">⚙️ Reconnect in Admin</a>';
+    renderIgChip();
+    return;
   }
   if(ig.connected && ig.account){
     st.textContent = 'connected';
@@ -504,6 +517,32 @@ async function loadIg(){
   }
   renderIgChip();
   refreshFbLabel();   // populates ig.facebook.ready-gated chip; no-op until Facebook scope is added
+}
+
+// A banner, not a chip state: a dead token silently fails every scheduled story, so it has to be the
+// first thing on the page rather than something you notice by hunting for the chip. Red = already
+// broken (and how many scheduled posts it cost); amber = a token that will die soon, while there is
+// still time to swap it quietly.
+function renderIgAlert(){
+  const box=$('#igAlert'); if(!box) return;
+  const failed = Number(ig.failedCount||0);
+  let html='', tone='';
+  if(ig.needsReconnect){
+    tone='bad';
+    html = '<b>Instagram is disconnected.</b> '+esc(ig.reconnectReason||'Meta revoked Volt’s access.')
+      + (failed ? ' <b>'+failed+' scheduled post'+(failed===1?'':'s')+' couldn’t go out</b> — reschedule '+(failed===1?'it':'them')+' after reconnecting.' : ' Scheduled posts will fail until you reconnect.');
+  } else if(ig.expiringSoon){
+    tone='warn';
+    html = '<b>Instagram’s access token expires '+esc(new Date(ig.token.expiresAt).toLocaleDateString())+'.</b> Reconnect before then so scheduled posts keep going out.';
+  } else if(ig.connected && failed){
+    tone='warn';
+    html = '<b>'+failed+' scheduled post'+(failed===1?'':'s')+' failed</b> in the last 30 days — check the queue below for the reason.';
+  }
+  if(!html){ box.style.display='none'; box.innerHTML=''; return; }
+  const c = tone==='bad' ? ['rgba(255,124,124,.10)','rgba(255,124,124,.45)','#ffb3b3'] : ['rgba(255,200,87,.09)','rgba(255,200,87,.4)','#ffd98a'];
+  box.style.cssText = 'display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:13px 16px;border-radius:12px;font-size:13.5px;line-height:1.5;background:'+c[0]+';border:1px solid '+c[1]+';color:'+c[2]+';';
+  box.innerHTML = '<span style="flex:1;min-width:240px;">'+html+'</span>'
+    + (tone==='bad'||ig.expiringSoon ? '<a href="admin.html" class="chip" style="text-decoration:none;padding:7px 13px;font-size:12.5px;">⚙️ Reconnect in Admin</a>' : '');
 }
 
 function renderIgChip(){

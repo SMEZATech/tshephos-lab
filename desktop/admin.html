@@ -395,7 +395,11 @@ async function loadConnections(){
     });
     $('#connReconnect').addEventListener('click', ()=> renderConnectForm(true));
   } else {
-    box.innerHTML = (ig.error ? '<p class="h-note" style="color:var(--low)">'+esc(ig.error)+'</p>' : '')
+    box.innerHTML = (ig.needsReconnect
+        ? '<div class="hint" style="border-color:rgba(255,124,124,.35);background:rgba(255,124,124,.08);color:#ffb3b3;"><b>Instagram is disconnected.</b> '+esc(ig.reconnectReason||'')
+          + (ig.failedCount ? ' '+ig.failedCount+' scheduled post'+(ig.failedCount===1?'':'s')+' couldn’t go out — reschedule after reconnecting.' : '')
+          + ' Generate a fresh token below and Connect.</div>'
+        : (ig.error ? '<p class="h-note" style="color:var(--low)">'+esc(ig.error)+'</p>' : ''))
       + '<div id="connForm"></div>';
     renderConnectForm(false);
   }
@@ -429,7 +433,10 @@ function renderConnectForm(reconnecting){
       // link back to the Page that owns it).
       const body = pageId ? {token:tok,pageId} : (igUserId ? {token:tok,igUserId} : {token:tok});
       const d = await connFetch('instagram','connect', body);
-      s.textContent = '✓ Connected as @' + ((d.account&&d.account.username)||'') + (d.page?(' via '+d.page):'');
+      s.textContent = '✓ Connected as @' + ((d.account&&d.account.username)||'') + (d.page?(' via '+d.page):'')
+        + (d.longLived ? ' · long-lived token saved'
+           : d.swapSkipped==='no-app-credentials' ? ' · short-lived token (add FB_APP_ID + FB_APP_SECRET in Vercel to make it last)'
+           : '');
       s.className='status ok';
       setTimeout(loadConnections, 700);
     }catch(e){ s.textContent = e.message||'Could not connect.'; s.className='status err'; }
