@@ -256,6 +256,18 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
       } else {
         expect('Email, ' + who + ': no 2026 template anywhere', em.opts.length === 0 && em.tpl === 0, em);
       }
+      await s.page.goto(base + '/video.html', { waitUntil: 'domcontentloaded' });
+      await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
+      await s.page.waitForTimeout(5000);
+      const vd = await s.page.evaluate(() => ({ btn: !!document.querySelector('#tmplSeg [data-tp="smesa26"] .r26-pill'), tpl: !!VIDEO_TEMPLATES.smesa26, hooks: !!window.R26V }));
+      if (allowed) {
+        expect('Video, ' + who + ': the SME SA 2026 template appears with its pill', vd.btn && vd.tpl && vd.hooks, vd);
+        const fr = await s.page.evaluate(() => { applyTemplate('smesa26', { quiet: true }); drawIntroCard(0.5); drawOutroCard(0.5);
+          const d = ctx.getImageData(W / 2, H / 2, 1, 1).data; return { tpl: state.template, cap: state.capColor, intro: introDur(), px: [d[0], d[1], d[2]] }; });
+        expect('Video, ' + who + ': applying it sets the 2026 look and draws its cards', fr.tpl === 'smesa26' && fr.cap === '#DC183C' && fr.intro > 2, fr);
+      } else {
+        expect('Video, ' + who + ': no 2026 template', !vd.btn && !vd.tpl && !vd.hooks, vd);
+      }
       expect('no page errors (' + who + ')', s.errors.length === 0, s.errors);
       await s.ctx.close();
     }

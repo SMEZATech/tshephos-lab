@@ -690,7 +690,7 @@ let audioCtx=null, dest=null, transcribeDest=null, vidSrcNode=null, vidGain=null
 const INTRO_DUR=2.5, OUTRO_DUR=3.0;
 // The Summit intro is two cards (talk title, then speaker), so it needs twice the stage time.
 const SUMMIT_INTRO_DUR=5.0;
-function introDur(){ return state.introOn ? (state.template==='summit' ? SUMMIT_INTRO_DUR : INTRO_DUR) : 0; }
+function introDur(){ return state.introOn ? (state.template==='summit' ? SUMMIT_INTRO_DUR : (state.template==='smesa26' && window.R26V) ? window.R26V.introDur : INTRO_DUR) : 0; }
 function outroDur(){ return state.outroOn ? (state.outroDur || OUTRO_DUR) : 0; }
 // Clip 1 (the primary upload, videoEl) — trim + tightened pauses apply here.
 function clipDur(){ return Math.max(0, state.trimEnd - state.trimStart - (state.skipTotal || 0)); }
@@ -865,6 +865,30 @@ $('#focusSeg').addEventListener('click', e => {
   const b=e.target.closest('button'); if(!b) return;
   state.focus = b.dataset.focus;
   document.querySelectorAll('#focusSeg button').forEach(x=>x.classList.toggle('on', x===b));
+});
+// ================= SMESA 2026 PREVIEW (server-gated) =================
+// Runs only if /api/rebrand answered 200 for this account. The 2026 video package (intro, glass
+// lower-third, Jakarta captions with a red active-word pill, accent progress bar, light-wipe outro)
+// arrives as source; it registers VIDEO_TEMPLATES.smesa26 and returns the hooks the draw functions
+// above consult while that template is active. Nothing here exists for anyone else.
+if (typeof window.voltOnRebrand === 'function') window.voltOnRebrand((defs) => {
+  if (!defs || !defs.video || !defs.video.source) return;
+  try { window.R26V = (new Function('R26CTX', defs.video.source))({ assets: defs.video.assets || {} }); }
+  catch (e) { console.warn('[Video] 2026 package failed to install', e); return; }
+  const seg = $('#tmplSeg');
+  if (seg && !seg.querySelector('[data-tp="smesa26"]')) {
+    const b = document.createElement('button'); b.dataset.tp = 'smesa26';
+    b.innerHTML = 'SME SA 2026 <span class="r26-pill">2026 · Preview</span>';
+    seg.insertBefore(b, seg.querySelector('[data-tp="free"]'));
+  }
+  const fi = $('#f-intro');
+  if (fi && !$('#r26VideoFields')) {
+    const w = document.createElement('div'); w.id = 'r26VideoFields'; w.style.display = state.template === 'smesa26' ? 'block' : 'none';
+    w.innerHTML = '<input type="text" id="r26Kicker" placeholder="2026 series line — e.g. SME Webinars · Session 14 (also the lower-third pill)" />'
+      + '<input type="text" id="r26Cta" placeholder="2026 outro button — e.g. Join for Free" />';
+    fi.appendChild(w);
+  }
+  if (window._r26PendingLook) { const d = window._r26PendingLook; window._r26PendingLook = null; restoreLook(d); }
 });
 // Format template picker — applies a preset, then gets out of the way.
 { const seg=$('#tmplSeg'); if(seg) seg.addEventListener('click', e => {
@@ -1626,6 +1650,7 @@ function drawSummitOutro(p){
 // --- INTRO -----------------------------------------------------------------------------------
 function drawIntroCard(p){
   if(state.template === 'summit'){ drawSummitIntro(p); return; }
+  if(state.template==='smesa26' && window.R26V){ window.R26V.intro(p); return; }   // gated 2026 package (see the SMESA 2026 block)
   const P=brandPalette();
   ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
   cardBg(p,P);
@@ -1707,6 +1732,7 @@ function drawIntroCard(p){
 // --- OUTRO -----------------------------------------------------------------------------------
 function drawOutroCard(p){
   if(state.template === 'summit'){ drawSummitOutro(p); return; }
+  if(state.template==='smesa26' && window.R26V){ window.R26V.outro(p); return; }
   const P=brandPalette();
   ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
   cardBg(p,P);
@@ -2592,6 +2618,7 @@ function capBoxInk(c){
   return (0.2126*r + 0.7152*g + 0.0722*b) > 0.45 ? '#0A0B0F' : '#ffffff';
 }
 function drawCaptions(ct){
+  if(state.template==='smesa26' && window.R26V && window.R26V.captions(ct)) return;
   const line = state.lines.find(L => ct >= L.start - 0.06 && ct <= L.end + 0.30);
   if(!line) return;
   const fs = Math.round(W * (CAP_SIZE[state.capSize] || 0.058));
@@ -2671,6 +2698,7 @@ function drawProgress(){ drawProgressAt(t); }
 function drawProgressAt(tt){
   if(!state.progressOn) return;
   const p = Math.max(0, Math.min(1, tt / Math.max(0.001, totalDur())));
+  if(state.template==='smesa26' && window.R26V && window.R26V.progress(p)) return;
   const h = Math.max(5, Math.round(H*0.008));
   ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(0, H - h, W, h);
   ctx.fillStyle = state.template==='summit' ? '#ffffff' : '#B6FF3D'; ctx.fillRect(0, H - h, W*p, h);
@@ -2733,6 +2761,8 @@ function applyTemplate(key, opts){
   if(key==='summit' && document.fonts && document.fonts.load)
     ['700 40px Oswald','400 40px Oswald','400 40px Roboto','700 40px Roboto','800 40px "Plus Jakarta Sans"']
       .forEach(f => document.fonts.load(f).catch(()=>{}));
+  if(key==='smesa26' && window.R26V) window.R26V.loadFonts();
+  { const r26f = $('#r26VideoFields'); if(r26f) r26f.style.display = key==='smesa26' ? 'block' : 'none'; }
   document.querySelectorAll('#tmplSeg button').forEach(b=>b.classList.toggle('on', b.dataset.tp===key));
   const noteEl = $('#tmplNote'); if(noteEl) noteEl.textContent = t.note;
   // Q&A fields only make sense for Q&A.
@@ -2983,6 +3013,7 @@ function drawQuestion(ct){
 }
 
 function drawNameTag(ct){
+  if(state.template==='smesa26' && window.R26V && window.R26V.nameTag(ct)) return;
   if(ct < 0 || ct > 5.0) return;
   const nm = ($('#nameName').value || '').trim(); if(!nm) return;
   const title = ($('#nameTitle').value || '').trim();
@@ -3822,6 +3853,7 @@ function restoreLook(d){
   // Template first and QUIETLY: it presets the toggles, and the saved values below must win over
   // the preset (that's the whole point of saving a look you then customised).
   if(d.template && VIDEO_TEMPLATES[d.template]) applyTemplate(d.template, { quiet:true });
+  else if(d.template === 'smesa26') window._r26PendingLook = d;   // gated template not installed yet
   if(d.brandOff!=null){ state.brandOffOn = !!d.brandOff; const bo=$('#tog-brandoff'); if(bo) bo.classList.toggle('on', !!d.brandOff); }
   if(d.outroDur!=null) state.outroDur = d.outroDur;
   if(d.qaDur!=null){ state.qaDur = d.qaDur; syncSeg('#qaDurSeg', d.qaDur); }
