@@ -303,6 +303,18 @@ Keep it warm and practical."></textarea>
         </select>
         <button type="button" class="addlink" id="loadStarter" style="margin-top:8px; display:none;">⬇ Load starter layout</button>
         <span class="opt" id="starterHint" style="display:none; margin-left:8px;">— drops the full ready-made design into the editor to tweak</span>
+        <!-- SMESA 2026 (gated). Filled and shown only when /api/rebrand answered 200 for this account
+             and a 2026 template is selected; see the "SMESA 2026 PREVIEW" block in the script. -->
+        <div id="r26Panel" style="display:none; margin-top:14px; padding:14px; border:1px solid rgba(255,153,0,.35); border-radius:12px;">
+          <label class="lbl">2026 masthead <span class="r26-pill">2026 · Preview</span> <span class="opt">— only you can see the 2026 templates until release</span></label>
+          <input id="r26-series" placeholder="Series line (e.g. The Tuesday Brief)" style="margin-top:6px;" />
+          <input id="r26-date" placeholder="Date / issue (top right)" style="margin-top:6px;" />
+          <input id="r26-title" placeholder="Masthead headline" style="margin-top:6px;" />
+          <input id="r26-sub" placeholder="Masthead standfirst" style="margin-top:6px;" />
+          <label class="lbl" style="margin-top:14px;">2026 sections <span class="opt">— reorder, remove or add; edit the words in the preview</span></label>
+          <div id="r26Sections" style="margin-top:6px;"></div>
+          <div style="display:flex; gap:8px; margin-top:8px;"><select id="r26AddType" style="flex:1;"></select><button type="button" class="addlink" id="r26Add">＋ Add section</button></div>
+        </div>
       </div>
       <div class="field">
         <label class="lbl">Personalize <span class="opt">— insert a Kit merge field into the focused box</span></label>
@@ -1376,12 +1388,13 @@ function assemble(bodyHtml, editable){
     return protectiveWrap(b);
   }
   // Self-contain every section's typography so preview and the sent email match everywhere.
-  const inner = inlineBaseTypography(currentContent(bodyHtml));
+  const typo = currentTpl().typo || null;   // 2026 templates: Jakarta/Inter/ink, never the 2024 Oswald/Roboto
+  const inner = inlineBaseTypography(currentContent(bodyHtml), typo);
   // Everything between the shell (body + all sections) is editable — text & links, not the shell design.
   const content = editable ? '<div class="volt-editable">' + inner + '</div>' : inner;
   // The family backstop runs over the WHOLE email, shell included — the header/footer had bare
   // sized text too, so normalising only the middle still left a face mismatch top and bottom.
-  return normalizeFontStacks(ensureFontFamily(shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom()));
+  return normalizeFontStacks(ensureFontFamily(shellTopWithGreeting() + '\n' + content + '\n' + currentTpl().bottom(), typo), typo);
 }
 // Minimal Outlook + Gmail-safe wrapper: MSO ghost table (fixes Outlook width) + a 600px
 // centred container with safe defaults. Used for pasted/imported HTML.
@@ -1395,7 +1408,7 @@ function protectiveWrap(inner){
 
 function previewDoc(fragment){
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">`
-    + `<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700;900&family=Roboto:wght@400;700&display=swap" rel="stylesheet">`
+    + `<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700;900&family=Roboto:wght@400;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">`
     + `</head><body style="margin:0;">${fragment}</body></html>`;
 }
 
@@ -2389,6 +2402,83 @@ async function suggestWeeklyAction(){
 }
 (function(){ const b=document.getElementById('suggestAction'); if(b) b.addEventListener('click', suggestWeeklyAction); })();
 
+// ================= SMESA 2026 PREVIEW (server-gated) =================
+// Runs only if /api/rebrand answered 200 for this account (voltOnRebrand never calls back otherwise).
+// The five mailers, their starters and the 2026 section library all arrive as source from that
+// route; this block registers them under NEW keys (t26*), adds them to the picker under a
+// "2026 · Preview" group, and drives the masthead fields + section panel. Sections are the
+// top-level [data-s26] blocks of the freeform body, so reordering is a DOM move, nothing more.
+let R26E = null;
+function r26Active(){ return !!(currentTpl() && currentTpl().r26); }
+function r26Mast(){
+  const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const o = {}; [['series','r26-series'],['date','r26-date'],['title','r26-title'],['sub','r26-sub']].forEach(([k,id]) => { if(v(id)) o[k] = v(id); });
+  return o;
+}
+function r26Doc(){ return new DOMParser().parseFromString('<!doctype html><html><body>' + (state.editedContent || '') + '</body></html>', 'text/html'); }
+function r26Blocks(doc){ return [].filter.call(doc.body.children, el => el.hasAttribute('data-s26')); }
+function r26Commit(doc){ state.freeform = true; state.editedContent = doc.body.innerHTML; renderPreview(state.body || ''); r26RenderPanel(); if(typeof scheduleAutosave === 'function') scheduleAutosave(); }
+function r26RenderPanel(){
+  const panel = document.getElementById('r26Panel'); if(!panel) return;
+  panel.style.display = r26Active() ? 'block' : 'none';
+  if(!r26Active() || !R26E) return;
+  const list = document.getElementById('r26Sections');
+  const names = {}; R26E.sections.forEach(x => { names[x.key] = x.label; });
+  const blocks = state.freeform && state.editedContent ? r26Blocks(r26Doc()) : [];
+  list.innerHTML = blocks.length ? blocks.map((b, i) => {
+    const k = b.getAttribute('data-s26');
+    return '<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border:1px solid rgba(255,255,255,.08);border-radius:8px;margin-bottom:4px;font-size:12px;">'
+      + '<span style="flex:1;">' + esc(names[k] || k) + '</span>'
+      + '<button type="button" class="mini" data-r26="up" data-i="' + i + '"' + (i ? '' : ' disabled') + '>▲</button>'
+      + '<button type="button" class="mini" data-r26="down" data-i="' + i + '"' + (i < blocks.length - 1 ? '' : ' disabled') + '>▼</button>'
+      + '<button type="button" class="mini" data-r26="del" data-i="' + i + '">✕</button></div>';
+  }).join('') : '<p class="opt" style="margin:0;">Load the starter layout (or add a section) to build with 2026 sections.</p>';
+}
+function r26Move(i, dir){
+  const doc = r26Doc(), b = r26Blocks(doc), el = b[i]; if(!el) return;
+  if(dir === 'del') el.remove();
+  else if(dir === 'up' && b[i - 1]) b[i - 1].before(el);
+  else if(dir === 'down' && b[i + 1]) b[i + 1].after(el);
+  r26Commit(doc);
+}
+function r26Add(){
+  const key = document.getElementById('r26AddType').value;
+  const sec = R26E && R26E.sections.find(x => x.key === key); if(!sec) return;
+  if(!state.freeform || state.editedContent == null) { state.editedContent = currentContent(state.body || ''); }
+  const doc = r26Doc(), tmp = doc.createElement('div'); tmp.innerHTML = sec.html();
+  [].slice.call(tmp.childNodes).forEach(n => doc.body.appendChild(n));
+  r26Commit(doc);
+}
+function r26SyncMastDefaults(){
+  if(!r26Active()) return;
+  const m = currentTpl().mast || {};
+  [['series','r26-series'],['date','r26-date'],['title','r26-title'],['sub','r26-sub']].forEach(([k,id]) => {
+    const el = document.getElementById(id); if(!el) return;
+    el.placeholder = (m[k] || '').replace(/<[^>]+>/g, '').replace(/&rsquo;/g, '’').replace(/&middot;/g, '·').replace(/&#9889;/g, '⚡');
+  });
+}
+if (typeof window.voltOnRebrand === 'function') window.voltOnRebrand((defs) => {
+  if (!defs || !defs.email || !defs.email.source) return;
+  try { R26E = (new Function('ctx', defs.email.source))({ assets: defs.email.assets, typo: TYPO_2026, mast: r26Mast }); }
+  catch (e) { console.warn('[Email] 2026 templates failed to install', e); return; }
+  Object.keys(R26E.templates).forEach(k => { if (!TEMPLATES[k]) TEMPLATES[k] = R26E.templates[k]; });
+  Object.keys(R26E.starters).forEach(k => { if (!STARTERS[k]) STARTERS[k] = R26E.starters[k]; });
+  const sv = document.getElementById('shellVariant');
+  if (sv && !sv.querySelector('optgroup[data-r26]')) {
+    const g = document.createElement('optgroup'); g.label = 'SME South Africa 2026 · Preview (only you)'; g.setAttribute('data-r26', '1');
+    Object.keys(R26E.templates).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = '✦ ' + R26E.templates[k].label; g.appendChild(o); });
+    sv.insertBefore(g, sv.firstChild);
+    if (window._r26PendingShell && R26E.templates[window._r26PendingShell]) { sv.value = window._r26PendingShell; window._r26PendingShell = null; sv.dispatchEvent(new Event('change')); }
+  }
+  const add = document.getElementById('r26AddType');
+  if (add) add.innerHTML = R26E.sections.map(x => '<option value="' + x.key + '">' + esc(x.label) + '</option>').join('');
+  const ab = document.getElementById('r26Add'); if (ab) ab.onclick = r26Add;
+  const list = document.getElementById('r26Sections');
+  if (list) list.onclick = (e) => { const b = e.target.closest('[data-r26]'); if (b) r26Move(+b.getAttribute('data-i'), b.getAttribute('data-r26')); };
+  ['r26-series','r26-date','r26-title','r26-sub'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', () => { if (r26Active()) renderPreview(state.body || ''); }); });
+  r26SyncMastDefaults(); r26RenderPanel();
+});
+
 // ---- Header-style variant: re-render when the user switches full/light shell ----
 (function(){
   const sv=document.getElementById('shellVariant');
@@ -2398,8 +2488,8 @@ async function suggestWeeklyAction(){
     if(btn) btn.style.display = has ? 'inline-block' : 'none';
     if(hint) hint.style.display = has ? 'inline' : 'none';
   }
-  if(sv) sv.addEventListener('change', ()=>{ syncStarterBtn(); renderPreview(state.body); });
-  if(btn) btn.addEventListener('click', loadStarter);
+  if(sv) sv.addEventListener('change', ()=>{ syncStarterBtn(); r26SyncMastDefaults(); renderPreview(state.body); r26RenderPanel(); });
+  if(btn) btn.addEventListener('click', ()=>{ loadStarter(); r26RenderPanel(); });
   syncStarterBtn();
 })();
 
@@ -2474,7 +2564,7 @@ function insertToken(tok){
 
 // Show the sample on load so the design is visible immediately.
 // ---- Phase B: save / load newsletter drafts (per account, in the database) ----
-const DRAFT_FIELDS = ['brief','subject','previewText','audienceSize','sendHour','greeting','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','ct2-heading','ct2-body','ct2-image','ct2-rr-title','ct2-rr-link','ct3-heading','ct3-body','ct3-image','ct3-rr-title','ct3-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','mc-title','mc-price','mc-was','mc-image','mc-desc','mc-link','mc-btn','mc-also','mc-eyebrow','mc-trust','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
+const DRAFT_FIELDS = ['r26-series','r26-date','r26-title','r26-sub','brief','subject','previewText','audienceSize','sendHour','greeting','shellVariant','ct-heading','ct-body','ct-image','ct-rr-title','ct-rr-link','ct2-heading','ct2-body','ct2-image','ct2-rr-title','ct2-rr-link','ct3-heading','ct3-body','ct3-image','ct3-rr-title','ct3-rr-link','wb-title','wb-desc','wb-date','wb-btn','wb-link','rs-title','rs-desc','rs-link','rs-btn','pc-title','pc-guest','pc-guestlink','pc-cover','pc-desc','pc-link','pc-btn','pc-spotify','pc-apple','pc-youtube','mc-title','mc-price','mc-was','mc-image','mc-desc','mc-link','mc-btn','mc-also','mc-eyebrow','mc-trust','sp-brand','sp-title','sp-body','sp-bullets','sp-link','sp-btn','tk-ritual','tk-shout','tk-title','tk-body','tk-poll','tk-cta','cs-html'];
 const PROJECTS_URL = 'https://tshephos-lab.vercel.app/api/projects';
 let currentDraftId = null;
 function setDraftStatus(msg, kind){ const s=document.getElementById('draftStatus'); if(!s) return; s.textContent=msg||''; s.className='kit-status'+(kind?' '+kind:''); }
@@ -2487,6 +2577,8 @@ function serializeDraft(){
 function restoreDraft(d){
   d=d||{};
   DRAFT_FIELDS.forEach(id=>{ const el=$('#'+id); if(el && d.fields && d.fields[id]!=null) el.value=d.fields[id]; });
+  // A 2026 template's option only exists once /api/rebrand has answered; remember it until then.
+  if(d.fields && /^t26/.test(d.fields.shellVariant||'') && $('#shellVariant') && $('#shellVariant').value !== d.fields.shellVariant) window._r26PendingShell = d.fields.shellVariant;
   state.brief = $('#brief')?$('#brief').value:'';
   try{ audienceHint(); }catch(_){}
   if(d.promos) Object.keys(d.promos).forEach(k=>{ if(!state.promos[k]) return; state.promos[k].on=!!d.promos[k]; const box=document.getElementById('promo-'+k); if(box) box.classList.toggle('on', !!d.promos[k]); });

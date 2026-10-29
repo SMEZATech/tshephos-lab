@@ -200,6 +200,67 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     await ctx.close();
   }
 
+  // ---- SMESA 2026 rebrand gate, in the real pages. /api/rebrand is answered from api/_rebrand/ on
+  // disk for the previewer and 403 for everyone else — exactly the two answers the server gives.
+  console.log('Rebrand 2026 gate (browser):');
+  {
+    const R26 = JSON.stringify((await import(require('url').pathToFileURL(path.join(WEB, 'api', '_rebrand', 'index.js')).href)).definitions());
+    const api = (allowed) => (r) => {
+      const u = r.request().url();
+      if (/\/api\/rebrand/.test(u)) return allowed ? r.fulfill({ status: 200, contentType: 'application/json', body: R26 }) : r.fulfill({ status: 403, contentType: 'application/json', body: '{"code":"REBRAND_PREVIEW_ONLY"}' });
+      return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    };
+    // brand26/ assets are fetched by absolute URL; serve them from this checkout.
+    const assets = async (p) => p.route('https://tshephos-lab.vercel.app/brand26/**', r => r.fulfill({ path: path.join(WEB, 'brand26', r.request().url().split('/brand26/')[1]) }));
+    for (const [who, email, allowed] of [['Joel', 'joel@smesouthafrica.co.za', true], ['a teammate', 'thabo@smesouthafrica.co.za', false]]) {
+      const s = await open(email, api(allowed), assets);
+      await s.page.goto(base + '/studio.html', { waitUntil: 'domcontentloaded' });
+      await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
+      await s.page.waitForTimeout(allowed ? 9000 : 5000);
+      const st = await s.page.evaluate(() => ({
+        fam: !!document.getElementById('ct-r26funding'), pill: !!document.querySelector('#ct-r26funding .r26-pill'),
+        n: document.querySelectorAll('.r26-fam').length,
+        kit: (typeof loadBrands === 'function') ? loadBrands().some(b => b.id === 'sme26') : null,
+        stored: (() => { try { return (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0; } catch (e) { return false; } })() }));
+      if (allowed) {
+        expect('Studio, ' + who + ': nine 2026 families appear, each with the 2026 · Preview pill', st.n === 9 && st.pill, st);
+        expect('Studio, ' + who + ': the "SME South Africa 2026" kit is offered', st.kit === true, st);
+        expect('Studio, ' + who + ': …and is never written into the shared Brand Kit', st.stored === false, st);
+        const ok = await s.page.evaluate(async () => { setActiveBrandId('sme26'); applyBrand(); setContentType('r26funding');
+          const d = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26funding', dir: 'a', vals: premVals, w: 1080, h: 1350, scale: 1, trace: true });
+          const rc = VoltRenderChecks.assertDesign(d.trace, 1080, 1350);
+          return { type: state.contentType, bytes: d.blob && d.blob.size, head: (d.trace || []).some(t => t.role === 'headline' && /R5 million/.test(t.text)), err: rc.error || null,
+                   stored: (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0 }; });
+        expect('Studio, ' + who + ': a 2026 family renders through the page worker and passes render-checks', ok.type === 'r26funding' && ok.bytes > 10000 && ok.head && !ok.err, ok);
+        expect('Studio, ' + who + ': choosing the 2026 kit still writes nothing to the shared Brand Kit', ok.stored === false, ok);
+      } else {
+        expect('Studio, ' + who + ': no 2026 family, no 2026 kit', !st.fam && st.n === 0 && st.kit === false, st);
+      }
+      await s.page.goto(base + '/email.html', { waitUntil: 'domcontentloaded' });
+      await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
+      await s.page.waitForTimeout(5000);
+      const em = await s.page.evaluate(() => ({ opts: [].map.call(document.querySelectorAll('#shellVariant option'), o => o.value).filter(v => /^t26/.test(v)),
+        tpl: typeof TEMPLATES === 'object' ? Object.keys(TEMPLATES).filter(k => /^t26/.test(k)).length : -1 }));
+      if (allowed) {
+        expect('Email, ' + who + ': five 2026 templates in the picker', em.opts.length === 5 && em.tpl === 5, em);
+        const out = await s.page.evaluate(() => { const sv = document.getElementById('shellVariant'); sv.value = 't26funding'; sv.dispatchEvent(new Event('change'));
+          loadStarter(); r26RenderPanel(); const f = assemble(state.body || '', false);
+          return { jak: /Plus Jakarta Sans/.test(f), oswald: /Oswald|Roboto/.test(f), unsub: /\{\{ unsubscribe_url \}\}/.test(f), sections: (f.match(/data-s26=/g) || []).length,
+                   panel: document.getElementById('r26Panel').style.display, rows: document.querySelectorAll('#r26Sections [data-r26="up"]').length }; });
+        expect('Email, ' + who + ': the Funding Weekly starter assembles in 2026 type, no Oswald/Roboto, merge tags intact', out.jak && !out.oswald && out.unsub && out.sections >= 6, out);
+        expect('Email, ' + who + ': the 2026 panel lists its sections for reordering', out.panel === 'block' && out.rows === out.sections, out);
+        const mv = await s.page.evaluate(() => { const before = [].map.call(document.querySelectorAll('#r26Sections span'), x => x.textContent);
+          document.querySelector('#r26Sections [data-r26="down"][data-i="0"]').click();
+          const after = [].map.call(document.querySelectorAll('#r26Sections span'), x => x.textContent); return { before: before.slice(0, 2), after: after.slice(0, 2) }; });
+        expect('Email, ' + who + ': ▼ moves a section down', mv.before[0] === mv.after[1] && mv.before[1] === mv.after[0], mv);
+      } else {
+        expect('Email, ' + who + ': no 2026 template anywhere', em.opts.length === 0 && em.tpl === 0, em);
+      }
+      expect('no page errors (' + who + ')', s.errors.length === 0, s.errors);
+      await s.ctx.close();
+    }
+  }
+
   await browser.close(); srv.close();
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
