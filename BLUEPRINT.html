@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-09-29</strong> (Studio copy rotation — the same copy can never ship twice on the same design + size; see the Change log).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-10-29</strong> (SMESA 2026 rebrand built into Studio, Email and Video behind a server gate, visible only to Joel until release; see the Change log).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -127,7 +127,7 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>API surface</h2>
   <p>4 functions stay top-level (hot/heavy paths get their own cold-start budget): <code>generate.js</code>, <code>transcribe.js</code>, <code>postiz.js</code>, <code>projects.js</code>.</p>
-  <p>Everything else dispatches through one catch-all, <code>api/[...volt].js</code>, to handlers in <code>api/_routes/</code>: <code>kit, image, upload, scrape, assets, billing, paystack, brain, instagram, facebook, tiktok, mcp, copyuse</code>. Public URLs are unchanged either way (<code>/api/kit</code> etc.) — this exists only to stay under Vercel Hobby's 12-function cap.</p>
+  <p>Everything else dispatches through one catch-all, <code>api/[...volt].js</code>, to handlers in <code>api/_routes/</code>: <code>kit, image, upload, scrape, assets, billing, paystack, brain, instagram, facebook, tiktok, mcp, copyuse, queuehealth, rebrand</code>. Public URLs are unchanged either way (<code>/api/kit</code> etc.) — this exists only to stay under Vercel Hobby's 12-function cap.</p>
 
   <div class="card">
     <h3>MCP server <span class="tag ok">LIVE: generate-only</span></h3>
@@ -190,6 +190,7 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   <div class="card">
     <h3>Joel's to do (nobody else has DB/dashboard access)</h3>
     <p><strong>Done 2026-10-06:</strong> <code>studio_copy_use</code> exists in Supabase (all 14 columns verified), so copy rotation is guarding the whole team, not each browser separately.</p>
+    <p><strong>SMESA 2026 rebrand: release when ready.</strong> One change: <code>REBRAND_2026_OPEN</code> (flag in <code>api/_guard.js</code> or <code>=1</code> in Vercel env) opens it to every signed-in user; <code>REBRAND_2026_EMAILS</code> widens it to named people. Also open: <code>api/_rebrand/</code> sits in this <em>public</em> GitHub repo (not served by the site, but readable on GitHub). Decide whether to move it to a private store. Details: <code>rebrand-2026/REVIEW-NOTES.md</code> (outside both repos).</p>
     <p>Hard spend caps / budget alerts on Gemini, Groq and Vercel — the plan is uncapped, so this is the only backstop against a runaway loop or a leaked session.</p>
   </div>
   <div class="card">
@@ -202,6 +203,32 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-10-29</span>
+    <strong>SMESA 2026 rebrand, built in and gated to Joel</strong>. The approved concepts (nine Studio families, five mailers, a four-card video package) are now real templates, visible only to <code>joel@smesouthafrica.co.za</code> until release.
+    <strong>The gate is server-side.</strong> <code>isRebrandPreviewer(s)</code> in <code>_guard.js</code> checks the session email against <code>REBRAND_2026_EMAILS</code> (default Joel). <code>GET /api/rebrand</code> (routed, no new function) returns the definitions to a previewer and <strong>403</strong> to everyone else, including a signed-out caller, with <code>private, no-store</code>. <strong>Every template definition lives in <code>api/_rebrand/</code></strong>, never in <code>app/*.js</code>. Draw code travels as source and is installed at runtime:
+    <ul>
+      <li>Studio posts it into the worker (<code>install-r26</code>), and <code>drawPremium</code>/<code>drawLandscape</code> consult <code>self.R26_DRAW</code> first.</li>
+      <li>Email evaluates it into <code>TEMPLATES.t26*</code> and <code>STARTERS</code>.</li>
+      <li>Video registers <code>VIDEO_TEMPLATES.smesa26</code> and <code>window.R26V</code> hooks.</li>
+    </ul>
+    Pages only ship <code>voltOnRebrand(fn)</code> (in volt-auth), <code>brand-2026.js</code> (tokens, already public on the CI page) and <code>brand26/</code> (official lockups; build-sync now copies binary files).
+    <strong>Traps worth knowing:</strong>
+    <ol>
+      <li>Studio's Brand Kit row is shared org-wide, so the "SME South Africa 2026" kit is <em>virtual</em>: listed but filtered out of every save and push, and chosen per-browser (<code>volt_r26_kit_active</code>). Writing it to the row would have shown it to the team.</li>
+      <li><code>inlineBaseTypography</code>/<code>ensureFontFamily</code>/<code>normalizeFontStacks</code> take an optional type set. 2026 templates pass <code>TYPO_2026</code>, otherwise their sends revert to Oswald/Roboto at send time. 2024 output is unchanged.</li>
+      <li>Jakarta is now in Studio's worker font buffers, and the install re-adds Jakarta/Inter, because <code>loadFonts</code> runs once per worker.</li>
+      <li>The video hero and glows are baked once per frame size. There is no per-frame <code>ctx.filter</code>.</li>
+    </ol>
+    <strong>Tests:</strong>
+    <ul>
+      <li><code>tests/rebrand.test.mjs</code> (12, in smoke) covers the route both ways and both release switches.</li>
+      <li><code>tests/browser.test.cjs</code> checks the three real pages as Joel and as a teammate (44 total).</li>
+      <li><code>smoke.cjs</code> fails if 2026 template content appears in any public file.</li>
+      <li><code>ci-render.cjs</code> serves <code>__rebrand26.json</code> from disk to <code>smoke.html</code>, so the families go through render-checks on every push (2,736/2,736). The deployed site has no such file.</li>
+    </ul>
+    Verified live: no session and a bogus token both get 403, and no template fingerprint appears in any served page or asset. <strong>Not verified:</strong> a real sign-in as Joel on the live site. <strong>Open:</strong> this repo is public on GitHub, so <code>api/_rebrand/</code> is readable there (see Open items).
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-10-09</span>
     <strong>Scheduler false alarm fixed</strong> — the 7 Oct fail-loudly change made the Facebook and TikTok drains return 502 (red GitHub runs, false “schedule can’t be read” banner) because <code>fb_queue</code> and <code>tiktok_queue</code> were never created in Supabase. A missing table is now reported as <code>notSetUp</code> (200 + the sql file to run); a real outage is still 502. Run <code>sql/fb_queue.sql</code> / <code>sql/tiktok_queue.sql</code> to enable those platforms. Lesson: distinguish “not set up” from “down” whenever a failure is made loud.
