@@ -370,6 +370,27 @@
       }
     }
 
+    // ---- SMESA 2026 families (gated) ---------------------------------------------------------
+    // Their draw code is served only by /api/rebrand to previewers, so it is NOT on this public page.
+    // ci-render.cjs's local server exposes it at __rebrand26.json, read straight from api/_rebrand/ on
+    // disk; the deployed site has no such file, so opened in production this block simply skips.
+    let r26 = null;
+    try { const rr = await fetch('__rebrand26.json', { cache: 'no-store' }); if (rr.ok) r26 = await rr.json(); } catch (e) { }
+    if (r26 && r26.studio) {
+      const ab = async (u) => { try { const x = await fetch(String(u || '').replace(/^https:\/\/tshephos-lab\.vercel\.app\//, '')); return x.ok ? await x.blob() : null; } catch (e) { return null; } };
+      await post({ type: 'install-r26', src: r26.studio.engine, assets: { rev: await ab(r26.kit.logo), light: await ab(r26.kit.logoDark), cube: await ab(r26.kit.cube), summit: await ab(r26.kit.summit) } });
+      for (const fam of Object.keys(r26.studio.families)) {
+        for (const dir of Object.keys(r26.studio.families[fam].dirs)) {
+          const vals = Object.assign({ url: 'smesouthafrica.co.za' }, r26.studio.families[fam].dirs[dir].fields);
+          for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['story', [1080, 1920]], ['landscape', [1200, 628]]]) {
+            await run('r26/' + fam + '/' + dir + '/' + sz,
+              { type: 'render-premium', brand, fontBuffers: {}, featuredBlob, premType: fam, dir, vals, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
+              wh[0] * S, wh[1] * S);
+          }
+        }
+      }
+    }
+
     const total = results.length;
     const passed = results.filter(r => r.ok).length;
     banner.className = failCount === 0 ? 'pass' : 'fail';

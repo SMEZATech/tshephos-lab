@@ -21,6 +21,7 @@ const path = require("path");
 
 const PORT = Number(process.env.CI_RENDER_PORT || 8977);
 const ROOT = __dirname;
+let R26 = null;
 
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml" };
@@ -29,6 +30,9 @@ function serve() {
   return new Promise((resolve) => {
     const srv = http.createServer((req, res) => {
       const rel = decodeURIComponent(req.url.split("?")[0]).replace(/^\/+/, "") || "index.html";
+      // The gated SMESA 2026 definitions, straight from api/_rebrand/ on disk — this local test server
+      // is the ONLY place they are served without the /api/rebrand gate. smoke.html renders them if present.
+      if (rel === "__rebrand26.json" && R26) { res.writeHead(200, { "Content-Type": "application/json" }); return res.end(R26); }
       const file = path.join(ROOT, rel);
       if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
         res.writeHead(404); return res.end("not found");
@@ -51,6 +55,8 @@ function serve() {
     process.exit(0);
   }
 
+  try { R26 = JSON.stringify((await import("./api/_rebrand/index.js")).definitions()); }
+  catch (e) { console.log("✗ api/_rebrand failed to load: " + e.message); process.exit(1); }
   const srv = await serve();
   const browser = await chromium.launch();
   let code = 1;

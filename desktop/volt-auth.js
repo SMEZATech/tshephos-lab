@@ -1728,6 +1728,46 @@
   window.addEventListener("load", applyOrgSettings);
   window.addEventListener("volt:ready", refreshOrgSettings);
 
+  /* ---------- SMESA 2026 rebrand preview (server-gated) ----------
+     The 2026 templates are NOT in any app/*.js file — /api/rebrand serves them only to the
+     addresses isRebrandPreviewer allows (Joel, until he says "release"), and answers 403 to
+     everyone else. So this loader is all a page ever ships: ask once after sign-in, and only if
+     the server says yes hand the definitions to the page. Kept in memory, never in localStorage,
+     so nothing survives a sign-out into the next person's session on a shared browser.
+     Pages call window.voltOnRebrand(fn) — fn(defs) runs once the defs arrive (or immediately, if
+     they already have), and never runs at all for anyone else. Volt only; Vantly has no rebrand. */
+  var _r26 = { defs: null, waiting: [], asked: false };
+  window.voltOnRebrand = function (fn) {
+    if (typeof fn !== "function") return;
+    if (_r26.defs) { try { fn(_r26.defs); } catch (e) { console.warn("[rebrand]", e); } }
+    else _r26.waiting.push(fn);
+  };
+  function loadRebrand() {
+    if (_r26.asked || BRAND !== BRANDS.volt) return;
+    _r26.asked = true;
+    fetch("https://tshephos-lab.vercel.app/api/rebrand", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.kit) return;
+        _r26.defs = d;
+        window.voltRebrand2026 = true;
+        var q = _r26.waiting.splice(0);
+        q.forEach(function (fn) { try { fn(d); } catch (e) { console.warn("[rebrand]", e); } });
+        try { window.dispatchEvent(new CustomEvent("volt:rebrand", { detail: d })); } catch (e) {}
+      })
+      .catch(function () {});
+  }
+  window.addEventListener("volt:ready", loadRebrand);
+  // The "2026 · Preview" pill every gated option wears, so Joel always knows what he's looking at.
+  (function () {
+    var st = document.createElement("style");
+    st.id = "va-r26-style";
+    st.textContent = ".r26-pill{display:inline-block;vertical-align:middle;margin-left:6px;padding:2px 6px;border-radius:6px;" +
+      "background:linear-gradient(135deg,#DC183C,#FF9900);color:#fff;font:800 9px/1.2 'Plus Jakarta Sans',Inter,system-ui,sans-serif;" +
+      "letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}";
+    (document.head || document.documentElement).appendChild(st);
+  })();
+
   /* ---------- universal autosave — never lose typed work ----------
      Text fields alone were not enough. A user would generate an email, edit it in the preview,
      set up a Studio design or a Video look, come back and find it gone — because none of that

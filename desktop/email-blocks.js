@@ -313,6 +313,27 @@ const FAM_HEAD = "'Oswald','Arial Narrow',Arial,sans-serif";
 
 const FAM_BODY = "'Roboto',Arial,Helvetica,sans-serif";
 
+// THE 2026 TYPE SET (SMESA rebrand, gated templates t26*). Tokens only — they are public on the
+// brand CI; the templates themselves come from /api/rebrand. A 2026 template passes this as `typo`
+// to the three passes below. Without it they would normalise every bare <p>/<h2> back to the 2024
+// Oswald/Roboto look at SEND time, and the new emails would silently revert to the old fonts.
+// Stacks fall back to Helvetica/Arial because Outlook never loads the web fonts.
+const FAM_HEAD_2026 = "'Plus Jakarta Sans',Helvetica,Arial,sans-serif";
+const FAM_BODY_2026 = "Inter,Helvetica,Arial,sans-serif";
+const TYPO_2024 = { P: BASE_P, H2: BASE_H2, H3: BASE_H3, LI: BASE_LI, RR: BASE_RR, HEAD: FAM_HEAD, BODY: FAM_BODY };
+const TYPO_2026 = {
+  y2026: true,
+  P:  "font-family:" + FAM_BODY_2026 + ";color:#121A21;font-size:16px;line-height:1.65;margin:0 0 16px 0;",
+  H2: "font-family:" + FAM_HEAD_2026 + ";color:#121A21;font-size:24px;font-weight:800;line-height:1.22;letter-spacing:-0.4px;margin:0 0 12px 0;",
+  H3: "font-family:" + FAM_HEAD_2026 + ";color:#121A21;font-size:19px;font-weight:800;line-height:1.3;margin:18px 0 8px 0;",
+  LI: "font-family:" + FAM_BODY_2026 + ";color:#121A21;font-size:16px;line-height:1.65;margin:0 0 6px 0;",
+  RR: "background-color:#F0F5F9;padding:14px 18px;border-left:4px solid #DC183C;margin:4px 0 20px 0;font-size:15px;line-height:1.4;border-radius:0 12px 12px 0;color:#121A21;font-family:" + FAM_HEAD_2026 + ";font-weight:700;",
+  A:  "color:#DC183C;font-weight:700;text-decoration:none;border-bottom:1px solid rgba(220,24,60,0.3);",
+  IMG: "display:block;width:100%;max-width:520px;height:auto;border:0;border-radius:12px;margin:0 0 18px 0;",
+  HR: '<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:28px 0;"><tr><td height="1" bgcolor="#E7EBEF" style="height:1px;font-size:0;line-height:0;background:#E7EBEF;">&nbsp;</td></tr></table>',
+  HEAD: FAM_HEAD_2026, BODY: FAM_BODY_2026
+};
+
 function injectBaseStyle(tag, base){
   if(/font-size\s*:/i.test(tag)) return tag;                 // intentionally-styled component (promo) — leave it
   const m = tag.match(/\bstyle\s*=\s*"([^"]*)"/i);
@@ -323,33 +344,47 @@ function injectBaseStyle(tag, base){
   return tag.replace(/^<(\w+)/, '<$1 style="' + base + '"');
 }
 
-function inlineBaseTypography(html){
-  return String(html || '')
-    .replace(/<p\b[^>]*>/gi,  t => injectBaseStyle(t, BASE_P))
-    .replace(/<h1\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H2))
-    .replace(/<h2\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H2))
-    .replace(/<h3\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H3))
-    .replace(/<h4\b[^>]*>/gi, t => injectBaseStyle(t, BASE_H3))
-    .replace(/<li\b[^>]*>/gi, t => injectBaseStyle(t, BASE_LI))
-    .replace(/<div\b[^>]*\bclass="[^"]*related-reading[^"]*"[^>]*>/gi, t => injectBaseStyle(t, BASE_RR));
+function inlineBaseTypography(html, typo){
+  const T = typo || TYPO_2024;
+  let out = String(html || '')
+    .replace(/<p\b[^>]*>/gi,  t => injectBaseStyle(t, T.P))
+    .replace(/<h1\b[^>]*>/gi, t => injectBaseStyle(t, T.H2))
+    .replace(/<h2\b[^>]*>/gi, t => injectBaseStyle(t, T.H2))
+    .replace(/<h3\b[^>]*>/gi, t => injectBaseStyle(t, T.H3))
+    .replace(/<h4\b[^>]*>/gi, t => injectBaseStyle(t, T.H3))
+    .replace(/<li\b[^>]*>/gi, t => injectBaseStyle(t, T.LI))
+    .replace(/<div\b[^>]*\bclass="[^"]*related-reading[^"]*"[^>]*>/gi, t => injectBaseStyle(t, T.RR));
+  if (T.y2026) {
+    // The 2026 shell's <style> block is resets + phone stacking only, so the bits the 2024 shell
+    // styled from its stylesheet (generated-body links, images, the dashed divider) are inlined here.
+    out = out.split(HR).join(T.HR)
+      .replace(/<hr\b[^>]*>/gi, T.HR)
+      .replace(/<img\b[^>]*\bclass="[^"]*newsletter-image[^"]*"[^>]*>/gi, t => /\bstyle\s*=/.test(t) ? t : t.replace(/^<img/i, '<img style="' + T.IMG + '"'))
+      .replace(/<a\b(?![^>]*\bstyle\s*=)([^>]*)>/gi, '<a style="' + T.A + '"$1>');
+  }
+  return out;
 }
 
-function ensureFontFamily(html){
+function ensureFontFamily(html, typo){
+  const T = typo || TYPO_2024;
   return String(html || '').replace(
     /<(p|h1|h2|h3|h4|h5|h6|li|ul|ol|td|th|span|a|div|blockquote|strong|em|b|i)\b([^>]*)>/gi,
     function(tag, name, attrs){
       if(/font-family\s*:/i.test(attrs)) return tag;                       // already on brand
-      const fam = /^h[1-6]$/i.test(name) ? FAM_HEAD : FAM_BODY;
+      const fam = /^h[1-6]$/i.test(name) ? T.HEAD : T.BODY;
       const m = attrs.match(/\bstyle\s*=\s*"([^"]*)"/i);
       if(m) return tag.replace(m[0], 'style="' + m[1].trim().replace(/;?\s*$/, ';') + 'font-family:' + fam + ';"');
       return '<' + name + attrs + ' style="font-family:' + fam + ';">';
     });
 }
 
-function normalizeFontStacks(html){
+function normalizeFontStacks(html, typo){
+  const T = typo || TYPO_2024;
+  // In a 2026 email Oswald is banned and Roboto isn't the body face, so any 2024 section dropped
+  // into one is pulled onto the 2026 stacks rather than shipping a mixed-font email.
   return String(html || '').replace(/font-family\s*:\s*([^;"]+)/gi, function(decl, list){
-    if(/Oswald/i.test(list)) return 'font-family:' + FAM_HEAD;
-    if(/Roboto/i.test(list)) return 'font-family:' + FAM_BODY;
+    if(/Oswald/i.test(list)) return 'font-family:' + T.HEAD;
+    if(/Roboto/i.test(list)) return 'font-family:' + T.BODY;
     return decl;
   });
 }

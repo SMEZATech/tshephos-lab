@@ -84,8 +84,24 @@ for (const f of fs.readdirSync('.').filter(n => /\.html$/.test(n))) {
 // COPY ROTATION. The rule "the same copy never ships twice on the same design + size + brand" lives
 // in three places that must agree: the selection logic (copy-rotation.js), the server log
 // (api/_routes/copyuse.js) and the written library (copy-library.js). Each has a test here.
+// THE REBRAND GATE, statically. The SMESA 2026 templates live in api/_rebrand/ and are served only by
+// /api/rebrand to previewers. If any of their content shows up in a file this site serves publicly
+// (a page, an app/*.js asset, the hosted desktop copies), the gate is a UI hide and nothing more.
+console.log('Rebrand gate:');
+{
+  const FINGERPRINTS = ['r26Engine', 'r26funding', 'R5 million for *women-led*', 't26tuesday', 'smesa26Cards'];
+  const pub = [];
+  const walk = (d) => { for (const f of fs.readdirSync(d)) { const p2 = path.join(d, f); const rel = path.relative(__dirname, p2).split(path.sep).join('/');
+    if (/^(api|tests|node_modules|\.git|sql|supabase)(\/|$)/.test(rel)) continue;
+    if (fs.statSync(p2).isDirectory()) walk(p2); else if (/\.(html|js|json|css)$/.test(f) && !/^(smoke\.cjs|ci-render\.cjs)$/.test(rel)) pub.push([rel, p2]); } };
+  walk(__dirname);
+  const leaks = [];
+  for (const [rel, p2] of pub) { const c = fs.readFileSync(p2, 'utf8'); for (const fp of FINGERPRINTS) if (c.indexOf(fp) >= 0) leaks.push(rel + ' contains "' + fp + '"'); }
+  if (leaks.length) { fail++; console.error('  x 2026 template content in a public file:\n    ' + leaks.join('\n    ')); }
+  else console.log('  ok no 2026 template content in ' + pub.length + ' public files');
+}
 console.log('Copy rotation:');
-for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs', 'tests/security.test.mjs', 'tests/queue.test.mjs', 'tests/ai.test.mjs', 'tests/meter.test.mjs', 'tests/paystack.test.mjs', 'tests/generate.test.mjs']) {
+for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs', 'tests/security.test.mjs', 'tests/queue.test.mjs', 'tests/ai.test.mjs', 'tests/meter.test.mjs', 'tests/paystack.test.mjs', 'tests/generate.test.mjs', 'tests/rebrand.test.mjs']) {
   try {
     const out = cp.execSync('node "' + t + '"', { stdio: 'pipe' }).toString().trim().split('\n').pop();
     console.log('  ok ' + t + ' — ' + out);

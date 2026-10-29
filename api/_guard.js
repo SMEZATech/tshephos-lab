@@ -442,6 +442,21 @@ function isOwner(s) {
   return String(raw).toLowerCase().split(",").map((x) => x.trim()).filter(Boolean).includes(email);
 }
 
+// ===== SMESA 2026 rebrand preview gate. Joel reviews the 2026 templates (Brand Kit, Studio families,
+// mailers, video package) privately before the team sees them, so /api/rebrand hands the template
+// definitions ONLY to the addresses in REBRAND_2026_EMAILS (comma-separated, same contract as isOwner).
+// RELEASE is one line: set REBRAND_2026_OPEN to true here (or REBRAND_2026_OPEN=1 in Vercel) and every
+// signed-in user gets them; or widen REBRAND_2026_EMAILS to release to named people first. =====
+const REBRAND_2026_OPEN = false;
+function isRebrandPreviewer(s) {
+  if (!s || !s.user) return false;
+  if (REBRAND_2026_OPEN || process.env.REBRAND_2026_OPEN === "1") return true;
+  const email = String(s.user.email || "").toLowerCase();
+  if (!email) return false;
+  const raw = process.env.REBRAND_2026_EMAILS || "joel@smesouthafrica.co.za";
+  return String(raw).toLowerCase().split(",").map((x) => x.trim()).filter(Boolean).includes(email);
+}
+
 // Org-LEVEL actions — connecting a social account, minting the API key — belong to whoever owns the
 // workspace. On a company domain that is the owner (isOwner); a personal-address workspace has exactly
 // one member, who is by definition its owner. Everyone else on a shared workspace can USE the
@@ -532,4 +547,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, meterOrg, _dayCount, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner };
+export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, meterOrg, _dayCount, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner, isRebrandPreviewer };

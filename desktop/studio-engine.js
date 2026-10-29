@@ -1459,6 +1459,7 @@ function drawPremium(r, type, dir, v, assets) {
     r.ctx.textBaseline = 'top';
     v = v || {}; assets = assets || {};
     pGeom(r.w, r.h);                                  // set the vertical rhythm for this canvas
+    if (self.R26_DRAW && self.R26_DRAW(r, type, dir, v, assets)) return;   // gated 2026 families (installR26)
     if (type === 'funding')   return drawFunding(r, dir, v, assets);
     if (type === 'solutions') return drawSolutions(r, dir, v, assets);
     if (type === 'newsletter') return drawNewsletter(r, dir, v, assets);
@@ -2883,6 +2884,7 @@ function drawLandscape(r, type, dir, v, a) {
     // CI never caught it because the suite renders square -> portrait -> landscape -> story, and
     // the only order that breaks it is story -> landscape, which the fixture never produced.
     pGeom(W, H);
+    if (self.R26_DRAW && self.R26_DRAW(r, type, dir, v || {}, a || {})) return;   // gated 2026 families (installR26)
     const pad = 70;
     r.ctx.textBaseline = 'top';
     const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d', 'founder.b', 'founder.c', 'roundup.a', 'roundup.b'].indexOf(key) !== -1;
@@ -3397,6 +3399,23 @@ function drawResources(r, dir, v, a) {
 // flight could repaint an export in a different brand or geometry, and the client resolved whichever
 // 'done' arrived first (it had no way to tell whose it was). The client now sends an id and ignores
 // replies that aren't its own; a client that sends none (an older cached page) gets the old behaviour.
+// GATED EXTENSIONS. The SMESA 2026 families are not in this file — this file is public. Studio fetches
+// them from /api/rebrand (previewers only) and posts the source here; it registers self.R26_DRAW,
+// which drawPremium/drawLandscape consult first. Its lockups arrive as blobs in the same message so
+// a 2026 design never depends on (or picks up) the active Brand Kit's logo. A page that never
+// receives the defs never sends this message, and the engine behaves exactly as before.
+async function installR26(msg) {
+    const a = {};
+    for (const k of ['rev', 'light', 'cube', 'summit']) a[k] = await blobToBitmap(msg.assets && msg.assets[k]);
+    self.R26_ASSETS = a;
+    // Jakarta/Inter are added here regardless of loadFonts' once-only flag: the first render may have
+    // happened before the page had them, and a canvas never fetches a web font on its own.
+    const fb = msg.r26Fonts || {};
+    await Promise.all(Object.keys(fb).map(k => new FontFace(fb[k].family, fb[k].buffer, { weight: String(fb[k].weight) })
+        .load().then(f => self.fonts.add(f)).catch(() => {})));
+    (new Function(String(msg.src || '')))();
+}
+
 let _msgChain = Promise.resolve();
 self.onmessage = (e) => { _msgChain = _msgChain.then(() => handleMessage(e)).catch(() => {}); };
 async function handleMessage(e) {
@@ -3404,6 +3423,7 @@ async function handleMessage(e) {
     const post = (m) => self.postMessage(msg && msg.id !== undefined ? Object.assign({ id: msg.id }, m) : m);
     try {
         applyBrandToWorker(msg.brand);
+        if (msg.type === 'install-r26') { await installR26(msg); post({ type: 'done', ok: !!self.R26_DRAW }); return; }
         if (msg.type === 'render-premium') {
             await loadFonts(msg.fontBuffers);
             const logoW = await blobToBitmap(msg.logoWhiteBlob);

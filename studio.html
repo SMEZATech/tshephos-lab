@@ -748,7 +748,8 @@
 
     // Newsreader/Inter are used by exactly one design now — Funding › The Editorial Brief — and
     // are loaded for it here. Every other family uses Oswald/Roboto.
-    const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap';
+    // Plus Jakarta Sans is the 2026 CI's heading face (the gated 2026 families use it with Inter).
+    const FONTS_CSS_URL = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500;700;900&family=Roboto:wght@400;500;700;900&family=Newsreader:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap';
     const WHITE_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2022/05/sme-white-logo.png';
     // External images come back through OUR origin so no cross-origin fetch is needed — that is
     // what lets the desktop shell run with webSecurity ON. Falls back to the raw URL if volt-auth
@@ -772,13 +773,30 @@
     const ACTIVE_BRAND_KEY = 'volt_active_brand';
     let _bkEditing = null;
 
-    function loadBrands() {
-        try { const a = JSON.parse(localStorage.getItem(BRANDS_KEY) || 'null'); if (Array.isArray(a) && a.length) return a; } catch (e) {}
+    // ---- SMESA 2026 preview kit (server-gated) ----
+    // R26 is filled ONLY when /api/rebrand says this account may preview the 2026 rebrand (see
+    // volt-auth's voltOnRebrand). Its kit is VIRTUAL: listed by loadBrands() but filtered out of
+    // every save and every push, because the brandkit row is shared org-wide and writing it there
+    // would show the 2026 kit to the whole team before release. Choosing it is remembered per
+    // browser (R26_ACTIVE_KEY), never in the shared active-brand id.
+    let R26 = null;
+    const R26_ACTIVE_KEY = 'volt_r26_kit_active';
+    const isVirtualBrand = (b) => !!(b && b.preview && R26 && b.id === R26.kit.id);
+    function storedBrands() {
+        try { const a = JSON.parse(localStorage.getItem(BRANDS_KEY) || 'null'); if (Array.isArray(a) && a.length) return a.filter(b => !b.preview); } catch (e) {}
         return [Object.assign({}, SME_BRAND)];
     }
-    function saveBrands(a) { try { localStorage.setItem(BRANDS_KEY, JSON.stringify(a)); } catch (e) {} pushBrandKit(); }
-    function getActiveBrandId() { try { return localStorage.getItem(ACTIVE_BRAND_KEY) || 'sme'; } catch (e) { return 'sme'; } }
-    function setActiveBrandId(id) { try { localStorage.setItem(ACTIVE_BRAND_KEY, id); } catch (e) {} pushBrandKit(); }
+    function loadBrands() { const a = storedBrands(); return R26 ? a.concat([Object.assign({}, R26.kit)]) : a; }
+    function saveBrands(a) { try { localStorage.setItem(BRANDS_KEY, JSON.stringify(a.filter(b => !b.preview))); } catch (e) {} pushBrandKit(); }
+    function getActiveBrandId() {
+        try { if (R26 && localStorage.getItem(R26_ACTIVE_KEY) === '1') return R26.kit.id; } catch (e) {}
+        try { return localStorage.getItem(ACTIVE_BRAND_KEY) || 'sme'; } catch (e) { return 'sme'; }
+    }
+    function setActiveBrandId(id) {
+        if (R26 && id === R26.kit.id) { try { localStorage.setItem(R26_ACTIVE_KEY, '1'); } catch (e) {} return; }
+        try { localStorage.removeItem(R26_ACTIVE_KEY); } catch (e) {}
+        try { localStorage.setItem(ACTIVE_BRAND_KEY, id); } catch (e) {} pushBrandKit();
+    }
 
     // ---- Phase B: sync the Brand Kit to the account so the whole org shares brands ----
     const PROJECTS_URL = '/api/projects';
@@ -815,7 +833,7 @@
         _bkPushT = setTimeout(async () => {
             try {
                 const r = await fetch(PROJECTS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ op: 'save', id: _brandKitId, type: 'brandkit', title: 'Brand Kit', data: { brands: loadBrands(), active: getActiveBrandId() } }) });
+                    body: JSON.stringify({ op: 'save', id: _brandKitId, type: 'brandkit', title: 'Brand Kit', data: { brands: storedBrands(), active: (function () { try { return localStorage.getItem(ACTIVE_BRAND_KEY) || 'sme'; } catch (e) { return 'sme'; } })() } }) });
                 const data = await r.json().catch(() => ({}));
                 if (data.project && data.project.id) _brandKitId = data.project.id;
             } catch (e) {}
@@ -838,10 +856,12 @@
     function familyKeys() { return [].map.call(document.querySelectorAll('#content-type-switch .ct-btn'), el => el.id.replace(/^ct-/, '')); }
     function brandFamilies(b) {
         if (b && Array.isArray(b.designs)) return b.designs;
-        const all = familyKeys();
+        // The 2026 families belong to the 2026 kit only (its designs list names them); every other
+        // brand sees them under "outside this brand", never mixed into its own menu.
+        const all = familyKeys().filter(k => !isR26Family(k));
         if (b && b.id === 'sme') return all.filter(k => MARKETPLACE_FAMILIES.indexOf(k) < 0);
         if (b && /\bserv\b/i.test(b.name || '')) return MARKETPLACE_FAMILIES.slice();
-        return null;
+        return R26 ? all : null;
     }
     function applyDesignScope() {
         const b = currentBrand(), set = brandFamilies(b);
@@ -884,7 +904,7 @@
         const sw = document.getElementById('brand-chip-swatch');
         const nm = document.getElementById('brand-chip-name');
         if (sw) sw.style.background = b.primary;
-        if (nm) nm.textContent = b.name || 'Brand';
+        if (nm) { nm.textContent = b.name || 'Brand'; if (isVirtualBrand(b)) nm.insertAdjacentHTML('beforeend', '<span class="r26-pill">2026 · Preview</span>'); }
     }
     function openBrandKit() { _bkEditing = null; renderBrandKit(); const m = document.getElementById('brandkit-modal'); if (m) m.classList.remove('hidden'); }
     function closeBrandKit() { const m = document.getElementById('brandkit-modal'); if (m) m.classList.add('hidden'); }
@@ -899,7 +919,7 @@
         const isExisting = brands.some(b => b.id === editing.id);
         const isDefault = editing.id === 'sme';
 
-        let opts = brands.map(b => '<option value="' + b.id + '"' + (b.id === editing.id ? ' selected' : '') + '>' + sanitizeHTML(b.name) + '</option>').join('');
+        let opts = brands.map(b => '<option value="' + b.id + '"' + (b.id === editing.id ? ' selected' : '') + '>' + sanitizeHTML(b.name) + (isVirtualBrand(b) ? '  ·  2026 Preview' : '') + '</option>').join('');
         opts += '<option value="__new__">➕ New brand…</option>';
 
         body.innerHTML =
@@ -937,7 +957,8 @@
           + '</div>'
           + '<div class="flex items-center gap-2 pt-4 border-t border-slate-700">'
           +   '<button id="bk-save" class="text-[11px] font-bold py-2 px-4 rounded uppercase" style="background:var(--vt-accent,#B6FF3D);color:var(--ink,#0A0B0F);">Save &amp; apply</button>'
-          +   (isExisting && !isDefault ? '<button id="bk-delete" class="text-[11px] font-bold py-2 px-3 rounded uppercase border border-red-500/50 text-red-300 hover:bg-red-500/10">Delete</button>' : '')
+          +   (isVirtualBrand(editing) ? '<span class="r26-pill" title="Visible only to you until the 2026 rebrand is released. Changes here apply for this session and are not saved to the shared Brand Kit.">2026 · Preview</span>' : '')
+          +   (isExisting && !isDefault && !isVirtualBrand(editing) ? '<button id="bk-delete" class="text-[11px] font-bold py-2 px-3 rounded uppercase border border-red-500/50 text-red-300 hover:bg-red-500/10">Delete</button>' : '')
           +   '<button onclick="closeBrandKit()" class="ml-auto text-[11px] font-bold py-2 px-4 rounded uppercase border border-slate-600 text-slate-300 hover:bg-slate-700">Done</button>'
           + '</div>';
 
@@ -993,7 +1014,14 @@
         if (!_bkEditing) return;
         if (!_bkEditing.name || !_bkEditing.name.trim()) { showToast('Give the brand a name first.'); return; }
         if (!_bkEditing.id) _bkEditing.id = bkNewId();
-        const brands = loadBrands();
+        if (isVirtualBrand(_bkEditing)) {
+            // The preview kit is applied, never stored: edits live for this page only.
+            Object.assign(R26.kit, _bkEditing);
+            setActiveBrandId(R26.kit.id); applyBrand();
+            showToast('Brand applied: ' + R26.kit.name + ' (2026 preview)', 'success');
+            closeBrandKit(); return;
+        }
+        const brands = storedBrands();
         const i = brands.findIndex(b => b.id === _bkEditing.id);
         if (i >= 0) brands[i] = _bkEditing; else brands.push(_bkEditing);
         saveBrands(brands);
@@ -1003,8 +1031,8 @@
         closeBrandKit();
     }
     function bkDelete() {
-        if (!_bkEditing || _bkEditing.id === 'sme') return;
-        let brands = loadBrands().filter(b => b.id !== _bkEditing.id);
+        if (!_bkEditing || _bkEditing.id === 'sme' || isVirtualBrand(_bkEditing)) return;
+        let brands = storedBrands().filter(b => b.id !== _bkEditing.id);
         if (!brands.length) brands = [Object.assign({}, SME_BRAND)];
         saveBrands(brands);
         if (getActiveBrandId() === _bkEditing.id) setActiveBrandId(brands[0].id);
@@ -1045,6 +1073,7 @@
     let logoBlob         = null;
     let _logoSrc         = null;
     let fontBuffers      = {};
+    let _studioFontsReady = null;   // the preload promise — the 2026 install waits on it (Jakarta must be in the worker first)
     let scrapedDesc      = '';
 
     // Worker instance (lazy)
@@ -2609,6 +2638,8 @@
       const hint = document.getElementById('ct-hint');
       if(isCreative){ syncPremImage(); renderLayout(); return; }
       if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
+      { const pc = document.getElementById('btn-premium-carousel'); if (pc && isR26Family(type)) pc.classList.add('hidden'); }
+      if(hint && isR26Family(type)) { hint.innerHTML = '<span class="r26-pill">2026 · Preview</span> ' + sanitizeHTML(PREMIUM[type].label) + ' — only you can see this until the 2026 rebrand is released. Wrap one headline word in *stars* to set it in the accent gradient.'; state.premiumDir = 'a'; setPremiumDir('a'); return; }
       if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction, then write the copy in Content.'
         + ((type === 'podcast' || type === 'merch' || type === 'founder') ? ' A ' + (type === 'podcast' ? 'guest photo' : type === 'founder' ? 'founder photo' : 'product shot') + ' can be loaded there too.' : '');
       state.premiumDir = 'a'; setPremiumDir('a');
@@ -3643,7 +3674,7 @@
         window.addEventListener('resize', resizeWrapper);
 
         // Kick off font preload in background — don't block UI
-        preloadFontBuffers().then(() => {
+        _studioFontsReady = preloadFontBuffers().then(() => {
             const n = Object.keys(fontBuffers).length;
             if (n > 0) console.log('[Studio] Loaded ' + n + ' font weights for worker.');
             renderLayout();   // re-render preview with the real fonts
@@ -3651,6 +3682,45 @@
         // Prime logo + default image
         ensureLogoBlob();
         ensureDefaultImageBlob();
+    });
+
+    // ================= SMESA 2026 PREVIEW (server-gated) =================
+    // Nothing below runs unless /api/rebrand answered 200 for this account (voltOnRebrand never calls
+    // back otherwise). The families' draw code, field defaults and the 2026 kit all arrive from that
+    // route; this block only plugs them in: registry + picker buttons (each wearing the
+    // "2026 · Preview" pill), the virtual Brand Kit, and an 'install-r26' message to the worker
+    // carrying the engine source, the official lockups and the Jakarta/Inter font buffers.
+    function isR26Family(k) { return !!(R26 && R26.studio && R26.studio.families && R26.studio.families[k]); }
+    async function r26Blob(url) {
+        if (!url) return null;
+        try { const res = await fetch(voltAssetUrl(url)); return res.ok ? await res.blob() : null; } catch (e) { return null; }
+    }
+    if (typeof window.voltOnRebrand === 'function') window.voltOnRebrand(async (defs) => {
+        if (!defs || !defs.studio || !defs.kit) return;
+        R26 = defs;
+        const fams = defs.studio.families || {};
+        const sw = document.getElementById('content-type-switch');
+        Object.keys(fams).forEach(k => {
+            const f = fams[k];
+            PREMIUM[k] = { label: f.label + ' · 2026', dirs: f.dirs };
+            if (f.photo) PREM_PHOTO[k] = f.photo;
+            if (sw && !document.getElementById('ct-' + k)) {
+                const b = document.createElement('button');
+                b.type = 'button'; b.id = 'ct-' + k; b.className = 'vt-opt ct-btn r26-fam';
+                b.onclick = () => setContentType(k);
+                b.innerHTML = (f.emoji ? f.emoji + ' ' : '') + sanitizeHTML(f.label) + '<span class="r26-pill">2026 · Preview</span>';
+                sw.appendChild(b);
+            }
+        });
+        Object.keys(defs.studio.labels || {}).forEach(k => { if (!PREM_FIELD_LABELS[k]) PREM_FIELD_LABELS[k] = defs.studio.labels[k]; });
+        try { if (_studioFontsReady) await _studioFontsReady; } catch (e) {}
+        const fonts = {};
+        Object.keys(fontBuffers).forEach(key => { if (/^(Plus Jakarta Sans|Inter)-/.test(key)) fonts[key] = fontBuffers[key]; });
+        const assets = { rev: await r26Blob(defs.kit.logo), light: await r26Blob(defs.kit.logoDark), cube: await r26Blob(defs.kit.cube), summit: await r26Blob(defs.kit.summit) };
+        try { await premPost({ type: 'install-r26', src: defs.studio.engine, assets, r26Fonts: fonts, scale: 1 }); }
+        catch (e) { console.warn('[Studio] 2026 families failed to install', e); return; }
+        applyBrand();
+        if (isR26Family(state.contentType)) renderPremiumPreview();
     });
 
     // Expose for inline onclick handlers
