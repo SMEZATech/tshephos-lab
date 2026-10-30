@@ -223,7 +223,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         kit: (typeof loadBrands === 'function') ? loadBrands().some(b => b.id === 'sme26') : null,
         stored: (() => { try { return (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0; } catch (e) { return false; } })() }));
       if (allowed) {
-        expect('Studio, ' + who + ': nine 2026 families appear, each with the 2026 · Preview pill', st.n === 9 && st.pill, st);
+        expect('Studio, ' + who + ': ten 2026 families appear, each with the 2026 · Preview pill', st.n === 10 && st.pill, st);
         expect('Studio, ' + who + ': the "SME South Africa 2026" kit is offered', st.kit === true, st);
         expect('Studio, ' + who + ': …and is never written into the shared Brand Kit', st.stored === false, st);
         const ok = await s.page.evaluate(async () => { setActiveBrandId('sme26'); applyBrand(); setContentType('r26funding');
@@ -233,8 +233,29 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
                    stored: (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0 }; });
         expect('Studio, ' + who + ': a 2026 family renders through the page worker and passes render-checks', ok.type === 'r26funding' && ok.bytes > 10000 && ok.head && !ok.err, ok);
         expect('Studio, ' + who + ': choosing the 2026 kit still writes nothing to the shared Brand Kit', ok.stored === false, ok);
+        const wb = await s.page.evaluate(async () => {
+          setContentType('r26webinar'); setFormat('landscape');
+          const out = { dims: premDims(), label: (document.querySelector('#btn-landscape .sub') || {}).textContent, canvas: document.getElementById('export-canvas').style.width,
+                        modes: document.querySelectorAll('#fam-modes [data-fm]').length };
+          const fields = () => [].map.call(document.querySelectorAll('#premium-fields .prem-inp'), i => i.dataset.pk);
+          out.liveFields = fields();
+          document.querySelector('#fam-modes [data-fm="replay"]').click();
+          out.stage = premVals.stage; out.replayFields = fields();
+          setPremiumDir('c'); out.stageAfterDir = premVals.stage;
+          const d = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26webinar', dir: 'c', vals: premVals, w: 1280, h: 720, scale: 1, trace: true });
+          out.watch = (d.trace || []).some(t => /Watch now/.test(t.text || '')); out.noDate = !(d.trace || []).some(t => /29 Oct/.test(t.text || ''));
+          out.err = VoltRenderChecks.assertDesign(d.trace, 1280, 720).error || null;
+          setContentType('funding'); out.backTo = premDims(); out.backLabel = (document.querySelector('#btn-landscape .sub') || {}).textContent;
+          return out; });
+        expect('Studio, ' + who + ': the webinar thumbnail renders at YouTube 1280×720 and says so', wb.dims.w === 1280 && wb.dims.h === 720 && /YouTube/.test(wb.label) && wb.canvas === '1280px', wb);
+        expect('Studio, ' + who + ': Upcoming shows date + register, hides the replay button field', wb.modes === 2 && wb.liveFields.indexOf('date') >= 0 && wb.liveFields.indexOf('replayCta') < 0 && wb.liveFields.indexOf('stage') < 0, wb);
+        expect('Studio, ' + who + ': After the event hides the date and register fields, and stays on when the direction changes', wb.stage === 'replay' && wb.replayFields.indexOf('date') < 0 && wb.replayFields.indexOf('cta') < 0 && wb.replayFields.indexOf('replayCta') >= 0 && wb.stageAfterDir === 'replay', wb);
+        expect('Studio, ' + who + ': the replay render says Watch now, shows no date, passes render-checks', wb.watch && wb.noDate && !wb.err, wb);
+        expect('Studio, ' + who + ': other families keep LinkedIn 1200×628', wb.backTo.w === 1200 && wb.backTo.h === 628 && /1200/.test(wb.backLabel), wb);
       } else {
         expect('Studio, ' + who + ': no 2026 family, no 2026 kit', !st.fam && st.n === 0 && st.kit === false, st);
+        const nb = await s.page.evaluate(() => ({ web: !!document.getElementById('ct-r26webinar'), label: (document.querySelector('#btn-landscape .sub') || {}).textContent, modes: !document.getElementById('fam-modes') || document.getElementById('fam-modes').classList.contains('hidden') }));
+        expect('Studio, ' + who + ': no webinar thumbnail, Landscape still 1200×628, no state switch', !nb.web && /1200/.test(nb.label) && nb.modes, nb);
       }
       await s.page.goto(base + '/email.html', { waitUntil: 'domcontentloaded' });
       await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });

@@ -18,6 +18,8 @@
 // per family (see drawLand) — the concepts don't define one.
 
 const D = (name, fields) => ({ name, fields });
+const WEB = { stage: "live", series: "SME Webinars", head: "Business *Compliance* Essentials", date: "Thu 29 Oct · 11:00–12:00",
+  name: "Speaker Name", role: "Role, Company", cta: "Register free", replayCta: "Watch now" };
 
 export const STUDIO_FAMILIES = {
   r26funding: { label: "Funding Alert", emoji: "⚡", photo: null, dirs: {
@@ -66,6 +68,17 @@ export const STUDIO_FAMILIES = {
       ask: "\"Has anyone used invoice finance for a first big order?\"", win: "\"Landed our first retail listing this week!\"",
       share: "\"The supplier contract template that saved me R40k\"", cta: "Join the conversation →", url: "smesouthafrica.co.za" }),
   } },
+  // Webinar thumbnail. `sizes` remaps Landscape to YouTube's 1280×720 for this family only, and
+  // `modes` gives Studio an Upcoming / After-the-event switch (it sets the `stage` field and hides
+  // the fields that state doesn't use). Same copy in all four directions so switching compares looks.
+  r26webinar: { label: "Webinar thumbnail", emoji: "🎥", photo: "Speaker photo (square, high-res)",
+    sizes: { landscape: [1280, 720, "YouTube · 1280×720"] },
+    modes: { field: "stage", options: [
+      { v: "live", label: "Upcoming · Register", hide: ["replayCta", "url"] },
+      { v: "replay", label: "After the event · Watch now", hide: ["date", "cta", "url"] }] },
+    dirs: {
+      a: D("Spotlight", WEB), b: D("Spotlight · Light", WEB), c: D("Cinematic", WEB), d: D("Headline", WEB),
+    } },
 };
 
 export const FIELD_LABELS = {
@@ -73,6 +86,7 @@ export const FIELD_LABELS = {
   s1v: "Tile 1", s1k: "Tile 1 label", s2v: "Tile 2", s2k: "Tile 2 label", s3v: "Tile 3", s3k: "Tile 3 label", s4v: "Tile 4", s4k: "Tile 4 label",
   source: "Source line", date: "Date", link: "Text link", num: "Big numeral", tip: "Tip strip", swipe: "Swipe prompt",
   save: "Save label", share: "Share label", ask: "Ask", win: "Win",
+  series: "Series", replayCta: "Button after the event", stage: "State",
 };
 
 export function studioEngineSource() {
@@ -761,6 +775,239 @@ function r26Engine() {
     c.textBaseline = "top";
   }
 
+  // ---- S10 Webinar thumbnail ----------------------------------------------------------------------
+  // Four directions, each in two states, chosen with the family's Upcoming / After-the-event switch:
+  //   stage 'live'   → series line "· Live", a date chip and "Register free" (the one accent CTA)
+  //   stage 'replay' → series line "· Replay", NO date, "Watch now" with a play glyph, and a play
+  //                    badge on the speaker so the thumbnail reads as a video at a glance.
+  // 16:9 is the main size: Studio maps Landscape to 1280×720 for this family (YouTube). Square,
+  // portrait and story restack the same pieces. Nothing important goes in YouTube's bottom-right
+  // corner, where it prints the video length.
+  const CAL = "M4 6.5h16v14H4z M4 11h16 M8.5 3.5v4 M15.5 3.5v4";
+  function playTri(r, cx, cy, s, color) {
+    const c = r.ctx; c.save(); c.translate(cx - s * 0.46, cy - s * 0.5); c.scale(s / 24, s / 24);
+    c.fillStyle = color; c.fill(new Path2D("M3 1.5v21l18.5-10.5z")); c.restore();
+  }
+  function wIsLive(v) { return String(v.stage || "live") !== "replay"; }
+  function wKicker(v) { return (plain(v.series).trim() || "SME Webinars") + (wIsLive(v) ? " · Live" : " · Replay"); }
+  function wChip(r, text, x, y, size, dark, rad) {
+    if (!plain(text).trim()) return { w: 0, h: 0 };
+    const f = F(J, 700, size), padX = size * 0.9, padY = size * 0.62, ic = size * 1.1, gap = size * 0.55;
+    const w = padX * 2 + ic + gap + tw(r, text, f), h = size + padY * 2, c = r.ctx;
+    r.fillRoundRect(x, y, w, h, rad, dark ? "rgba(255,255,255,0.08)" : WHITE);
+    c.save(); r.roundRectPath(x + 0.75, y + 0.75, w - 1.5, h - 1.5, rad); c.strokeStyle = dark ? "rgba(255,255,255,0.16)" : T.border; c.lineWidth = 1.5; c.stroke(); c.restore();
+    r.drawIconPath(CAL, x + padX, y + (h - ic) / 2, ic, dark ? T.orange : T.red, 2.2);
+    line(r, text, f, x + padX + ic + gap, y + padY + size * 0.03, dark ? WHITE : T.ink);
+    return { w, h };
+  }
+  // The one CTA. Upcoming: label + arrow. After the event: white play disc + label.
+  function wBtn(r, v, x, y, size, o) {
+    o = o || {};
+    const live = wIsLive(v), label = String((live ? v.cta : v.replayCta) || (live ? "Register free" : "Watch now")).replace(/\s*[→>]\s*$/, "");
+    const f = F(J, 800, size), padX = size * 1.2, padY = size * 0.78, ic = size * 1.05, gap = size * 0.5;
+    const w = padX * 2 + tw(r, label, f) + gap + ic, h = size + padY * 2;
+    if (o.maxW && w > o.maxW) return wBtn(r, v, x, y, Math.floor(size * o.maxW / w), Object.assign({}, o, { maxW: 0 }));
+    const bx = o.align === "right" ? x - w : o.align === "center" ? x - w / 2 : x, c = r.ctx;
+    r.as("cta", () => {
+      c.save(); c.shadowColor = "rgba(220,24,60,0.45)"; c.shadowBlur = size * 1.6; c.shadowOffsetY = size * 0.6;
+      r.roundRectPath(bx, y, w, h, Math.min(12 * (size / 28), h / 2)); c.fillStyle = accentGrad(c, bx, y, w, h); c.fill(); c.restore();
+      r._tr("fill", { x: bx, y, w, h, color: null, gradient: true });
+      if (live) {
+        line(r, label, f, bx + padX, y + padY + size * 0.02, WHITE);
+        r.drawIconPath(ARROW, bx + w - padX - ic, y + (h - ic) / 2, ic, WHITE, 2.6);
+      } else {
+        const cx = bx + padX + ic / 2, cy = y + h / 2;
+        c.save(); c.beginPath(); c.arc(cx, cy, ic / 2, 0, Math.PI * 2); c.fillStyle = WHITE; c.fill(); c.restore();
+        playTri(r, cx + ic * 0.04, cy, ic * 0.46, T.red);
+        line(r, label, f, bx + padX + ic + gap, y + padY + size * 0.02, WHITE);
+      }
+    });
+    return { x: bx, y, w, h };
+  }
+  function wPlayBadge(r, cx, cy, d) {
+    const c = r.ctx;
+    c.save(); c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = d * 0.3; c.shadowOffsetY = d * 0.1;
+    c.beginPath(); c.arc(cx, cy, d / 2, 0, Math.PI * 2); c.fillStyle = WHITE; c.fill(); c.restore();
+    c.save(); c.beginPath(); c.arc(cx, cy, d / 2 - d * 0.07, 0, Math.PI * 2); c.fillStyle = accentGrad(c, cx - d / 2, cy - d / 2, d, d); c.fill(); c.restore();
+    r._tr("fill", { x: cx - d / 2, y: cy - d / 2, w: d, h: d, color: null, gradient: true });
+    playTri(r, cx + d * 0.04, cy, d * 0.36, WHITE);
+  }
+  function wLivePill(r, x, y, size, align) {
+    const f = F(J, 800, size), padX = size * 0.85, padY = size * 0.6, dot = size * 0.5, gap = size * 0.5;
+    const w = padX * 2 + dot + gap + tw(r, "LIVE", f, size * 0.14), h = size + padY * 2, px = align === "right" ? x - w : x, c = r.ctx;
+    r.fillRoundRect(px, y, w, h, Math.min(12, h / 2), T.red);
+    c.save(); c.beginPath(); c.arc(px + padX + dot / 2, y + h / 2, dot / 2, 0, Math.PI * 2); c.fillStyle = WHITE; c.fill(); c.restore();
+    line(r, "LIVE", f, px + padX + dot + gap, y + padY + size * 0.03, WHITE, { ls: 0.14 });
+    return { w, h };
+  }
+  function wWho(r, v, x, y, maxW, k, o) {
+    o = o || {};
+    const nf = F(J, 800, (o.n || 30) * k), rf = F(I, 500, (o.s || 19) * k), al = o.align || "left";
+    const tx = al === "center" ? x + maxW / 2 : x;
+    line(r, v.name, nf, tx, y, o.ink || WHITE, { align: al === "center" ? "center" : "left", maxW });
+    if (plain(v.role).trim()) line(r, v.role, rf, tx, y + nf.size * 1.18, o.sub || "rgba(255,255,255,0.72)", { align: al === "center" ? "center" : "left", maxW });
+    return nf.size * 1.18 + (plain(v.role).trim() ? rf.size * 1.4 : 0);
+  }
+  function wSurface(r, light, k) {
+    if (light) { warm(r); return; }
+    hero(r);
+    glow(r, r.w - 60 * k, 70 * k, 700 * k, RED, 0.35);
+    glow(r, 40 * k, r.h, 560 * k, ORANGE, 0.18);
+  }
+  function wRings(r, cx, cy, rad, k) {           // the light direction's concentric rules, echoing the cube
+    const c = r.ctx; c.save(); c.lineWidth = 2 * k;
+    c.strokeStyle = "rgba(220,24,60,0.12)"; c.beginPath(); c.arc(cx, cy, rad + 150 * k, 0, Math.PI * 2); c.stroke();
+    c.strokeStyle = "rgba(255,153,0,0.2)"; c.beginPath(); c.arc(cx, cy, rad + 70 * k, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+
+  // A / B — Spotlight (dark) and Spotlight Light ---------------------------------------------------
+  function webSpot(r, v, a, light) {
+    const W = r.w, H = r.h, live = wIsLive(v), ink = light ? T.ink : WHITE;
+    if (W > H * 1.2) {
+      const k = Math.min(W / 1280, H / 720), pad = 72 * k, top = 64 * k;
+      const d = Math.min(400 * k, H - 96 * k - 150 * k), cx = W - 100 * k - d / 2, cy = 96 * k + d / 2;
+      wSurface(r, light, k);
+      if (light) wRings(r, cx, cy, d / 2, k);
+      const colW = W - pad - (W - (cx - d / 2)) - 60 * k;
+      const lg = logo(r, light ? "light" : "rev", pad, top, 220 * k);
+      const bh = 28 * k * 2.56, by = H - 64 * k - bh;
+      const b = wBtn(r, v, pad, by, 28 * k, { maxW: colW * 0.62 });
+      if (live) wChip(r, v.date, pad + b.w + 18 * k, by + (bh - 22 * k * 2.24) / 2, 22 * k, !light, 12 * k);
+      let y = top + lg.h + 64 * k;
+      line(r, wKicker(v), F(J, 800, 20 * k), pad, y, light ? T.red : T.orange, { ls: 0.18, upper: true, maxW: colW });
+      y += 20 * k + 20 * k;
+      const t = fit(r, v.head, J, 800, colW, by - 34 * k - y, 1.03, -0.03, 78 * k, 40 * k, 3);
+      r.as("headline", () => drawRich(r, t, pad, y, colW, ink));
+      ring(r, a.featured, cx, cy, d);
+      if (!live) wPlayBadge(r, cx - d * 0.36, cy + d * 0.36, 96 * k);
+      wWho(r, v, cx - d / 2 - 40 * k, cy + d / 2 + 24 * k, d + 80 * k, k, { align: "center", ink, sub: light ? T.muted : null });
+      return;
+    }
+    const g = geo(r), { k, pad } = g, iw = W - pad * 2;
+    wSurface(r, light, k);
+    const d = g.story ? 520 * k : (H > 1200 ? 420 * k : 360 * k);
+    const cx = W - pad - d / 2, cy = g.bot - d / 2;
+    if (light) wRings(r, cx, cy, d / 2, k);
+    const lg = logo(r, light ? "light" : "rev", pad, g.top, 240 * k);
+    const bh = 30 * k * 2.56, by = g.bot - bh;
+    wBtn(r, v, pad, by, 30 * k, { maxW: W - pad * 2 - d - 30 * k });
+    const whoH = wWho(r, v, pad, by - 26 * k - (34 * k * 1.18 + 22 * k * 1.4), W - pad * 2 - d - 30 * k, k, { n: 34, s: 22, ink, sub: light ? T.muted : null });
+    ring(r, a.featured, cx, cy, d);
+    if (!live) wPlayBadge(r, cx - d * 0.36, cy + d * 0.36, 104 * k);
+    let y = g.top + lg.h + (g.story ? 90 : 70) * k;
+    line(r, wKicker(v), F(J, 800, 24 * k), pad, y, light ? T.red : T.orange, { ls: 0.18, upper: true, maxW: iw });
+    y += 24 * k + 22 * k;
+    const chipH = live && plain(v.date).trim() ? 26 * k * 2.24 + 34 * k : 0;
+    const t = fit(r, v.head, J, 800, iw, Math.max(80 * k, (cy - d / 2) - 44 * k - y - chipH), 1.03, -0.03, (g.story ? 112 : 96) * k, 48 * k, 4);
+    r.as("headline", () => drawRich(r, t, pad, y, iw, ink));
+    if (live) wChip(r, v.date, pad, y + t.h + 34 * k, 26 * k, !light, 12 * k);
+    void whoH;
+  }
+
+  // C — Cinematic: the speaker full-bleed, fading into the hero ------------------------------------
+  function webCine(r, v, a) {
+    const W = r.w, H = r.h, live = wIsLive(v), c = r.ctx;
+    if (W > H * 1.2) {
+      const k = Math.min(W / 1280, H / 720), pad = 72 * k, top = 64 * k;
+      wSurface(r, false, k);
+      const px = W * 0.44;
+      photo(r, px, 0, W - px, H, a.featured, null, 0.22);
+      let gr = c.createLinearGradient(px, 0, px + (W - px) * 0.5, 0);
+      gr.addColorStop(0, "#0C1F31"); gr.addColorStop(0.35, "rgba(12,31,49,0.75)"); gr.addColorStop(1, "rgba(12,31,49,0)");
+      c.save(); c.fillStyle = gr; c.fillRect(px - 1, 0, (W - px) * 0.5 + 1, H); c.restore();
+      gr = c.createLinearGradient(0, H * 0.55, 0, H);
+      gr.addColorStop(0, "rgba(12,31,49,0)"); gr.addColorStop(1, "rgba(12,31,49,0.88)");
+      c.save(); c.fillStyle = gr; c.fillRect(px, H * 0.55, W - px, H * 0.45); c.restore();
+      r._tr("fill", { x: px, y: 0, w: W - px, h: H, color: null, gradient: true });
+      const colW = W * 0.5 - pad;
+      const lg = logo(r, "rev", pad, top, 220 * k);
+      if (live) wLivePill(r, W - pad, top, 20 * k, "right");
+      const bh = 28 * k * 2.56, by = H - 64 * k - bh;
+      const b = wBtn(r, v, pad, by, 28 * k, { maxW: colW * 0.62 });
+      if (live) wChip(r, v.date, pad + b.w + 18 * k, by + (bh - 22 * k * 2.24) / 2, 22 * k, true, 12 * k);
+      let y = top + lg.h + 64 * k;
+      line(r, wKicker(v), F(J, 800, 20 * k), pad, y, T.orange, { ls: 0.18, upper: true, maxW: colW });
+      y += 40 * k;
+      const t = fit(r, v.head, J, 800, colW, by - 34 * k - y, 1.03, -0.03, 80 * k, 40 * k, 3);
+      r.as("headline", () => drawRich(r, t, pad, y, colW, WHITE));
+      // speaker caption on the photo, above YouTube's timestamp corner
+      const nx = px + (W - px) * 0.3, whoTop = H - 64 * k - 30 * k * 1.18 - 19 * k * 1.4 - 30 * k;
+      let tx = nx;
+      if (!live) { wPlayBadge(r, nx + 44 * k, whoTop + 26 * k, 88 * k); tx = nx + 108 * k; }
+      wWho(r, v, tx, whoTop, W - tx - 150 * k, k);
+      return;
+    }
+    const g = geo(r), { k, pad } = g, iw = W - pad * 2;
+    wSurface(r, false, k);
+    const ph = Math.round(H * (g.story ? 0.52 : 0.5));
+    photo(r, 0, 0, W, ph, a.featured, null, 0.22);
+    let gr = c.createLinearGradient(0, ph * 0.45, 0, ph);
+    gr.addColorStop(0, "rgba(12,31,49,0)"); gr.addColorStop(0.7, "rgba(12,31,49,0.75)"); gr.addColorStop(1, "#0C1F31");
+    c.save(); c.fillStyle = gr; c.fillRect(0, ph * 0.45, W, ph * 0.55 + 1); c.restore();
+    gr = c.createLinearGradient(0, 0, 0, ph * 0.3);
+    gr.addColorStop(0, "rgba(12,31,49,0.6)"); gr.addColorStop(1, "rgba(12,31,49,0)");
+    c.save(); c.fillStyle = gr; c.fillRect(0, 0, W, ph * 0.3); c.restore();
+    r._tr("fill", { x: 0, y: 0, w: W, h: ph, color: null, gradient: true });
+    logo(r, "rev", pad, g.story ? 230 : pad, 240 * k);
+    if (live) wLivePill(r, W - pad, g.story ? 230 : pad, 22 * k, "right");
+    const whoY = ph - 34 * k - (34 * k * 1.18 + 22 * k * 1.4);
+    let tx = pad;
+    if (!live) { wPlayBadge(r, pad + 50 * k, whoY + 34 * k, 100 * k); tx = pad + 124 * k; }
+    wWho(r, v, tx, whoY, W - tx - pad, k, { n: 34, s: 22 });
+    const bh = 30 * k * 2.56, by = g.bot - bh;
+    wBtn(r, v, pad, by, 30 * k, { maxW: iw });
+    let y = ph + 44 * k;
+    line(r, wKicker(v), F(J, 800, 24 * k), pad, y, T.orange, { ls: 0.18, upper: true, maxW: iw });
+    y += 24 * k + 22 * k;
+    const chipH = live && plain(v.date).trim() ? 26 * k * 2.24 + 30 * k : 0;
+    const t = fit(r, v.head, J, 800, iw, Math.max(70 * k, by - 40 * k - y - chipH), 1.03, -0.03, (g.story ? 104 : 84) * k, 40 * k, 4);
+    r.as("headline", () => drawRich(r, t, pad, y, iw, WHITE));
+    if (live) wChip(r, v.date, pad, y + t.h + 30 * k, 26 * k, true, 12 * k);
+  }
+
+  // D — Headline: type-led, for long titles or a weak photo ----------------------------------------
+  function webHead(r, v, a) {
+    const W = r.w, H = r.h, live = wIsLive(v);
+    const land = W > H * 1.2, g = geo(r);
+    const k = land ? Math.min(W / 1280, H / 720) : g.k, pad = land ? 72 * k : g.pad;
+    const top = land ? 64 * k : g.top, bot = land ? H - 64 * k : g.bot, iw = W - pad * 2;
+    wSurface(r, false, k);
+    // a thin accent spine down the left edge — the lower-third's signature, carried into the thumbnail
+    const c = r.ctx; c.save(); c.fillStyle = accentGrad(c, 0, 0, 10 * k, H); c.fillRect(0, 0, 10 * k, H); c.restore();
+    const lg = logo(r, "rev", pad, top, (land ? 200 : 240) * k);
+    if (live) wChip(r, v.date, W - pad - (tw(r, v.date, F(J, 700, 22 * k)) + 22 * k * 3.4), top + (lg.h - 22 * k * 2.24) / 2, 22 * k, true, 12 * k);
+    // bottom row: speaker (mini ring + name) left, CTA right
+    const sz = (land ? 28 : 30) * k, bh = sz * 2.56, by = bot - bh, d = (land ? 104 : 120) * k;
+    let speakerTop;
+    if (land) {
+      wBtn(r, v, W - pad, by, sz, { align: "right", maxW: iw * 0.42 });
+      speakerTop = by + bh / 2 - d / 2;
+    } else {
+      wBtn(r, v, pad, by, sz, { maxW: iw });
+      speakerTop = by - 40 * k - d;
+    }
+    ring(r, a.featured, pad + d / 2, speakerTop + d / 2, d);
+    if (!live) wPlayBadge(r, pad + d * 0.86, speakerTop + d * 0.86, 44 * k);
+    const nmH = (land ? 28 : 32) * k * 1.18 + (land ? 18 : 21) * k * 1.4;
+    wWho(r, v, pad + d + 24 * k, speakerTop + (d - nmH) / 2, land ? iw * 0.55 - d - 24 * k : iw - d - 24 * k, k, { n: land ? 28 : 32, s: land ? 18 : 21 });
+    // the title owns everything between the lockup and the speaker
+    const yTop = top + lg.h + (land ? 52 : 80) * k;
+    const kick = (land ? 20 : 24) * k;
+    const avail = speakerTop - 40 * k - (yTop + kick + 24 * k);
+    const t = fit(r, v.head, J, 800, iw, avail, 1.0, -0.035, (land ? 104 : (g.story ? 128 : 112)) * k, 44 * k, 4);
+    const y0 = yTop + Math.max(0, (avail - t.h) * (land ? 0.35 : 0.4));
+    line(r, wKicker(v), F(J, 800, kick), pad, y0, T.orange, { ls: 0.18, upper: true, maxW: iw });
+    r.as("headline", () => drawRich(r, t, pad, y0 + kick + 24 * k, iw, WHITE));
+  }
+
+  function webinar(r, dir, v, a) {
+    if (dir === "b") return webSpot(r, v, a, true);
+    if (dir === "c") return webCine(r, v, a);
+    if (dir === "d") return webHead(r, v, a);
+    return webSpot(r, v, a, false);
+  }
+
   const FAM = {
     r26funding: (r, d, v) => funding(r, v),
     r26article: (r, d, v, a) => article(r, v, a),
@@ -771,11 +1018,13 @@ function r26Engine() {
     r26weekly: (r, d, v) => weekly(r, v),
     r26carousel: (r, d, v) => carousel(r, d, v),
     r26aws: (r, d, v) => aws(r, v),
+    r26webinar: (r, d, v, a) => webinar(r, d, v, a),
   };
+  const OWN_LANDSCAPE = { r26webinar: true };   // families that draw their own wide layout
   self.R26_DRAW = function (r, type, dir, v, a) {
     if (!FAM[type]) return false;
     r.ctx.textBaseline = "top";
-    if (r.w > r.h * 1.2) drawLand(r, type, dir, v || {}, a || {});
+    if (r.w > r.h * 1.2 && !OWN_LANDSCAPE[type]) drawLand(r, type, dir, v || {}, a || {});
     else FAM[type](r, dir, v || {}, a || {});
     return true;
   };

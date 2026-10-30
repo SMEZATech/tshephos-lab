@@ -37,7 +37,7 @@ let pass = 0, fail = 0;
 function expect(name, cond, detail) { if (cond) { pass++; console.log("  ok   " + name); } else { fail++; console.log("  FAIL " + name + "  → " + JSON.stringify(detail).slice(0, 300)); } }
 
 let r = await call("joel");
-expect("Joel (any letter case) gets the definitions", r.status === 200 && r.body.kit && r.body.kit.id === "sme26" && Object.keys(r.body.studio.families).length === 9, r.status);
+expect("Joel (any letter case) gets the definitions", r.status === 200 && r.body.kit && r.body.kit.id === "sme26" && Object.keys(r.body.studio.families).length === 10 && !!r.body.studio.families.r26webinar, r.status);
 expect("…with every template surface present", r.body && r.body.studio.engine.length > 1000 && typeof r.body.email.source === "string" && typeof r.body.video.source === "string", null);
 expect("…and it is never cacheable", r.headers["cache-control"] === "private, no-store", r.headers);
 

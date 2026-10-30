@@ -380,10 +380,15 @@
       const ab = async (u) => { try { const x = await fetch(String(u || '').replace(/^https:\/\/tshephos-lab\.vercel\.app\//, '')); return x.ok ? await x.blob() : null; } catch (e) { return null; } };
       await post({ type: 'install-r26', src: r26.studio.engine, assets: { rev: await ab(r26.kit.logo), light: await ab(r26.kit.logoDark), cube: await ab(r26.kit.cube), summit: await ab(r26.kit.summit) } });
       for (const fam of Object.keys(r26.studio.families)) {
-        for (const dir of Object.keys(r26.studio.families[fam].dirs)) {
-          const vals = Object.assign({ url: 'smesouthafrica.co.za' }, r26.studio.families[fam].dirs[dir].fields);
-          for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['story', [1080, 1920]], ['landscape', [1200, 628]]]) {
-            await run('r26/' + fam + '/' + dir + '/' + sz,
+        const F26 = r26.studio.families[fam];
+        // a family may remap a size (webinar: Landscape = YouTube 1280x720) and declare modes
+        // (webinar: upcoming / after the event) — every mode is rendered, at the size Studio uses.
+        const modes = F26.modes ? F26.modes.options.map(o => [F26.modes.field, o.v]) : [[null, null]];
+        for (const dir of Object.keys(F26.dirs)) for (const [mf, mv] of modes) {
+          const vals = Object.assign({ url: 'smesouthafrica.co.za' }, F26.dirs[dir].fields, mf ? { [mf]: mv } : {});
+          for (const [sz, wh0] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['story', [1080, 1920]], ['landscape', [1200, 628]]]) {
+            const wh = (F26.sizes && F26.sizes[sz]) || wh0;
+            await run('r26/' + fam + '/' + dir + (mv ? '/' + mv : '') + '/' + sz,
               { type: 'render-premium', brand, fontBuffers: {}, featuredBlob, premType: fam, dir, vals, w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
               wh[0] * S, wh[1] * S);
           }

@@ -348,6 +348,9 @@
                          directions. Hardcoding A/B/C meant a fourth idea couldn't be reached at all. -->
                     <div class="grid gap-2" id="premium-dirs"></div>
                     <p class="vt-note mt-2" id="pdir-name"></p>
+                    <!-- A family can declare `modes` (e.g. the 2026 webinar thumbnail: Upcoming / After the
+                         event). Filled by renderFamilyModes(); empty and hidden for every other family. -->
+                    <div id="fam-modes" class="hidden mt-3"></div>
                 </div>
 
                 <!-- Creative: format, theme and slides. All three are meaningless for a premium
@@ -1695,6 +1698,7 @@
         else if (formatName === 'square') { canvas.style.width = '1080px'; canvas.style.height = '1080px'; }
         else if (formatName === 'portrait') { canvas.style.width = '1080px'; canvas.style.height = '1350px'; }
         else if (formatName === 'story') { canvas.style.width = '1080px'; canvas.style.height = '1920px'; }
+        { const o = famSize(formatName); if (o) { canvas.style.width = o[0] + 'px'; canvas.style.height = o[1] + 'px'; } }
         const dim = document.getElementById('preview-dim');
         if (dim) dim.innerText = canvas.style.width + ' x ' + canvas.style.height;
         renderLayout();
@@ -1837,6 +1841,7 @@
       const d = currentPremDir(); if(!d) return;
       const b = currentBrand ? currentBrand() : {};
       premVals = Object.assign({ url: (b && b.url) || 'smesouthafrica.co.za' }, d.fields);
+      const f = famDef(); if (f && f.modes && famMode[state.contentType]) premVals[f.modes.field] = famMode[state.contentType];
     }
     function renderPremFields(){
       const wrap = document.getElementById('premium-fields'); if(!wrap) return;
@@ -1846,7 +1851,7 @@
       // layouts it feeds.
       const nm = document.getElementById('pdir-name'); if(nm) nm.textContent = d.name;
       const nm2 = document.getElementById('pdir-name-2'); if(nm2) nm2.textContent = '— ' + d.name;
-      wrap.innerHTML = Object.keys(premVals).map(k => {
+      wrap.innerHTML = Object.keys(premVals).filter(k => !premHidden(k)).map(k => {
         const label = PREM_FIELD_LABELS[k] || k;
         const long = String(premVals[k] || '').length > 36;
         const val = esc(premVals[k]);
@@ -1865,7 +1870,40 @@
     // concurrent preview+export would swap results — premPost() chains them.
     // Premium honours the same Dimensions control as Creative (Land/Square/Port).
     const PREM_DIMS = { landscape: [1200, 628], square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920] };
-    function premDims(){ const d = PREM_DIMS[state.format] || PREM_DIMS.square; return { w: d[0], h: d[1] }; }
+    // FAMILY OVERRIDES (declared by a family's definition, today only the gated 2026 families):
+    //   sizes — remap a size for that family alone, e.g. the webinar thumbnail's Landscape is YouTube
+    //           1280×720, not 1200×628. Every other path keeps saying 'landscape' (copy rotation, the
+    //           all-sizes export, the size picker), so nothing downstream needs to know.
+    //   modes — a one-click switch that sets one field and hides the fields that state doesn't use.
+    function famDef(type) { return (R26 && R26.studio && R26.studio.families && R26.studio.families[type || state.contentType]) || null; }
+    function famSize(size) { const f = famDef(); return (f && f.sizes && f.sizes[size]) || null; }
+    function premDims(){ const o = famSize(state.format); if (o) return { w: o[0], h: o[1] }; const d = PREM_DIMS[state.format] || PREM_DIMS.square; return { w: d[0], h: d[1] }; }
+    const famMode = {};   // contentType -> chosen mode value, kept across direction changes
+    function famModeOpt() { const f = famDef(); if (!f || !f.modes) return null; const v = premVals[f.modes.field]; return f.modes.options.find(o => o.v === v) || f.modes.options[0]; }
+    function premHidden(k) { const f = famDef(); if (!f || !f.modes) return false; if (k === f.modes.field) return true; const o = famModeOpt(); return !!(o && o.hide && o.hide.indexOf(k) >= 0); }
+    function renderFamilyModes() {
+      const box = document.getElementById('fam-modes'); if (!box) return;
+      const f = famDef();
+      if (!f || !f.modes || state.contentType === 'creative') { box.classList.add('hidden'); box.innerHTML = ''; return; }
+      const cur = (famModeOpt() || {}).v;
+      box.classList.remove('hidden');
+      box.innerHTML = '<div class="vt-lbl">State</div><div class="grid grid-cols-1 gap-2">' + f.modes.options.map(o =>
+        '<button type="button" data-fm="' + esc(o.v) + '" class="vt-opt wide' + (o.v === cur ? ' on' : '') + '" style="text-align:left;padding-left:14px;">' + esc(o.label) + '</button>').join('') + '</div>';
+      box.onclick = (e) => {
+        const b = e.target.closest('[data-fm]'); if (!b) return;
+        premVals[f.modes.field] = b.dataset.fm; famMode[state.contentType] = b.dataset.fm;
+        renderFamilyModes(); renderPremFields(); renderPremiumPreview(); crPaint();
+      };
+    }
+    function syncFamilySizes() {
+      const lbl = document.querySelector('#btn-landscape .sub');
+      const o = famSize('landscape');
+      if (lbl) lbl.textContent = o ? o[2] : 'LinkedIn · 1200×628';
+      const cur = famSize(state.format);
+      if (cur) { canvas.style.width = cur[0] + 'px'; canvas.style.height = cur[1] + 'px'; }
+      else if (state.format === 'landscape') { canvas.style.width = '1200px'; canvas.style.height = '628px'; }
+      const dim = document.getElementById('preview-dim'); if (dim) dim.innerText = canvas.style.width + ' x ' + canvas.style.height;
+    }
 
     // ================= COPY ROTATION =================
     // THE RULE (Joel, 2026-09-28): the same copy never ships twice on the same design + size + brand.
@@ -2549,7 +2587,7 @@
       // Rotation goes between defaults and autofill: a library copy replaces the seed, and anything
       // handed over (Campaign, autofill) still lands on top of it — and, being hand-set, is never
       // swapped out afterwards.
-      loadPremDefaults(); crRotate(); applyAutofillToDir(); renderPremFields(); syncPremImage(); renderPremiumPreview();
+      loadPremDefaults(); crRotate(); applyAutofillToDir(); renderFamilyModes(); renderPremFields(); syncPremImage(); renderPremiumPreview();
       crRefresh();
     }
     // ---- the three steps ------------------------------------------------------------------------
@@ -2575,7 +2613,7 @@
     const FMT_LABEL = { landscape: 'Landscape 1200×628', square: 'Square 1080×1080', portrait: 'Portrait 1080×1350', story: 'Story 1080×1920' };
     function paintExportSummary(){
       const el = document.getElementById('export-summary'); if (!el) return;
-      const size = FMT_LABEL[state.format] || state.format;
+      const size = (famSize(state.format) || [])[2] || FMT_LABEL[state.format] || state.format;
       if (state.contentType === 'creative') {
         const camp = ({ standard:'Standard', carousel:'Carousel', poll:'Community Poll', whatsapp:'WhatsApp', stat:'Stat Spotlight', quote:'Quote', meme:'Meme' })[state.campaign] || 'Standard';
         el.textContent = 'Creative · ' + camp + ' · ' + size;
@@ -2610,6 +2648,7 @@
 
     function setContentType(type){
       state.contentType = type;
+      syncFamilySizes();
       pickOne('.ct-btn', document.getElementById('ct-' + type));
       collapseTypePicker(type);
       const isCreative = type === 'creative';
@@ -3129,7 +3168,7 @@
             await ensureLogoBlob(); await ensureColorLogoBlob();
             const out = [];
             for (let k = 0; k < sizes.length; k++) {
-                const d = PREM_DIMS[sizes[k]];
+                const d = famSize(sizes[k]) || PREM_DIMS[sizes[k]];
                 setProgress(Math.round((k / sizes.length) * 100), 'Rendering ' + CR_SIZE[sizes[k]] + '…');
                 out.push(await premPost({
                     type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers,
