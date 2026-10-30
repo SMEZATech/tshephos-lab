@@ -190,7 +190,7 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   <div class="card">
     <h3>Joel's to do (nobody else has DB/dashboard access)</h3>
     <p><strong>Done 2026-10-06:</strong> <code>studio_copy_use</code> exists in Supabase (all 14 columns verified), so copy rotation is guarding the whole team, not each browser separately.</p>
-    <p><strong>SMESA 2026 rebrand: release when ready.</strong> One change: <code>REBRAND_2026_OPEN</code> (flag in <code>api/_guard.js</code> or <code>=1</code> in Vercel env) opens it to every signed-in user; <code>REBRAND_2026_EMAILS</code> widens it to named people. Also open: <code>api/_rebrand/</code> sits in this <em>public</em> GitHub repo (not served by the site, but readable on GitHub). Decide whether to move it to a private store. Details: <code>rebrand-2026/REVIEW-NOTES.md</code> (outside both repos).</p>
+    <p><strong>SMESA 2026 rebrand: release when ready.</strong> One change: <code>REBRAND_2026_OPEN</code> (flag in <code>api/_guard.js</code> or <code>=1</code> in Vercel env) opens it to every signed-in user; <code>REBRAND_2026_EMAILS</code> widens it to named people. <code>api/_rebrand/</code> sits in this <em>public</em> GitHub repo (not served by the site, but readable on GitHub). <strong>Joel decided 2026-10-30: leave it until release</strong>; after release it no longer matters. If release slips by weeks, move it to a private store the route reads at runtime. Details: <code>rebrand-2026/REVIEW-NOTES.md</code> (outside both repos).</p>
     <p>Hard spend caps / budget alerts on Gemini, Groq and Vercel — the plan is uncapped, so this is the only backstop against a runaway loop or a leaked session.</p>
   </div>
   <div class="card">
@@ -227,7 +227,7 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
       <li><code>smoke.cjs</code> fails if 2026 template content appears in any public file.</li>
       <li><code>ci-render.cjs</code> serves <code>__rebrand26.json</code> from disk to <code>smoke.html</code>, so the families go through render-checks on every push (2,736/2,736). The deployed site has no such file.</li>
     </ul>
-    Verified live: no session and a bogus token both get 403, and no template fingerprint appears in any served page or asset. <strong>Not verified:</strong> a real sign-in as Joel on the live site. <strong>Open:</strong> this repo is public on GitHub, so <code>api/_rebrand/</code> is readable there (see Open items).
+    Verified live: no session and a bogus token both get 403, and no template fingerprint appears in any served page or asset. <strong>Not verified:</strong> a real sign-in as Joel on the live site. This repo is public on GitHub, so <code>api/_rebrand/</code> is readable there; Joel accepted that until release (2026-10-30).
   </div>
   <div class="log-entry">
     <span class="log-date">2026-10-09</span>
