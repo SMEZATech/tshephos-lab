@@ -204,6 +204,20 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>Change log</h2>
   <div class="log-entry">
+    <span class="log-date">2026-10-30</span>
+    <strong>Webinar thumbnail, the 10th gated 2026 Studio family (<code>r26webinar</code>)</strong>. It has four directions: Spotlight, Spotlight · Light, Cinematic and Headline. Each has two states on a one-click "State" switch:
+    <ul>
+      <li><strong>Upcoming:</strong> date chip and Register free.</li>
+      <li><strong>After the event:</strong> no date, Watch now and a play badge.</li>
+    </ul>
+    It renders at YouTube 1280×720 plus square, portrait and story. <strong>New generic Studio hooks</strong>, used only by this family so far:
+    <ul>
+      <li><code>sizes</code>: a family remaps a size for itself only. Here Landscape becomes 1280×720 via <code>famSize()</code>, and <code>premDims()</code>, <code>setFormat</code> and the all-sizes export honour it. Copy rotation still logs <code>landscape</code>.</li>
+      <li><code>modes</code>: <code>renderFamilyModes()</code> sets one field and <code>premHidden()</code> hides the fields that state doesn't use.</li>
+    </ul>
+    <code>smoke.html</code> renders every mode at the family's own sizes (2,768/2,768), and browser tests cover the size, the switch and the gate both ways (50/50).
+  </div>
+  <div class="log-entry">
     <span class="log-date">2026-10-29</span>
     <strong>SMESA 2026 rebrand, built in and gated to Joel</strong>. The approved concepts (nine Studio families, five mailers, a four-card video package) are now real templates, visible only to <code>joel@smesouthafrica.co.za</code> until release.
     <strong>The gate is server-side.</strong> <code>isRebrandPreviewer(s)</code> in <code>_guard.js</code> checks the session email against <code>REBRAND_2026_EMAILS</code> (default Joel). <code>GET /api/rebrand</code> (routed, no new function) returns the definitions to a previewer and <strong>403</strong> to everyone else, including a signed-out caller, with <code>private, no-store</code>. <strong>Every template definition lives in <code>api/_rebrand/</code></strong>, never in <code>app/*.js</code>. Draw code travels as source and is installed at runtime:
