@@ -101,7 +101,7 @@ ${button(o.btn, o.url, "primary", "left", 8, 0, 280)}
 ${eyebrow(o.eyebrow || "Resources Library", ORANGE)}
 <p style="margin:0 0 8px 0;font-family:${J};font-size:23px;line-height:1.25;font-weight:800;color:#FFFFFF;">${o.title}</p>
 <p style="margin:0 0 18px 0;font-family:${I};font-size:15px;line-height:1.6;color:rgba(255,255,255,0.75);">${o.body}</p>
-<table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin:0 0 10px 0;"><tr>${o.chips.map((c) => `<td style="padding:0 6px 8px 0;"><table role="presentation" border="0" cellspacing="0" cellpadding="0"><tr><td bgcolor="#FFFFFF" style="background:#FFFFFF;border-radius:999px;padding:8px 14px;white-space:nowrap;"><a href="${c[1]}" target="_blank" style="white-space:nowrap;font-family:${J};font-size:12px;line-height:14px;font-weight:800;color:${NAVY};text-decoration:none;">${c[0]}</a></td></tr></table></td>`).join("")}</tr></table>
+<div style="margin:0 0 10px 0;font-size:0;line-height:0;">${o.chips.map((c) => `<a href="${c[1]}" target="_blank" style="display:inline-block;margin:0 6px 8px 0;background:#FFFFFF;border-radius:999px;padding:8px 14px;white-space:nowrap;font-family:${J};font-size:12px;line-height:14px;font-weight:800;color:${NAVY};text-decoration:none;">${c[0]}</a>`).join("")}</div>
 ${button(o.btn, o.url, "accent", "left", 4, 0, 250)}
 </td></tr></table>`),
     pullline: (o) => S("pullline", `<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:4px 0 6px 0;"><tr><td bgcolor="${TINT}" style="background:${TINT};border-radius:12px;padding:16px 20px;font-family:${J};font-size:17px;line-height:1.4;font-weight:800;color:${RED};">${o.text}</td></tr></table>`),
@@ -244,11 +244,11 @@ ${right}
 </td></tr>
 <tr><td height="4" bgcolor="${t.rule}" style="height:4px;font-size:0;line-height:0;background:${t.rule};">&nbsp;</td></tr>
 <tr><td class="px" style="padding:34px 40px 34px 40px;">
-<p style="margin-top: 0; font-weight: 600;">Hi {{ subscriber.first_name | default: "there" }},</p>
+<p style="margin-top: 0; font-weight: 600;">${t.greet || 'Hi {{ subscriber.first_name | default: "there" }},'}</p>
 `;
   }
   function bottom(t) {
-    const soc = SOCIAL.map((s) => `<a href="${s[1]}" target="_blank" style="color:#FFFFFF;text-decoration:none;font-weight:600;">${s[0]}</a>`).join('<span style="color:rgba(255,255,255,0.3);">&nbsp;&middot;&nbsp;</span>');
+    const soc = SOCIAL.map((s) => `<a href="${s[1]}" target="_blank" style="color:#FFFFFF;text-decoration:none;font-weight:600;white-space:nowrap;">${s[0]}</a>`).join('<span style="color:rgba(255,255,255,0.3);"> &middot; </span>');   // breakable separators: a non-breaking row forced phones 22px wide
     const col = (head, items) => `<td class="stack stack-gap" width="33%" valign="top" style="padding:0 10px 0 0;"><p style="margin:0 0 8px 0;font-family:${J};font-size:11px;line-height:14px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:${ORANGE};">${head}</p>${items.map((i) => `<a href="${i[1]}" target="_blank" style="display:block;color:rgba(255,255,255,0.75);text-decoration:none;font-family:${I};font-size:13px;line-height:24px;">${i[0]}</a>`).join("")}</td>`;
     const cols = col("Platform", [["My Business", SITE + "/workspace/"], ["Funding Portal", SITE + "/sme-funding/"], ["Resources Library", SITE + "/sme-resources/"]]) +
       col("Insights", [["All Insights", SITE + "/insights/"], ["Founder Focus", SITE + "/founder-focus/"], ["Funding Summit", SITE + "/summit/"]]) +
@@ -274,6 +274,8 @@ ${right}
   // ------------------------------------------------------------------ the five mailers
   const MAILERS = {
     t26tuesday: { label: "Tuesday Brief · 2026", rule: RED,
+      // The Tuesday Brief has always opened "Hi 👋 Boss" (the house voice); the other four say "there".
+      greet: 'Hi 👋 {{ subscriber.first_name | default: "Boss" }},',
       mast: { series: "The Tuesday Brief", date: "27 Oct 2026", title: "Side hustles to start before the year ends", sub: "Turn a skill you already have into extra income, and the five-step checklist to launch it this week." },
       reason: "You&rsquo;re receiving the Tuesday Brief because you subscribed to SME South Africa.", optdown: DIGEST,
       starter: () => [

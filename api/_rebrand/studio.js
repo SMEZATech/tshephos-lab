@@ -195,9 +195,15 @@ function r26Engine() {
       if (tk.sp) { if (cur.length) { cur.push({ t: " ", sp: true, g: false }); curW += m(" "); } continue; }
       const w = m(tk.t);
       if (cur.length && curW + w > maxW) {
+        // Never start a line with punctuation that belongs to the previous word ("*cast*, not" split
+        // as "cast" / ", not"): carry that word down with it.
+        const carry = [];
+        if (/^[.,:;!?…)]/.test(tk.t) && !cur[cur.length - 1].sp) {
+          while (cur.length && !cur[cur.length - 1].sp) carry.unshift(cur.pop());
+        }
         while (cur.length && cur[cur.length - 1].sp) cur.pop();
         if (cur.length) lines.push(cur);
-        cur = []; curW = 0;
+        cur = carry; curW = carry.reduce((acc, t) => acc + m(t.t), 0);
       }
       cur.push(tk); curW += w;
     }
@@ -222,13 +228,29 @@ function r26Engine() {
   // Draw fitted/wrapped lines. CSS half-leading is applied so a block sits where the concept's
   // line box puts it. Each line is traced once, in its base colour (a gradient run has no single
   // colour to contrast-check, which is fine: the gradient only ever sits on a dark or warm surface).
+  // Jakarta's . , : ; ! ? sit visibly loose after a letter at the tight tracking the CI asks for
+  // ("audience ."), so trailing punctuation is pulled in by PUNCT_K of the size, both when it is
+  // drawn and when its word is measured, so centring and right-alignment stay exact.
+  const PUNCT_K = 0.07, PUNCT_RE = /^(.*[A-Za-z0-9\u00C0-\u024F)\]\u2019'\u201D"])([.,:;!?\u2026]+)$/;
+  const LONE_PUNCT = /^[.,:;!?…]+$/;   // e.g. the comma after a gradient word, drawn as its own token
+  function tokW(c, t, size) {
+    if (LONE_PUNCT.test(t)) return c.measureText(t).width - size * PUNCT_K;
+    const m = PUNCT_RE.exec(t); if (!m) return c.measureText(t).width;
+    return c.measureText(m[1]).width + c.measureText(m[2]).width - size * PUNCT_K;
+  }
+  function tokDraw(r, c, t, x, y, size) {
+    if (r.suppressText) return;
+    if (LONE_PUNCT.test(t)) { c.fillText(t, x - size * PUNCT_K, y); return; }
+    const m = PUNCT_RE.exec(t); if (!m) { c.fillText(t, x, y); return; }
+    c.fillText(m[1], x, y); c.fillText(m[2], x + c.measureText(m[1]).width - size * PUNCT_K, y);
+  }
   function drawRich(r, b, x, y, boxW, color, align) {
     const c = r.ctx, size = b.font.size, lh = b.lh || 1.1, half = (lh - 1) / 2 * size;
     setF(r, b.font, b.ls);
     c.save(); c.textBaseline = "top";
     b.lines.forEach((line, i) => {
       const ly = y + i * size * lh + half;
-      const widths = line.map((t) => c.measureText(t.t).width), w = widths.reduce((a, v) => a + v, 0);
+      const widths = line.map((t) => tokW(c, t.t, size)), w = widths.reduce((a, v) => a + v, 0);
       let lx = x; if (align === "center") lx = x + (boxW - w) / 2; else if (align === "right") lx = x + boxW - w;
       // gradient runs: one gradient per contiguous run, spanning the run's own box
       let cx = lx;
@@ -237,10 +259,10 @@ function r26Engine() {
         if (t.g) {
           let k = j, rw = 0; while (k < line.length && (line[k].g || (line[k].sp && line[k + 1] && line[k + 1].g))) { rw += widths[k]; k++; }
           c.fillStyle = accentGrad(c, cx, ly, rw, size);
-          for (let q = j; q < k; q++) { if (!r.suppressText) c.fillText(line[q].t, cx, ly); cx += widths[q]; }
+          for (let q = j; q < k; q++) { tokDraw(r, c, line[q].t, cx, ly, size); cx += widths[q]; }
           j = k - 1; continue;
         }
-        c.fillStyle = color; if (!r.suppressText) c.fillText(t.t, cx, ly); cx += widths[j];
+        c.fillStyle = color; tokDraw(r, c, t.t, cx, ly, size); cx += widths[j];
       }
       const txt = line.map((t) => t.t).join("");
       if (txt.trim()) r._tr("text", { x: lx, y: ly, w, h: size, size, color, text: txt, family: b.font.family, weight: b.font.weight, align: align || "left", lineHeight: lh });
@@ -389,23 +411,26 @@ function r26Engine() {
     r.fillBg(WHITE);
     const iw = W - px * 2;
     // footer (byline) pinned to the bottom
-    const footH = 76 * k, fy = g.bot + (g.story ? 0 : 20 * k) - footH;
+    const footH = (g.story ? 92 : 76) * k, fy = g.bot + (g.story ? 0 : 20 * k) - footH;
     // text block measured first; the photo takes what is left (never less than 30%, never above 55%)
-    const subH = measurePara(r, v.sub, I, 400, 32 * k, iw, 1.55, { maxLines: 3 });
-    const headProbe = fit(r, v.head, J, 800, iw, 3 * 76 * k * 1.06, 1.06, -0.025, 76 * k, 48 * k, 3);
+    const st = g.story ? 1.32 : 1;                       // stories: same layout, larger type
+    const subS = 32 * k * st, headS = 76 * k * st;
+    const subH = measurePara(r, v.sub, I, 400, subS, iw, 1.55, { maxLines: 3 });
+    const headProbe = fit(r, v.head, J, 800, iw, 3 * headS * 1.06, 1.06, -0.025, headS, 48 * k, 3);
     const textH = 64 * k + headProbe.h + (subH ? 26 * k + subH : 0) + 40 * k + 34 * k;
     const ph = Math.round(Math.max(H * 0.3, Math.min(H * 0.55, fy - textH)));
     photo(r, 0, 0, W, ph, a.featured, null, 0.4);
     pill(r, v.pill, 64 * k, Math.max(64 * k, g.story ? 230 : 0), { size: 24 * k, padX: 22 * k, padY: 16 * k });
     let y = ph + 64 * k;
-    const head = fit(r, v.head, J, 800, iw, Math.max(60 * k, fy - 34 * k - 40 * k - y - (subH ? 26 * k + subH : 0)), 1.06, -0.025, 76 * k, 44 * k, 4);
+    const head = fit(r, v.head, J, 800, iw, Math.max(60 * k, fy - 34 * k - 40 * k - y - (subH ? 26 * k + subH : 0)), 1.06, -0.025, headS, 44 * k, 4);
     r.as("headline", () => drawRich(r, head, px, y, iw, T.ink)); y += head.h;
-    if (subH) { y += 26 * k; para(r, v.sub, I, 400, 32 * k, iw, 1.55, T.muted, px, y, { maxLines: 3 }); }
+    if (subH) { y += 26 * k * st; para(r, v.sub, I, 400, subS, iw, 1.55, T.muted, px, y, { maxLines: 3 }); }
     hr(r, px, W - px, fy - 34 * k, T.border, 2);
     monogram(r, v.author, px + footH / 2, fy + footH / 2, footH);
     const tx = px + footH + 22 * k, cube = 64 * k;
-    line(r, v.author, F(J, 700, 30 * k), tx, fy + 6 * k, T.ink, { maxW: iw - footH - cube - 60 * k });
-    line(r, v.meta, F(I, 400, 25 * k), tx, fy + 44 * k, T.muted, { maxW: iw - footH - cube - 60 * k });
+    const bs = footH / (76 * k);
+    line(r, v.author, F(J, 700, 30 * k * bs), tx, fy + 6 * k * bs, T.ink, { maxW: iw - footH - cube - 60 * k });
+    line(r, v.meta, F(I, 400, 25 * k * bs), tx, fy + 44 * k * bs, T.muted, { maxW: iw - footH - cube - 60 * k });
     const cimg = ART().cube; if (cimg) logo(r, "cube", W - px, fy + (footH - cube * cimg.height / cimg.width) / 2, cube, "right");
   }
 
@@ -523,9 +548,10 @@ function r26Engine() {
     const subH = measurePara(r, v.sub, I, 400, 38 * k, iw, 1.5, { maxLines: g.story ? 3 : 2 });
     const gapA = g.story ? 110 * k : 50 * k, gapT = g.story ? 80 * k : 44 * k;
     const fixed = badgeH + gapA + 30 * k + 34 * k + (subH ? 44 * k + subH : 0) + (tileH ? gapT + tileH : 0);
-    const head = fit(r, v.head, J, 800, iw, Math.max(90 * k, space - fixed), 0.95, -0.04, 150 * k, 56 * k, 3);
+    const head = fit(r, v.head, J, 800, iw, Math.max(90 * k, space - fixed), 1.04, -0.04, 150 * k, 56 * k, 3);
     const stackH = fixed + head.h;
     let y = g.top + Math.max(0, (space - stackH) * (g.story ? 0.3 : 0.4));
+    y = Math.max(g.top - 40 * k, Math.min(y, by - 44 * k - stackH));   // the stack never touches the CTA
     if (simg) { logo(r, "summit", cx, y, badgeW, "center"); y += badgeH + gapA; }
     else y += gapA;
     line(r, v.kicker, F(J, 800, 30 * k), cx, y, T.orange, { ls: 0.22, upper: true, align: "center", maxW: iw }); y += 30 * k + 34 * k;
@@ -568,19 +594,21 @@ function r26Engine() {
     // teasers + headline, measured
     const items = [v.i1, v.i2, v.i3].filter((s) => plain(s).trim());
     const tint = [[T.redTint, T.red], [T.greenTint, T.green], [T.amberTint, T.amber]];
-    const itW = iw - 44 * k - 22 * k;
-    const itemHs = items.map((s) => Math.max(44 * k, measurePara(r, s, I, 500, 30 * k, itW, 1.4, { maxLines: 2 })));
-    const listH = itemHs.reduce((a2, b2) => a2 + b2, 0) + Math.max(0, items.length - 1) * 26 * k;
+    const st = g.story ? 1.5 : 1, tile = 44 * k * st, itS = 30 * k * st, gapI = 26 * k * st;   // stories: larger type
+    const itW = iw - tile - 22 * k;
+    const itemHs = items.map((s) => Math.max(tile, measurePara(r, s, I, 500, itS, itW, 1.4, { maxLines: 3 })));
+    const listH = itemHs.reduce((a2, b2) => a2 + b2, 0) + Math.max(0, items.length - 1) * gapI;
     const top0 = g.top + p.h, space = by - top0;
-    const head = fit(r, v.head, J, 800, iw, Math.max(80 * k, space - listH - 56 * k - 50 * k - 50 * k), 1.06, -0.025, 72 * k, 40 * k, 4);
-    const stackH = head.h + (items.length ? 50 * k + listH : 0);
+    const head = fit(r, v.head, J, 800, iw, Math.max(80 * k, space - listH - 56 * k - 50 * k - 50 * k), 1.06, -0.025, 72 * k * st, 40 * k, 4);
+    const stackH = head.h + (items.length ? 50 * k * st + listH : 0);
     let y = top0 + Math.max(40 * k, Math.min(56 * k + (space - stackH - 56 * k - 50 * k) * 0.3, space - stackH - 40 * k));
-    r.as("headline", () => drawRich(r, head, x, y, iw, T.ink)); y += head.h + 50 * k;
+    if (g.story) y = top0 + Math.max(60 * k, (space - stackH) * 0.5);
+    r.as("headline", () => drawRich(r, head, x, y, iw, T.ink)); y += head.h + 50 * k * st;
     items.forEach((s, i) => {
-      r.fillRoundRect(x, y, 44 * k, 44 * k, 12 * k, tint[i][0]);
-      line(r, String(i + 1), F(J, 800, 24 * k), x + 22 * k, y + 10 * k, tint[i][1], { align: "center" });
-      para(r, s, I, 500, 30 * k, itW, 1.4, T.ink, x + 44 * k + 22 * k, y, { maxLines: 2 });
-      y += itemHs[i] + 26 * k;
+      r.fillRoundRect(x, y, tile, tile, 12 * k, tint[i][0]);
+      line(r, String(i + 1), F(J, 800, 24 * k * st), x + tile / 2, y + (tile - 24 * k * st) / 2 - 2 * k, tint[i][1], { align: "center" });
+      para(r, s, I, 500, itS, itW, 1.4, T.ink, x + tile + 22 * k, y, { maxLines: 3 });
+      y += itemHs[i] + gapI;
     });
     c.textBaseline = "top";
   }
@@ -671,24 +699,25 @@ function r26Engine() {
     line(r, v.url, F(J, 600, 24 * k), W - pad, by + (b.h - 24 * k) / 2, T.muted, { align: "right", maxW: iw - b.w - 30 * k });
     // cards
     const cards = [["● Ask", v.ask, T.red, T.red], ["● Win", v.win, T.green, T.green], ["● Share", v.share, T.orange, T.amber]].filter((x) => plain(x[1]).trim());
-    const labW = 160 * k, txW = iw - 32 * k * 2 - 8 * k - labW - 26 * k;
-    const ch = cards.map((x) => Math.max(36 * k, measurePara(r, x[1], I, 500, 30 * k, txW, 1.35, { maxLines: 3 })) + 56 * k);
-    const cardsH = ch.reduce((a2, b2) => a2 + b2, 0) + Math.max(0, cards.length - 1) * 22 * k;
+    const st = g.story ? 1.5 : 1, cS = 30 * k * st, lS = 22 * k * st;   // stories: larger type
+    const labW = 160 * k * st, txW = iw - 32 * k * 2 - 8 * k - labW - 26 * k;
+    const ch = cards.map((x) => Math.max(36 * k, measurePara(r, x[1], I, 500, cS, txW, 1.35, { maxLines: 3 })) + 56 * k * st);
+    const cardsH = ch.reduce((a2, b2) => a2 + b2, 0) + Math.max(0, cards.length - 1) * 22 * k * st;
     const top0 = g.top + lg.h, space = by - top0;
-    const head = fit(r, v.head, J, 800, iw, Math.max(70 * k, space - cardsH - 56 * k - 70 * k - 40 * k), 1.04, -0.025, 76 * k, 40 * k, 3);
+    const head = fit(r, v.head, J, 800, iw, Math.max(70 * k, space - cardsH - 56 * k - 70 * k - 40 * k), 1.04, -0.025, 76 * k * st, 40 * k, 3);
     const stackH = head.h + 56 * k + cardsH;
     let y = top0 + Math.max(40 * k, Math.min(70 * k, (space - stackH) * 0.5));
-    if (g.story || H > 1200) y = top0 + Math.max(60 * k, (space - stackH) * 0.45);
+    if (g.story || H > 1200) y = top0 + Math.max(60 * k, (space - stackH) * (g.story ? 0.5 : 0.45));
     r.as("headline", () => drawRich(r, head, pad, y, iw, T.ink)); y += head.h + 56 * k;
     cards.forEach((x, i) => {
       const h = ch[i];
       r.fillRoundRect(pad, y, iw, h, 16 * k, WHITE);
       c.save(); r.roundRectPath(pad + 1, y + 1, iw - 2, h - 2, 16 * k); c.strokeStyle = T.border; c.lineWidth = 2 * k; c.stroke(); c.restore();
       c.save(); r.roundRectPath(pad, y, iw, h, 16 * k); c.clip(); c.fillStyle = x[2]; c.fillRect(pad, y, 8 * k, h); c.restore();
-      line(r, x[0], F(J, 800, 22 * k), pad + 8 * k + 32 * k, y + (h - 22 * k) / 2, x[3], { ls: 0.14, upper: true, maxW: labW });
-      const th = measurePara(r, x[1], I, 500, 30 * k, txW, 1.35, { maxLines: 3 });
-      para(r, x[1], I, 500, 30 * k, txW, 1.35, T.ink, pad + 8 * k + 32 * k + labW + 26 * k, y + (h - th) / 2, { maxLines: 3 });
-      y += h + 22 * k;
+      line(r, x[0], F(J, 800, lS), pad + 8 * k + 32 * k, y + (h - lS) / 2, x[3], { ls: 0.14, upper: true, maxW: labW });
+      const th = measurePara(r, x[1], I, 500, cS, txW, 1.35, { maxLines: 3 });
+      para(r, x[1], I, 500, cS, txW, 1.35, T.ink, pad + 8 * k + 32 * k + labW + 26 * k, y + (h - th) / 2, { maxLines: 3 });
+      y += h + 22 * k * st;
     });
   }
 
@@ -703,7 +732,9 @@ function r26Engine() {
     const pick = (...ks) => { for (const kk of ks) if (plain(v[kk]).trim()) return v[kk]; return ""; };
     const head = pick(type === "r26quote" ? "quote" : "head", "name", "head");
     const tag = pick("pill", "kicker", "label", "issue");
-    const body = pick("sub", "authorRole", "role", "source");
+    // A quote's attribution is the person, then their role. Picking authorRole alone dropped the name.
+    const body = type === "r26quote" ? [plain(v.author).trim(), plain(v.authorRole).trim()].filter(Boolean).join(" \u00b7 ")
+      : pick("sub", "authorRole", "role", "source");
     const cta = pick("cta", "link", "swipe");
     const hasPhoto = type === "r26article" || type === "r26founder" || type === "r26quote";
     const rightW = hasPhoto || type === "r26number" || type === "r26carousel" && dir === "b" ? W * 0.38 : 0;
