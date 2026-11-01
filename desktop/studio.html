@@ -3759,7 +3759,8 @@
         try { await premPost({ type: 'install-r26', src: defs.studio.engine, assets, r26Fonts: fonts, scale: 1 }); }
         catch (e) { console.warn('[Studio] 2026 families failed to install', e); return; }
         applyBrand();
-        if (isR26Family(state.contentType)) renderPremiumPreview();
+        if (_r26PendingSnap) { const snap = _r26PendingSnap; _r26PendingSnap = null; clearTimeout(_r26PendingT); applyStudioSnapshot(snap); }
+        else if (isR26Family(state.contentType)) renderPremiumPreview();
     });
 
     // Expose for inline onclick handlers
@@ -3803,8 +3804,22 @@
     // module-state hook. The clip/image blobs are deliberately NOT stored: too big for
     // localStorage, and a stale product photo is worse than re-picking one.
     let _studioRestoring = false;
+    // A SESSION LEFT ON A GATED 2026 DESIGN. Those families only exist once /api/rebrand has answered,
+    // which is after this restore runs, so applying it straight away fell through to Creative — and
+    // the autosave heartbeat then saved Creative over it, losing the design for good. Instead the
+    // snapshot is HELD: the heartbeat keeps saving it unchanged, the 2026 install applies it, and
+    // it is dropped if the person starts working first or the families never arrive (no access).
+    let _r26PendingSnap = null, _r26PendingT = null;
+    function holdR26Snapshot(s) {
+        _r26PendingSnap = s; clearTimeout(_r26PendingT);
+        _r26PendingT = setTimeout(() => { _r26PendingSnap = null; }, 30000);
+    }
+    document.addEventListener('pointerdown', (e) => {
+        if (_r26PendingSnap && e.target && e.target.closest && e.target.closest('#pane-design, #pane-content, #pane-export')) _r26PendingSnap = null;
+    }, true);
     function studioSnapshot() {
         if (_studioRestoring) return null;
+        if (_r26PendingSnap) return _r26PendingSnap;
         return {
             contentType: state.contentType, premiumDir: state.premiumDir,
             campaign: state.campaign, theme: state.theme, format: state.format,
@@ -3823,6 +3838,7 @@
                 const f = document.getElementById('toggle-footer'); if (f) f.checked = s.showFooter;
             }
             if (typeof s.currentSlide === 'number') state.currentSlide = s.currentSlide;
+            if (s.contentType && /^r26/.test(s.contentType) && !PREMIUM[s.contentType]) { holdR26Snapshot(s); return true; }
             if (s.format) setFormat(s.format);
             if (s.contentType && s.contentType !== 'creative' && PREMIUM[s.contentType]) {
                 setContentType(s.contentType);
@@ -3830,7 +3846,8 @@
                 if (s.premiumDir) setPremiumDir(s.premiumDir);
                 if (s.premVals && typeof s.premVals === 'object') {
                     premVals = Object.assign({}, premVals, s.premVals);
-                    renderPremFields(); renderPremiumPreview();
+                    { const f = famDef(); if (f && f.modes && premVals[f.modes.field]) famMode[state.contentType] = premVals[f.modes.field]; }
+                    renderFamilyModes(); renderPremFields(); renderPremiumPreview();
                     crRefresh();   // a restored copy may have been published since — swap it if untouched
                 }
             } else {

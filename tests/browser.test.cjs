@@ -289,6 +289,37 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
       } else {
         expect('Video, ' + who + ': no 2026 template', !vd.btn && !vd.tpl && !vd.hooks, vd);
       }
+      // Reopen: a session left on a 2026 design must come back on it, not on Creative. The 2026
+      // families load AFTER the autosave restore runs, so the snapshot has to survive that gap.
+      {
+        const SNAP = { contentType: 'r26webinar', premiumDir: 'c', campaign: 'standard', theme: 'navy', format: 'landscape', showFooter: true, currentSlide: 0,
+          slides: ['x'], premVals: { stage: 'replay', series: 'SME Webinars', head: 'Reopen *test* title', date: 'Thu 29 Oct', name: 'N', role: 'R', cta: 'Register free', replayCta: 'Watch now', url: 'x' } };
+        await s.page.goto(base + '/studio.html', { waitUntil: 'domcontentloaded' });
+        await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
+        if (allowed) {
+          // the real flow: open the design, edit it, and let Studio save it on the way out
+          await s.page.waitForTimeout(8000);
+          await s.page.evaluate(() => { setContentType('r26webinar'); setPremiumDir('c'); document.querySelector('#fam-modes [data-fm="replay"]').click();
+            premVals.head = 'Reopen *test* title'; renderPremFields(); if (window.voltAutosaveNow) window.voltAutosaveNow(); });
+        } else {
+          // someone without access, holding the same saved session: seeded at document start, after
+          // the previous page's own save-on-exit, so nothing overwrites it before Studio reads it
+          await s.page.addInitScript((snap) => { try { const k = 'volt_autosave_' + (location.pathname.split('/').pop() || 'index').toLowerCase();
+            localStorage.setItem(k, JSON.stringify({ t: Date.now(), m: {}, c: {}, e: {}, mods: { studio: snap } }));
+            localStorage.setItem('volt_state_studio', JSON.stringify({ t: Date.now(), v: snap })); } catch (e) {} }, SNAP);
+        }
+        await s.page.reload({ waitUntil: 'domcontentloaded' });
+        await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
+        await s.page.waitForTimeout(allowed ? 10000 : 6000);
+        const ro = await s.page.evaluate(() => ({ type: state.contentType, dir: state.premiumDir, stage: premVals.stage, head: premVals.head, dims: premDims(),
+          modeOn: !!document.querySelector('#fam-modes [data-fm="replay"].on'), fam: !!document.getElementById('ct-r26webinar'), saved: (window.voltState.load('studio') || {}).contentType }));
+        if (allowed) {
+          expect('Studio, ' + who + ': a session left on a 2026 design reopens on it (family, direction, state, copy, size)',
+            ro.type === 'r26webinar' && ro.dir === 'c' && ro.stage === 'replay' && ro.head === 'Reopen *test* title' && ro.dims.w === 1280 && ro.modeOn, ro);
+        } else {
+          expect('Studio, ' + who + ': the same saved session opens on Creative, nothing 2026 appears', ro.type === 'creative' && !ro.fam, ro);
+        }
+      }
       expect('no page errors (' + who + ')', s.errors.length === 0, s.errors);
       await s.ctx.close();
     }
