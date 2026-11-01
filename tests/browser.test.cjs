@@ -300,6 +300,21 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         const fr = await s.page.evaluate(() => { applyTemplate('smesa26', { quiet: true }); drawIntroCard(0.5); drawOutroCard(0.5);
           const d = ctx.getImageData(W / 2, H / 2, 1, 1).data; return { tpl: state.template, cap: state.capColor, intro: introDur(), px: [d[0], d[1], d[2]] }; });
         expect('Video, ' + who + ': applying it sets the 2026 look and draws its cards', fr.tpl === 'smesa26' && fr.cap === '#DC183C' && fr.intro > 2, fr);
+        const ph = await s.page.evaluate(async () => {
+          $('#nameName').value = 'Prudence Gcabashe';
+          const px = () => { drawIntroCard(0.6); const d = ctx.getImageData(Math.round(W * 0.095), Math.round(H * 0.575), 1, 1).data; return d[0] + ',' + d[1] + ',' + d[2]; };
+          const probe = () => { ctx.clearRect(0, 0, W, H); drawIntroCard(0.6); return ctx.getImageData(0, 0, W, H); };
+          const before = probe();
+          const c = document.createElement('canvas'); c.width = c.height = 200; const x = c.getContext('2d'); x.fillStyle = '#29A37A'; x.fillRect(0, 0, 200, 200);
+          const blob = await new Promise(r => c.toBlob(r)); const dt = new DataTransfer(); dt.items.add(new File([blob], 'speaker.png', { type: 'image/png' }));
+          const inp = $('#r26Photo'); inp.files = dt.files; inp.dispatchEvent(new Event('change'));
+          await new Promise(r => setTimeout(r, 600));
+          const after = probe(); let green = 0, base = 0;
+          for (let i = 0; i < after.data.length; i += 4) { if (Math.abs(after.data[i] - 41) < 6 && Math.abs(after.data[i + 1] - 163) < 6 && Math.abs(after.data[i + 2] - 122) < 6) green++; if (Math.abs(before.data[i] - 41) < 6 && Math.abs(before.data[i + 1] - 163) < 6 && Math.abs(before.data[i + 2] - 122) < 6) base++; }
+          let tainted = false; try { cv.toDataURL(); } catch (e) { tainted = true; }
+          return { has: window.R26V.hasPhoto(), green, base, tainted };
+        });
+        expect('Video, ' + who + ': a chosen speaker photo fills the intro ring (and the canvas stays exportable)', ph.has && ph.green > 5000 && ph.base < 100 && !ph.tainted, ph);
       } else {
         expect('Video, ' + who + ': no 2026 template', !vd.btn && !vd.tpl && !vd.hooks, vd);
       }

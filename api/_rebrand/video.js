@@ -44,6 +44,11 @@ function r26Video(R) {
     logo.src = src;
   }
   const logoOk = () => logo.complete && logo.naturalWidth > 0;
+  // The speaker's photo is chosen by the person in the editor (a blob: URL), so it is same-origin and
+  // never taints the canvas. null = the ring shows initials, exactly as before.
+  let photo = null;
+  const photoOk = () => !!(photo && photo.complete && photo.naturalWidth > 0);
+  function setPhoto(img) { photo = img || null; }
 
   // ---------------------------------------------------------------- baked layers (once per size)
   let bakedFor = "", heroCv = null, glowR = null, glowO = null;
@@ -161,8 +166,16 @@ function r26Video(R) {
       const d = 130 * U, cx = pad + d / 2, cy = y + d / 2 + r.dy;
       ctx.fillStyle = accent(cx - d / 2, cy - d / 2, d, d); ctx.beginPath(); ctx.arc(cx, cy, d / 2, 0, 7); ctx.fill();
       ctx.fillStyle = NAVY; ctx.beginPath(); ctx.arc(cx, cy, d / 2 - 6 * U, 0, 7); ctx.fill();
-      ctx.fillStyle = "#ffffff"; ctx.font = "800 " + Math.round(d * 0.34) + "px " + J; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(initials(sp), cx, cy + 2);
+      if (photoOk()) {
+        // the speaker's photo, cover-fitted into the ring (face-biased: people sit in the top of a portrait)
+        const ir = d / 2 - 6 * U, sc = Math.max(2 * ir / photo.naturalWidth, 2 * ir / photo.naturalHeight), sw = 2 * ir / sc, sh = 2 * ir / sc;
+        ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, ir, 0, 7); ctx.clip();
+        ctx.drawImage(photo, (photo.naturalWidth - sw) / 2, (photo.naturalHeight - sh) * 0.22, sw, sh, cx - ir, cy - ir, 2 * ir, 2 * ir);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "#ffffff"; ctx.font = "800 " + Math.round(d * 0.34) + "px " + J; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(initials(sp), cx, cy + 2);
+      }
       ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.font = "800 " + Math.round(46 * U) + "px " + J; ctx.fillStyle = "#ffffff"; ctx.fillText(sp, pad + d + 30 * U, cy - (role ? 46 * U : 23 * U));
       if (role) { ctx.font = "500 " + Math.round(30 * U) + "px " + I; ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.fillText(role, pad + d + 30 * U, cy + 8 * U); }
@@ -311,5 +324,5 @@ function r26Video(R) {
       progressOn: true, brandFlashOn: false, markOn: false, waveOn: false, qaOn: false,
       capPos: "bottom", capSize: "M", capBg: "box", capColor: RED, capsOn: false, capFont: "sans", look: "natural" },
   };
-  return { key: KEY, introDur: 2.8, loadFonts, intro, outro, nameTag, captions, progress };
+  return { key: KEY, introDur: 2.8, loadFonts, intro, outro, nameTag, captions, progress, setPhoto, hasPhoto: photoOk };
 }

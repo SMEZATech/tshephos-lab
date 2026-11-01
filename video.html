@@ -885,9 +885,19 @@ if (typeof window.voltOnRebrand === 'function') window.voltOnRebrand((defs) => {
   if (fi && !$('#r26VideoFields')) {
     const w = document.createElement('div'); w.id = 'r26VideoFields'; w.style.display = state.template === 'smesa26' ? 'block' : 'none';
     w.innerHTML = '<input type="text" id="r26Kicker" placeholder="2026 series line — e.g. SME Webinars · Session 14 (also the lower-third pill)" />'
-      + '<input type="text" id="r26Cta" placeholder="2026 outro button — e.g. Join for Free" />';
+      + '<input type="text" id="r26Cta" placeholder="2026 outro button — e.g. Join for Free" />'
+      + '<label class="lbl" style="margin:10px 0 4px;">Speaker photo <span class="opt">optional — shown in the intro ring (square works best)</span></label>'
+      + '<input type="file" id="r26Photo" accept="image/*" />';
     fi.appendChild(w);
   }
+  { const pf = $('#r26Photo'); if (pf) pf.addEventListener('change', () => {
+      const f = pf.files && pf.files[0];
+      if (!f) { window.R26V.setPhoto(null); restart(); return; }
+      const img = new Image(), url = URL.createObjectURL(f);
+      img.onload = () => { window.R26V.setPhoto(img); restart(); };
+      img.onerror = () => { URL.revokeObjectURL(url); setStatus('Could not read that photo.'); };
+      img.src = url;
+    }); }
   if (window._r26PendingLook) { const d = window._r26PendingLook; window._r26PendingLook = null; restoreLook(d); }
 });
 // Format template picker — applies a preset, then gets out of the way.
