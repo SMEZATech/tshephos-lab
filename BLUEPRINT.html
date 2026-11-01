@@ -204,6 +204,14 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>Change log</h2>
   <div class="log-entry">
+    <span class="log-date">2026-11-01</span>
+    <strong>Podcast thumbnail, the 11th gated 2026 Studio family (<code>r26podcast</code>), and the Studio reopen fix</strong>. It has four directions: Guest panel, Cinematic, Guest panel · Light and Episode numeral. Its two states on the "State" switch are New episode (Watch now, no date) and Coming soon (date chip, Set a reminder). It renders at YouTube 1280×720 plus square, portrait and story, using the webinar family's <code>sizes</code>/<code>modes</code> hooks.
+    The episode number is first-class, a waveform glyph replaces the old collage microphone, and the guest panel draws on its own backdrop so a transparent cut-out PNG works as well as a photo. The guest name stays clear of YouTube's duration badge.
+    Webinar helpers gained <code>v.kicker</code>, <code>v.glyph</code> and <code>v.pillText</code>, and webinar output is unchanged.
+    <strong>Studio reopen:</strong> a saved session on a 2026 design used to fall through to Creative, because the families load after the autosave restore, and the heartbeat then saved Creative over it. <code>applyStudioSnapshot</code> now holds the snapshot (<code>holdR26Snapshot</code>); <code>studioSnapshot()</code> keeps returning it unchanged, the 2026 install applies it, and it is dropped if the person starts working first or the families never arrive.
+    Browser tests are 54/54.
+  </div>
+  <div class="log-entry">
     <span class="log-date">2026-10-30</span>
     <strong>Webinar thumbnail, the 10th gated 2026 Studio family (<code>r26webinar</code>)</strong>. It has four directions: Spotlight, Spotlight · Light, Cinematic and Headline. Each has two states on a one-click "State" switch:
     <ul>
