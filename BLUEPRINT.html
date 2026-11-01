@@ -190,7 +190,7 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   <div class="card">
     <h3>Joel's to do (nobody else has DB/dashboard access)</h3>
     <p><strong>Done 2026-10-06:</strong> <code>studio_copy_use</code> exists in Supabase (all 14 columns verified), so copy rotation is guarding the whole team, not each browser separately.</p>
-    <p><strong>SMESA 2026 rebrand: release when ready.</strong> One change: <code>REBRAND_2026_OPEN</code> (flag in <code>api/_guard.js</code> or <code>=1</code> in Vercel env) opens it to every signed-in user; <code>REBRAND_2026_EMAILS</code> widens it to named people. <code>api/_rebrand/</code> sits in this <em>public</em> GitHub repo (not served by the site, but readable on GitHub). <strong>Joel decided 2026-10-30: leave it until release</strong>; after release it no longer matters. If release slips by weeks, move it to a private store the route reads at runtime. Details: <code>rebrand-2026/REVIEW-NOTES.md</code> (outside both repos).</p>
+    <p><strong>SMESA 2026 rebrand: release when ready</strong> (checklist, undo and a team message: <code>rebrand-2026/RELEASE.md</code>, outside both repos). One change: <code>REBRAND_2026_OPEN</code> (flag in <code>api/_guard.js</code> or <code>=1</code> in Vercel env) opens it to every signed-in user; <code>REBRAND_2026_EMAILS</code> widens it to named people. <code>api/_rebrand/</code> sits in this <em>public</em> GitHub repo (not served by the site, but readable on GitHub). <strong>Joel decided 2026-10-30: leave it until release</strong>; after release it no longer matters. If release slips by weeks, move it to a private store the route reads at runtime. Details: <code>rebrand-2026/REVIEW-NOTES.md</code> (outside both repos).</p>
     <p>Hard spend caps / budget alerts on Gemini, Groq and Vercel — the plan is uncapped, so this is the only backstop against a runaway loop or a leaked session.</p>
   </div>
   <div class="card">
@@ -203,6 +203,12 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-11-02</span>
+    <strong>Rebrand release made a true one-change</strong>, and the video speaker photo. <code>/api/rebrand</code> now also returns <code>released</code> (<code>isRebrandReleased()</code> in <code>_guard.js</code>). When it is true, <code>volt-auth.js</code> hides every <code>.r26-pill</code> and <code>.r26-only</code> note and sets <code>window.voltRebrandReleased</code>, so releasing also removes the "2026 · Preview" labels and "only you can see this" notes. Before, those were hard-coded and would have outlived the release.
+    The 2026 video template got an optional speaker-photo upload for its intro ring (blob URL, canvas stays exportable).
+    Browser tests (79) now cover a teammate after release as well as before it.
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-11-01</span>
     <strong>Podcast thumbnail, the 11th gated 2026 Studio family (<code>r26podcast</code>), and the Studio reopen fix</strong>. It has four directions: Guest panel, Cinematic, Guest panel · Light and Episode numeral. Its two states on the "State" switch are New episode (Watch now, no date) and Coming soon (date chip, Set a reminder). It renders at YouTube 1280×720 plus square, portrait and story, using the webinar family's <code>sizes</code>/<code>modes</code> hooks.

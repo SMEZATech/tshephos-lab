@@ -1751,6 +1751,13 @@
         if (!d || !d.kit) return;
         _r26.defs = d;
         window.voltRebrand2026 = true;
+        // Released (open to everyone): the Preview pills and "only you can see this" notes go away.
+        if (d.released) {
+          window.voltRebrandReleased = true;
+          var rs = document.createElement("style"); rs.id = "va-r26-released";
+          rs.textContent = ".r26-pill,.r26-only{display:none!important}";
+          (document.head || document.documentElement).appendChild(rs);
+        }
         var q = _r26.waiting.splice(0);
         q.forEach(function (fn) { try { fn(d); } catch (e) { console.warn("[rebrand]", e); } });
         try { window.dispatchEvent(new CustomEvent("volt:rebrand", { detail: d })); } catch (e) {}

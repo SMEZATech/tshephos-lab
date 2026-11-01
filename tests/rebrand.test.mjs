@@ -39,6 +39,7 @@ function expect(name, cond, detail) { if (cond) { pass++; console.log("  ok   " 
 let r = await call("joel");
 expect("Joel (any letter case) gets the definitions", r.status === 200 && r.body.kit && r.body.kit.id === "sme26" && Object.keys(r.body.studio.families).length === 11 && !!r.body.studio.families.r26webinar && !!r.body.studio.families.r26podcast, r.status);
 expect("…with every template surface present", r.body && r.body.studio.engine.length > 1000 && typeof r.body.email.source === "string" && typeof r.body.video.source === "string", null);
+expect("…and says it is NOT released yet (previews keep their labels)", r.body && r.body.released === false, r.body && r.body.released);
 expect("…and it is never cacheable", r.headers["cache-control"] === "private, no-store", r.headers);
 
 r = await call("thabo");
@@ -59,7 +60,7 @@ delete process.env.REBRAND_2026_EMAILS;
 
 process.env.REBRAND_2026_OPEN = "1";
 r = await call("thabo");
-expect("REBRAND_2026_OPEN=1 releases to every signed-in user", r.status === 200, r.status);
+expect("REBRAND_2026_OPEN=1 releases to every signed-in user, and tells the pages it is released", r.status === 200 && r.body.released === true, r.status);
 r = await call(null);
 expect("…but still never to a signed-out caller", r.status === 403, r.status);
 delete process.env.REBRAND_2026_OPEN;

@@ -306,7 +306,7 @@ Keep it warm and practical."></textarea>
         <!-- SMESA 2026 (gated). Filled and shown only when /api/rebrand answered 200 for this account
              and a 2026 template is selected; see the "SMESA 2026 PREVIEW" block in the script. -->
         <div id="r26Panel" style="display:none; margin-top:14px; padding:14px; border:1px solid rgba(255,153,0,.35); border-radius:12px;">
-          <label class="lbl">2026 masthead <span class="r26-pill">2026 · Preview</span> <span class="opt">— only you can see the 2026 templates until release</span></label>
+          <label class="lbl">2026 masthead <span class="r26-pill">2026 · Preview</span> <span class="opt r26-only">— only you can see the 2026 templates until release</span></label>
           <input id="r26-series" placeholder="Series line (e.g. The Tuesday Brief)" style="margin-top:6px;" />
           <input id="r26-date" placeholder="Date / issue (top right)" style="margin-top:6px;" />
           <input id="r26-title" placeholder="Masthead headline" style="margin-top:6px;" />
@@ -2465,7 +2465,7 @@ if (typeof window.voltOnRebrand === 'function') window.voltOnRebrand((defs) => {
   Object.keys(R26E.starters).forEach(k => { if (!STARTERS[k]) STARTERS[k] = R26E.starters[k]; });
   const sv = document.getElementById('shellVariant');
   if (sv && !sv.querySelector('optgroup[data-r26]')) {
-    const g = document.createElement('optgroup'); g.label = 'SME South Africa 2026 · Preview (only you)'; g.setAttribute('data-r26', '1');
+    const g = document.createElement('optgroup'); g.label = window.voltRebrandReleased ? 'SME South Africa 2026' : 'SME South Africa 2026 · Preview (only you)'; g.setAttribute('data-r26', '1');
     Object.keys(R26E.templates).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = '✦ ' + R26E.templates[k].label; g.appendChild(o); });
     sv.insertBefore(g, sv.firstChild);
     if (window._r26PendingShell && R26E.templates[window._r26PendingShell]) { sv.value = window._r26PendingShell; window._r26PendingShell = null; sv.dispatchEvent(new Event('change')); }

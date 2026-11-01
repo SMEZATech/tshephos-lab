@@ -15,7 +15,7 @@
 //
 // Release: see isRebrandPreviewer in _guard.js — one flag, or one env var.
 
-import { setCors, rateLimit, requireSession, isRebrandPreviewer } from "../_guard.js";
+import { setCors, rateLimit, requireSession, isRebrandPreviewer, isRebrandReleased } from "../_guard.js";
 import { definitions } from "../_rebrand/index.js";
 
 export default async function handler(req, res) {
@@ -31,5 +31,5 @@ export default async function handler(req, res) {
   const deny = () => res.status(403).json({ error: "Not available.", code: "REBRAND_PREVIEW_ONLY" });
   const s = await requireSession(req);           // fails closed: missing Supabase env → error → 403
   if (s.error || !isRebrandPreviewer(s)) return deny();
-  return res.status(200).json(definitions());
+  return res.status(200).json(Object.assign({ released: isRebrandReleased() }, definitions()));
 }

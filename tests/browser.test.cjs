@@ -205,15 +205,15 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
   console.log('Rebrand 2026 gate (browser):');
   {
     const R26 = JSON.stringify((await import(require('url').pathToFileURL(path.join(WEB, 'api', '_rebrand', 'index.js')).href)).definitions());
-    const api = (allowed) => (r) => {
+    const api = (allowed, released) => (r) => {
       const u = r.request().url();
-      if (/\/api\/rebrand/.test(u)) return allowed ? r.fulfill({ status: 200, contentType: 'application/json', body: R26 }) : r.fulfill({ status: 403, contentType: 'application/json', body: '{"code":"REBRAND_PREVIEW_ONLY"}' });
+      if (/\/api\/rebrand/.test(u)) return allowed ? r.fulfill({ status: 200, contentType: 'application/json', body: released ? R26.replace('{"version"', '{"released":true,"version"') : R26 }) : r.fulfill({ status: 403, contentType: 'application/json', body: '{"code":"REBRAND_PREVIEW_ONLY"}' });
       return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     };
     // brand26/ assets are fetched by absolute URL; serve them from this checkout.
     const assets = async (p) => p.route('https://tshephos-lab.vercel.app/brand26/**', r => r.fulfill({ path: path.join(WEB, 'brand26', r.request().url().split('/brand26/')[1]) }));
-    for (const [who, email, allowed] of [['Joel', 'joel@smesouthafrica.co.za', true], ['a teammate', 'thabo@smesouthafrica.co.za', false]]) {
-      const s = await open(email, api(allowed), assets);
+    for (const [who, email, allowed, released] of [['Joel', 'joel@smesouthafrica.co.za', true, false], ['a teammate', 'thabo@smesouthafrica.co.za', false, false], ['a teammate after release', 'thabo@smesouthafrica.co.za', true, true]]) {
+      const s = await open(email, api(allowed, released), assets);
       await s.page.goto(base + '/studio.html', { waitUntil: 'domcontentloaded' });
       await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
       await s.page.waitForTimeout(allowed ? 9000 : 5000);
@@ -233,6 +233,11 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
                    stored: (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0 }; });
         expect('Studio, ' + who + ': a 2026 family renders through the page worker and passes render-checks', ok.type === 'r26funding' && ok.bytes > 10000 && ok.head && !ok.err, ok);
         expect('Studio, ' + who + ': choosing the 2026 kit still writes nothing to the shared Brand Kit', ok.stored === false, ok);
+        const lb = await s.page.evaluate(() => { setContentType('r26funding'); const vis = (el) => !!el && getComputedStyle(el).display !== 'none';
+          const sel = (typeof loadBrands === 'function') ? '' : '';
+          return { released: !!window.voltRebrandReleased, pill: vis(document.querySelector('#ct-r26funding .r26-pill')), hint: (document.getElementById('ct-hint') || {}).innerText || '' }; });
+        if (released) expect('Studio, ' + who + ': once released, no Preview pill and no "only you can see this" note', lb.released && !lb.pill && !/only you/i.test(lb.hint), lb);
+        else expect('Studio, ' + who + ': before release, the Preview pill and the "only you" note show', !lb.released && lb.pill && /only you/i.test(lb.hint), lb);
         const wb = await s.page.evaluate(async () => {
           setContentType('r26webinar'); setFormat('landscape');
           const out = { dims: premDims(), label: (document.querySelector('#btn-landscape .sub') || {}).textContent, canvas: document.getElementById('export-canvas').style.width,
@@ -294,7 +299,8 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
       await s.page.goto(base + '/video.html', { waitUntil: 'domcontentloaded' });
       await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
       await s.page.waitForTimeout(5000);
-      const vd = await s.page.evaluate(() => ({ btn: !!document.querySelector('#tmplSeg [data-tp="smesa26"] .r26-pill'), tpl: !!VIDEO_TEMPLATES.smesa26, hooks: !!window.R26V }));
+      const vd = await s.page.evaluate(() => ({ btn: !!document.querySelector('#tmplSeg [data-tp="smesa26"] .r26-pill'), tpl: !!VIDEO_TEMPLATES.smesa26, hooks: !!window.R26V, note: (VIDEO_TEMPLATES.smesa26 || {}).note || '' }));
+        if (released) expect('Video, ' + who + ': once released, the template note drops "only you"', !/only you/i.test(vd.note), vd);
       if (allowed) {
         expect('Video, ' + who + ': the SME SA 2026 template appears with its pill', vd.btn && vd.tpl && vd.hooks, vd);
         const fr = await s.page.evaluate(() => { applyTemplate('smesa26', { quiet: true }); drawIntroCard(0.5); drawOutroCard(0.5);

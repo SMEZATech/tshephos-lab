@@ -448,9 +448,12 @@ function isOwner(s) {
 // RELEASE is one line: set REBRAND_2026_OPEN to true here (or REBRAND_2026_OPEN=1 in Vercel) and every
 // signed-in user gets them; or widen REBRAND_2026_EMAILS to release to named people first. =====
 const REBRAND_2026_OPEN = false;
+// True once the rebrand is open to every signed-in user. The route tells the pages, which then drop their
+// "2026 · Preview" labels and "only you can see this" notes, so releasing is still ONE change.
+function isRebrandReleased() { return REBRAND_2026_OPEN || process.env.REBRAND_2026_OPEN === "1"; }
 function isRebrandPreviewer(s) {
   if (!s || !s.user) return false;
-  if (REBRAND_2026_OPEN || process.env.REBRAND_2026_OPEN === "1") return true;
+  if (isRebrandReleased()) return true;
   const email = String(s.user.email || "").toLowerCase();
   if (!email) return false;
   const raw = process.env.REBRAND_2026_EMAILS || "joel@smesouthafrica.co.za";
@@ -547,4 +550,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, meterOrg, _dayCount, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner, isRebrandPreviewer };
+export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, meterOrg, _dayCount, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner, isRebrandPreviewer, isRebrandReleased };

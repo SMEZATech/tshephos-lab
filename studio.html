@@ -922,7 +922,7 @@
         const isExisting = brands.some(b => b.id === editing.id);
         const isDefault = editing.id === 'sme';
 
-        let opts = brands.map(b => '<option value="' + b.id + '"' + (b.id === editing.id ? ' selected' : '') + '>' + sanitizeHTML(b.name) + (isVirtualBrand(b) ? '  ·  2026 Preview' : '') + '</option>').join('');
+        let opts = brands.map(b => '<option value="' + b.id + '"' + (b.id === editing.id ? ' selected' : '') + '>' + sanitizeHTML(b.name) + (isVirtualBrand(b) && !window.voltRebrandReleased ? '  ·  2026 Preview' : '') + '</option>').join('');
         opts += '<option value="__new__">➕ New brand…</option>';
 
         body.innerHTML =
@@ -2678,7 +2678,7 @@
       if(isCreative){ syncPremImage(); renderLayout(); return; }
       if(!PREMIUM[type]){ if(hint) hint.textContent = '“' + type + '” designs are coming next — Funding is live now.'; state.contentType='creative'; setContentType('creative'); return; }
       { const pc = document.getElementById('btn-premium-carousel'); if (pc && isR26Family(type)) pc.classList.add('hidden'); }
-      if(hint && isR26Family(type)) { hint.innerHTML = '<span class="r26-pill">2026 · Preview</span> ' + sanitizeHTML(PREMIUM[type].label) + ' — only you can see this until the 2026 rebrand is released. Wrap one headline word in *stars* to set it in the accent gradient.'; state.premiumDir = 'a'; setPremiumDir('a'); return; }
+      if(hint && isR26Family(type)) { hint.innerHTML = '<span class="r26-pill">2026 · Preview</span> ' + sanitizeHTML(PREMIUM[type].label) + '<span class="r26-only"> — only you can see this until the 2026 rebrand is released.</span> Wrap one headline word in *stars* to set it in the accent gradient.'; state.premiumDir = 'a'; setPremiumDir('a'); return; }
       if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction, then write the copy in Content.'
         + ((type === 'podcast' || type === 'merch' || type === 'founder') ? ' A ' + (type === 'podcast' ? 'guest photo' : type === 'founder' ? 'founder photo' : 'product shot') + ' can be loaded there too.' : '');
       state.premiumDir = 'a'; setPremiumDir('a');
