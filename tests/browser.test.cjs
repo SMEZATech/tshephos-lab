@@ -223,7 +223,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         kit: (typeof loadBrands === 'function') ? loadBrands().some(b => b.id === 'sme26') : null,
         stored: (() => { try { return (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0; } catch (e) { return false; } })() }));
       if (allowed) {
-        expect('Studio, ' + who + ': ten 2026 families appear, each with the 2026 · Preview pill', st.n === 10 && st.pill, st);
+        expect('Studio, ' + who + ': eleven 2026 families appear, each with the 2026 · Preview pill', st.n === 11 && st.pill, st);
         expect('Studio, ' + who + ': the "SME South Africa 2026" kit is offered', st.kit === true, st);
         expect('Studio, ' + who + ': …and is never written into the shared Brand Kit', st.stored === false, st);
         const ok = await s.page.evaluate(async () => { setActiveBrandId('sme26'); applyBrand(); setContentType('r26funding');
@@ -252,6 +252,20 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         expect('Studio, ' + who + ': After the event hides the date and register fields, and stays on when the direction changes', wb.stage === 'replay' && wb.replayFields.indexOf('date') < 0 && wb.replayFields.indexOf('cta') < 0 && wb.replayFields.indexOf('replayCta') >= 0 && wb.stageAfterDir === 'replay', wb);
         expect('Studio, ' + who + ': the replay render says Watch now, shows no date, passes render-checks', wb.watch && wb.noDate && !wb.err, wb);
         expect('Studio, ' + who + ': other families keep LinkedIn 1200×628', wb.backTo.w === 1200 && wb.backTo.h === 628 && /1200/.test(wb.backLabel), wb);
+        const pd = await s.page.evaluate(async () => {
+          setContentType('r26podcast'); setFormat('landscape');
+          const out = { dims: premDims(), modes: document.querySelectorAll('#fam-modes [data-fm]').length };
+          const fields = () => [].map.call(document.querySelectorAll('#premium-fields .prem-inp'), i => i.dataset.pk);
+          out.outFields = fields();
+          document.querySelector('#fam-modes [data-fm="soon"]').click();
+          out.soonFields = fields();
+          const d = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26podcast', dir: 'd', vals: premVals, w: 1280, h: 720, scale: 1, trace: true });
+          out.remind = (d.trace || []).some(t => /Set a reminder/.test(t.text || '')); out.date = (d.trace || []).some(t => /6 Nov/.test(t.text || ''));
+          out.ep = (d.trace || []).some(t => t.text === '10');
+          out.err = VoltRenderChecks.assertDesign(d.trace, 1280, 720).error || null;
+          return out; });
+        expect('Studio, ' + who + ': the podcast thumbnail is YouTube 1280×720 with a New episode / Coming soon switch', pd.dims.w === 1280 && pd.dims.h === 720 && pd.modes === 2 && pd.outFields.indexOf('date') < 0 && pd.outFields.indexOf('cta') >= 0 && pd.soonFields.indexOf('date') >= 0 && pd.soonFields.indexOf('cta') < 0, pd);
+        expect('Studio, ' + who + ': Coming soon shows the date and Set a reminder, the episode number is drawn, render-checks pass', pd.remind && pd.date && pd.ep && !pd.err, pd);
       } else {
         expect('Studio, ' + who + ': no 2026 family, no 2026 kit', !st.fam && st.n === 0 && st.kit === false, st);
         const nb = await s.page.evaluate(() => ({ web: !!document.getElementById('ct-r26webinar'), label: (document.querySelector('#btn-landscape .sub') || {}).textContent, modes: !document.getElementById('fam-modes') || document.getElementById('fam-modes').classList.contains('hidden') }));

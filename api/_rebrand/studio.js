@@ -18,6 +18,8 @@
 // per family (see drawLand) — the concepts don't define one.
 
 const D = (name, fields) => ({ name, fields });
+const POD = { stage: "out", show: "SME South Africa Podcast", ep: "Episode 10", head: "How to become *investment-ready*", date: "Thu 6 Nov · 18:00",
+  name: "Guest Name", role: "Role, Company", cta: "Watch now", remindCta: "Set a reminder" };
 const WEB = { stage: "live", series: "SME Webinars", head: "Business *Compliance* Essentials", date: "Thu 29 Oct · 11:00–12:00",
   name: "Speaker Name", role: "Role, Company", cta: "Register free", replayCta: "Watch now" };
 
@@ -79,6 +81,16 @@ export const STUDIO_FAMILIES = {
     dirs: {
       a: D("Spotlight", WEB), b: D("Spotlight · Light", WEB), c: D("Cinematic", WEB), d: D("Headline", WEB),
     } },
+  // Podcast thumbnail. Same size remap and state switch as the webinar family; the guest sits in a
+  // panel that also works with a transparent cut-out PNG, and the episode number is first-class.
+  r26podcast: { label: "Podcast thumbnail", emoji: "🎙️", photo: "Guest photo (cut-out PNG or square, 800px+)",
+    sizes: { landscape: [1280, 720, "YouTube · 1280×720"] },
+    modes: { field: "stage", options: [
+      { v: "out", label: "New episode · Watch now", hide: ["date", "remindCta"] },
+      { v: "soon", label: "Coming soon · Set a reminder", hide: ["cta"] }] },
+    dirs: {
+      a: D("Guest panel", POD), b: D("Cinematic", POD), c: D("Guest panel · Light", POD), d: D("Episode numeral", POD),
+    } },
 };
 
 export const FIELD_LABELS = {
@@ -86,7 +98,7 @@ export const FIELD_LABELS = {
   s1v: "Tile 1", s1k: "Tile 1 label", s2v: "Tile 2", s2k: "Tile 2 label", s3v: "Tile 3", s3k: "Tile 3 label", s4v: "Tile 4", s4k: "Tile 4 label",
   source: "Source line", date: "Date", link: "Text link", num: "Big numeral", tip: "Tip strip", swipe: "Swipe prompt",
   save: "Save label", share: "Share label", ask: "Ask", win: "Win",
-  series: "Series", replayCta: "Button after the event", stage: "State",
+  series: "Series", replayCta: "Button after the event", stage: "State", show: "Show name", ep: "Episode", remindCta: "Button (coming soon)",
 };
 
 export function studioEngineSource() {
@@ -789,7 +801,7 @@ function r26Engine() {
     c.fillStyle = color; c.fill(new Path2D("M3 1.5v21l18.5-10.5z")); c.restore();
   }
   function wIsLive(v) { return String(v.stage || "live") !== "replay"; }
-  function wKicker(v) { return (plain(v.series).trim() || "SME Webinars") + (wIsLive(v) ? " · Live" : " · Replay"); }
+  function wKicker(v) { return v.kicker || ((plain(v.series).trim() || "SME Webinars") + (wIsLive(v) ? " · Live" : " · Replay")); }
   function wChip(r, text, x, y, size, dark, rad) {
     if (!plain(text).trim()) return { w: 0, h: 0 };
     const f = F(J, 700, size), padX = size * 0.9, padY = size * 0.62, ic = size * 1.1, gap = size * 0.55;
@@ -831,6 +843,19 @@ function r26Engine() {
     c.save(); c.beginPath(); c.arc(cx, cy, d / 2 - d * 0.07, 0, Math.PI * 2); c.fillStyle = accentGrad(c, cx - d / 2, cy - d / 2, d, d); c.fill(); c.restore();
     r._tr("fill", { x: cx - d / 2, y: cy - d / 2, w: d, h: d, color: null, gradient: true });
     playTri(r, cx + d * 0.04, cy, d * 0.36, WHITE);
+  }
+  // Kicker line (series · state). A podcast sets v.glyph to put the audio-waveform mark in front of it.
+  function wKick(r, v, size, x, y, color, maxW) {
+    let tx = x, avail = maxW;
+    if (v.glyph) { const gh = size * 1.5, gw = wWave(r, x, y + size / 2 - gh / 2, gh); tx = x + gw + size * 0.7; avail = maxW - gw - size * 0.7; }
+    line(r, wKicker(v), F(J, 800, size), tx, y, color, { ls: 0.18, upper: true, maxW: avail });
+  }
+  // Top-right pill on a photo: "LIVE" for a webinar, or whatever v.pillText says (a podcast's episode number).
+  function wTopPill(r, v, live, x, y, size) {
+    const t = v.pillText != null ? String(v.pillText).toUpperCase() : (live ? "LIVE" : "");
+    if (!t.trim()) return;
+    if (t === "LIVE") return wLivePill(r, x, y, size, "right");
+    pill(r, t, x, y, { size, padX: size * 0.85, padY: size * 0.6, align: "right" });
   }
   function wLivePill(r, x, y, size, align) {
     const f = F(J, 800, size), padX = size * 0.85, padY = size * 0.6, dot = size * 0.5, gap = size * 0.5;
@@ -875,7 +900,7 @@ function r26Engine() {
       const b = wBtn(r, v, pad, by, 28 * k, { maxW: colW * 0.62 });
       if (live) wChip(r, v.date, pad + b.w + 18 * k, by + (bh - 22 * k * 2.24) / 2, 22 * k, !light, 12 * k);
       let y = top + lg.h + 64 * k;
-      line(r, wKicker(v), F(J, 800, 20 * k), pad, y, light ? T.red : T.orange, { ls: 0.18, upper: true, maxW: colW });
+      wKick(r, v, 20 * k, pad, y, light ? T.red : T.orange, colW);
       y += 20 * k + 20 * k;
       const t = fit(r, v.head, J, 800, colW, by - 34 * k - y, 1.03, -0.03, 78 * k, 40 * k, 3);
       r.as("headline", () => drawRich(r, t, pad, y, colW, ink));
@@ -896,7 +921,7 @@ function r26Engine() {
     ring(r, a.featured, cx, cy, d);
     if (!live) wPlayBadge(r, cx - d * 0.36, cy + d * 0.36, 104 * k);
     let y = g.top + lg.h + (g.story ? 90 : 70) * k;
-    line(r, wKicker(v), F(J, 800, 24 * k), pad, y, light ? T.red : T.orange, { ls: 0.18, upper: true, maxW: iw });
+    wKick(r, v, 24 * k, pad, y, light ? T.red : T.orange, iw);
     y += 24 * k + 22 * k;
     const chipH = live && plain(v.date).trim() ? 26 * k * 2.24 + 34 * k : 0;
     const t = fit(r, v.head, J, 800, iw, Math.max(80 * k, (cy - d / 2) - 44 * k - y - chipH), 1.03, -0.03, (g.story ? 112 : 96) * k, 48 * k, 4);
@@ -922,12 +947,12 @@ function r26Engine() {
       r._tr("fill", { x: px, y: 0, w: W - px, h: H, color: null, gradient: true });
       const colW = W * 0.5 - pad;
       const lg = logo(r, "rev", pad, top, 220 * k);
-      if (live) wLivePill(r, W - pad, top, 20 * k, "right");
+      wTopPill(r, v, live, W - pad, top, 20 * k);
       const bh = 28 * k * 2.56, by = H - 64 * k - bh;
       const b = wBtn(r, v, pad, by, 28 * k, { maxW: colW * 0.62 });
       if (live) wChip(r, v.date, pad + b.w + 18 * k, by + (bh - 22 * k * 2.24) / 2, 22 * k, true, 12 * k);
       let y = top + lg.h + 64 * k;
-      line(r, wKicker(v), F(J, 800, 20 * k), pad, y, T.orange, { ls: 0.18, upper: true, maxW: colW });
+      wKick(r, v, 20 * k, pad, y, T.orange, colW);
       y += 40 * k;
       const t = fit(r, v.head, J, 800, colW, by - 34 * k - y, 1.03, -0.03, 80 * k, 40 * k, 3);
       r.as("headline", () => drawRich(r, t, pad, y, colW, WHITE));
@@ -950,7 +975,7 @@ function r26Engine() {
     c.save(); c.fillStyle = gr; c.fillRect(0, 0, W, ph * 0.3); c.restore();
     r._tr("fill", { x: 0, y: 0, w: W, h: ph, color: null, gradient: true });
     logo(r, "rev", pad, g.story ? 230 : pad, 240 * k);
-    if (live) wLivePill(r, W - pad, g.story ? 230 : pad, 22 * k, "right");
+    wTopPill(r, v, live, W - pad, g.story ? 230 : pad, 22 * k);
     const whoY = ph - 34 * k - (34 * k * 1.18 + 22 * k * 1.4);
     let tx = pad;
     if (!live) { wPlayBadge(r, pad + 50 * k, whoY + 34 * k, 100 * k); tx = pad + 124 * k; }
@@ -958,7 +983,7 @@ function r26Engine() {
     const bh = 30 * k * 2.56, by = g.bot - bh;
     wBtn(r, v, pad, by, 30 * k, { maxW: iw });
     let y = ph + 44 * k;
-    line(r, wKicker(v), F(J, 800, 24 * k), pad, y, T.orange, { ls: 0.18, upper: true, maxW: iw });
+    wKick(r, v, 24 * k, pad, y, T.orange, iw);
     y += 24 * k + 22 * k;
     const chipH = live && plain(v.date).trim() ? 26 * k * 2.24 + 30 * k : 0;
     const t = fit(r, v.head, J, 800, iw, Math.max(70 * k, by - 40 * k - y - chipH), 1.03, -0.03, (g.story ? 104 : 84) * k, 40 * k, 4);
@@ -997,7 +1022,7 @@ function r26Engine() {
     const avail = speakerTop - 40 * k - (yTop + kick + 24 * k);
     const t = fit(r, v.head, J, 800, iw, avail, 1.0, -0.035, (land ? 104 : (g.story ? 128 : 112)) * k, 44 * k, 4);
     const y0 = yTop + Math.max(0, (avail - t.h) * (land ? 0.35 : 0.4));
-    line(r, wKicker(v), F(J, 800, kick), pad, y0, T.orange, { ls: 0.18, upper: true, maxW: iw });
+    wKick(r, v, kick, pad, y0, T.orange, iw);
     r.as("headline", () => drawRich(r, t, pad, y0 + kick + 24 * k, iw, WHITE));
   }
 
@@ -1006,6 +1031,146 @@ function r26Engine() {
     if (dir === "c") return webCine(r, v, a);
     if (dir === "d") return webHead(r, v, a);
     return webSpot(r, v, a, false);
+  }
+
+  // ---- S11 Podcast thumbnail ----------------------------------------------------------------------
+  // Four directions on the webinar family's building blocks (same lockup, chips, button, speaker
+  // caption), plus what is specific to a podcast: the EPISODE NUMBER as a first-class element, a small
+  // audio-waveform glyph in place of the old collage microphone, and a guest PANEL that works with a
+  // transparent cut-out PNG (it sits on its own backdrop) as well as an ordinary photo.
+  //   stage 'out'  → "· New episode", Watch now with a play glyph, no date
+  //   stage 'soon' → "· Coming soon", date chip, Set a reminder
+  // 16:9 is 1280×720 (YouTube); nothing but photo sits in the bottom-right timestamp corner — the
+  // old Ep. 10 thumbnail printed the guest's name exactly there, under YouTube's duration badge.
+  function podMap(v) {
+    const out = String(v.stage || "out") !== "soon", show = plain(v.show).trim() || "SME Podcast";
+    return { stage: out ? "replay" : "live", series: show, kicker: show + (out ? " · New episode" : " · Coming soon"),
+      head: v.head, date: v.date, name: v.name, role: v.role, cta: v.remindCta, replayCta: v.cta,
+      pillText: String(v.ep || "").trim() || null, glyph: true };
+  }
+  function wWave(r, x, y, h) {
+    const hs = [0.42, 0.78, 1, 0.62, 0.34], bw = h * 0.2, gap = h * 0.13, w = hs.length * bw + (hs.length - 1) * gap, c = r.ctx;
+    c.save(); c.fillStyle = accentGrad(c, x, y, w, h);
+    hs.forEach((p, i) => { const bh = h * p; r.roundRectPath(x + i * (bw + gap), y + (h - bh) / 2, bw, bh, bw / 2); c.fill(); });
+    c.restore();
+    return w;
+  }
+  // Guest panel: its own backdrop first (so a transparent cut-out reads), then the photo, then a
+  // bottom scrim for the name, and the accent spine down the left edge (the lower-third's signature).
+  function pcPanel(r, img, x, y, w, h, rad, k) {
+    const c = r.ctx; c.save(); r.roundRectPath(x, y, w, h, rad); c.clip();
+    let g = c.createLinearGradient(x, y, x + w, y + h);
+    g.addColorStop(0, "#22344a"); g.addColorStop(0.55, "#1a2a3e"); g.addColorStop(1, "#2b1626");
+    c.fillStyle = g; c.fillRect(x, y, w, h);
+    glow(r, x + w * 0.7, y + h * 0.28, Math.max(w, h) * 0.85, RED, 0.3);
+    if (img) {
+      const sc = Math.max(w / img.width, h / img.height), sw = w / sc, sh = h / sc;
+      c.drawImage(img, (img.width - sw) * 0.5, (img.height - sh) * 0.18, sw, sh, x, y, w, h);
+    }
+    g = c.createLinearGradient(0, y + h * 0.5, 0, y + h);
+    g.addColorStop(0, "rgba(12,31,49,0)"); g.addColorStop(1, "rgba(12,31,49,0.92)");
+    c.fillStyle = g; c.fillRect(x, y + h * 0.5, w, h * 0.5);
+    c.fillStyle = accentGrad(c, x, y, 8 * k, h); c.fillRect(x, y, 8 * k, h);
+    c.restore();
+    r._tr("image", { x, y, w, h });
+    r._tr("fill", { x, y: y + h * 0.5, w, h: h * 0.5, color: null, gradient: true });
+  }
+  function podGuest(r, m, px, py, pw, ph, k, land, big) {
+    const nf = (big ? 34 : 30) * k, sf = (big ? 22 : 19) * k;
+    const blockH = nf * 1.18 + (plain(m.role).trim() ? sf * 1.4 : 0);
+    const maxW = pw - 56 * k - (land ? 130 * k : 0);                  // keep clear of YouTube's duration badge
+    wWho(r, m, px + 32 * k, py + ph - 28 * k - blockH, maxW, k, { n: big ? 34 : 30, s: big ? 22 : 19 });
+    if (m.pillText) pill(r, m.pillText, px + 28 * k, py + 26 * k, { size: 20 * k, padX: 17 * k, padY: 12 * k });
+  }
+  function podPanel(r, v, a, light) {
+    const m = podMap(v), W = r.w, H = r.h, live = wIsLive(m), ink = light ? T.ink : WHITE;
+    if (W > H * 1.2) {
+      const k = Math.min(W / 1280, H / 720), pad = 72 * k, top = 64 * k;
+      wSurface(r, light, k);
+      const pw = 440 * k, px = W - 64 * k - pw, py = 56 * k, ph = H - 112 * k;
+      if (light) wRings(r, px + pw / 2, py + ph / 2, pw / 2, k);
+      const colW = px - pad - 56 * k;
+      const lg = logo(r, light ? "light" : "rev", pad, top, 200 * k);
+      const bh = 28 * k * 2.56, by = H - 64 * k - bh;
+      const b = wBtn(r, m, pad, by, 28 * k, { maxW: colW * 0.7 });
+      if (live) wChip(r, m.date, pad + b.w + 18 * k, by + (bh - 22 * k * 2.24) / 2, 22 * k, !light, 12 * k);
+      let y = top + lg.h + 56 * k;
+      wKick(r, m, 20 * k, pad, y, light ? T.red : T.orange, colW);
+      y += 20 * k + 24 * k;
+      const t = fit(r, v.head, J, 800, colW, by - 34 * k - y, 1.03, -0.03, 76 * k, 38 * k, 4);
+      r.as("headline", () => drawRich(r, t, pad, y, colW, ink));
+      pcPanel(r, a.featured, px, py, pw, ph, 24 * k, k);
+      podGuest(r, m, px, py, pw, ph, k, true, false);
+      return;
+    }
+    const g = geo(r), { k, pad } = g, iw = W - pad * 2;
+    wSurface(r, light, k);
+    const sq = H <= W * 1.05, port = !sq && !g.story;
+    const pw = W * (sq ? 0.38 : 0.46), ph = W * (sq ? 0.42 : port ? 0.62 : 0.86);
+    const px = W - pad - pw, py = g.bot - ph;
+    if (light) wRings(r, px + pw / 2, py + ph / 2, pw / 2, k);
+    const lg = logo(r, light ? "light" : "rev", pad, g.top, 240 * k);
+    const leftW = px - pad - 30 * k, bh = 30 * k * 2.56, by = g.bot - bh;
+    wBtn(r, m, pad, by, 30 * k, { maxW: leftW });
+    if (live && plain(m.date).trim()) wChip(r, m.date, pad, by - 22 * k - 26 * k * 2.24, 26 * k, !light, 12 * k);
+    let y = g.top + lg.h + (g.story ? 90 : 70) * k;
+    wKick(r, m, 24 * k, pad, y, light ? T.red : T.orange, iw);
+    y += 24 * k + 22 * k;
+    const t = fit(r, v.head, J, 800, iw, Math.max(80 * k, py - 36 * k - y), 1.03, -0.03, (g.story ? 112 : 92) * k, 44 * k, 4);
+    r.as("headline", () => drawRich(r, t, pad, y, iw, ink));
+    pcPanel(r, a.featured, px, py, pw, ph, 28 * k, k);
+    podGuest(r, m, px, py, pw, ph, k, false, true);
+  }
+  // D — Numeral: the episode number is the hero (for audio-only episodes or a weak photo).
+  function podNum(r, v, a) {
+    const m = podMap(v), W = r.w, H = r.h, live = wIsLive(m), land = W > H * 1.2, g = geo(r), c = r.ctx;
+    const k = land ? Math.min(W / 1280, H / 720) : g.k, pad = land ? 72 * k : g.pad;
+    const top = land ? 64 * k : g.top, bot = land ? H - 64 * k : g.bot, iw = W - pad * 2;
+    wSurface(r, false, k);
+    c.save(); c.fillStyle = accentGrad(c, 0, 0, 10 * k, H); c.fillRect(0, 0, 10 * k, H); c.restore();
+    const lg = logo(r, "rev", pad, top, (land ? 200 : 240) * k);
+    if (live) wChip(r, m.date, W - pad - (tw(r, m.date, F(J, 700, 22 * k)) + 22 * k * 3.4), top + (lg.h - 22 * k * 2.24) / 2, 22 * k, true, 12 * k);
+    const sz = (land ? 28 : 30) * k, bh = sz * 2.56, by = bot - bh, d = (land ? 104 : 120) * k;
+    let speakerTop;
+    if (land) { wBtn(r, m, W - pad, by, sz, { align: "right", maxW: iw * 0.42 }); speakerTop = by + bh / 2 - d / 2; }
+    else { wBtn(r, m, pad, by, sz, { maxW: iw }); speakerTop = by - 40 * k - d; }
+    ring(r, a.featured, pad + d / 2, speakerTop + d / 2, d);
+    const nmH = (land ? 28 : 32) * k * 1.18 + (land ? 18 : 21) * k * 1.4;
+    wWho(r, m, pad + d + 24 * k, speakerTop + (d - nmH) / 2, land ? iw * 0.55 - d - 24 * k : iw - d - 24 * k, k, { n: land ? 28 : 32, s: land ? 18 : 21 });
+    const digits = (String(v.ep || "").match(/\d+/) || [String(v.ep || "").trim()])[0];
+    const midTop = top + lg.h + (land ? 40 : 70) * k, midBot = speakerTop - 36 * k, midH = midBot - midTop;
+    const lab = (land ? 20 : 24) * k;
+    function numeral(maxW, maxH) {
+      const n = fit(r, digits, J, 800, maxW, maxH, 0.9, -0.05, (land ? 300 : 340) * k, 100 * k, 1);
+      n.lines = n.lines.map((l) => l.map((t2) => Object.assign({}, t2, { g: true })));
+      return n;
+    }
+    if (land) {
+      const nw = 380 * k, n = numeral(nw, midH - lab - 18 * k);
+      const ny = midTop + Math.max(0, (midH - (n.h + lab + 18 * k)) / 2);
+      line(r, "EPISODE", F(J, 800, lab), pad, ny, T.orange, { ls: 0.2, maxW: nw });
+      drawRich(r, n, pad - 6 * k, ny + lab + 18 * k, nw, T.red);
+      const tx = pad + nw + 44 * k, tW = W - pad - tx;
+      wKick(r, m, 20 * k, tx, midTop + 8 * k, T.orange, tW);
+      const ty = midTop + 8 * k + 20 * k + 22 * k;
+      const t = fit(r, v.head, J, 800, tW, midBot - ty, 1.03, -0.03, 72 * k, 36 * k, 5);
+      r.as("headline", () => drawRich(r, t, tx, ty + Math.max(0, (midBot - ty - t.h) * 0.2), tW, WHITE));
+    } else {
+      const nH = (g.story ? 0.27 : H > W * 1.2 ? 0.27 : 0.22) * H, n = numeral(iw, nH);
+      line(r, "EPISODE", F(J, 800, lab), pad, midTop, T.orange, { ls: 0.2, maxW: iw });
+      drawRich(r, n, pad - 8 * k, midTop + lab + 14 * k, iw, T.red);
+      const ty0 = midTop + lab + 14 * k + n.h + 30 * k;
+      wKick(r, m, 24 * k, pad, ty0, T.orange, iw);
+      const ty = ty0 + 24 * k + 22 * k;
+      const t = fit(r, v.head, J, 800, iw, Math.max(70 * k, midBot - ty), 1.03, -0.03, (g.story ? 100 : 84) * k, 40 * k, 4);
+      r.as("headline", () => drawRich(r, t, pad, ty, iw, WHITE));
+    }
+  }
+  function podcast(r, dir, v, a) {
+    if (dir === "b") return webCine(r, podMap(v), a);
+    if (dir === "c") return podPanel(r, v, a, true);
+    if (dir === "d") return podNum(r, v, a);
+    return podPanel(r, v, a, false);
   }
 
   const FAM = {
@@ -1019,8 +1184,9 @@ function r26Engine() {
     r26carousel: (r, d, v) => carousel(r, d, v),
     r26aws: (r, d, v) => aws(r, v),
     r26webinar: (r, d, v, a) => webinar(r, d, v, a),
+    r26podcast: (r, d, v, a) => podcast(r, d, v, a),
   };
-  const OWN_LANDSCAPE = { r26webinar: true };   // families that draw their own wide layout
+  const OWN_LANDSCAPE = { r26webinar: true, r26podcast: true };   // families that draw their own wide layout
   self.R26_DRAW = function (r, type, dir, v, a) {
     if (!FAM[type]) return false;
     r.ctx.textBaseline = "top";
