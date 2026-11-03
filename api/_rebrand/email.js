@@ -261,7 +261,7 @@ ${right}
 <p style="margin:0 0 24px 0;font-family:${I};font-size:13px;line-height:1.6;">${soc}</p>
 <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0"><tr>${cols}</tr></table>
 <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="margin:22px 0 0 0;"><tr><td height="1" bgcolor="#22344A" style="height:1px;font-size:0;line-height:0;background:#22344A;">&nbsp;</td></tr></table>
-<p style="margin:16px 0 6px 0;font-family:${I};font-size:12px;line-height:1.6;color:rgba(255,255,255,0.55);">SME South Africa &middot; Building 2, 1st Floor, Clearwater Office Park, Strubens Valley, Roodepoort &middot; 011 704 2641 &middot; <a href="mailto:info@smesouthafrica.co.za" style="color:rgba(255,255,255,0.75);text-decoration:none;">info@smesouthafrica.co.za</a></p>
+<p style="margin:16px 0 6px 0;font-family:${I};font-size:12px;line-height:1.6;color:rgba(255,255,255,0.55);">SME South Africa &middot; The Lifestyle Riverfront Office Park, 21 Bosbok Road, Randpark Ridge &middot; 011 704 2641 &middot; <a href="mailto:info@smesouthafrica.co.za" style="color:rgba(255,255,255,0.75);text-decoration:none;">info@smesouthafrica.co.za</a></p>
 <p style="margin:0;font-family:${I};font-size:12px;line-height:1.6;color:rgba(255,255,255,0.55);">${t.reason} ${t.optdown} <a href="{{ unsubscribe_url }}" style="color:rgba(255,255,255,0.75);text-decoration:underline;">Unsubscribe</a> &middot; <a href="{{ subscriber_preferences_url }}" style="color:rgba(255,255,255,0.75);text-decoration:underline;">Preferences</a></p>
 <p style="margin:12px 0 0 0;font-family:${I};font-size:11px;line-height:1.5;color:rgba(255,255,255,0.3);">&copy; 2026 SME South Africa. All rights reserved.</p>
 </td></tr>

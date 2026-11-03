@@ -281,7 +281,7 @@ function signatureBlock(p){
   const rows = [];
   if(p.email) rows.push(`<tr><td valign="middle" width="30" style="padding-bottom: 10px;">${sigTile(SIG_ICON.mail)}</td><td valign="middle" style="padding-bottom: 10px; padding-left: 10px;"><a href="mailto:${escAttr(p.email)}" style="font-size: 13px; font-weight: 600; color: #000000; text-decoration: none; border: none;">${esc(p.email)}</a></td></tr>`);
   if(p.phone) rows.push(`<tr><td valign="middle" width="30" style="padding-bottom: 10px;">${sigTile(SIG_ICON.phone)}</td><td valign="middle" style="padding-bottom: 10px; padding-left: 10px;"><span style="font-size: 13px; font-weight: 600; color: #000000;">${esc(p.phone)}</span></td></tr>`);
-  rows.push(`<tr><td valign="middle" width="30">${sigTile(SIG_ICON.pin)}</td><td valign="middle" style="padding-left: 10px;"><span style="font-size: 12px; line-height: 1.4; color: #444444;"><strong>Clearwater Office Park</strong><br>Strubensvalley, Roodepoort, 1735</span></td></tr>`);
+  rows.push(`<tr><td valign="middle" width="30">${sigTile(SIG_ICON.pin)}</td><td valign="middle" style="padding-left: 10px;"><span style="font-size: 12px; line-height: 1.4; color: #444444;"><strong>The Lifestyle Riverfront Office Park</strong><br>21 Bosbok Road, Randpark Ridge</span></td></tr>`);
   return `
                 <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Roboto', Arial, sans-serif; width: 100%; max-width: 520px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 24px;">
                     <tr>
