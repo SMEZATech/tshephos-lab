@@ -1740,10 +1740,13 @@
   window.voltOnRebrand = function (fn) {
     if (typeof fn !== "function") return;
     if (_r26.defs) { try { fn(_r26.defs); } catch (e) { console.warn("[rebrand]", e); } }
-    else _r26.waiting.push(fn);
+    else { _r26.waiting.push(fn); if (window.voltSession) loadRebrand(); }   // signed in already: ask now
   };
+  // LAZY: the definitions are ~160 KB, so only the pages that USE them (Studio, Email, Video — they call
+  // voltOnRebrand) ever ask. Copy, Stats, Schedule and the rest never fetch them, which matters once
+  // the rebrand is released and every teammate would otherwise download them on every page.
   function loadRebrand() {
-    if (_r26.asked || BRAND !== BRANDS.volt) return;
+    if (_r26.asked || BRAND !== BRANDS.volt || !_r26.waiting.length) return;
     _r26.asked = true;
     fetch("https://tshephos-lab.vercel.app/api/rebrand", { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })

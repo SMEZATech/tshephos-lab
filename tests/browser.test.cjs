@@ -360,6 +360,19 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     }
   }
 
+  // The 2026 definitions are ~160 KB: only the pages that use them may fetch them. After release every
+  // teammate would otherwise download them on every page (Copy, Stats, Schedule, ...).
+  console.log('Rebrand 2026 loading (browser):');
+  for (const [pageName, expected] of [['home.html', 0], ['schedule.html', 0], ['studio.html', 1], ['email.html', 1], ['video.html', 1]]) {
+    let n = 0;
+    const s = await open('joel@smesouthafrica.co.za', (r) => { if (/\/api\/rebrand/.test(r.request().url())) { n++; return r.fulfill({ status: 403, contentType: 'application/json', body: '{}' }); } return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' }); });
+    await s.page.goto(base + '/' + pageName, { waitUntil: 'domcontentloaded' });
+    await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
+    await s.page.waitForTimeout(3500);
+    expect(pageName + ': ' + (expected ? 'asks for the 2026 definitions (once)' : 'never asks for the 2026 definitions'), expected ? n === 1 : n === 0, n);
+    await s.ctx.close();
+  }
+
   await browser.close(); srv.close();
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
   process.exit(fail ? 1 : 0);
