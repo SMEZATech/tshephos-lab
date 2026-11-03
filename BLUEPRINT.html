@@ -204,6 +204,24 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>Change log</h2>
   <div class="log-entry">
+    <span class="log-date">2026-11-03</span>
+    <strong>Full audit of the 2026 rebrand work.</strong> Verified end to end as Joel with the real buttons: Download, all-four-sizes export, Tweak in Freeform, animated (motion) export and a full video export, all working for the webinar, podcast and funding families, with copy rotation recording each download and no page errors.
+    <strong>Two fixes.</strong>
+    <ol>
+      <li><code>/api/rebrand</code> is ~160 KB and every page fetched it for every user. It is now fetched only by the pages that call <code>voltOnRebrand</code> (Studio, Email, Video), which matters once released.</li>
+      <li>Freeform loaded Plus Jakarta Sans but not Inter, so "Tweak in Freeform" on a 2026 design re-wrapped its body text in a fallback face. Inter is now loaded.</li>
+    </ol>
+    <strong>Known limits, not bugs:</strong>
+    <ul>
+      <li>A gradient headline word becomes the base colour in Freeform (one text object, one fill).</li>
+      <li>Admin's "Studio designs" list can't retire individual 2026 families.</li>
+      <li>The in-app Guide doesn't mention the 2026 designs yet (add at release).</li>
+      <li>The nine original 2026 families share one unapproved landscape layout.</li>
+      <li>The 2024 promo blocks inside a 2026 email keep their 2024 colours.</li>
+    </ul>
+    Browser tests: 84/84.
+  </div>
+  <div class="log-entry">
     <span class="log-date">2026-11-02</span>
     <strong>Rebrand release made a true one-change</strong>, and the video speaker photo. <code>/api/rebrand</code> now also returns <code>released</code> (<code>isRebrandReleased()</code> in <code>_guard.js</code>). When it is true, <code>volt-auth.js</code> hides every <code>.r26-pill</code> and <code>.r26-only</code> note and sets <code>window.voltRebrandReleased</code>, so releasing also removes the "2026 · Preview" labels and "only you can see this" notes. Before, those were hard-coded and would have outlived the release.
     The 2026 video template got an optional speaker-photo upload for its intro ring (blob URL, canvas stays exportable).
