@@ -20,8 +20,14 @@
 const D = (name, fields) => ({ name, fields });
 const POD = { stage: "out", show: "SME South Africa Podcast", ep: "Episode 10", head: "How to become *investment-ready*", date: "Thu 6 Nov · 18:00",
   name: "Guest Name", role: "Role, Company", cta: "Watch now", remindCta: "Set a reminder" };
-const RES = { tint: "Brand tint", kind: "Guide", title: "Guide to *Conflict Resolution* in the Workplace", sub: "A practical guide for South African business owners.",
-  series: "Resources Library", url: "smesouthafrica.co.za/sme-resources" };
+const RES = { look: "Dark", tint: "Brand tint", series: "Resources Library", url: "smesouthafrica.co.za/sme-resources" };
+const RES_TEMPLATE = Object.assign({}, RES, { kind: "Template", title: "Employee Onboarding *Checklist* Template", sub: "A ready-to-use checklist for South African small businesses.",
+  check1: "Employment contract signed", check2: "Tax and UIF registered", check3: "Equipment and access issued", check4: "First-week plan shared", meta: "Editable · Excel & Word" });
+const RES_GUIDE = Object.assign({}, RES, { kind: "Guide", title: "Guide to *Conflict Resolution* in the Workplace", sub: "A step-by-step guide for South African business owners.",
+  step1: "Spot the signs", step2: "Choose an approach", step3: "Hold the conversation", step4: "Follow up", meta: "Step-by-step · 24 pages" });
+const RES_EBOOK = Object.assign({}, RES, { kind: "E-book", title: "Your Guide to *AI Prompting* for SMEs", sub: "Practical prompts that save South African founders hours every week.", meta: "32 pages · Free download" });
+const RES_REPORT = Object.assign({}, RES, { kind: "Report", title: "An Assessment of *South Africa's* SME Landscape", sub: "Challenges, opportunities, risks and next steps for small businesses.",
+  stat1v: "1,200", stat1k: "SMEs surveyed", stat2v: "9", stat2k: "Provinces", stat3v: "2026", stat3k: "Edition", meta: "Full report · 48 pages" });
 const WEB = { stage: "live", series: "SME Webinars", head: "Business *Compliance* Essentials", date: "Thu 29 Oct · 11:00–12:00",
   name: "Speaker Name", role: "Role, Company", cta: "Register free", replayCta: "Watch now" };
 
@@ -97,10 +103,10 @@ export const STUDIO_FAMILIES = {
   // inside devices. `kind` (Template / Guide / E-book / Report / Survey) picks the accent.
   r26rescover: { label: "Resource cover", emoji: "📘", photo: "Cover picture (optional: a topic, object or place, never people)",
     sizes: { landscape: [1600, 900, "Cover · 16:9 · 1600×900"], portrait: [1240, 1754, "Cover · A4 portrait · 1240×1754"], story: [1000, 1500, "Cover · 2:3 e-book · 1000×1500"] },
-    dirs: { a: D("Hero (dark)", RES), b: D("Light", RES), c: D("Full-bleed (cube or picture)", RES) } },
+    dirs: { a: D("Template", RES_TEMPLATE), b: D("Guide", RES_GUIDE), c: D("E-book", RES_EBOOK), d: D("Report / Survey", RES_REPORT) } },
   r26resfeature: { label: "Resource feature image", emoji: "🖼️", photo: "Cover picture (optional: a topic, object or place, never people)",
     sizes: { landscape: [1500, 1000, "Card image · 3:2 · 1500×1000"], portrait: [1200, 630, "Link preview · 1200×630"], story: [1600, 900, "Wide · 16:9 · 1600×900"] },
-    dirs: { a: D("Trio · dark covers", RES), b: D("Guide stack · light covers", RES), c: D("Spotlight · full-bleed cover", RES) } },
+    dirs: { a: D("Template · laptop trio", RES_TEMPLATE), b: D("Guide · A4 stack", RES_GUIDE), c: D("E-book · tablet spotlight", RES_EBOOK), d: D("Report / Survey · laptop trio", RES_REPORT) } },
 };
 
 export const FIELD_LABELS = {
@@ -109,7 +115,10 @@ export const FIELD_LABELS = {
   source: "Source line", date: "Date", link: "Text link", num: "Big numeral", tip: "Tip strip", swipe: "Swipe prompt",
   save: "Save label", share: "Share label", ask: "Ask", win: "Win",
   series: "Series", replayCta: "Button after the event", stage: "State", show: "Show name", ep: "Episode", remindCta: "Button (coming soon)",
-  kind: "Resource type (Template, Guide, E-book, Report…)", title: "Title", tint: "Picture style (Brand tint / Original)",
+  kind: "Resource type (Template, Guide, E-book, Report…)", title: "Title", tint: "Picture style (Brand tint / Original)", look: "Look (Dark / Light)", meta: "Format chip",
+  check1: "Checklist item 1", check2: "Checklist item 2", check3: "Checklist item 3", check4: "Checklist item 4",
+  step1: "Step 1", step2: "Step 2", step3: "Step 3", step4: "Step 4",
+  stat1v: "Stat 1", stat1k: "Stat 1 label", stat2v: "Stat 2", stat2k: "Stat 2 label", stat3v: "Stat 3", stat3k: "Stat 3 label",
 };
 
 export function studioEngineSource() {
@@ -1193,30 +1202,32 @@ function r26Engine() {
   //                            document on the warm (or hero) surface, at the site's 3:2 card ratio.
   // The type (Template, Guide, E-book, Report, Survey) is a free field; its keyword picks the accent so a
   // library of mixed resources reads as one family with a clear colour code.
-  function resKind(v, dark) {
+  // The four resource types are the four directions, each with its OWN design (Template, Guide, E-book,
+  // Report/Survey), not one layout in four colours. Resources are DOCUMENTS, never people: the optional
+  // picture is for topics, objects and places, and the default (no picture) is the brand's own artwork.
+  const RES_TYPE = { a: "template", b: "guide", c: "ebook", d: "report" };
+  function resKind(v, dark, type) {
     const k = String(v.kind || "").toLowerCase();
-    if (/template/.test(k)) return { bg: T.green, fg: WHITE, bar: T.green };
-    if (/e-?book/.test(k)) return { bg: T.red, fg: WHITE, bar: T.red };
-    if (/guide/.test(k)) return { bg: T.amberTint, fg: T.amber, bar: T.orange };
-    if (/report|survey|research/.test(k)) return dark ? { bg: "rgba(255,255,255,0.14)", fg: WHITE, bar: T.red } : { bg: T.navy, fg: WHITE, bar: T.red };
+    const t = type || (/template/.test(k) ? "template" : /e-?book/.test(k) ? "ebook" : /guide/.test(k) ? "guide" : /report|survey|research/.test(k) ? "report" : "x");
+    if (t === "template") return { bg: T.green, fg: WHITE, bar: T.green };
+    if (t === "ebook") return { bg: T.red, fg: WHITE, bar: T.red };
+    if (t === "guide") return { bg: T.amberTint, fg: T.amber, bar: T.orange };
+    if (t === "report") return dark ? { bg: "rgba(255,255,255,0.14)", fg: WHITE, bar: T.red } : { bg: T.navy, fg: WHITE, bar: T.red };
     return { bg: T.red, fg: WHITE, bar: T.red };
   }
+  function resLook(v) { return /light/i.test(String(v.look || "")) ? "light" : "dark"; }
   function resBackdrop(r, dark, k) {
     const W = r.w, H = r.h;
     if (dark) { hero(r); glow(r, W - 90 * k, 130 * k, 900 * k, RED, 0.34); glow(r, 40 * k, H * 0.82, 720 * k, ORANGE, 0.16); }
     else { warm(r); glow(r, W - 60 * k, 100 * k, 820 * k, RED, 0.09); glow(r, 40 * k, H, 760 * k, ORANGE, 0.12); }
   }
-  // Resources are DOCUMENTS, never people: the optional picture is for topics, objects and places, and the
-  // default (no picture) is the brand's own artwork: the cube mark, a hexagon lattice that echoes it,
-  // concentric rules, the dot grid, and an icon for the resource type.
-  function resIcon(kind) {
+  function resIcon(kind, type) {
     const k = String(kind || "").toLowerCase();
-    if (/template/.test(k)) return "M9 6h11 M9 12h11 M9 18h11 M3.5 6l1.5 1.5 2.5-3 M3.5 12l1.5 1.5 2.5-3 M3.5 18l1.5 1.5 2.5-3";
-    if (/e-?book/.test(k)) return "M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z M10.5 18h3";
-    if (/guide/.test(k)) return "M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V19.5";
-    if (/report|research/.test(k)) return "M4 20V11 M10 20V4 M16 20v-6 M3 20.5h18";
+    if (type === "template" || /template/.test(k)) return "M9 6h11 M9 12h11 M9 18h11 M3.5 6l1.5 1.5 2.5-3 M3.5 12l1.5 1.5 2.5-3 M3.5 18l1.5 1.5 2.5-3";
+    if (type === "ebook" || /e-?book/.test(k)) return "M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z M10.5 18h3";
+    if (type === "guide" || /guide/.test(k)) return "M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V19.5";
     if (/survey/.test(k)) return "M9 4h6v3H9z M7 5H6a1 1 0 00-1 1v14a1 1 0 001 1h12a1 1 0 001-1V6a1 1 0 00-1-1h-1 M8.5 14l2.5 2.5 4.5-5";
-    return "M14 3H7a1 1 0 00-1 1v16a1 1 0 001 1h10a1 1 0 001-1V8z M14 3v5h5 M9 13h6 M9 17h6";
+    return "M4 20V11 M10 20V4 M16 20v-6 M3 20.5h18";
   }
   // Hexagon lattice (the cube's own geometry) fading out from (cx, cy); a few cells glow in the type's accent.
   function resHex(r, x, y, w, h, s, st, cx, cy) {
@@ -1246,7 +1257,7 @@ function r26Engine() {
     if (img) { const cw = ch * img.width / img.height; c.drawImage(img, cx - cw / 2, cy - ch / 2, cw, ch); }
   }
   // The uploaded picture, cover-fitted. "Brand tint" (the default) makes any stock picture read as the same
-  // family: greyscale, multiplied through a navy-to-wine duotone, with a darkening toward the bottom.
+  // family: greyscale, multiplied through a navy-to-wine duotone, darker toward the bottom.
   function resTint(v) { return !/^\s*(original|off|none|no)\b/i.test(String(v.tint || "")); }
   function resPic(r, img, x, y, w, h, tint) {
     const c = r.ctx, sc = Math.max(w / img.width, h / img.height), sw = w / sc, sh = h / sc;
@@ -1258,13 +1269,75 @@ function r26Engine() {
       c.globalCompositeOperation = "multiply";
       let g = c.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, "#a3b9cf"); g.addColorStop(1, "#cf8196"); c.fillStyle = g; c.fillRect(x, y, w, h);
       c.globalCompositeOperation = "source-over";
-      g = c.createLinearGradient(x, y, x, y + h); g.addColorStop(0, "rgba(12,31,49,0.10)"); g.addColorStop(1, "rgba(12,31,49,0.5)"); c.fillStyle = g; c.fillRect(x, y, w, h);
+      g = c.createLinearGradient(x, y, x, y + h); g.addColorStop(0, "rgba(12,31,49,0.18)"); g.addColorStop(1, "rgba(12,31,49,0.62)"); c.fillStyle = g; c.fillRect(x, y, w, h);
     }
     c.restore();
     r._tr("image", { x, y, w, h });
   }
-  // The panel on A/B covers: the picture when there is one, the brand artwork when there isn't.
-  function resArt(r, x, y, w, h, rad, k, st, kind, img, tint) {
+  const resCircle = (r, cx, cy, d, fill) => { const c = r.ctx; c.beginPath(); c.arc(cx, cy, d / 2, 0, Math.PI * 2); c.fillStyle = fill; c.fill(); r._tr("fill", { x: cx - d / 2, y: cy - d / 2, w: d, h: d, color: fill }); };
+  // TEMPLATE: a fill-in checklist sheet, ticked down the list.
+  function resArtTemplate(r, x, y, w, h, m, strip, st, v) {
+    const c = r.ctx, items = [v.check1, v.check2, v.check3, v.check4].filter((s) => plain(s).trim()), n = Math.max(1, items.length);
+    let sh = strip ? h * 0.84 : h * 0.6, sw = sh * 0.8; if (!strip) { sw = Math.min(sw, w * 0.8); sh = sw / 0.8; }
+    const cx = strip ? x + w * 0.69 : x + w * 0.56, cy = strip ? y + h * 0.5 : y + h * 0.63;
+    c.save(); c.translate(cx, cy); c.rotate(-3 * Math.PI / 180); c.translate(-sw / 2, -sh / 2);
+    c.shadowColor = "rgba(0,0,0,0.42)"; c.shadowBlur = m * 0.09; c.shadowOffsetY = m * 0.045;
+    r.roundRectPath(0, 0, sw, sh, sw * 0.06); c.fillStyle = WHITE; c.fill(); c.shadowColor = "transparent";
+    r.roundRectPath(0, 0, sw, sh * 0.15, { tl: sw * 0.06, tr: sw * 0.06, br: 0, bl: 0 }); c.fillStyle = st.bar; c.fill();
+    r.roundRectPath(sw * 0.08, sh * 0.055, sw * 0.34, sh * 0.04, sh * 0.02); c.fillStyle = "rgba(255,255,255,0.92)"; c.fill();
+    const rowTop = sh * 0.2, rowH = sh * 0.19, cb = rowH * 0.42, cbx = sw * 0.08, fs = Math.min(rowH * 0.27, sw * 0.074);
+    items.slice(0, 4).forEach((s, i) => {
+      const cby = rowTop + i * rowH + (rowH - cb) / 2, done = i < n - 1 || n === 1;
+      r.roundRectPath(cbx, cby, cb, cb, cb * 0.24);
+      if (done) { c.fillStyle = st.bar; c.fill(); c.beginPath(); c.moveTo(cbx + cb * 0.24, cby + cb * 0.52); c.lineTo(cbx + cb * 0.43, cby + cb * 0.72); c.lineTo(cbx + cb * 0.78, cby + cb * 0.3); c.strokeStyle = WHITE; c.lineWidth = cb * 0.14; c.lineCap = "round"; c.lineJoin = "round"; c.stroke(); }
+      else { c.strokeStyle = "#B9C3CE"; c.lineWidth = cb * 0.1; c.stroke(); }
+      line(r, s, F(I, 600, fs), cbx + cb + sw * 0.05, cby + cb / 2 - fs * 0.55, T.ink, { maxW: sw * 0.92 - cb - sw * 0.05 - cbx });
+      if (i < n - 1) r.strokeLine(sw * 0.08, rowTop + (i + 1) * rowH, sw * 0.92, rowTop + (i + 1) * rowH, T.border, 1.5);
+    });
+    c.restore();
+  }
+  // GUIDE: numbered steps on a timeline.
+  function resArtGuide(r, x, y, w, h, m, strip, st, v) {
+    const c = r.ctx, steps = [v.step1, v.step2, v.step3, v.step4].filter((s) => plain(s).trim()), n = Math.max(1, steps.length);
+    c.save(); c.strokeStyle = st.bar + "88"; c.lineCap = "round";
+    if (strip) {
+      const x0 = x + w * 0.35, x1 = x + w * 0.92, cy0 = y + h * 0.4, d = m * 0.17, sp = n > 1 ? (x1 - x0) / (n - 1) : 0, bw = Math.min(sp * 0.92 || w * 0.2, w * 0.22);
+      c.lineWidth = m * 0.013; c.beginPath(); c.moveTo(x0, cy0); c.lineTo(x0 + sp * (n - 1), cy0); c.stroke();
+      steps.forEach((s, i) => {
+        const cx = x0 + sp * i; resCircle(r, cx, cy0, d, st.bar);
+        line(r, String(i + 1), F(J, 800, d * 0.46), cx, cy0 - d * 0.25, T.navy, { align: "center" });
+        para(r, s, I, 600, m * 0.056, bw, 1.2, "rgba(255,255,255,0.92)", cx - bw / 2, cy0 + d / 2 + m * 0.05, { align: "center", maxLines: 2 });
+      });
+    } else {
+      const xc = x + w * 0.17, d = m * 0.1, yTop = y + h * 0.37, yBot = y + h * 0.9, sp = n > 1 ? (yBot - yTop) / (n - 1) : 0, fs = m * 0.052;
+      c.lineWidth = m * 0.011; c.beginPath(); c.moveTo(xc, yTop); c.lineTo(xc, yTop + sp * (n - 1)); c.stroke();
+      steps.forEach((s, i) => {
+        const cy = yTop + sp * i; resCircle(r, xc, cy, d, st.bar);
+        line(r, String(i + 1), F(J, 800, d * 0.46), xc, cy - d * 0.25, T.navy, { align: "center" });
+        line(r, s, F(I, 600, fs), xc + d * 0.9, cy - fs * 0.55, "rgba(255,255,255,0.92)", { maxW: w * 0.92 - (xc - x) - d });
+      });
+    }
+    c.restore();
+  }
+  // REPORT / SURVEY: the headline numbers over a rising bar chart.
+  function resArtReport(r, x, y, w, h, m, strip, st, v) {
+    const c = r.ctx, stats = [[v.stat1v, v.stat1k], [v.stat2v, v.stat2k], [v.stat3v, v.stat3k]].filter((q) => plain(q[0]).trim()), n = Math.max(1, stats.length);
+    const hs = [0.34, 0.5, 0.42, 0.66, 0.78, 0.6, 0.95], bw = m * (strip ? 0.075 : 0.085), gap = bw * 0.5;
+    const bx = strip ? x + w * 0.62 : x + w * 0.1, bBottom = y + h * 0.93, bMax = h * (strip ? 0.62 : 0.34);
+    const span = hs.length * bw + (hs.length - 1) * gap, bwTot = strip ? Math.min(span, w * 0.34) : Math.min(span, w * 0.8), sc = bwTot / span;
+    hs.forEach((p, i) => { const hh = bMax * p, xx = bx + i * (bw + gap) * sc; r.roundRectPath(xx, bBottom - hh, bw * sc, hh, bw * sc * 0.28); c.fillStyle = i >= hs.length - 2 ? st.bar : "rgba(255,255,255,0.13)"; c.fill(); });
+    const tw0 = strip ? (w * 0.52 - 2 * m * 0.03) / n : w * 0.84, th = strip ? h * 0.52 : (h * 0.5 - 2 * m * 0.03) / n, gx = m * 0.03;
+    stats.slice(0, 3).forEach((q, i) => {
+      const tx = strip ? x + w * 0.05 + i * (tw0 + gx) : x + w * 0.08, ty = strip ? y + h * 0.1 : y + h * 0.07 + i * (th + gx);
+      r.roundRectPath(tx, ty, tw0, th, m * 0.04); c.fillStyle = "rgba(255,255,255,0.08)"; c.fill(); c.strokeStyle = "rgba(255,255,255,0.15)"; c.lineWidth = 1.5; c.stroke();
+      const vf = F(J, 800, Math.min(th * 0.4, tw0 * 0.3));
+      line(r, q[0], vf, tx + tw0 * 0.09, ty + th * 0.14, WHITE, { maxW: tw0 * 0.82 });
+      line(r, q[1], F(I, 500, Math.min(th * 0.16, tw0 * 0.095)), tx + tw0 * 0.09, ty + th * 0.14 + vf.size * 1.25, "rgba(255,255,255,0.72)", { maxW: tw0 * 0.82 });
+    });
+  }
+  // The panel on A4 / slide covers: the picture when there is one, brand artwork when there isn't, and the
+  // type's own art on top.
+  function resArt(r, x, y, w, h, rad, k, st, type, v, img, tint) {
     const c = r.ctx, m = Math.min(w, h), strip = w >= h * 1.4;
     c.save(); r.roundRectPath(x, y, w, h, rad); c.clip();
     if (img) resPic(r, img, x, y, w, h, tint);
@@ -1272,78 +1345,74 @@ function r26Engine() {
       const g = c.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, "#0C1F31"); g.addColorStop(0.55, "#16263a"); g.addColorStop(1, "#4b1a2b");
       c.fillStyle = g; c.fillRect(x, y, w, h);
       dots(r);
-      const cx = strip ? x + w * 0.76 : x + w * 0.62, cy = strip ? y + h * 0.5 : y + h * 0.64;
-      resHex(r, x, y, w, h, m * 0.115, st, cx, cy);
-      resCube(r, cx, cy, strip ? h * 0.8 : Math.min(h * 0.5, w * 0.78), st);
+      resHex(r, x, y, w, h, m * 0.115, st, x + w * (strip ? 0.76 : 0.62), y + h * (strip ? 0.5 : 0.64));
     }
-    const ts = m * (strip ? 0.3 : 0.2), tx = x + w * 0.08, ty = strip ? y + (h - ts) / 2 : y + h * 0.09;
-    c.save(); c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = ts * 0.4; c.shadowOffsetY = ts * 0.12;
-    r.roundRectPath(tx, ty, ts, ts, ts * 0.24); c.fillStyle = st.bar; c.fill(); c.restore();
-    r.drawIconPath(resIcon(kind), tx + ts * 0.2, ty + ts * 0.2, ts * 0.6, /guide/i.test(String(kind)) ? T.navy : WHITE, 2.3);
-    if (img && ART().cube) { const cw = m * 0.13, ch = cw * ART().cube.height / ART().cube.width; c.drawImage(ART().cube, x + w - cw - w * 0.06, y + h - ch - h * 0.06, cw, ch); }
+    r._tr("fill", { x, y, w, h, color: null, gradient: true });          // the panel, recorded BEFORE what sits on it
+    if (type !== "report") {
+      const ts = m * (strip ? 0.3 : 0.2), tx = x + w * 0.08, ty = strip ? y + (h - ts) / 2 : y + h * 0.09;
+      c.save(); c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = ts * 0.4; c.shadowOffsetY = ts * 0.12;
+      r.roundRectPath(tx, ty, ts, ts, ts * 0.24); c.fillStyle = st.bar; c.fill(); c.restore();
+      r.drawIconPath(resIcon(v.kind, type), tx + ts * 0.2, ty + ts * 0.2, ts * 0.6, type === "guide" ? T.navy : WHITE, 2.3);
+    }
+    if (type === "template") resArtTemplate(r, x, y, w, h, m, strip, st, v);
+    else if (type === "guide") resArtGuide(r, x, y, w, h, m, strip, st, v);
+    else if (type === "report") resArtReport(r, x, y, w, h, m, strip, st, v);
+    else if (!img) resCube(r, x + w * (strip ? 0.76 : 0.62), y + h * (strip ? 0.5 : 0.64), strip ? h * 0.8 : Math.min(h * 0.5, w * 0.78), st);
+    else if (ART().cube) { const cw = m * 0.2, ch = cw * ART().cube.height / ART().cube.width; c.drawImage(ART().cube, x + w - cw - w * 0.06, y + h - ch - h * 0.07, cw, ch); }
     c.restore();
-    r._tr("fill", { x, y, w, h, color: null, gradient: true });
+  }
+  // The format chip ("Editable · Excel & Word", "32 pages · Free download"): under the subtitle, never on the art.
+  function resChip(r, text, x, y, fs, dark) {
+    if (!plain(text).trim()) return { w: 0, h: 0 };
+    const f = F(J, 700, fs), w = tw(r, text, f) + fs * 1.9, h = fs * 2.2, c = r.ctx;
+    r.fillRoundRect(x, y, w, h, 12, dark ? "rgba(255,255,255,0.1)" : WHITE);
+    c.save(); r.roundRectPath(x + 0.75, y + 0.75, w - 1.5, h - 1.5, 12); c.strokeStyle = dark ? "rgba(255,255,255,0.2)" : T.border; c.lineWidth = 1.5; c.stroke(); c.restore();
+    line(r, text, f, x + fs * 0.95, y + (h - fs) / 2 + fs * 0.04, dark ? WHITE : T.ink);
+    return { w, h };
   }
   // A4 portrait, 2:3 and square covers
   function resCoverTall(r, dir, v, a) {
-    const W = r.w, H = r.h, k = W / 1240, pad = Math.round(W * 0.075), iw = W - pad * 2, c = r.ctx;
-    const dark = dir !== "b", full = dir === "c", st = resKind(v, dark), sq = H <= W * 1.05, img = a && a.featured, tint = resTint(v);
+    const W = r.w, H = r.h, k = W / 1240, pad = Math.round(W * 0.075), iw = W - pad * 2, type = RES_TYPE[dir] || "guide";
+    const dark = resLook(v) !== "light", st = resKind(v, dark, type), sq = H <= W * 1.05, img = a && a.featured, tint = resTint(v);
     const ink = dark ? WHITE : T.ink, subC = dark ? "rgba(255,255,255,0.75)" : T.muted;
-    if (full && img) {
-      resPic(r, img, 0, 0, W, H, tint);
-      let g = c.createLinearGradient(0, 0, 0, H * 0.26); g.addColorStop(0, "rgba(12,31,49,0.72)"); g.addColorStop(1, "rgba(12,31,49,0)");
-      c.save(); c.fillStyle = g; c.fillRect(0, 0, W, H * 0.26); c.restore();
-      g = c.createLinearGradient(0, H * 0.3, 0, H); g.addColorStop(0, "rgba(12,31,49,0)"); g.addColorStop(0.5, "rgba(12,31,49,0.9)"); g.addColorStop(1, "rgba(12,31,49,0.97)");
-      c.save(); c.fillStyle = g; c.fillRect(0, H * 0.3, W, H * 0.7 + 1); c.restore();
-      r._tr("fill", { x: 0, y: 0, w: W, h: H, color: null, gradient: true });
-    } else {
-      resBackdrop(r, dark, k);
-      if (full) { const cx = W * 0.76, cy = H * (sq ? 0.3 : 0.27); resHex(r, 0, 0, W, H, W * 0.07, st, cx, cy); resCube(r, cx, cy, H * (sq ? 0.46 : 0.4), st); }
-    }
+    resBackdrop(r, dark, k);
     const lg = logo(r, dark ? "rev" : "light", pad, pad, W * 0.27);
     if (plain(v.kind).trim()) pill(r, v.kind, W - pad, pad + (lg.h - (26 * k + 30 * k)) / 2, { size: 26 * k, padX: 24 * k, padY: 15 * k, bg: st.bg, fg: st.fg, align: "right" });
     const footY = H - pad - 24 * k;
     line(r, v.url, F(J, 600, 24 * k), pad, footY, dark ? "rgba(255,255,255,0.6)" : T.muted, { maxW: iw * 0.58 });
     line(r, v.series, F(J, 800, 22 * k), W - pad, footY + k, dark ? T.orange : T.red, { ls: 0.16, upper: true, align: "right", maxW: iw * 0.4 });
-    const ph = full ? 0 : H * (sq ? 0.3 : 0.31), py = footY - 44 * k - ph;
-    const lim = full ? footY - 44 * k : py - 44 * k, top0 = pad + lg.h + H * (sq ? 0.04 : 0.065);
-    const subH = measurePara(r, v.sub, I, 400, 32 * k, iw, 1.45, { maxLines: 3 }), barH = 12 * k, gap = 30 * k;
-    const t = fit(r, v.title, J, 800, iw, Math.max(100 * k, (full ? H * 0.34 : lim - top0) - barH - gap - (subH ? subH + 26 * k : 0)), 1.02, -0.03, (sq ? 100 : 118) * k, 50 * k, 5);
-    const total = barH + gap + t.h + (subH ? 26 * k + subH : 0);
-    const y0 = full ? lim - total : top0;
-    r.fillRoundRect(pad, y0, 120 * k, barH, barH / 2, st.bar);
-    r.as("headline", () => drawRich(r, t, pad, y0 + barH + gap, iw, ink));
-    if (subH) para(r, v.sub, I, 400, 32 * k, iw, 1.45, subC, pad, y0 + barH + gap + t.h + 26 * k, { maxLines: 3 });
-    if (!full) resArt(r, pad, py, iw, ph, 28 * k, k, st, v.kind, img, tint);
+    const ph = H * (sq ? 0.34 : 0.34), py = footY - 44 * k - ph;
+    const lim = py - 44 * k, top0 = pad + lg.h + H * (sq ? 0.035 : 0.055);
+    const subH = measurePara(r, v.sub, I, 400, 32 * k, iw, 1.45, { maxLines: 3 }), barH = 12 * k, gap = 28 * k;
+    const chipH = plain(v.meta).trim() ? 24 * k * 2.2 + 26 * k : 0;
+    const t = fit(r, v.title, J, 800, iw, Math.max(100 * k, lim - top0 - barH - gap - (subH ? subH + 24 * k : 0) - chipH), 1.02, -0.03, (sq ? 96 : 116) * k, 50 * k, 5);
+    r.fillRoundRect(pad, top0, 120 * k, barH, barH / 2, st.bar);
+    r.as("headline", () => drawRich(r, t, pad, top0 + barH + gap, iw, ink));
+    if (subH) para(r, v.sub, I, 400, 32 * k, iw, 1.45, subC, pad, top0 + barH + gap + t.h + 24 * k, { maxLines: 3 });
+    if (chipH) resChip(r, v.meta, pad, top0 + barH + gap + t.h + (subH ? 24 * k + subH : 0) + 26 * k, 24 * k, dark);
+    resArt(r, pad, py, iw, ph, 28 * k, k, st, type, v, img, tint);
   }
-  // 16:9 slide covers (reports, e-books, template decks)
+  // 16:9 slide covers
   function resCoverWide(r, dir, v, a) {
-    const W = r.w, H = r.h, k = H / 900, pad = Math.round(W * 0.055), c = r.ctx;
-    const dark = dir !== "b", full = dir === "c", st = resKind(v, dark), img = a && a.featured, tint = resTint(v);
+    const W = r.w, H = r.h, k = H / 900, pad = Math.round(W * 0.055), type = RES_TYPE[dir] || "guide";
+    const dark = resLook(v) !== "light", st = resKind(v, dark, type), img = a && a.featured, tint = resTint(v);
     const ink = dark ? WHITE : T.ink, subC = dark ? "rgba(255,255,255,0.75)" : T.muted;
-    const px = W * 0.58, pw = W - px - pad, py = H * 0.08, ph = H * 0.84;
-    if (full && img) {
-      resBackdrop(r, true, k);
-      resPic(r, img, W * 0.4, 0, W * 0.6, H, tint);
-      const g = c.createLinearGradient(W * 0.4, 0, W * 0.7, 0); g.addColorStop(0, "#0C1F31"); g.addColorStop(0.45, "rgba(12,31,49,0.8)"); g.addColorStop(1, "rgba(12,31,49,0)");
-      c.save(); c.fillStyle = g; c.fillRect(W * 0.4 - 1, 0, W * 0.3 + 1, H); c.restore();
-      r._tr("fill", { x: W * 0.4, y: 0, w: W * 0.6, h: H, color: null, gradient: true });
-    } else {
-      resBackdrop(r, dark, k);
-      if (full) { const cx = W * 0.76, cy = H * 0.5; resHex(r, W * 0.4, 0, W * 0.6, H, H * 0.1, st, cx, cy); resCube(r, cx, cy, H * 0.8, st); }
-    }
-    const colW = full ? W * 0.5 : px - pad - 48 * k;
+    const px = W * 0.56, pw = W - px - pad, py = H * 0.08, ph = H * 0.84;
+    resBackdrop(r, dark, k);
+    const colW = px - pad - 44 * k;
     const lg = logo(r, dark ? "rev" : "light", pad, pad, 250 * k);
     let y = pad + lg.h + 40 * k;
     if (plain(v.kind).trim()) { const p = pill(r, v.kind, pad, y, { size: 24 * k, padX: 22 * k, padY: 14 * k, bg: st.bg, fg: st.fg }); y += p.h + 34 * k; }
     const footY = H - pad - 22 * k, lim = footY - 44 * k;
     const subH = measurePara(r, v.sub, I, 400, 28 * k, colW, 1.45, { maxLines: 3 });
-    const t = fit(r, v.title, J, 800, colW, Math.max(80 * k, lim - y - (subH ? subH + 24 * k : 0)), 1.03, -0.03, 96 * k, 44 * k, 5);
+    const chipH = plain(v.meta).trim() ? 22 * k * 2.2 + 24 * k : 0;
+    const t = fit(r, v.title, J, 800, colW, Math.max(80 * k, lim - y - (subH ? subH + 24 * k : 0) - chipH), 1.03, -0.03, 92 * k, 44 * k, 5);
     r.as("headline", () => drawRich(r, t, pad, y, colW, ink));
     if (subH) para(r, v.sub, I, 400, 28 * k, colW, 1.45, subC, pad, y + t.h + 24 * k, { maxLines: 3 });
+    if (chipH) resChip(r, v.meta, pad, y + t.h + (subH ? 24 * k + subH : 0) + 24 * k, 22 * k, dark);
     line(r, v.url, F(J, 600, 22 * k), pad, footY, dark ? "rgba(255,255,255,0.6)" : T.muted, { maxW: colW * 0.62 });
     line(r, v.series, F(J, 800, 20 * k), pad + colW, footY + k, dark ? T.orange : T.red, { ls: 0.16, upper: true, align: "right", maxW: colW * 0.4 });
-    if (!full) resArt(r, px, py, pw, ph, 30 * k, k, st, v.kind, img, tint);
+    resArt(r, px, py, pw, ph, 30 * k, k, st, type, v, img, tint);
   }
   function resCover(r, dir, v, a) {
     r.ctx.textBaseline = "top";
@@ -1374,18 +1443,18 @@ function r26Engine() {
   }
   function resFeature(r, dir, v, a) {
     r.ctx.textBaseline = "top";
-    const W = r.w, H = r.h, dark = dir === "c", boost = H > W * 0.95 ? 1.1 : 1, cd = dir === "a" ? "a" : dir === "b" ? "b" : "c";
+    const W = r.w, H = r.h, dark = resLook(v) === "light", boost = H > W * 0.95 ? 1.13 : 1, cd = dir, scene = { a: "trio", b: "stack", c: "spot", d: "trio" }[dir] || "trio";
     resBackdrop(r, dark, Math.min(W, H * 1.5) / 1500);
     const s = Math.min(W / 1500 * boost, H / 1000), ox = (W - 1500 * s) / 2, oy = (H - 1000 * s) / 2, c = r.ctx;
     const wideI = resCoverImg(1600, 900, cd, v, a), phoneI = resCoverImg(1080, 2340, cd, v, a);
     const box = [];
     const dev = (x, y, w, h, rad, bez, img, rot) => { resDevice(r, x, y, w, h, rad, bez, img, rot); box.push([x, y, w, h]); };
     c.save(); c.translate(ox, oy); c.scale(s, s);
-    if (dir === "a") {                                   // Trio: laptop, tablet, phone
+    if (scene === "trio") {                             // Trio: laptop, tablet, phone
       dev(150, 120, 800, 470, 26, 16, wideI, 0); resLaptopBase(r, 80, 590, 940, 30); box.push([80, 590, 940, 30]);
       dev(700, 390, 640, 372, 36, 16, wideI, -3);
       dev(130, 520, 214, 450, 44, 12, phoneI, 4);
-    } else if (dir === "b") {                            // Guide stack: A4 document, tablet, phone
+    } else if (scene === "stack") {                      // Guide stack: A4 document, tablet, phone
       const docI = resCoverImg(1240, 1754, cd, v, a);
       dev(150, 90, 540, 764, 8, 0, docI, -5);
       dev(620, 340, 720, 420, 38, 16, wideI, 3);

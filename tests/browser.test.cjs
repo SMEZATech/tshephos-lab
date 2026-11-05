@@ -277,7 +277,16 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
           const lab = (f) => (document.querySelector('#btn-' + f + ' .sub') || {}).textContent;
           setFormat('portrait'); out.a4 = premDims(); out.a4Label = lab('portrait'); out.storyLabel = lab('story');
           const d = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26rescover', dir: 'a', vals: premVals, w: 1240, h: 1754, scale: 1, trace: true });
-          out.coverErr = VoltRenderChecks.assertDesign(d.trace, 1240, 1754).error || null; out.coverHead = (d.trace || []).some(t => t.role === 'headline' && /Conflict/.test(t.text || ''));
+          out.coverErr = VoltRenderChecks.assertDesign(d.trace, 1240, 1754).error || null; out.coverHead = (d.trace || []).some(t => t.role === 'headline' && /Onboarding/.test(t.text || ''));
+          // each of the four types has its OWN design, not one layout in four colours
+          const sig = { a: /Employment contract signed/, b: /Spot the/, c: /32 pages/, d: /1,200/ }; out.types = {};
+          for (const dk of ['a', 'b', 'c', 'd']) {
+            setPremiumDir(dk);
+            const rt = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26rescover', dir: dk, vals: premVals, w: 1240, h: 1754, scale: 1, trace: true });
+            const txt = (rt.trace || []).filter(t => t.kind === 'text').map(t => t.text || '');
+            out.types[dk] = { own: txt.some(t => sig[dk].test(t)), foreign: ['a', 'b', 'c', 'd'].filter(o => o !== dk && o !== 'c' && txt.some(t => sig[o].test(t))).length, err: VoltRenderChecks.assertDesign(rt.trace, 1240, 1754).error || null };
+          }
+          setPremiumDir('a');
           { const box = document.getElementById('premium-image'); out.coverPhotoSlot = !!box && !box.classList.contains('hidden'); out.coverPhotoLabel = PREM_PHOTO['r26rescover'] || ''; }
           // default (no picture) vs a picture: both must render clean and differ
           const oc = new OffscreenCanvas(900, 600); { const x = oc.getContext('2d'); const g = x.createLinearGradient(0, 0, 900, 600); g.addColorStop(0, '#f4b183'); g.addColorStop(1, '#3b4a6b'); x.fillStyle = g; x.fillRect(0, 0, 900, 600); x.fillStyle = '#1b1f33'; x.fillRect(100, 300, 160, 300); x.fillRect(320, 220, 200, 380); }
@@ -292,6 +301,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
           setContentType('funding'); out.back = lab('portrait'); out.backDims = premDims();
           return out; });
         expect('Studio, ' + who + ': Resource cover offers A4 (1240×1754) and a 2:3 e-book size, and renders clean', rs.a4.w === 1240 && rs.a4.h === 1754 && /A4/.test(rs.a4Label) && /2:3/.test(rs.storyLabel) && !rs.coverErr && rs.coverHead, rs);
+        expect('Studio, ' + who + ': Template, Guide, E-book and Report/Survey each have their own design (checklist / steps / cube / stats) and render clean', ['a', 'b', 'c', 'd'].every(k => rs.types[k] && rs.types[k].own && rs.types[k].foreign === 0 && !rs.types[k].err), rs.types);
         expect('Studio, ' + who + ': resources take an OPTIONAL picture, labelled "never people", and fall back to the brand artwork without one', rs.coverPhotoSlot === true && rs.featPhotoSlot === true && /never people/i.test(rs.coverPhotoLabel) && !rs.picErr && rs.picDiffers, rs);
         expect('Studio, ' + who + ': Resource feature image is the 3:2 card (1500×1000) and renders clean', rs.card.w === 1500 && rs.card.h === 1000 && /3:2/.test(rs.cardLabel) && !rs.featErr && rs.featBytes > 20000, rs);
         expect('Studio, ' + who + ': other families get their normal size labels back', /1080×1350/.test(rs.back) && rs.backDims.w === 1200, rs);
