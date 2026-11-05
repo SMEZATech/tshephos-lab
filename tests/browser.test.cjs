@@ -223,7 +223,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         kit: (typeof loadBrands === 'function') ? loadBrands().some(b => b.id === 'sme26') : null,
         stored: (() => { try { return (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0; } catch (e) { return false; } })() }));
       if (allowed) {
-        expect('Studio, ' + who + ': eleven 2026 families appear, each with the 2026 · Preview pill', st.n === 11 && st.pill, st);
+        expect('Studio, ' + who + ': thirteen 2026 families appear, each with the 2026 · Preview pill', st.n === 13 && st.pill, st);
         expect('Studio, ' + who + ': the "SME South Africa 2026" kit is offered', st.kit === true, st);
         expect('Studio, ' + who + ': …and is never written into the shared Brand Kit', st.stored === false, st);
         const ok = await s.page.evaluate(async () => { setActiveBrandId('sme26'); applyBrand(); setContentType('r26funding');
@@ -271,6 +271,24 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
           return out; });
         expect('Studio, ' + who + ': the podcast thumbnail is YouTube 1280×720 with a New episode / Coming soon switch', pd.dims.w === 1280 && pd.dims.h === 720 && pd.modes === 2 && pd.outFields.indexOf('date') < 0 && pd.outFields.indexOf('cta') >= 0 && pd.soonFields.indexOf('date') >= 0 && pd.soonFields.indexOf('cta') < 0, pd);
         expect('Studio, ' + who + ': Coming soon shows the date and Set a reminder, the episode number is drawn, render-checks pass', pd.remind && pd.date && pd.ep && !pd.err, pd);
+        const rs = await s.page.evaluate(async () => {
+          const out = {};
+          setContentType('r26rescover');
+          const lab = (f) => (document.querySelector('#btn-' + f + ' .sub') || {}).textContent;
+          setFormat('portrait'); out.a4 = premDims(); out.a4Label = lab('portrait'); out.storyLabel = lab('story');
+          const d = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26rescover', dir: 'a', vals: premVals, w: 1240, h: 1754, scale: 1, trace: true });
+          out.coverErr = VoltRenderChecks.assertDesign(d.trace, 1240, 1754).error || null; out.coverHead = (d.trace || []).some(t => t.role === 'headline' && /Conflict/.test(t.text || ''));
+          { const box = document.getElementById('premium-image'); out.coverPhotoSlot = !!box && !box.classList.contains('hidden'); }
+          setContentType('r26resfeature'); { const box = document.getElementById('premium-image'); out.featPhotoSlot = !!box && !box.classList.contains('hidden'); }
+          setFormat('landscape'); out.card = premDims(); out.cardLabel = lab('landscape');
+          const f = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26resfeature', dir: 'b', vals: premVals, w: 1500, h: 1000, scale: 1, trace: true });
+          out.featErr = VoltRenderChecks.assertDesign(f.trace, 1500, 1000).error || null; out.featBytes = f.blob && f.blob.size;
+          setContentType('funding'); out.back = lab('portrait'); out.backDims = premDims();
+          return out; });
+        expect('Studio, ' + who + ': Resource cover offers A4 (1240×1754) and a 2:3 e-book size, and renders clean', rs.a4.w === 1240 && rs.a4.h === 1754 && /A4/.test(rs.a4Label) && /2:3/.test(rs.storyLabel) && !rs.coverErr && rs.coverHead, rs);
+        expect('Studio, ' + who + ': resources never take a photo: no photo slot on the cover or the feature image', rs.coverPhotoSlot === false && rs.featPhotoSlot === false, rs);
+        expect('Studio, ' + who + ': Resource feature image is the 3:2 card (1500×1000) and renders clean', rs.card.w === 1500 && rs.card.h === 1000 && /3:2/.test(rs.cardLabel) && !rs.featErr && rs.featBytes > 20000, rs);
+        expect('Studio, ' + who + ': other families get their normal size labels back', /1080×1350/.test(rs.back) && rs.backDims.w === 1200, rs);
       } else {
         expect('Studio, ' + who + ': no 2026 family, no 2026 kit', !st.fam && st.n === 0 && st.kit === false, st);
         const nb = await s.page.evaluate(() => ({ web: !!document.getElementById('ct-r26webinar'), label: (document.querySelector('#btn-landscape .sub') || {}).textContent, modes: !document.getElementById('fam-modes') || document.getElementById('fam-modes').classList.contains('hidden') }));

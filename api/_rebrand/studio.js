@@ -20,6 +20,8 @@
 const D = (name, fields) => ({ name, fields });
 const POD = { stage: "out", show: "SME South Africa Podcast", ep: "Episode 10", head: "How to become *investment-ready*", date: "Thu 6 Nov · 18:00",
   name: "Guest Name", role: "Role, Company", cta: "Watch now", remindCta: "Set a reminder" };
+const RES = { kind: "Guide", title: "Guide to *Conflict Resolution* in the Workplace", sub: "A practical guide for South African business owners.",
+  series: "Resources Library", url: "smesouthafrica.co.za/sme-resources" };
 const WEB = { stage: "live", series: "SME Webinars", head: "Business *Compliance* Essentials", date: "Thu 29 Oct · 11:00–12:00",
   name: "Speaker Name", role: "Role, Company", cta: "Register free", replayCta: "Watch now" };
 
@@ -91,6 +93,14 @@ export const STUDIO_FAMILIES = {
     dirs: {
       a: D("Guest panel", POD), b: D("Cinematic", POD), c: D("Guest panel · Light", POD), d: D("Episode numeral", POD),
     } },
+  // Resource library. The cover is the document; the feature image is the card thumbnail showing that cover
+  // inside devices. `kind` (Template / Guide / E-book / Report / Survey) picks the accent.
+  r26rescover: { label: "Resource cover", emoji: "📘", photo: null,
+    sizes: { landscape: [1600, 900, "Cover · 16:9 · 1600×900"], portrait: [1240, 1754, "Cover · A4 portrait · 1240×1754"], story: [1000, 1500, "Cover · 2:3 e-book · 1000×1500"] },
+    dirs: { a: D("Hero (dark)", RES), b: D("Light", RES), c: D("Cube (full-bleed)", RES) } },
+  r26resfeature: { label: "Resource feature image", emoji: "🖼️", photo: null,
+    sizes: { landscape: [1500, 1000, "Card image · 3:2 · 1500×1000"], portrait: [1200, 630, "Link preview · 1200×630"], story: [1600, 900, "Wide · 16:9 · 1600×900"] },
+    dirs: { a: D("Trio · dark covers", RES), b: D("Guide stack · light covers", RES), c: D("Spotlight · cube cover", RES) } },
 };
 
 export const FIELD_LABELS = {
@@ -99,6 +109,7 @@ export const FIELD_LABELS = {
   source: "Source line", date: "Date", link: "Text link", num: "Big numeral", tip: "Tip strip", swipe: "Swipe prompt",
   save: "Save label", share: "Share label", ask: "Ask", win: "Win",
   series: "Series", replayCta: "Button after the event", stage: "State", show: "Show name", ep: "Episode", remindCta: "Button (coming soon)",
+  kind: "Resource type (Template, Guide, E-book, Report…)", title: "Title",
 };
 
 export function studioEngineSource() {
@@ -1173,6 +1184,165 @@ function r26Engine() {
     return podPanel(r, v, a, false);
   }
 
+  // ---- S12 Resource cover  +  S13 Resource feature image ----------------------------------------------
+  // The Resources Library (Templates, Guides, Reports and Surveys, E-books) had no shared system: each
+  // cover was its own look and the card thumbnails were hand-built mockups. Two families, one source of
+  // truth for the cover so the thumbnail can never disagree with the document it advertises:
+  //   Resource cover         — the document itself: A4 portrait, 16:9 slide, square. Hero / Light / Photo-led.
+  //   Resource feature image — the card thumbnail: the cover drawn INSIDE a laptop / tablet / phone / A4
+  //                            document on the warm (or hero) surface, at the site's 3:2 card ratio.
+  // The type (Template, Guide, E-book, Report, Survey) is a free field; its keyword picks the accent so a
+  // library of mixed resources reads as one family with a clear colour code.
+  function resKind(v, dark) {
+    const k = String(v.kind || "").toLowerCase();
+    if (/template/.test(k)) return { bg: T.green, fg: WHITE, bar: T.green };
+    if (/e-?book/.test(k)) return { bg: T.red, fg: WHITE, bar: T.red };
+    if (/guide/.test(k)) return { bg: T.amberTint, fg: T.amber, bar: T.orange };
+    if (/report|survey|research/.test(k)) return dark ? { bg: "rgba(255,255,255,0.14)", fg: WHITE, bar: T.red } : { bg: T.navy, fg: WHITE, bar: T.red };
+    return { bg: T.red, fg: WHITE, bar: T.red };
+  }
+  function resBackdrop(r, dark, k) {
+    const W = r.w, H = r.h;
+    if (dark) { hero(r); glow(r, W - 90 * k, 130 * k, 900 * k, RED, 0.34); glow(r, 40 * k, H * 0.82, 720 * k, ORANGE, 0.16); }
+    else { warm(r); glow(r, W - 60 * k, 100 * k, 820 * k, RED, 0.09); glow(r, 40 * k, H, 760 * k, ORANGE, 0.12); }
+  }
+  // Resources are DOCUMENTS, never people: no photo slot, no face, anywhere in these two families. The artwork
+  // is the brand's own: the cube mark, concentric rules, the dot grid, and an icon for the resource type.
+  function resIcon(kind) {
+    const k = String(kind || "").toLowerCase();
+    if (/template/.test(k)) return "M9 6h11 M9 12h11 M9 18h11 M3.5 6l1.5 1.5 2.5-3 M3.5 12l1.5 1.5 2.5-3 M3.5 18l1.5 1.5 2.5-3";
+    if (/e-?book/.test(k)) return "M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z M10.5 18h3";
+    if (/guide/.test(k)) return "M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5V19.5";
+    if (/report|research/.test(k)) return "M4 20V11 M10 20V4 M16 20v-6 M3 20.5h18";
+    if (/survey/.test(k)) return "M9 4h6v3H9z M7 5H6a1 1 0 00-1 1v14a1 1 0 001 1h12a1 1 0 001-1V6a1 1 0 00-1-1h-1 M8.5 14l2.5 2.5 4.5-5";
+    return "M14 3H7a1 1 0 00-1 1v16a1 1 0 001 1h10a1 1 0 001-1V8z M14 3v5h5 M9 13h6 M9 17h6";
+  }
+  // The cube with its rings and glow, centred on (cx, cy) at height ch. Never recoloured.
+  function resCube(r, cx, cy, ch, st) {
+    const c = r.ctx, img = ART().cube;
+    glow(r, cx, cy, ch * 1.35, RED, 0.3);
+    c.save(); c.lineWidth = Math.max(2, ch * 0.0045);
+    [[0.64, "rgba(255,255,255,0.10)"], [0.92, st.bar + "77"], [1.24, "rgba(255,255,255,0.07)"]].forEach((q) => { c.strokeStyle = q[1]; c.beginPath(); c.arc(cx, cy, ch * q[0], 0, Math.PI * 2); c.stroke(); });
+    c.restore();
+    if (img) { const cw = ch * img.width / img.height; c.drawImage(img, cx - cw / 2, cy - ch / 2, cw, ch); }
+  }
+  // The artwork panel that replaces a photo: a navy→wine card with the cube, rules, dots and a type icon.
+  function resArt(r, x, y, w, h, rad, k, st, kind) {
+    const c = r.ctx, m = Math.min(w, h), strip = w >= h * 1.4;
+    c.save(); r.roundRectPath(x, y, w, h, rad); c.clip();
+    const g = c.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, "#0C1F31"); g.addColorStop(0.55, "#16263a"); g.addColorStop(1, "#4b1a2b");
+    c.fillStyle = g; c.fillRect(x, y, w, h);
+    dots(r);
+    resCube(r, strip ? x + w * 0.76 : x + w * 0.62, strip ? y + h * 0.5 : y + h * 0.64, strip ? h * 0.8 : Math.min(h * 0.5, w * 0.78), st);
+    const ts = m * (strip ? 0.3 : 0.2), tx = x + w * 0.08, ty = strip ? y + (h - ts) / 2 : y + h * 0.09;
+    c.save(); c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = ts * 0.4; c.shadowOffsetY = ts * 0.12;
+    r.roundRectPath(tx, ty, ts, ts, ts * 0.24); c.fillStyle = st.bar; c.fill(); c.restore();
+    r.drawIconPath(resIcon(kind), tx + ts * 0.2, ty + ts * 0.2, ts * 0.6, /guide/i.test(String(kind)) ? T.navy : WHITE, 2.3);
+    c.restore();
+    r._tr("fill", { x, y, w, h, color: null, gradient: true });
+  }
+  // A4 portrait, 2:3 and square covers
+  function resCoverTall(r, dir, v) {
+    const W = r.w, H = r.h, k = W / 1240, pad = Math.round(W * 0.075), iw = W - pad * 2;
+    const dark = dir !== "b", cubeLed = dir === "c", st = resKind(v, dark), sq = H <= W * 1.05;
+    const ink = dark ? WHITE : T.ink, subC = dark ? "rgba(255,255,255,0.75)" : T.muted;
+    resBackdrop(r, dark, k);
+    if (cubeLed) resCube(r, W * 0.76, H * (sq ? 0.3 : 0.27), H * (sq ? 0.46 : 0.4), st);
+    const lg = logo(r, dark ? "rev" : "light", pad, pad, W * 0.27);
+    if (plain(v.kind).trim()) pill(r, v.kind, W - pad, pad + (lg.h - (26 * k + 30 * k)) / 2, { size: 26 * k, padX: 24 * k, padY: 15 * k, bg: st.bg, fg: st.fg, align: "right" });
+    const footY = H - pad - 24 * k;
+    line(r, v.url, F(J, 600, 24 * k), pad, footY, dark ? "rgba(255,255,255,0.6)" : T.muted, { maxW: iw * 0.58 });
+    line(r, v.series, F(J, 800, 22 * k), W - pad, footY + k, dark ? T.orange : T.red, { ls: 0.16, upper: true, align: "right", maxW: iw * 0.4 });
+    const ph = cubeLed ? 0 : H * (sq ? 0.3 : 0.31), py = footY - 44 * k - ph;
+    const lim = cubeLed ? footY - 44 * k : py - 44 * k, top0 = pad + lg.h + H * (sq ? 0.04 : 0.065);
+    const subH = measurePara(r, v.sub, I, 400, 32 * k, iw, 1.45, { maxLines: 3 }), barH = 12 * k, gap = 30 * k;
+    const t = fit(r, v.title, J, 800, iw, Math.max(100 * k, (cubeLed ? H * 0.34 : lim - top0) - barH - gap - (subH ? subH + 26 * k : 0)), 1.02, -0.03, (sq ? 100 : 118) * k, 50 * k, 5);
+    const total = barH + gap + t.h + (subH ? 26 * k + subH : 0);
+    const y0 = cubeLed ? lim - total : top0;
+    r.fillRoundRect(pad, y0, 120 * k, barH, barH / 2, st.bar);
+    r.as("headline", () => drawRich(r, t, pad, y0 + barH + gap, iw, ink));
+    if (subH) para(r, v.sub, I, 400, 32 * k, iw, 1.45, subC, pad, y0 + barH + gap + t.h + 26 * k, { maxLines: 3 });
+    if (!cubeLed) resArt(r, pad, py, iw, ph, 28 * k, k, st, v.kind);
+  }
+  // 16:9 slide covers (reports, e-books, template decks)
+  function resCoverWide(r, dir, v) {
+    const W = r.w, H = r.h, k = H / 900, pad = Math.round(W * 0.055);
+    const dark = dir !== "b", cubeLed = dir === "c", st = resKind(v, dark);
+    const ink = dark ? WHITE : T.ink, subC = dark ? "rgba(255,255,255,0.75)" : T.muted;
+    const px = W * 0.58, pw = W - px - pad, py = H * 0.08, ph = H * 0.84;
+    resBackdrop(r, dark, k);
+    if (cubeLed) resCube(r, W * 0.76, H * 0.5, H * 0.8, st);
+    const colW = cubeLed ? W * 0.5 : px - pad - 48 * k;
+    const lg = logo(r, dark ? "rev" : "light", pad, pad, 250 * k);
+    let y = pad + lg.h + 40 * k;
+    if (plain(v.kind).trim()) { const p = pill(r, v.kind, pad, y, { size: 24 * k, padX: 22 * k, padY: 14 * k, bg: st.bg, fg: st.fg }); y += p.h + 34 * k; }
+    const footY = H - pad - 22 * k, lim = footY - 44 * k;
+    const subH = measurePara(r, v.sub, I, 400, 28 * k, colW, 1.45, { maxLines: 3 });
+    const t = fit(r, v.title, J, 800, colW, Math.max(80 * k, lim - y - (subH ? subH + 24 * k : 0)), 1.03, -0.03, 96 * k, 44 * k, 5);
+    r.as("headline", () => drawRich(r, t, pad, y, colW, ink));
+    if (subH) para(r, v.sub, I, 400, 28 * k, colW, 1.45, subC, pad, y + t.h + 24 * k, { maxLines: 3 });
+    line(r, v.url, F(J, 600, 22 * k), pad, footY, dark ? "rgba(255,255,255,0.6)" : T.muted, { maxW: colW * 0.62 });
+    line(r, v.series, F(J, 800, 20 * k), pad + colW, footY + k, dark ? T.orange : T.red, { ls: 0.16, upper: true, align: "right", maxW: colW * 0.4 });
+    if (!cubeLed) resArt(r, px, py, pw, ph, 30 * k, k, st, v.kind);
+  }
+  function resCover(r, dir, v) {
+    r.ctx.textBaseline = "top";
+    if (r.w > r.h * 1.2) resCoverWide(r, dir, v); else resCoverTall(r, dir, v);
+  }
+  function resCoverImg(w, h, dir, v) { const rr = new CanvasRenderer(w, h, 1); resCover(rr, dir, v); return rr.canvas; }
+
+  // Devices, drawn in a virtual 1500×1000 box (virtual coordinates; the whole scene is scaled to the canvas)
+  function resDevice(r, x, y, w, h, rad, bez, img, rot) {
+    const c = r.ctx; c.save();
+    c.translate(x + w / 2, y + h / 2); c.rotate((rot || 0) * Math.PI / 180); c.translate(-w / 2, -h / 2);
+    c.shadowColor = "rgba(12,31,49,0.34)"; c.shadowBlur = 64; c.shadowOffsetY = 34;
+    r.roundRectPath(0, 0, w, h, rad); c.fillStyle = T.ink; c.fill(); c.shadowColor = "transparent";
+    if (bez > 0) { r.roundRectPath(1.5, 1.5, w - 3, h - 3, Math.max(2, rad - 1.5)); c.strokeStyle = "rgba(255,255,255,0.26)"; c.lineWidth = 3.5; c.stroke(); }
+    const sx = bez, sy = bez, sw = w - 2 * bez, sh = h - 2 * bez;
+    c.save(); r.roundRectPath(sx, sy, sw, sh, Math.max(6, rad - bez)); c.clip();
+    const sc = Math.max(sw / img.width, sh / img.height), dw = img.width * sc, dh = img.height * sc;
+    c.drawImage(img, sx + (sw - dw) / 2, sy + (sh - dh) / 2, dw, dh);
+    c.restore(); c.restore();
+  }
+  function resLaptopBase(r, x, y, w, h) {
+    const c = r.ctx; c.save();
+    c.shadowColor = "rgba(12,31,49,0.3)"; c.shadowBlur = 54; c.shadowOffsetY = 30;
+    r.roundRectPath(x, y, w, h, { tl: 2, tr: 2, br: 22, bl: 22 });
+    const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, "#E7EBEF"); g.addColorStop(1, "#C6CFD8"); c.fillStyle = g; c.fill(); c.shadowColor = "transparent";
+    r.roundRectPath(x + w / 2 - 80, y, 160, 11, { tl: 0, tr: 0, br: 11, bl: 11 }); c.fillStyle = "#AEB8C2"; c.fill();
+    c.restore();
+  }
+  function resFeature(r, dir, v, a) {
+    r.ctx.textBaseline = "top";
+    const W = r.w, H = r.h, dark = dir === "c", boost = H > W * 0.95 ? 1.1 : 1, cd = dir === "a" ? "a" : dir === "b" ? "b" : "c";
+    resBackdrop(r, dark, Math.min(W, H * 1.5) / 1500);
+    const s = Math.min(W / 1500 * boost, H / 1000), ox = (W - 1500 * s) / 2, oy = (H - 1000 * s) / 2, c = r.ctx;
+    const wideI = resCoverImg(1600, 900, cd, v), phoneI = resCoverImg(1080, 2340, cd, v);
+    const box = [];
+    const dev = (x, y, w, h, rad, bez, img, rot) => { resDevice(r, x, y, w, h, rad, bez, img, rot); box.push([x, y, w, h]); };
+    c.save(); c.translate(ox, oy); c.scale(s, s);
+    if (dir === "a") {                                   // Trio: laptop, tablet, phone
+      dev(150, 120, 800, 470, 26, 16, wideI, 0); resLaptopBase(r, 80, 590, 940, 30); box.push([80, 590, 940, 30]);
+      dev(700, 390, 640, 372, 36, 16, wideI, -3);
+      dev(130, 520, 214, 450, 44, 12, phoneI, 4);
+    } else if (dir === "b") {                            // Guide stack: A4 document, tablet, phone
+      const docI = resCoverImg(1240, 1754, cd, v);
+      dev(150, 90, 540, 764, 8, 0, docI, -5);
+      dev(620, 340, 720, 420, 38, 16, wideI, 3);
+      dev(1190, 500, 214, 450, 44, 12, phoneI, 5);
+    } else {                                             // Spotlight: one large tablet, one phone
+      dev(190, 140, 1100, 620, 44, 18, wideI, 0);
+      dev(1020, 430, 250, 520, 50, 14, phoneI, 4);
+    }
+    c.restore();
+    if (r.trace) {
+      box.forEach((b) => r.trace.push({ kind: "image", x: ox + b[0] * s, y: oy + b[1] * s, w: b[2] * s, h: b[3] * s }));
+      // The title is inside the device screens, which are art, not drawn text. The checks still need to know
+      // a headline exists, so record one (never in the editable plate: !suppressText).
+      if (!r.suppressText) r.trace.push({ kind: "text", role: "headline", x: ox + 150 * s, y: oy + 130 * s, w: 300 * s, h: 40 * s, size: 40 * s, color: null, text: plain(v.title), family: J, weight: "800", align: "left", lineHeight: 1 });
+    }
+  }
+
   const FAM = {
     r26funding: (r, d, v) => funding(r, v),
     r26article: (r, d, v, a) => article(r, v, a),
@@ -1185,8 +1355,10 @@ function r26Engine() {
     r26aws: (r, d, v) => aws(r, v),
     r26webinar: (r, d, v, a) => webinar(r, d, v, a),
     r26podcast: (r, d, v, a) => podcast(r, d, v, a),
+    r26rescover: (r, d, v) => resCover(r, d, v),
+    r26resfeature: (r, d, v, a) => resFeature(r, d, v, a),
   };
-  const OWN_LANDSCAPE = { r26webinar: true, r26podcast: true };   // families that draw their own wide layout
+  const OWN_LANDSCAPE = { r26webinar: true, r26podcast: true, r26rescover: true, r26resfeature: true };   // families that draw their own wide layout
   self.R26_DRAW = function (r, type, dir, v, a) {
     if (!FAM[type]) return false;
     r.ctx.textBaseline = "top";

@@ -37,7 +37,7 @@ let pass = 0, fail = 0;
 function expect(name, cond, detail) { if (cond) { pass++; console.log("  ok   " + name); } else { fail++; console.log("  FAIL " + name + "  → " + JSON.stringify(detail).slice(0, 300)); } }
 
 let r = await call("joel");
-expect("Joel (any letter case) gets the definitions", r.status === 200 && r.body.kit && r.body.kit.id === "sme26" && Object.keys(r.body.studio.families).length === 11 && !!r.body.studio.families.r26webinar && !!r.body.studio.families.r26podcast, r.status);
+expect("Joel (any letter case) gets the definitions", r.status === 200 && r.body.kit && r.body.kit.id === "sme26" && Object.keys(r.body.studio.families).length === 13 && !!r.body.studio.families.r26webinar && !!r.body.studio.families.r26podcast && !!r.body.studio.families.r26rescover && !!r.body.studio.families.r26resfeature, r.status);
 expect("…with every template surface present", r.body && r.body.studio.engine.length > 1000 && typeof r.body.email.source === "string" && typeof r.body.video.source === "string", null);
 expect("…and says it is NOT released yet (previews keep their labels)", r.body && r.body.released === false, r.body && r.body.released);
 expect("…and it is never cacheable", r.headers["cache-control"] === "private, no-store", r.headers);

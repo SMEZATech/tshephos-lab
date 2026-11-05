@@ -1895,13 +1895,16 @@
         renderFamilyModes(); renderPremFields(); renderPremiumPreview(); crPaint();
       };
     }
+    // Each of the four size buttons shows the family's own size when it declares one (webinar: Landscape =
+    // YouTube 1280×720; resource cover: Portrait = A4 …), and the standard label otherwise.
+    const SIZE_DEFAULT_LABEL = { landscape: 'LinkedIn · 1200×628', square: 'IG grid · 1080×1080', portrait: 'IG feed · 1080×1350', story: 'Reels · 1080×1920' };
     function syncFamilySizes() {
-      const lbl = document.querySelector('#btn-landscape .sub');
-      const o = famSize('landscape');
-      if (lbl) lbl.textContent = o ? o[2] : 'LinkedIn · 1200×628';
-      const cur = famSize(state.format);
+      Object.keys(SIZE_DEFAULT_LABEL).forEach(f => {
+        const lbl = document.querySelector('#btn-' + f + ' .sub'), o = famSize(f);
+        if (lbl) lbl.textContent = o ? o[2] : SIZE_DEFAULT_LABEL[f];
+      });
+      const cur = famSize(state.format) || PREM_DIMS[state.format];
       if (cur) { canvas.style.width = cur[0] + 'px'; canvas.style.height = cur[1] + 'px'; }
-      else if (state.format === 'landscape') { canvas.style.width = '1200px'; canvas.style.height = '628px'; }
       const dim = document.getElementById('preview-dim'); if (dim) dim.innerText = canvas.style.width + ' x ' + canvas.style.height;
     }
 
