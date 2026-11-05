@@ -278,7 +278,13 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
           setFormat('portrait'); out.a4 = premDims(); out.a4Label = lab('portrait'); out.storyLabel = lab('story');
           const d = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26rescover', dir: 'a', vals: premVals, w: 1240, h: 1754, scale: 1, trace: true });
           out.coverErr = VoltRenderChecks.assertDesign(d.trace, 1240, 1754).error || null; out.coverHead = (d.trace || []).some(t => t.role === 'headline' && /Conflict/.test(t.text || ''));
-          { const box = document.getElementById('premium-image'); out.coverPhotoSlot = !!box && !box.classList.contains('hidden'); }
+          { const box = document.getElementById('premium-image'); out.coverPhotoSlot = !!box && !box.classList.contains('hidden'); out.coverPhotoLabel = PREM_PHOTO['r26rescover'] || ''; }
+          // default (no picture) vs a picture: both must render clean and differ
+          const oc = new OffscreenCanvas(900, 600); { const x = oc.getContext('2d'); const g = x.createLinearGradient(0, 0, 900, 600); g.addColorStop(0, '#f4b183'); g.addColorStop(1, '#3b4a6b'); x.fillStyle = g; x.fillRect(0, 0, 900, 600); x.fillStyle = '#1b1f33'; x.fillRect(100, 300, 160, 300); x.fillRect(320, 220, 200, 380); }
+          const pic = await oc.convertToBlob({ type: 'image/png' });
+          const base = { type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26rescover', dir: 'a', vals: premVals, w: 1240, h: 1754, scale: 1, trace: true };
+          const withPic = await premPost(Object.assign({}, base, { featuredBlob: pic }));
+          out.picErr = VoltRenderChecks.assertDesign(withPic.trace, 1240, 1754).error || null; out.picDiffers = withPic.blob.size !== d.blob.size;
           setContentType('r26resfeature'); { const box = document.getElementById('premium-image'); out.featPhotoSlot = !!box && !box.classList.contains('hidden'); }
           setFormat('landscape'); out.card = premDims(); out.cardLabel = lab('landscape');
           const f = await premPost({ type: 'render-premium', brand: brandPayload(), fontBuffers: fontBuffers, premType: 'r26resfeature', dir: 'b', vals: premVals, w: 1500, h: 1000, scale: 1, trace: true });
@@ -286,7 +292,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
           setContentType('funding'); out.back = lab('portrait'); out.backDims = premDims();
           return out; });
         expect('Studio, ' + who + ': Resource cover offers A4 (1240×1754) and a 2:3 e-book size, and renders clean', rs.a4.w === 1240 && rs.a4.h === 1754 && /A4/.test(rs.a4Label) && /2:3/.test(rs.storyLabel) && !rs.coverErr && rs.coverHead, rs);
-        expect('Studio, ' + who + ': resources never take a photo: no photo slot on the cover or the feature image', rs.coverPhotoSlot === false && rs.featPhotoSlot === false, rs);
+        expect('Studio, ' + who + ': resources take an OPTIONAL picture, labelled "never people", and fall back to the brand artwork without one', rs.coverPhotoSlot === true && rs.featPhotoSlot === true && /never people/i.test(rs.coverPhotoLabel) && !rs.picErr && rs.picDiffers, rs);
         expect('Studio, ' + who + ': Resource feature image is the 3:2 card (1500×1000) and renders clean', rs.card.w === 1500 && rs.card.h === 1000 && /3:2/.test(rs.cardLabel) && !rs.featErr && rs.featBytes > 20000, rs);
         expect('Studio, ' + who + ': other families get their normal size labels back', /1080×1350/.test(rs.back) && rs.backDims.w === 1200, rs);
       } else {

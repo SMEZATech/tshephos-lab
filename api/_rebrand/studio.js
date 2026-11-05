@@ -20,7 +20,7 @@
 const D = (name, fields) => ({ name, fields });
 const POD = { stage: "out", show: "SME South Africa Podcast", ep: "Episode 10", head: "How to become *investment-ready*", date: "Thu 6 Nov · 18:00",
   name: "Guest Name", role: "Role, Company", cta: "Watch now", remindCta: "Set a reminder" };
-const RES = { kind: "Guide", title: "Guide to *Conflict Resolution* in the Workplace", sub: "A practical guide for South African business owners.",
+const RES = { tint: "Brand tint", kind: "Guide", title: "Guide to *Conflict Resolution* in the Workplace", sub: "A practical guide for South African business owners.",
   series: "Resources Library", url: "smesouthafrica.co.za/sme-resources" };
 const WEB = { stage: "live", series: "SME Webinars", head: "Business *Compliance* Essentials", date: "Thu 29 Oct · 11:00–12:00",
   name: "Speaker Name", role: "Role, Company", cta: "Register free", replayCta: "Watch now" };
@@ -95,12 +95,12 @@ export const STUDIO_FAMILIES = {
     } },
   // Resource library. The cover is the document; the feature image is the card thumbnail showing that cover
   // inside devices. `kind` (Template / Guide / E-book / Report / Survey) picks the accent.
-  r26rescover: { label: "Resource cover", emoji: "📘", photo: null,
+  r26rescover: { label: "Resource cover", emoji: "📘", photo: "Cover picture (optional: a topic, object or place, never people)",
     sizes: { landscape: [1600, 900, "Cover · 16:9 · 1600×900"], portrait: [1240, 1754, "Cover · A4 portrait · 1240×1754"], story: [1000, 1500, "Cover · 2:3 e-book · 1000×1500"] },
-    dirs: { a: D("Hero (dark)", RES), b: D("Light", RES), c: D("Cube (full-bleed)", RES) } },
-  r26resfeature: { label: "Resource feature image", emoji: "🖼️", photo: null,
+    dirs: { a: D("Hero (dark)", RES), b: D("Light", RES), c: D("Full-bleed (cube or picture)", RES) } },
+  r26resfeature: { label: "Resource feature image", emoji: "🖼️", photo: "Cover picture (optional: a topic, object or place, never people)",
     sizes: { landscape: [1500, 1000, "Card image · 3:2 · 1500×1000"], portrait: [1200, 630, "Link preview · 1200×630"], story: [1600, 900, "Wide · 16:9 · 1600×900"] },
-    dirs: { a: D("Trio · dark covers", RES), b: D("Guide stack · light covers", RES), c: D("Spotlight · cube cover", RES) } },
+    dirs: { a: D("Trio · dark covers", RES), b: D("Guide stack · light covers", RES), c: D("Spotlight · full-bleed cover", RES) } },
 };
 
 export const FIELD_LABELS = {
@@ -109,7 +109,7 @@ export const FIELD_LABELS = {
   source: "Source line", date: "Date", link: "Text link", num: "Big numeral", tip: "Tip strip", swipe: "Swipe prompt",
   save: "Save label", share: "Share label", ask: "Ask", win: "Win",
   series: "Series", replayCta: "Button after the event", stage: "State", show: "Show name", ep: "Episode", remindCta: "Button (coming soon)",
-  kind: "Resource type (Template, Guide, E-book, Report…)", title: "Title",
+  kind: "Resource type (Template, Guide, E-book, Report…)", title: "Title", tint: "Picture style (Brand tint / Original)",
 };
 
 export function studioEngineSource() {
@@ -1206,8 +1206,9 @@ function r26Engine() {
     if (dark) { hero(r); glow(r, W - 90 * k, 130 * k, 900 * k, RED, 0.34); glow(r, 40 * k, H * 0.82, 720 * k, ORANGE, 0.16); }
     else { warm(r); glow(r, W - 60 * k, 100 * k, 820 * k, RED, 0.09); glow(r, 40 * k, H, 760 * k, ORANGE, 0.12); }
   }
-  // Resources are DOCUMENTS, never people: no photo slot, no face, anywhere in these two families. The artwork
-  // is the brand's own: the cube mark, concentric rules, the dot grid, and an icon for the resource type.
+  // Resources are DOCUMENTS, never people: the optional picture is for topics, objects and places, and the
+  // default (no picture) is the brand's own artwork: the cube mark, a hexagon lattice that echoes it,
+  // concentric rules, the dot grid, and an icon for the resource type.
   function resIcon(kind) {
     const k = String(kind || "").toLowerCase();
     if (/template/.test(k)) return "M9 6h11 M9 12h11 M9 18h11 M3.5 6l1.5 1.5 2.5-3 M3.5 12l1.5 1.5 2.5-3 M3.5 18l1.5 1.5 2.5-3";
@@ -1216,6 +1217,24 @@ function r26Engine() {
     if (/report|research/.test(k)) return "M4 20V11 M10 20V4 M16 20v-6 M3 20.5h18";
     if (/survey/.test(k)) return "M9 4h6v3H9z M7 5H6a1 1 0 00-1 1v14a1 1 0 001 1h12a1 1 0 001-1V6a1 1 0 00-1-1h-1 M8.5 14l2.5 2.5 4.5-5";
     return "M14 3H7a1 1 0 00-1 1v16a1 1 0 001 1h10a1 1 0 001-1V8z M14 3v5h5 M9 13h6 M9 17h6";
+  }
+  // Hexagon lattice (the cube's own geometry) fading out from (cx, cy); a few cells glow in the type's accent.
+  function resHex(r, x, y, w, h, s, st, cx, cy) {
+    const c = r.ctx, hw = s * Math.sqrt(3) / 2, vstep = s * 1.5;
+    const maxD = Math.hypot(Math.max(cx - x, x + w - cx), Math.max(cy - y, y + h - cy));
+    c.save(); c.lineWidth = Math.max(1.2, s * 0.035);
+    for (let j = -1; y + j * vstep < y + h + s; j++) {
+      for (let i = -1; x + i * hw * 2 < x + w + hw * 2; i++) {
+        const px = x + i * hw * 2 + (((j % 2) + 2) % 2 ? hw : 0), py = y + j * vstep;
+        const a = Math.max(0, 0.17 * (1 - Math.hypot(px - cx, py - cy) / maxD));
+        if (a < 0.014) continue;
+        c.beginPath();
+        for (let q = 0; q < 6; q++) { const ang = Math.PI / 3 * q - Math.PI / 2, vx = px + s * Math.cos(ang), vy = py + s * Math.sin(ang); if (q) c.lineTo(vx, vy); else c.moveTo(vx, vy); }
+        c.closePath(); c.strokeStyle = "rgba(255,255,255," + a.toFixed(3) + ")"; c.stroke();
+        if ((((i * 7 + j * 13) % 11) + 11) % 11 === 0) { c.fillStyle = st.bar + Math.min(255, Math.round(a * 255 * 1.1)).toString(16).padStart(2, "0"); c.fill(); }
+      }
+    }
+    c.restore();
   }
   // The cube with its rings and glow, centred on (cx, cy) at height ch. Never recoloured.
   function resCube(r, cx, cy, ch, st) {
@@ -1226,53 +1245,94 @@ function r26Engine() {
     c.restore();
     if (img) { const cw = ch * img.width / img.height; c.drawImage(img, cx - cw / 2, cy - ch / 2, cw, ch); }
   }
-  // The artwork panel that replaces a photo: a navy→wine card with the cube, rules, dots and a type icon.
-  function resArt(r, x, y, w, h, rad, k, st, kind) {
+  // The uploaded picture, cover-fitted. "Brand tint" (the default) makes any stock picture read as the same
+  // family: greyscale, multiplied through a navy-to-wine duotone, with a darkening toward the bottom.
+  function resTint(v) { return !/^\s*(original|off|none|no)\b/i.test(String(v.tint || "")); }
+  function resPic(r, img, x, y, w, h, tint) {
+    const c = r.ctx, sc = Math.max(w / img.width, h / img.height), sw = w / sc, sh = h / sc;
+    c.save(); r.roundRectPath(x, y, w, h, 0); c.clip();
+    if (tint) c.filter = "grayscale(1) contrast(1.08)";
+    c.drawImage(img, (img.width - sw) / 2, (img.height - sh) * 0.4, sw, sh, x, y, w, h);
+    c.filter = "none";
+    if (tint) {
+      c.globalCompositeOperation = "multiply";
+      let g = c.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, "#a3b9cf"); g.addColorStop(1, "#cf8196"); c.fillStyle = g; c.fillRect(x, y, w, h);
+      c.globalCompositeOperation = "source-over";
+      g = c.createLinearGradient(x, y, x, y + h); g.addColorStop(0, "rgba(12,31,49,0.10)"); g.addColorStop(1, "rgba(12,31,49,0.5)"); c.fillStyle = g; c.fillRect(x, y, w, h);
+    }
+    c.restore();
+    r._tr("image", { x, y, w, h });
+  }
+  // The panel on A/B covers: the picture when there is one, the brand artwork when there isn't.
+  function resArt(r, x, y, w, h, rad, k, st, kind, img, tint) {
     const c = r.ctx, m = Math.min(w, h), strip = w >= h * 1.4;
     c.save(); r.roundRectPath(x, y, w, h, rad); c.clip();
-    const g = c.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, "#0C1F31"); g.addColorStop(0.55, "#16263a"); g.addColorStop(1, "#4b1a2b");
-    c.fillStyle = g; c.fillRect(x, y, w, h);
-    dots(r);
-    resCube(r, strip ? x + w * 0.76 : x + w * 0.62, strip ? y + h * 0.5 : y + h * 0.64, strip ? h * 0.8 : Math.min(h * 0.5, w * 0.78), st);
+    if (img) resPic(r, img, x, y, w, h, tint);
+    else {
+      const g = c.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, "#0C1F31"); g.addColorStop(0.55, "#16263a"); g.addColorStop(1, "#4b1a2b");
+      c.fillStyle = g; c.fillRect(x, y, w, h);
+      dots(r);
+      const cx = strip ? x + w * 0.76 : x + w * 0.62, cy = strip ? y + h * 0.5 : y + h * 0.64;
+      resHex(r, x, y, w, h, m * 0.115, st, cx, cy);
+      resCube(r, cx, cy, strip ? h * 0.8 : Math.min(h * 0.5, w * 0.78), st);
+    }
     const ts = m * (strip ? 0.3 : 0.2), tx = x + w * 0.08, ty = strip ? y + (h - ts) / 2 : y + h * 0.09;
     c.save(); c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = ts * 0.4; c.shadowOffsetY = ts * 0.12;
     r.roundRectPath(tx, ty, ts, ts, ts * 0.24); c.fillStyle = st.bar; c.fill(); c.restore();
     r.drawIconPath(resIcon(kind), tx + ts * 0.2, ty + ts * 0.2, ts * 0.6, /guide/i.test(String(kind)) ? T.navy : WHITE, 2.3);
+    if (img && ART().cube) { const cw = m * 0.13, ch = cw * ART().cube.height / ART().cube.width; c.drawImage(ART().cube, x + w - cw - w * 0.06, y + h - ch - h * 0.06, cw, ch); }
     c.restore();
     r._tr("fill", { x, y, w, h, color: null, gradient: true });
   }
   // A4 portrait, 2:3 and square covers
-  function resCoverTall(r, dir, v) {
-    const W = r.w, H = r.h, k = W / 1240, pad = Math.round(W * 0.075), iw = W - pad * 2;
-    const dark = dir !== "b", cubeLed = dir === "c", st = resKind(v, dark), sq = H <= W * 1.05;
+  function resCoverTall(r, dir, v, a) {
+    const W = r.w, H = r.h, k = W / 1240, pad = Math.round(W * 0.075), iw = W - pad * 2, c = r.ctx;
+    const dark = dir !== "b", full = dir === "c", st = resKind(v, dark), sq = H <= W * 1.05, img = a && a.featured, tint = resTint(v);
     const ink = dark ? WHITE : T.ink, subC = dark ? "rgba(255,255,255,0.75)" : T.muted;
-    resBackdrop(r, dark, k);
-    if (cubeLed) resCube(r, W * 0.76, H * (sq ? 0.3 : 0.27), H * (sq ? 0.46 : 0.4), st);
+    if (full && img) {
+      resPic(r, img, 0, 0, W, H, tint);
+      let g = c.createLinearGradient(0, 0, 0, H * 0.26); g.addColorStop(0, "rgba(12,31,49,0.72)"); g.addColorStop(1, "rgba(12,31,49,0)");
+      c.save(); c.fillStyle = g; c.fillRect(0, 0, W, H * 0.26); c.restore();
+      g = c.createLinearGradient(0, H * 0.3, 0, H); g.addColorStop(0, "rgba(12,31,49,0)"); g.addColorStop(0.5, "rgba(12,31,49,0.9)"); g.addColorStop(1, "rgba(12,31,49,0.97)");
+      c.save(); c.fillStyle = g; c.fillRect(0, H * 0.3, W, H * 0.7 + 1); c.restore();
+      r._tr("fill", { x: 0, y: 0, w: W, h: H, color: null, gradient: true });
+    } else {
+      resBackdrop(r, dark, k);
+      if (full) { const cx = W * 0.76, cy = H * (sq ? 0.3 : 0.27); resHex(r, 0, 0, W, H, W * 0.07, st, cx, cy); resCube(r, cx, cy, H * (sq ? 0.46 : 0.4), st); }
+    }
     const lg = logo(r, dark ? "rev" : "light", pad, pad, W * 0.27);
     if (plain(v.kind).trim()) pill(r, v.kind, W - pad, pad + (lg.h - (26 * k + 30 * k)) / 2, { size: 26 * k, padX: 24 * k, padY: 15 * k, bg: st.bg, fg: st.fg, align: "right" });
     const footY = H - pad - 24 * k;
     line(r, v.url, F(J, 600, 24 * k), pad, footY, dark ? "rgba(255,255,255,0.6)" : T.muted, { maxW: iw * 0.58 });
     line(r, v.series, F(J, 800, 22 * k), W - pad, footY + k, dark ? T.orange : T.red, { ls: 0.16, upper: true, align: "right", maxW: iw * 0.4 });
-    const ph = cubeLed ? 0 : H * (sq ? 0.3 : 0.31), py = footY - 44 * k - ph;
-    const lim = cubeLed ? footY - 44 * k : py - 44 * k, top0 = pad + lg.h + H * (sq ? 0.04 : 0.065);
+    const ph = full ? 0 : H * (sq ? 0.3 : 0.31), py = footY - 44 * k - ph;
+    const lim = full ? footY - 44 * k : py - 44 * k, top0 = pad + lg.h + H * (sq ? 0.04 : 0.065);
     const subH = measurePara(r, v.sub, I, 400, 32 * k, iw, 1.45, { maxLines: 3 }), barH = 12 * k, gap = 30 * k;
-    const t = fit(r, v.title, J, 800, iw, Math.max(100 * k, (cubeLed ? H * 0.34 : lim - top0) - barH - gap - (subH ? subH + 26 * k : 0)), 1.02, -0.03, (sq ? 100 : 118) * k, 50 * k, 5);
+    const t = fit(r, v.title, J, 800, iw, Math.max(100 * k, (full ? H * 0.34 : lim - top0) - barH - gap - (subH ? subH + 26 * k : 0)), 1.02, -0.03, (sq ? 100 : 118) * k, 50 * k, 5);
     const total = barH + gap + t.h + (subH ? 26 * k + subH : 0);
-    const y0 = cubeLed ? lim - total : top0;
+    const y0 = full ? lim - total : top0;
     r.fillRoundRect(pad, y0, 120 * k, barH, barH / 2, st.bar);
     r.as("headline", () => drawRich(r, t, pad, y0 + barH + gap, iw, ink));
     if (subH) para(r, v.sub, I, 400, 32 * k, iw, 1.45, subC, pad, y0 + barH + gap + t.h + 26 * k, { maxLines: 3 });
-    if (!cubeLed) resArt(r, pad, py, iw, ph, 28 * k, k, st, v.kind);
+    if (!full) resArt(r, pad, py, iw, ph, 28 * k, k, st, v.kind, img, tint);
   }
   // 16:9 slide covers (reports, e-books, template decks)
-  function resCoverWide(r, dir, v) {
-    const W = r.w, H = r.h, k = H / 900, pad = Math.round(W * 0.055);
-    const dark = dir !== "b", cubeLed = dir === "c", st = resKind(v, dark);
+  function resCoverWide(r, dir, v, a) {
+    const W = r.w, H = r.h, k = H / 900, pad = Math.round(W * 0.055), c = r.ctx;
+    const dark = dir !== "b", full = dir === "c", st = resKind(v, dark), img = a && a.featured, tint = resTint(v);
     const ink = dark ? WHITE : T.ink, subC = dark ? "rgba(255,255,255,0.75)" : T.muted;
     const px = W * 0.58, pw = W - px - pad, py = H * 0.08, ph = H * 0.84;
-    resBackdrop(r, dark, k);
-    if (cubeLed) resCube(r, W * 0.76, H * 0.5, H * 0.8, st);
-    const colW = cubeLed ? W * 0.5 : px - pad - 48 * k;
+    if (full && img) {
+      resBackdrop(r, true, k);
+      resPic(r, img, W * 0.4, 0, W * 0.6, H, tint);
+      const g = c.createLinearGradient(W * 0.4, 0, W * 0.7, 0); g.addColorStop(0, "#0C1F31"); g.addColorStop(0.45, "rgba(12,31,49,0.8)"); g.addColorStop(1, "rgba(12,31,49,0)");
+      c.save(); c.fillStyle = g; c.fillRect(W * 0.4 - 1, 0, W * 0.3 + 1, H); c.restore();
+      r._tr("fill", { x: W * 0.4, y: 0, w: W * 0.6, h: H, color: null, gradient: true });
+    } else {
+      resBackdrop(r, dark, k);
+      if (full) { const cx = W * 0.76, cy = H * 0.5; resHex(r, W * 0.4, 0, W * 0.6, H, H * 0.1, st, cx, cy); resCube(r, cx, cy, H * 0.8, st); }
+    }
+    const colW = full ? W * 0.5 : px - pad - 48 * k;
     const lg = logo(r, dark ? "rev" : "light", pad, pad, 250 * k);
     let y = pad + lg.h + 40 * k;
     if (plain(v.kind).trim()) { const p = pill(r, v.kind, pad, y, { size: 24 * k, padX: 22 * k, padY: 14 * k, bg: st.bg, fg: st.fg }); y += p.h + 34 * k; }
@@ -1283,13 +1343,13 @@ function r26Engine() {
     if (subH) para(r, v.sub, I, 400, 28 * k, colW, 1.45, subC, pad, y + t.h + 24 * k, { maxLines: 3 });
     line(r, v.url, F(J, 600, 22 * k), pad, footY, dark ? "rgba(255,255,255,0.6)" : T.muted, { maxW: colW * 0.62 });
     line(r, v.series, F(J, 800, 20 * k), pad + colW, footY + k, dark ? T.orange : T.red, { ls: 0.16, upper: true, align: "right", maxW: colW * 0.4 });
-    if (!cubeLed) resArt(r, px, py, pw, ph, 30 * k, k, st, v.kind);
+    if (!full) resArt(r, px, py, pw, ph, 30 * k, k, st, v.kind, img, tint);
   }
-  function resCover(r, dir, v) {
+  function resCover(r, dir, v, a) {
     r.ctx.textBaseline = "top";
-    if (r.w > r.h * 1.2) resCoverWide(r, dir, v); else resCoverTall(r, dir, v);
+    if (r.w > r.h * 1.2) resCoverWide(r, dir, v, a); else resCoverTall(r, dir, v, a);
   }
-  function resCoverImg(w, h, dir, v) { const rr = new CanvasRenderer(w, h, 1); resCover(rr, dir, v); return rr.canvas; }
+  function resCoverImg(w, h, dir, v, a) { const rr = new CanvasRenderer(w, h, 1); resCover(rr, dir, v, a); return rr.canvas; }
 
   // Devices, drawn in a virtual 1500×1000 box (virtual coordinates; the whole scene is scaled to the canvas)
   function resDevice(r, x, y, w, h, rad, bez, img, rot) {
@@ -1317,7 +1377,7 @@ function r26Engine() {
     const W = r.w, H = r.h, dark = dir === "c", boost = H > W * 0.95 ? 1.1 : 1, cd = dir === "a" ? "a" : dir === "b" ? "b" : "c";
     resBackdrop(r, dark, Math.min(W, H * 1.5) / 1500);
     const s = Math.min(W / 1500 * boost, H / 1000), ox = (W - 1500 * s) / 2, oy = (H - 1000 * s) / 2, c = r.ctx;
-    const wideI = resCoverImg(1600, 900, cd, v), phoneI = resCoverImg(1080, 2340, cd, v);
+    const wideI = resCoverImg(1600, 900, cd, v, a), phoneI = resCoverImg(1080, 2340, cd, v, a);
     const box = [];
     const dev = (x, y, w, h, rad, bez, img, rot) => { resDevice(r, x, y, w, h, rad, bez, img, rot); box.push([x, y, w, h]); };
     c.save(); c.translate(ox, oy); c.scale(s, s);
@@ -1326,7 +1386,7 @@ function r26Engine() {
       dev(700, 390, 640, 372, 36, 16, wideI, -3);
       dev(130, 520, 214, 450, 44, 12, phoneI, 4);
     } else if (dir === "b") {                            // Guide stack: A4 document, tablet, phone
-      const docI = resCoverImg(1240, 1754, cd, v);
+      const docI = resCoverImg(1240, 1754, cd, v, a);
       dev(150, 90, 540, 764, 8, 0, docI, -5);
       dev(620, 340, 720, 420, 38, 16, wideI, 3);
       dev(1190, 500, 214, 450, 44, 12, phoneI, 5);
@@ -1355,7 +1415,7 @@ function r26Engine() {
     r26aws: (r, d, v) => aws(r, v),
     r26webinar: (r, d, v, a) => webinar(r, d, v, a),
     r26podcast: (r, d, v, a) => podcast(r, d, v, a),
-    r26rescover: (r, d, v) => resCover(r, d, v),
+    r26rescover: (r, d, v, a) => resCover(r, d, v, a),
     r26resfeature: (r, d, v, a) => resFeature(r, d, v, a),
   };
   const OWN_LANDSCAPE = { r26webinar: true, r26podcast: true, r26rescover: true, r26resfeature: true };   // families that draw their own wide layout
