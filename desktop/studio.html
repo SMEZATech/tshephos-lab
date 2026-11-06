@@ -330,6 +330,7 @@
                         <button onclick="setContentType('podcast')"    id="ct-podcast"    class="vt-opt ct-btn">🎙️ Podcast</button>
                         <button onclick="setContentType('feature')"    id="ct-feature"    class="vt-opt ct-btn">📰 Latest Insight</button>
                         <button onclick="setContentType('founder')"    id="ct-founder"    class="vt-opt ct-btn">🧑‍💼 Founder Focus</button>
+                        <button onclick="setContentType('contributor')" id="ct-contributor" class="vt-opt ct-btn">✍️ Contributor</button>
                         <button onclick="setContentType('roundup')"    id="ct-roundup"    class="vt-opt ct-btn">📚 Roundup</button>
                         <button onclick="setContentType('merch')"      id="ct-merch"      class="vt-opt ct-btn">🛍️ Merch</button>
                         <button onclick="setContentType('hub')"        id="ct-hub"        class="vt-opt ct-btn">🏛️ SME Hub</button>
@@ -1764,6 +1765,14 @@
         b:{ name:'The Profile Split — photo panel + type', fields:{ eyebrow:'Founder Focus', name:'Naledi Cele', authorRole:'Founder & CEO, Kasi Wash', head:'From one machine in a backyard to twelve sites in three provinces', sub:'She built the compliance and payments layer first — everything else, she says, was the easy part.', byline:'By Maryna Steyn', cta:'Read the interview →', url:'smesouthafrica.co.za' } },
         c:{ name:'The Interview Quote — attributed, human', fields:{ eyebrow:'Founder Focus · Interview', quote:'I built it selfishly. I built it first and foremost for a problem I had myself.', name:'Naledi Cele', authorRole:'Founder & CEO, Kasi Wash', cta:'Read the full interview →', url:'smesouthafrica.co.za' } }
       }},
+      // ---- CONTRIBUTOR — an article written by a guest contributor. Latest Insight shows only the
+      // article; this one also credits the writer: "Written by", their portrait, name and designation.
+      // The photo slot is the CONTRIBUTOR's portrait (one photo per design, like Founder Focus), and
+      // without one the design draws their initials rather than an empty avatar.
+      contributor: { label:'Contributor · Written by', dirs:{
+        a:{ name:'Written-By Card — light, type-led', fields:{ eyebrow:'Guest contributor', head:'Why your first hire should be a bookkeeper, not a salesperson', sub:'Most founders hire for growth before they can see their numbers. Here is what changes when the books come first.', writtenBy:'Written by', name:'Thandi Nkosi', designation:'Chartered Accountant & Founder, Nkosi Advisory', cta:'Read the article →', url:'smesouthafrica.co.za' } },
+        b:{ name:'The Feature — dark, writer in focus', fields:{ eyebrow:'Guest contributor', head:'Why your first hire should be a bookkeeper, not a salesperson', sub:'Most founders hire for growth before they can see their numbers. Here is what changes when the books come first.', writtenBy:'Written by', name:'Thandi Nkosi', designation:'Chartered Accountant & Founder, Nkosi Advisory', cta:'Read the article →', url:'smesouthafrica.co.za' } }
+      }},
       // ---- ROUNDUP — bundle 2-5 separate articles into ONE post instead of posting each on its
       // own. The gap this fills: a social manager stepping in for the day tends to post every new
       // article one at a time, which floods the feed for what's really one week's worth of reading.
@@ -1831,7 +1840,7 @@
     };
     const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count', i4:'Benefit 4', price:'Price line', term:'Term', definition:'Definition', why:'Why it matters', whyLabel:'Why-it-matters label', myth:'What people think', mythLabel:'Myth label', truth:'What it actually means', truthLabel:'Truth label', t1:'Term 1', d1:'Definition 1', t2:'Term 2', d2:'Definition 2', t3:'Term 3', d3:'Definition 3', date:'Date', time:'Time', format:'Format (Online / In person)', speaker:'Speaker', seats:'Seats line', runtime:'Runtime', recorded:'Recorded on', coveredLabel:'Covered-in label',
       show:'Show name', tagline:'Show tagline', ep:'Episode number', role:'Guest role', guest:'Guest name', quote:'Quote', platforms:'Available on',
-      authorRole:'Author role', byline:'Byline', i1:'Takeaway 1', i2:'Takeaway 2', i3:'Takeaway 3',
+      authorRole:'Author role', designation:'Designation', writtenBy:'“Written by” label', byline:'Byline', i1:'Takeaway 1', i2:'Takeaway 2', i3:'Takeaway 3',
       kicker:'Kicker', price:'Price (blank = drive clicks)', p1:'Product 1 (add | price to show it)', p2:'Product 2 (add | price to show it)', p3:'Product 3 (add | price to show it)',
       readtime:'Read time', label:'Label', movement:"Movement ('up' or 'down')", context:'Context line' };
 
@@ -2138,7 +2147,7 @@
     const premPhotos = {};          // contentType -> Blob | null
     const premPhotoURLs = {};       // contentType -> object URL for the thumbnail
     function premFeatured(){ return premPhotos[state.contentType] || null; }
-    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)', founder: 'Founder photo (used by every direction)' };
+    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)', founder: 'Founder photo (used by every direction)', contributor: 'Contributor photo (used by every direction)' };
     // Which content types can auto-fill from a live page, what page they read, and the copy for
     // each — one small config instead of a second copy-pasted button+handler per family.
     const AUTOFILL = {
@@ -2683,7 +2692,7 @@
       { const pc = document.getElementById('btn-premium-carousel'); if (pc && isR26Family(type)) pc.classList.add('hidden'); }
       if(hint && isR26Family(type)) { hint.innerHTML = '<span class="r26-pill">2026 · Preview</span> ' + sanitizeHTML(PREMIUM[type].label) + '<span class="r26-only"> — only you can see this until the 2026 rebrand is released.</span> Wrap one headline word in *stars* to set it in the accent gradient.'; state.premiumDir = 'a'; setPremiumDir('a'); return; }
       if(hint) hint.textContent = PREMIUM[type].label + ' — pick a direction, then write the copy in Content.'
-        + ((type === 'podcast' || type === 'merch' || type === 'founder') ? ' A ' + (type === 'podcast' ? 'guest photo' : type === 'founder' ? 'founder photo' : 'product shot') + ' can be loaded there too.' : '');
+        + ((type === 'podcast' || type === 'merch' || type === 'founder' || type === 'contributor') ? ' A ' + (type === 'podcast' ? 'guest photo' : type === 'founder' ? 'founder photo' : type === 'contributor' ? 'contributor portrait' : 'product shot') + ' can be loaded there too.' : '');
       state.premiumDir = 'a'; setPremiumDir('a');
     }
 

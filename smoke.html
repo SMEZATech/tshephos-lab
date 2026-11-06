@@ -182,7 +182,7 @@
     // 5) Premium matrix: every type x every dir x 3 sizes. Every family has exactly A/B/C — the old
     // D/E entries for providers/findpros did not exist in the PREMIUM registry and silently fell
     // through to the A branch, so they were reporting coverage that wasn't there.
-    const PREM_TYPES = ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros', 'podcast', 'merch', 'feature', 'founder', 'roundup', 'hub', 'glossary', 'webinar'];
+    const PREM_TYPES = ['funding', 'solutions', 'newsletter', 'resources', 'providers', 'findpros', 'podcast', 'merch', 'feature', 'founder', 'contributor', 'roundup', 'hub', 'glossary', 'webinar'];
     // Minimum copy so the non-blank check is meaningful for text-driven directions (the draw fns
     // default the furniture, but not the headline/quote/product name).
     const PREM_VALS = {
@@ -211,7 +211,9 @@
       t2: 'Invoice financing', d2: 'Borrowing against invoices already issued.',
       t3: 'Asset finance', d3: 'Funding tied to the thing you are buying.',
       date: '18 June 2026', time: '11:00 SAST', format: 'Online', speaker: 'Thabo Mokoena', seats: 'Limited seats',
-      runtime: '48 min', recorded: '18 June 2026', coveredLabel: 'What it covered'
+      runtime: '48 min', recorded: '18 June 2026', coveredLabel: 'What it covered',
+      // Contributor: a long designation is the realistic stress ("Chartered Accountant & Founder, ...").
+      designation: 'Chartered Accountant & Founder, Nkosi Advisory Group (Pty) Ltd', writtenBy: 'Written by'
     };
     // WHICH DIRECTIONS EXIST is read from studio.html's own registry, not hardcoded here.
     //
@@ -311,7 +313,7 @@
       }
     }
     // 5b) Podcast/Merch also have a photo path (guest shot / product shot) — cover it.
-    for (const [pt, dir] of [['podcast', 'a'], ['podcast', 'b'], ['merch', 'a']]) {
+    for (const [pt, dir] of [['podcast', 'a'], ['podcast', 'b'], ['merch', 'a'], ['contributor', 'a'], ['contributor', 'b']]) {
       for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
         await run('premium+photo/' + pt + '/' + dir + '/' + sz,
           { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, featuredBlob, premType: pt, dir, vals: valsFor(pt, dir), w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },

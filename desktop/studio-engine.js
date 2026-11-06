@@ -1471,6 +1471,7 @@ function drawPremium(r, type, dir, v, assets) {
     if (type === 'feature')   return drawFeature(r, dir, v, assets);
     if (type === 'roundup')   return drawRoundup(r, dir, v, assets);
     if (type === 'founder')   return drawFounder(r, dir, v, assets);
+    if (type === 'contributor') return drawContributor(r, dir, v, assets);
     if (type === 'hub')       return drawHub(r, dir, v, assets);
     if (type === 'glossary')  return drawGlossary(r, dir, v, assets);
     if (type === 'webinar')   return drawWebinar(r, dir, v, assets);
@@ -2644,6 +2645,140 @@ function drawFounder(r, dir, v, a) {
     pButton(r, pad, btnY, iW, v.cta || 'Read the full interview', acc.fill, acc.on);
 }
 
+// ===================== CONTRIBUTOR (guest-written article) =====================
+// Contributors write for smesouthafrica.co.za every now and then, and a piece they wrote should say
+// so: who wrote it, what they do, and what they look like. Every other article design (Latest
+// Insight) shows only the article. This one adds the attribution as a first-class block — a
+// "WRITTEN BY" label, the contributor's portrait, their name and their designation — instead of
+// the one-line byline Editorial Split carries.
+//
+// The photo slot holds the CONTRIBUTOR's portrait (not an article image): same one-photo-per-design
+// rule as Founder Focus, and the house style for articles keeps the type in charge. Without a
+// photo the portrait slot draws the contributor's initials, never an empty avatar.
+//   a  WRITTEN-BY CARD  — paper, type-led; the contributor strip sits above the call to action.
+//   b  THE FEATURE      — navy, a larger portrait in its own panel, for when the writer is the draw.
+function pContribPortrait(r, a, v, x, y, d, round, onBg) {
+    // round: a circle; otherwise a rounded square. Initials fallback, never an empty shape.
+    const rad = round ? d / 2 : Math.round(d * 0.16);
+    r.ctx.save(); r.roundRectPath(x, y, d, d, rad); r.ctx.clip();
+    if (a.featured) r.drawCover(a.featured, x, y, d, d, 0.5, 0.3, 0, 1);
+    else {
+        r.fillRoundRect(x, y, d, d, rad, pOn(onBg, 'rgba(255,255,255,0.16)', PC.line));
+        const initials = String(v.name || '').trim().split(/\s+/).map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+        if (initials) r.drawLines([initials], { family: 'Oswald', weight: '900', size: Math.round(d * 0.38) }, x, y + d * 0.28, d, { color: pInk(onBg), align: 'center' });
+    }
+    r.ctx.restore();
+}
+// The attribution block: portrait left, "WRITTEN BY" / name / designation right. Returns its height.
+// With draw=false it only measures, so a layout can budget for it before it places anything.
+function pContribBlock(r, a, v, x, y, w, ds, round, onBg, accText, draw) {
+    const tx = x + ds + pV(30), tw = w - ds - pV(30);
+    const labF = { family: 'Oswald', weight: '700', size: pT(26) };
+    const nameSize = Math.min(pT(46), Math.round(ds * 0.34));
+    const nameF = { family: 'Oswald', weight: '700', size: nameSize };
+    const roleF = { family: 'Roboto', weight: '400', size: pT(30) };
+    const label = String(v.writtenBy == null ? 'Written by' : v.writtenBy).toUpperCase();
+    const nameT = String(v.name || '').toUpperCase();
+    const nameLines = nameT ? r.wrap(nameT, nameF, tw).slice(0, 2) : [];
+    const roleLines = v.designation ? r.wrap(String(v.designation), roleF, tw).slice(0, 2) : [];
+    const labH = label ? labF.size * 1.5 : 0;
+    const textH = labH + nameLines.length * nameSize * 1.12 + (roleLines.length ? pV(8) + roleLines.length * roleF.size * 1.3 : 0);
+    const h = Math.max(ds, textH);
+    if (!draw) return h;
+    pContribPortrait(r, a, v, x, y + (h - ds) / 2, ds, round, onBg);
+    let ty = y + (h - textH) / 2;
+    if (label) { r.drawLines([label], labF, tx, ty, tw, { color: accText }); ty += labH; }
+    if (nameLines.length) { r.drawLines(nameLines, nameF, tx, ty, tw, { color: pInk(onBg), lineHeight: 1.12 }); ty += nameLines.length * nameSize * 1.12; }
+    if (roleLines.length) r.drawLines(roleLines, roleF, tx, ty + pV(8), tw, { color: pSubInk(onBg), lineHeight: 1.3 });
+    return h;
+}
+function drawContributor(r, dir, v, a) {
+    const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, wide = W > H * 1.2;
+    const dark = dir === 'b';
+    const bg = dark ? PC.navy : PC.paper;
+    const acc = pSolid(bg, PC.red, dark ? PC.paper : PC.navy);
+    if (dark) { r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br'); r.radialGlow(W, 0, 460, 'rgba(156,28,31,0.28)', 'rgba(156,28,31,0)'); }
+    else r.fillBg(PC.paper);
+    const kicker = String(v.eyebrow || 'Guest contributor').toUpperCase();
+    const head = String(v.head || '').toUpperCase();
+    const sub = String(v.sub || '');
+
+    if (wide) {
+        // LANDSCAPE: the writer gets the right-hand panel, the article keeps the left column.
+        const panelW = Math.round(W * 0.36), panelX = W - panelW, p2 = 44;
+        const panelBg = dark ? PC.paper : PC.navy;
+        if (dark) r.rect(panelX, 0, panelW, H, panelBg);
+        else r.linearGradient(panelX, 0, panelW, H, [[0, PC.navy], [1, PC.navy2]], 'br');
+        const colW = panelX - pad * 1 - 40, colX = pad;
+        const lg = pLogoPick(a, bg); if (lg) r.drawContain(lg, colX, pad, 200, 50, {});
+        let y = pad + 50 + 34;
+        const kf = { family: 'Oswald', weight: '700', size: 26 }, kw = r.textWidth(kicker, kf) + 40, kh = 44;
+        r.fillRoundRect(colX, y, kw, kh, kh / 2, acc.fill);
+        r.drawLines([kicker], kf, colX, y + (kh - 26) / 2 + 2, kw, { color: acc.on, align: 'center' }); y += kh + 24;
+        const ctaH = 46, urlT = String(v.url || '');
+        const sf = { family: 'Roboto', weight: '400', size: 28 };
+        const subLines = sub ? r.wrap(sub, sf, colW).slice(0, 3) : [];
+        const subH = subLines.length * 28 * 1.35;
+        const box = Math.max(100, H - pad - ctaH - 30 - y - subH - (subH ? 16 : 0));
+        const hf = r.fitFontSize(head, { family: 'Oswald', weight: '700' }, colW, box, 1.03, { max: 70, min: 30 });
+        r.as('headline', () => r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, colX, y, colW, { color: pInk(bg), lineHeight: 1.03 }));
+        y += hf.totalH + 16;
+        if (subLines.length) r.drawLines(subLines, sf, colX, y, colW, { color: pSubInk(bg), lineHeight: 1.35 });
+        // the registry default already ends in an arrow; strip it so the one we add is the only one
+        const ctaT = String(v.cta || 'Read the article').replace(/\s*[→>]+\s*$/, '').toUpperCase();
+        r.as('cta', () => r.drawLines([ctaT + '  →'], { family: 'Oswald', weight: '700', size: 30 }, colX, H - pad - 36, colW, { color: acc.text }));
+        // the writer: portrait on top, label, name, designation, centred in the panel
+        const inner = panelW - p2 * 2, ds = Math.min(200, inner - 20), cx = panelX + p2;
+        const labF = { family: 'Oswald', weight: '700', size: 24 }, nameF = { family: 'Oswald', weight: '700', size: 38 }, roleF = { family: 'Roboto', weight: '400', size: 26 };
+        const label = String(v.writtenBy == null ? 'Written by' : v.writtenBy).toUpperCase();
+        const nameLines = v.name ? r.wrap(String(v.name).toUpperCase(), nameF, inner).slice(0, 2) : [];
+        const roleLines = v.designation ? r.wrap(String(v.designation), roleF, inner).slice(0, 3) : [];
+        const totH = ds + 26 + (label ? 24 * 1.5 : 0) + nameLines.length * 38 * 1.12 + (roleLines.length ? 8 + roleLines.length * 26 * 1.3 : 0);
+        let py = Math.max(pad, Math.round((H - totH) / 2));
+        pContribPortrait(r, a, v, cx + (inner - ds) / 2, py, ds, true, panelBg); py += ds + 26;
+        const panelAcc = pSolid(panelBg, PC.red, PC.navy).text;
+        if (label) { r.drawLines([label], labF, cx, py, inner, { color: panelAcc, align: 'center' }); py += 24 * 1.5; }
+        if (nameLines.length) { r.drawLines(nameLines, nameF, cx, py, inner, { color: pInk(panelBg), align: 'center', lineHeight: 1.12 }); py += nameLines.length * 38 * 1.12; }
+        if (roleLines.length) r.drawLines(roleLines, roleF, cx, py + 8, inner, { color: pSubInk(panelBg), align: 'center', lineHeight: 1.3 });
+        return;
+    }
+
+    // PORTRAIT / SQUARE / STORY — measure the foot (writer strip + CTA) first, then give the article
+    // whatever height is left, so a long headline shrinks instead of running into the writer.
+    const btnH = pBtnH(), btnY = H - pad - pSafeB() - btnH;
+    const ds = dark ? pV(176) : pV(150), round = !dark;
+    const stripH = pContribBlock(r, a, v, pad, 0, iW, ds, round, bg, acc.text, false);
+    const stripY = btnY - pV(40) - stripH;
+    let y = pLogo(r, a, bg) + pV(6);
+    r.rect(pad, y, 96, 10, acc.fill); y += pV(30);
+    pPill(r, pad, y, kicker, acc.fill, acc.on); y += (PG ? PG.pill : 64) + pV(30);
+    const subSize = 34, subMax = (H > W * 1.2) ? 3 : 2;
+    const room = stripY - pV(34) - y;
+    let subLines = sub ? r.wrap(sub, { family: 'Roboto', weight: '400', size: subSize }, iW).slice(0, subMax) : [];
+    let hf;
+    for (;;) {                                                 // drop sub lines before crushing the headline
+        const subH = subLines.length ? subLines.length * subSize * 1.4 + pV(20) : 0;
+        hf = r.fitFontSize(head, { family: 'Oswald', weight: '700' }, iW, Math.max(pV(90), room - subH), 1.03, { max: pT(86), min: 32 });
+        if (!subLines.length || hf.size >= pT(46) || room - subH >= pV(240)) break;
+        subLines = subLines.slice(0, -1);
+    }
+    r.as('headline', () => r.drawLines(hf.lines, { family: 'Oswald', weight: '700', size: hf.size }, pad, y, iW, { color: pInk(bg), lineHeight: 1.03 }));
+    y += hf.totalH + pV(20);
+    if (subLines.length) r.drawLines(subLines, { family: 'Roboto', weight: '400', size: subSize }, pad, y, iW, { color: pSubInk(bg), lineHeight: 1.4 });
+    // the writer, set off by a hairline (A) or held in its own panel (B)
+    if (dark) {
+        const padIn = pV(30), ph = stripH + padIn * 2;
+        r.fillRoundRect(pad, stripY - padIn, iW, ph, 28, 'rgba(255,255,255,0.08)');
+        pContribBlock(r, a, v, pad + padIn, stripY, iW - padIn * 2, ds, round, bg, acc.text, true);
+    } else {
+        r.strokeLine(pad, stripY - pV(22), W - pad, stripY - pV(22), PC.line, 2);
+        pContribBlock(r, a, v, pad, stripY, iW, ds, round, bg, acc.text, true);
+    }
+    pUrlTop(r, v.url, bg);
+    const cta = dark ? pSolid(bg, PC.red, PC.paper) : pSolid(bg, PC.red, PC.navy);
+    pButton(r, pad, btnY, iW, v.cta || 'Read the article', cta.fill, cta.on);
+}
+
 // ===================== MERCH / STORE =====================
 // Built from smesouthafrica.co.za/shop — product, price, and the two things that close a sale
 // online in SA: shipping reach and payment trust.
@@ -2885,6 +3020,7 @@ function drawLandscape(r, type, dir, v, a) {
     // the only order that breaks it is story -> landscape, which the fixture never produced.
     pGeom(W, H);
     if (self.R26_DRAW && self.R26_DRAW(r, type, dir, v || {}, a || {})) return;   // gated 2026 families (installR26)
+    if (type === 'contributor') return drawContributor(r, dir, v || {}, a || {});   // lays out its own landscape (writer panel)
     const pad = 70;
     r.ctx.textBaseline = 'top';
     const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d', 'founder.b', 'founder.c', 'roundup.a', 'roundup.b'].indexOf(key) !== -1;

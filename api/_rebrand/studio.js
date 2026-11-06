@@ -43,6 +43,19 @@ export const STUDIO_FAMILIES = {
       sub: "Tax registration, BEE and labour law: a no-jargon guide to staying on the right side of the rules.",
       author: "Thabo Molefe", meta: "8 April 2026 · 5 min read" }),
   } },
+  // Guest-written article. The Article card shows only the article; this one credits the writer as a
+  // first-class block (Written by / portrait / name / designation). The photo slot is the WRITER's
+  // portrait; without one the avatar is the CI's gradient monogram, never an empty shape.
+  r26contributor: { label: "Contributor · Written by", emoji: "✍️", photo: "Contributor portrait", dirs: {
+    a: D("Written by · light", { pill: "Guest contributor", head: "Why your first hire should be a bookkeeper, not a salesperson",
+      sub: "Most founders hire for growth before they can see their numbers. Here is what changes when the books come first.",
+      writtenBy: "Written by", name: "Thandi Nkosi", designation: "Chartered Accountant & Founder, Nkosi Advisory",
+      cta: "Read the article", url: "smesouthafrica.co.za" }),
+    b: D("Written by · dark", { pill: "Guest contributor", head: "Why your first hire should be a *bookkeeper*, not a salesperson",
+      sub: "Most founders hire for growth before they can see their numbers. Here is what changes when the books come first.",
+      writtenBy: "Written by", name: "Thandi Nkosi", designation: "Chartered Accountant & Founder, Nkosi Advisory",
+      cta: "Read the article", url: "smesouthafrica.co.za" }),
+  } },
   r26number: { label: "The Number", emoji: "📊", photo: null, dirs: {
     a: D("The Number", { pill: "By the numbers", big: "73%", head: "of SA small businesses never apply for funding they qualify for.",
       source: "Source: SME South Africa, State of SA Small Business 2026" }),
@@ -478,6 +491,103 @@ function r26Engine() {
     line(r, v.author, F(J, 700, 30 * k * bs), tx, fy + 6 * k * bs, T.ink, { maxW: iw - footH - cube - 60 * k });
     line(r, v.meta, F(I, 400, 25 * k * bs), tx, fy + 44 * k * bs, T.muted, { maxW: iw - footH - cube - 60 * k });
     const cimg = ART().cube; if (cimg) logo(r, "cube", W - px, fy + (footH - cube * cimg.height / cimg.width) / 2, cube, "right");
+  }
+
+  // ---- Contributor (guest-written article) ----------------------------------------------------------
+  // The writer's block: avatar left; "WRITTEN BY" / name / designation right. draw=false only measures,
+  // so the layout can budget for it before placing anything. `dark` flips the ink for navy surfaces.
+  function contribBlock(r, v, a, x, y, w, d, dark, draw, st) {
+    st = st || 1;
+    const tx = x + d + 28 * st, tw = w - d - 28 * st;
+    const labS = 22 * st, nameS = Math.min(38 * st, d * 0.36), roleS = 27 * st;
+    const label = plain(v.writtenBy == null ? "Written by" : v.writtenBy).trim();
+    const nameB = plain(v.name).trim() ? fit(r, plain(v.name), J, 800, tw, nameS * 1.2 * 2, 1.12, -0.01, nameS, nameS * 0.6, 2) : null;
+    const roleH = measurePara(r, v.designation, I, 400, roleS, tw, 1.35, { maxLines: 2 });
+    const labH = label ? labS * 1.6 : 0;
+    const textH = labH + (nameB ? nameB.h : 0) + (roleH ? 8 * st + roleH : 0);
+    const h = Math.max(d, textH);
+    if (!draw) return h;
+    const cy = y + h / 2;
+    if (a.featured) ring(r, a.featured, x + d / 2, cy, d); else monogram(r, v.name, x + d / 2, cy, d);
+    let ty = y + (h - textH) / 2;
+    if (label) { line(r, label, F(J, 800, labS), tx, ty, dark ? "rgba(255,255,255,0.6)" : T.muted, { ls: 0.14, upper: true, maxW: tw }); ty += labH; }
+    if (nameB) { drawRich(r, nameB, tx, ty, tw, dark ? WHITE : T.ink); ty += nameB.h; }
+    if (roleH) para(r, v.designation, I, 400, roleS, tw, 1.35, dark ? "rgba(255,255,255,0.75)" : T.muted, tx, ty + 8 * st, { maxLines: 2 });
+    return h;
+  }
+  function contributor(r, dir, v, a) {
+    const g = geo(r), { W, H } = g, dark = dir === "b", c = r.ctx;
+    const ink = dark ? WHITE : T.ink, sub = dark ? "rgba(255,255,255,0.75)" : T.muted;
+    if (g.land) {
+      // LANDSCAPE: the article keeps the left column, the writer gets a full-height panel on the right.
+      const k = H / 628, pad = 56 * k, panelW = Math.round(W * 0.36), panelX = W - panelW, p2 = 40 * k;
+      if (dark) { hero(r); glow(r, 60 * k, H, 420 * k, ORANGE, 0.18); r.rect(panelX, 0, panelW, H, WHITE); }
+      else {
+        r.fillBg(WHITE);
+        r.rect(panelX, 0, panelW, H, T.navy);
+        c.save(); c.beginPath(); c.rect(panelX, 0, panelW, H); c.clip(); glow(r, W - 60 * k, 40 * k, 520 * k, RED, 0.35); c.restore();
+        dots(r);
+      }
+      const colW = panelX - pad - 44 * k;
+      const lg = logo(r, dark ? "rev" : "light", pad, pad, 190 * k);
+      let y = pad + lg.h + 30 * k;
+      const p = pill(r, v.pill, pad, y, dark ? { size: 18 * k, padX: 16 * k, padY: 12 * k } : { size: 18 * k, padX: 16 * k, padY: 12 * k, bg: T.redTint, fg: T.red });
+      y += p.h + 22 * k;
+      const bh = 26 * k + 44 * k, by = H - pad - bh;
+      const sH = measurePara(r, v.sub, I, 400, 22 * k, colW, 1.45, { maxLines: 3 });
+      const head = fit(r, v.head, J, 800, colW, Math.max(50 * k, by - 28 * k - (sH ? 16 * k + sH : 0) - y), 1.06, -0.025, 58 * k, 28 * k, 4);
+      r.as("headline", () => drawRich(r, head, pad, y, colW, ink)); y += head.h;
+      if (sH) { y += 16 * k; para(r, v.sub, I, 400, 22 * k, colW, 1.45, sub, pad, y, { maxLines: 3 }); }
+      button(r, v.cta, pad, by, { kind: dark ? "acc" : "red", size: 26 * k, padX: 32 * k, padY: 22 * k, maxW: colW });
+      // the writer, centred in the panel
+      const inner = panelW - p2 * 2, d = Math.min(180 * k, inner - 20 * k), cx = panelX + panelW / 2, pd = !dark;
+      const pInk = pd ? WHITE : T.ink, pSub = pd ? "rgba(255,255,255,0.75)" : T.muted, pLab = pd ? "rgba(255,255,255,0.6)" : T.muted;
+      const label = plain(v.writtenBy == null ? "Written by" : v.writtenBy).trim();
+      const nB = plain(v.name).trim() ? fit(r, plain(v.name), J, 800, inner, 34 * k * 1.12 * 2, 1.12, -0.01, 34 * k, 22 * k, 2) : null;
+      const rH = measurePara(r, v.designation, I, 400, 22 * k, inner, 1.35, { maxLines: 3 });
+      const labH = label ? 20 * k * 1.7 : 0;
+      const totH = d + 24 * k + labH + (nB ? nB.h : 0) + (rH ? 8 * k + rH : 0);
+      let py = Math.max(pad, (H - totH) / 2);
+      if (a.featured) ring(r, a.featured, cx, py + d / 2, d); else monogram(r, v.name, cx, py + d / 2, d);
+      py += d + 24 * k;
+      if (label) { line(r, label, F(J, 800, 20 * k), cx, py, pLab, { ls: 0.14, upper: true, align: "center", maxW: inner }); py += labH; }
+      if (nB) { drawRich(r, nB, panelX + p2, py, inner, pInk, "center"); py += nB.h; }
+      if (rH) para(r, v.designation, I, 400, 22 * k, inner, 1.35, pSub, panelX + p2, py + 8 * k, { align: "center", maxLines: 3 });
+      return;
+    }
+    // PORTRAIT / SQUARE / STORY — the foot (writer + button) is measured first and the article gets
+    // what is left, so a long headline shrinks and drops its summary before it crowds the writer.
+    const k = g.k, pad = g.pad, iw = W - pad * 2, st = g.story ? 1.25 : 1;
+    if (dark) { hero(r); glow(r, W - 110 * k, 90 * k, 620 * k, RED, 0.35); glow(r, 60 * k, H - 40 * k, 560 * k, ORANGE, 0.18); }
+    else r.fillBg(WHITE);
+    const lg = logo(r, dark ? "rev" : "light", pad, g.top, 250 * k);
+    const bh = 30 * k * st + 52 * k * st, by = g.bot - bh;
+    const d = (dark ? 168 : 132) * k * st;
+    const padIn = dark ? 30 * k : 0, stripW = iw - padIn * 2;
+    const stripH = contribBlock(r, v, a, 0, 0, stripW, d, dark, false, st * k);
+    const stripY = by - 44 * k - stripH, boxTop = stripY - (dark ? padIn : 22 * k) - 36 * k;
+    let y = g.top + lg.h + 34 * k;
+    const p = pill(r, v.pill, pad, y, dark ? { size: 24 * k, padX: 22 * k, padY: 16 * k } : { size: 24 * k, padX: 22 * k, padY: 16 * k, bg: T.redTint, fg: T.red });
+    y += p.h + 34 * k;
+    const subS = 34 * k * st, headMax = 88 * k * st;
+    let head = null, maxL = g.story ? 4 : 3;
+    for (; ; maxL--) {
+      const sH = maxL > 0 ? measurePara(r, v.sub, I, 400, subS, iw, 1.5, { maxLines: maxL }) : 0;
+      head = fit(r, v.head, J, 800, iw, Math.max(80 * k, boxTop - y - (sH ? 24 * k + sH : 0)), 1.04, -0.03, headMax, 40 * k, 5);
+      if (maxL <= 0 || head.size >= 58 * k * st) break;       // drop summary lines before crushing the headline
+    }
+    r.as("headline", () => drawRich(r, head, pad, y, iw, ink)); y += head.h;
+    if (maxL > 0 && plain(v.sub).trim()) { y += 24 * k; para(r, v.sub, I, 400, subS, iw, 1.5, sub, pad, y, { maxLines: maxL }); }
+    if (dark) {
+      r.fillRoundRect(pad, stripY - padIn, iw, stripH + padIn * 2, 24 * k, "rgba(255,255,255,0.07)");
+      c.save(); r.roundRectPath(pad, stripY - padIn, iw, stripH + padIn * 2, 24 * k); c.strokeStyle = "rgba(255,255,255,0.14)"; c.lineWidth = 1.5; c.stroke(); c.restore();
+      contribBlock(r, v, a, pad + padIn, stripY, stripW, d, true, true, st * k);
+    } else {
+      hr(r, pad, W - pad, stripY - 22 * k, T.border, 2);
+      contribBlock(r, v, a, pad, stripY, iw, d, false, true, st * k);
+    }
+    const b = button(r, v.cta, pad, by, { kind: dark ? "acc" : "red", size: 30 * k * st, padX: 38 * k, padY: 26 * k * st, maxW: iw * 0.7 });
+    if (plain(v.url).trim()) line(r, v.url, F(J, 600, 24 * k * st), W - pad, by + (b.h - 24 * k * st) / 2, dark ? "rgba(255,255,255,0.55)" : T.muted, { align: "right", maxW: iw - b.w - 30 * k });
   }
 
   // ---- S3 The Number ---------------------------------------------------------------------------
@@ -1475,6 +1585,7 @@ function r26Engine() {
   const FAM = {
     r26funding: (r, d, v) => funding(r, v),
     r26article: (r, d, v, a) => article(r, v, a),
+    r26contributor: (r, d, v, a) => contributor(r, d, v, a),
     r26number: (r, d, v) => number(r, v),
     r26quote: (r, d, v, a) => quote(r, v, a),
     r26founder: (r, d, v, a) => founder(r, v, a),
@@ -1487,7 +1598,7 @@ function r26Engine() {
     r26rescover: (r, d, v, a) => resCover(r, d, v, a),
     r26resfeature: (r, d, v, a) => resFeature(r, d, v, a),
   };
-  const OWN_LANDSCAPE = { r26webinar: true, r26podcast: true, r26rescover: true, r26resfeature: true };   // families that draw their own wide layout
+  const OWN_LANDSCAPE = { r26contributor: true, r26webinar: true, r26podcast: true, r26rescover: true, r26resfeature: true };   // families that draw their own wide layout
   self.R26_DRAW = function (r, type, dir, v, a) {
     if (!FAM[type]) return false;
     r.ctx.textBaseline = "top";

@@ -157,7 +157,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     r = await state();
     expect('a curated list on the brand overrides the defaults', r.funding && !r.providers && !r.podcast, r);
     const boxes = await page.evaluate(() => { openBrandKit(); const c = [...document.querySelectorAll('#bk-designs input')]; return { n: c.length, checked: c.filter(i => i.checked).map(i => i.value) }; });
-    expect('the Brand Kit editor lists every design, ticking only the ones curated for this brand', boxes.n === 14 && boxes.checked.join() === 'funding', boxes);
+    expect('the Brand Kit editor lists every design, ticking only the ones curated for this brand', boxes.n === 15 && boxes.checked.join() === 'funding', boxes);
     expect('no page errors', errors.length === 0, errors);
     await ctx.close();
   }
@@ -223,7 +223,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         kit: (typeof loadBrands === 'function') ? loadBrands().some(b => b.id === 'sme26') : null,
         stored: (() => { try { return (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0; } catch (e) { return false; } })() }));
       if (allowed) {
-        expect('Studio, ' + who + ': thirteen 2026 families appear, each with the 2026 · Preview pill', st.n === 13 && st.pill, st);
+        expect('Studio, ' + who + ': fourteen 2026 families appear, each with the 2026 · Preview pill', st.n === 14 && st.pill, st);
         expect('Studio, ' + who + ': the "SME South Africa 2026" kit is offered', st.kit === true, st);
         expect('Studio, ' + who + ': …and is never written into the shared Brand Kit', st.stored === false, st);
         const ok = await s.page.evaluate(async () => { setActiveBrandId('sme26'); applyBrand(); setContentType('r26funding');
