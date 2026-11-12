@@ -71,6 +71,37 @@
     // shipped (invisible CTA label, invisible verification badge, unreadable product name) only
     // appeared on a brand shaped like this one. Testing one brand tested one half of the code.
     const brandLight = { primary: '#3d1152', secondary: '#e9e9ec', cta: 'Browse Directory', url: 'serv.co.za' };
+    // Serv's real 2026 kit (deep purple, plum, gold highlight). Only the marketplace families run on it.
+    const brandServ = { primary: '#752561', secondary: '#331354', highlight: '#f6ad55', cta: 'Get Matched', url: 'serv.co.za' };
+
+    // STRICTER contrast for the four Serv 2026 marketplace designs (providers a/d, findpros c/d): every
+    // text, not only >=30px, must clear 4.5:1 (3:1 for large headings), and on a gradient it must clear
+    // that against EVERY stop of the gradient, not be skipped. Only a photo/screenshot backdrop is skipped.
+    const MARKET_STRICT = /(providers[\/.][ad]|findpros[\/.][cd])[\/.]/;
+    function strictMarket(trace) {
+      const lum = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }).reduce((a, c, k) => a + c * [0.2126, 0.7152, 0.0722][k], 0); };
+      const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      const cov = (f, t) => f.x <= t.x + 1 && f.y <= t.y + 1 && f.x + f.w >= t.x + t.w - 1 && f.y + f.h >= t.y + t.h - 1;
+      for (let i = 0; i < trace.length; i++) {
+        const t = trace[i];
+        if (t.kind !== 'text' || t.stroke || String(t.text || '').trim().length <= 2) continue;
+        let bgs = null;
+        for (let j = i - 1; j >= 0; j--) {
+          const f = trace[j]; if (!cov(f, t)) continue;
+          if (f.kind === 'image') break;
+          if (f.kind === 'fill' && f.gradient) { bgs = (f.stops || []).filter(c => /^#[0-9a-f]{6}$/i.test(c)); break; }
+          if (f.kind === 'fill' && f.color) { bgs = [f.color]; break; }
+        }
+        if (!bgs || !bgs.length) continue;
+        if (!/^#[0-9a-f]{6}$/i.test(String(t.color || ''))) return 'strict contrast: "' + t.text + '" uses a non-solid colour ' + t.color;
+        const bar = t.size >= 30 ? 3 : 4.5;
+        for (const bg of bgs) {
+          const c = contrast(t.color, bg);
+          if (c != null && c < bar) return 'strict contrast: "' + t.text + '" ' + t.color + ' on ' + bg + ' = ' + c.toFixed(2) + ':1 (needs ' + bar + ')';
+        }
+      }
+      return null;
+    }
 
     // ---- Draw-trace assertions -------------------------------------------------------------
     // These used to be defined inline here, which meant only this test suite could see them — so
@@ -136,6 +167,7 @@
           if (v.error && name.indexOf('stress/') === 0) r.warn = 'KNOWN GAP: ' + v.error;
           else if (v.error) { r.ok = false; r.why = v.error; }
           else if (v.warn) r.warn = v.warn;
+          if (r.ok && MARKET_STRICT.test(name)) { const m = strictMarket(done.trace); if (m) { r.ok = false; r.why = m; } }
         }
       } catch (e) { r = { ok: false, why: e.message }; }
       results.push({ name, ...r });
@@ -294,8 +326,9 @@
 
     // EVERY premium design runs against BOTH brands. The dark-secondary brand is the happy path;
     // the light-secondary one is where every contrast bug we've shipped actually lived.
-    for (const [bLabel, b] of [['sme', brand], ['light', brandLight]]) {
+    for (const [bLabel, b] of [['sme', brand], ['light', brandLight], ['serv', brandServ]]) {
       for (const pt of PREM_TYPES) {
+        if (bLabel === 'serv' && pt !== 'providers' && pt !== 'findpros') continue;
         for (const dir of (DIRS[pt] || [])) {
           // ORDER IS PART OF THE TEST. The worker outlives every render and the engine's geometry
           // (PG) is module-global, so a design can be correct alone and broken after a DIFFERENT
@@ -313,7 +346,7 @@
       }
     }
     // 5b) Podcast/Merch also have a photo path (guest shot / product shot) — cover it.
-    for (const [pt, dir] of [['podcast', 'a'], ['podcast', 'b'], ['merch', 'a'], ['contributor', 'a'], ['contributor', 'b']]) {
+    for (const [pt, dir] of [['podcast', 'a'], ['podcast', 'b'], ['merch', 'a'], ['contributor', 'a'], ['contributor', 'b'], ['providers', 'd']]) {
       for (const [sz, wh] of [['square', [1080, 1080]], ['portrait', [1080, 1350]], ['landscape', [1200, 628]], ['story', [1080, 1920]]]) {
         await run('premium+photo/' + pt + '/' + dir + '/' + sz,
           { type: 'render-premium', brand, fontBuffers: {}, logoWhiteBlob: logoBlob, logoColorBlob: logoBlob, featuredBlob, premType: pt, dir, vals: valsFor(pt, dir), w: wh[0], h: wh[1], scale: S, trace: true, filename: 't.png' },
@@ -331,7 +364,7 @@
     if (!libKeys.length) { results.push({ name: 'copy-library', ok: false, why: 'copy-library.js did not load' }); row('copy-library', { ok: false, why: 'copy-library.js did not load' }); }
     for (const key of libKeys) {
       const [pt, dir] = key.split('.');
-      const b = (pt === 'providers' || pt === 'findpros') ? brandLight : brand;
+      const b = (pt === 'providers' || pt === 'findpros') ? brandServ : brand;
       for (const v of LIB[key]) {
         const vals = Object.assign({ url: b.url }, FIELDS[key] || {}, v.f);
         for (const [sz, wh] of [['story', [1080, 1920]], ['landscape', [1200, 628]], ['square', [1080, 1080]], ['portrait', [1080, 1350]]]) {

@@ -156,6 +156,17 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     await page.evaluate(() => { const b = loadBrands(); b[1].designs = ['funding']; localStorage.setItem('volt_brands_v1', JSON.stringify(b)); applyBrand(); });
     r = await state();
     expect('a curated list on the brand overrides the defaults', r.funding && !r.providers && !r.podcast, r);
+    // Serv 2026: the weak marketplace designs are hidden (kept in the registry), and the Serv kit
+    // moves to Serv's 2026 colours exactly once, keeping what it held and leaving every other brand alone.
+    const mp = await page.evaluate(() => {
+      setContentType('findpros'); const fp = premDirKeys().join(), fpPick = state.premiumDir;
+      setContentType('providers'); const pv = premDirKeys().join();
+      const b = [{ name: 'Serv', primary: '#3d1152', secondary: '#e9e9ec', url: 'x' }, { name: 'SME South Africa', primary: '#9c1c1f', secondary: '#0a2c3d' }];
+      const moved = migrateServ2026(b), again = migrateServ2026(b);
+      return { fp, fpPick, pv, moved, again, serv: b[0], sme: b[1], hiddenKept: !!(PREMIUM.findpros.dirs.a && PREMIUM.findpros.dirs.a.hidden) };
+    });
+    expect('hidden marketplace designs stay out of the menu but stay in the registry', mp.fp === 'c,d' && mp.pv === 'a,d' && mp.fpPick === 'c' && mp.hiddenKept, mp);
+    expect('the Serv kit moves to its 2026 colours once, keeping what it held', mp.moved && !mp.again && mp.serv.secondary === '#331354' && mp.serv.primary === '#752561' && mp.serv.highlight === '#f6ad55' && mp.serv.servPrev2026.secondary === '#e9e9ec' && mp.sme.primary === '#9c1c1f' && !mp.sme.highlight && !mp.sme.servPrev2026, mp);
     const boxes = await page.evaluate(() => { openBrandKit(); const c = [...document.querySelectorAll('#bk-designs input')]; return { n: c.length, checked: c.filter(i => i.checked).map(i => i.value) }; });
     expect('the Brand Kit editor lists every design, ticking only the ones curated for this brand', boxes.n === 15 && boxes.checked.join() === 'funding', boxes);
     expect('no page errors', errors.length === 0, errors);

@@ -814,6 +814,24 @@
         try { localStorage.removeItem(BRANDS_KEY); } catch (e) {}
         try { localStorage.removeItem(ACTIVE_BRAND_KEY); } catch (e) {}
     }
+    // ONE-TIME: the Serv Brand Kit moves onto Serv's 2026 colours (the Serv Hub design system on serv.co.za)
+    // and its official logos. The kit lives in the shared org row, which only a signed-in browser can read,
+    // so the move happens here, once, the first time a browser loads it. Whatever the kit held before is kept
+    // ON the brand as servPrev2026 (and logged), so the change can be reviewed or reversed.
+    const SERV_2026 = { primary: '#752561', secondary: '#331354', highlight: '#f6ad55', url: 'serv.co.za',
+        logo: 'https://serv.co.za/images/serv-footer-logo.png', logoDark: 'https://serv.co.za/images/SERV_Logo.png' };
+    function migrateServ2026(brands) {
+        let changed = false;
+        (brands || []).forEach(b => {
+            if (!b || b.serv2026 || !/\bserv\b/i.test(b.name || '')) return;
+            b.servPrev2026 = { primary: b.primary || '', secondary: b.secondary || '', highlight: b.highlight || '', url: b.url || '',
+                logo: b.logo || '', logoDark: b.logoDark || '', at: new Date().toISOString() };
+            Object.assign(b, SERV_2026, { serv2026: 1 });
+            changed = true;
+            try { console.info('[Volt] Serv Brand Kit moved to Serv 2026 colours. It held before:', Object.assign({}, b.servPrev2026, { logo: (b.servPrev2026.logo || '').slice(0, 80), logoDark: (b.servPrev2026.logoDark || '').slice(0, 80) })); } catch (e) {}
+        });
+        return changed;
+    }
     async function pullBrandKit() {
         try {
             const r = await fetch(PROJECTS_URL + '?type=brandkit');
@@ -824,8 +842,10 @@
             const full = await (await fetch(PROJECTS_URL + '?id=' + _brandKitId)).json();
             const d = full.project && full.project.data;
             if (d && Array.isArray(d.brands) && d.brands.length) {
+                const moved = migrateServ2026(d.brands);
                 try { localStorage.setItem(BRANDS_KEY, JSON.stringify(d.brands)); } catch (e) {}
                 try { localStorage.setItem(ACTIVE_BRAND_KEY, d.active || 'sme'); } catch (e) {}
+                if (moved) { pushBrandKit(); if (typeof showToast === 'function') showToast('Serv Brand Kit updated to Serv’s 2026 colours. The previous colours are kept in the kit.', 'success'); }
             } else {
                 resetBrandKitLocal();
             }
@@ -846,7 +866,8 @@
     window.addEventListener('volt:ready', pullBrandKit);
     if (window.voltSession) pullBrandKit();
     function currentBrand() { const a = loadBrands(); return a.find(b => b.id === getActiveBrandId()) || a[0] || SME_BRAND; }
-    function brandPayload() { const b = currentBrand(); return { primary: b.primary, secondary: b.secondary, cta: b.cta, url: b.url }; }
+    // highlight is optional (Serv's gold). Without one the worker keeps today's behaviour exactly.
+    function brandPayload() { const b = currentBrand(); return { primary: b.primary, secondary: b.secondary, highlight: b.highlight || '', cta: b.cta, url: b.url }; }
 
     // ---- Designs curated per brand ----
     // A brand shows only the designs made for it; the rest sit behind "Show designs outside <brand>".
@@ -941,6 +962,7 @@
           +   '<div><label class="bk-lbl">Primary (accent)</label><div class="flex items-center gap-2"><input id="bk-primary" type="color" value="' + (editing.primary || '#9c1c1f') + '" class="w-10 h-9 rounded bg-slate-900 border border-slate-600 cursor-pointer p-0.5"><input id="bk-primary-hex" class="bk-in" value="' + (editing.primary || '#9c1c1f') + '"></div></div>'
           +   '<div><label class="bk-lbl">Secondary (dark)</label><div class="flex items-center gap-2"><input id="bk-secondary" type="color" value="' + (editing.secondary || '#0a2c3d') + '" class="w-10 h-9 rounded bg-slate-900 border border-slate-600 cursor-pointer p-0.5"><input id="bk-secondary-hex" class="bk-in" value="' + (editing.secondary || '#0a2c3d') + '"></div></div>'
           + '</div>'
+          + '<div class="mb-4"><label class="bk-lbl">Highlight <span class="text-slate-500 font-normal">— optional: a third colour for the main call to action (Serv uses gold). Leave empty to keep the current look.</span></label><div class="flex items-center gap-2"><input id="bk-highlight" type="color" value="' + (editing.highlight || '#f6ad55') + '" class="w-10 h-9 rounded bg-slate-900 border border-slate-600 cursor-pointer p-0.5"><input id="bk-highlight-hex" class="bk-in" placeholder="none" value="' + (editing.highlight || '') + '"><button id="bk-highlight-clear" type="button" class="text-[10px] font-bold py-1.5 px-2 rounded border border-slate-600 text-slate-300 hover:bg-slate-700">Clear</button></div></div>'
           + '<div class="mb-5"><label class="bk-lbl">Logo (white / transparent PNG works best)</label>'
           +   '<div class="flex items-center gap-3">'
           +     '<div class="w-24 h-12 rounded border border-slate-700 flex items-center justify-center overflow-hidden shrink-0" style="background:' + (editing.secondary || '#0a2c3d') + ';">' + (editing.logo ? '<img src="' + editing.logo + '" class="max-w-full max-h-full object-contain">' : '<span class="text-[10px] text-slate-500">none</span>') + '</div>'
@@ -983,6 +1005,10 @@
         if (pch) pch.oninput = () => { _bkEditing.primary = pch.value; if (pc && /^#[0-9a-fA-F]{6}$/.test(pch.value)) pc.value = pch.value; };
         if (sc2) sc2.oninput = () => { _bkEditing.secondary = sc2.value; if (sch) sch.value = sc2.value; };
         if (sch) sch.oninput = () => { _bkEditing.secondary = sch.value; if (sc2 && /^#[0-9a-fA-F]{6}$/.test(sch.value)) sc2.value = sch.value; };
+        const hc = document.getElementById('bk-highlight'), hch = document.getElementById('bk-highlight-hex'), hcl = document.getElementById('bk-highlight-clear');
+        if (hc) hc.oninput = () => { _bkEditing.highlight = hc.value; if (hch) hch.value = hc.value; };
+        if (hch) hch.oninput = () => { const v = hch.value.trim(); _bkEditing.highlight = /^#[0-9a-fA-F]{6}$/.test(v) ? v : ''; if (hc && _bkEditing.highlight) hc.value = v; };
+        if (hcl) hcl.onclick = () => { _bkEditing.highlight = ''; if (hch) hch.value = ''; };
         const lf = document.getElementById('bk-logo-file');
         if (lf) lf.onchange = (e) => {
             const f = e.target.files[0]; if (!f) return;
@@ -1188,6 +1214,7 @@
     // else its normal logo, and SME's asset ONLY when SME is the active brand.
     const SME_COLOR_LOGO = 'https://smesouthafrica.co.za/wp-content/uploads/2021/07/Asset-1.png';
     async function ensureColorLogoBlob() {
+        await ensureHubShot();
         const b = currentBrand() || {};
         const src = b.logoDark || (b.id === 'sme' ? SME_COLOR_LOGO : (b.logo || SME_COLOR_LOGO));
         if (colorLogoBlob && _colorLogoSrc === src) return colorLogoBlob;
@@ -1731,14 +1758,22 @@
       // ---- B2B marketplace (two-sided). Brand-agnostic: colours/logo/url come from the active
       // Brand Kit, so a marketplace brand like Serv renders in its own identity. ----
       providers: { label:'Marketplace · Get providers', dirs:{
-        a:{ name:'The Pitch', fields:{ pill:'For service providers', head:'Get found by businesses ready to buy.', sub:'List your company on the marketplace and receive qualified enquiries from businesses actively looking for what you do.', i1:'Verified profile that builds trust instantly', i2:'Quality leads, not cold outreach', i3:'Zero commission — you negotiate directly', cta:'List your company →', url:'serv.co.za' } },
-        b:{ name:'Demand Counter', fields:{ pill:'For service providers', big:'150+', bigLabel:'categories of buyers looking right now', head:'Your next client is already searching.', cta:'List your company →' } },
-        c:{ name:'Zero Commission', fields:{ eyebrow:'Zero commission', head:'Keep every rand you earn.', sub:'We connect you with the business and step aside — no cut of your invoice, no middleman on your pricing.', i1:'No commission on any job you win', i2:'Negotiate directly with the client', i3:'Verified listing, no monthly lock-in', cta:'Claim your listing →' } }
+        // a and d are the Serv 2026 designs (drawn in studio-engine.js mpPitch / mpHub). b and c are kept,
+        // unchanged, but hidden from the menu (premDirKeys): b leads on a platform count, c on claims
+        // ("no monthly lock-in", verified) the owner has not confirmed. Nothing is deleted.
+        a:{ name:'The Pitch', fields:{ pill:'For service providers', head:'Get found by businesses that need what you do.', sub:'Your listing, your reviews, one inbox for every request.', i1:'Every request is checked by a person first', i2:'Up to 3 providers quote, never more', i3:'No commission on the work you win', cta:'List your business', url:'serv.co.za' } },
+        b:{ name:'Demand Counter', hidden:true, fields:{ pill:'For service providers', big:'150+', bigLabel:'categories of buyers looking right now', head:'Your next client is already searching.', cta:'List your company →' } },   // hidden: a platform count ("150+ categories")
+        c:{ name:'Zero Commission', hidden:true, fields:{ eyebrow:'Zero commission', head:'Keep every rand you earn.', sub:'We connect you with the business and step aside — no cut of your invoice, no middleman on your pricing.', i1:'No commission on any job you win', i2:'Negotiate directly with the client', i3:'Verified listing, no monthly lock-in', cta:'Claim your listing →' } },   // hidden: "no monthly lock-in" and "verified" are not confirmed
+        d:{ name:'The Hub — your Provider Hub, on screen', fields:{ pill:'Serv Provider Hub', head:'One score. One inbox. Your next step.', sub:'See how your listing is doing, answer every request in one place, and know what to do next.', screen:'Home', cta:'List your business', url:'serv.co.za' } }
       }},
       findpros: { label:'Marketplace · Find providers', dirs:{
-        a:{ name:'One Request, Many Quotes', fields:{ eyebrow:'One request. Many quotes.', head:'Stop chasing suppliers. Let them come to you.', sub:'Describe what you need once and receive competitive quotes from vetted South African providers.', i1:'Quotes back within 24 hours', i2:'Every provider manually verified', i3:'Compare rates before you commit', cta:'Get instant quotes →' } },
-        b:{ name:'Verified Badge', fields:{ eyebrow:'Manually verified', head:'Every provider is checked before they reach you.', sub:'CIPC registration and B-BBEE credentials verified by hand — so you hire with confidence, not hope.', cta:'Browse the directory →' } },
-        c:{ name:'Category Spotlight', fields:{ eyebrow:'Looking for', category:'Web Developers', count:'40+ vetted experts', sub:'Compare quotes from verified South African specialists — free, and no obligation to hire.', cta:'Compare quotes →', url:'serv.co.za' } }
+        // c and d are the Serv 2026 designs (mpCategory / mpHow). a and b are kept, unchanged, but hidden:
+        // both promise speed ("within 24 hours", "instant") and hand-verification, which the owner has
+        // not approved.
+        a:{ name:'One Request, Many Quotes', hidden:true, fields:{ eyebrow:'One request. Many quotes.', head:'Stop chasing suppliers. Let them come to you.', sub:'Describe what you need once and receive competitive quotes from vetted South African providers.', i1:'Quotes back within 24 hours', i2:'Every provider manually verified', i3:'Compare rates before you commit', cta:'Get instant quotes →' } },   // hidden: speed and "manually verified" claims
+        b:{ name:'Verified Badge', hidden:true, fields:{ eyebrow:'Manually verified', head:'Every provider is checked before they reach you.', sub:'CIPC registration and B-BBEE credentials verified by hand — so you hire with confidence, not hope.', cta:'Browse the directory →' } },   // hidden: hand-verification claims
+        c:{ name:'Category — the service, set big', fields:{ eyebrow:'Need', category:'Bookkeeping', sub:'Every request is checked by a person before it reaches a provider.', i1:'Up to 3 providers quote, never more', i2:'Compare quotes side by side', i3:'No obligation to hire', cta:'Request a Quote', url:'serv.co.za' } },
+        d:{ name:'How it works — three steps', fields:{ eyebrow:'How it works', head:'Tell us once. We do the shortlist.', s1:'Tell us what you need', s2:'A person checks your request', s3:'Up to 3 providers quote', sub:'Compare quotes side by side. No obligation to hire.', cta:'Request a Quote', url:'serv.co.za' } }
       }},
       // ---- FEATURE STORY — the replacement for hero-photo-plus-headline ----------------------
       // The photo isn't the problem; the TREATMENT is. Hero image + dark gradient + headline on top
@@ -1840,7 +1875,7 @@
     };
     const PREM_FIELD_LABELS = { pill:'Tag', head:'Headline', sub:'Subtext', b1:'Benefit 1', b2:'Benefit 2', b3:'Benefit 3', cta:'Button', cardk:'Card label', cardh:'Card headline', cards:'Card subtext', amount:'Amount', term:'Term', url:'Website', eyebrow:'Eyebrow', name:'Name', author:'Author', authorInit:'Initials', meta:'Meta', pro1:'Pro 1', pro2:'Pro 2', con1:'Con', issue:'Issue', i1:'Item 1 (bold | text)', i2:'Item 2 (bold | text)', i3:'Item 3 (bold | text)', big:'Big text', placeholder:'Input hint', btn:'Field button', chip1:'Chip 1', chip2:'Chip 2', logo:'Logo letter', coverTitle:'Cover title', coverSub:'Cover subtext', locked:'Locked item', speed:'Speed line', trust:'Trust line', rating:'Rating', vsLeft:'Versus — left', vsRight:'Versus — right', bigLabel:'Big-number label', category:'Service category', count:'Expert count', i4:'Benefit 4', price:'Price line', term:'Term', definition:'Definition', why:'Why it matters', whyLabel:'Why-it-matters label', myth:'What people think', mythLabel:'Myth label', truth:'What it actually means', truthLabel:'Truth label', t1:'Term 1', d1:'Definition 1', t2:'Term 2', d2:'Definition 2', t3:'Term 3', d3:'Definition 3', date:'Date', time:'Time', format:'Format (Online / In person)', speaker:'Speaker', seats:'Seats line', runtime:'Runtime', recorded:'Recorded on', coveredLabel:'Covered-in label',
       show:'Show name', tagline:'Show tagline', ep:'Episode number', role:'Guest role', guest:'Guest name', quote:'Quote', platforms:'Available on',
-      authorRole:'Author role', designation:'Designation', writtenBy:'“Written by” label', byline:'Byline', i1:'Takeaway 1', i2:'Takeaway 2', i3:'Takeaway 3',
+      authorRole:'Author role', designation:'Designation', screen:'Hub screen (Home, Leads or Reviews)', s1:'Step 1', s2:'Step 2', s3:'Step 3', writtenBy:'“Written by” label', byline:'Byline', i1:'Takeaway 1', i2:'Takeaway 2', i3:'Takeaway 3',
       kicker:'Kicker', price:'Price (blank = drive clicks)', p1:'Product 1 (add | price to show it)', p2:'Product 2 (add | price to show it)', p3:'Product 3 (add | price to show it)',
       readtime:'Read time', label:'Label', movement:"Movement ('up' or 'down')", context:'Context line' };
 
@@ -2146,8 +2181,37 @@
     // design (and on every other design), with no way to take it back off just one of them.
     const premPhotos = {};          // contentType -> Blob | null
     const premPhotoURLs = {};       // contentType -> object URL for the thumbnail
-    function premFeatured(){ return premPhotos[state.contentType] || null; }
-    const PREM_PHOTO = { podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)', founder: 'Founder photo (used by every direction)', contributor: 'Contributor photo (used by every direction)' };
+    function premFeatured(){
+        if (premPhotos[state.contentType]) return premPhotos[state.contentType];
+        if (state.contentType === 'providers' && state.premiumDir === 'd') return hubShots[hubKey()] || null;
+        return null;
+    }
+    // The Hub (providers/d) shows a real Serv Provider Hub screen. These are public pictures of an invented
+    // example business (not a real member), fetched through voltAsset so the canvas stays untainted, and
+    // cropped to the app window so the marketing backdrop around them never shows. A photo uploaded for
+    // this design wins over them. 'Score' is deliberately not offered: its biggest label reads "VERIFIED".
+    const HUB_BASE = 'https://cdn.jsdelivr.net/gh/SMEZATech/serv-email-assets@nl11/newsletter-11-hub-launch/images/';
+    const HUB_SCREENS = {
+        home:    { file: '01-hub-home.jpg', crop: [60, 118, 1080, 675] },
+        leads:   { file: '04-leads.jpg',    crop: [190, 118, 820, 1122] },
+        reviews: { file: '07-reviews.jpg',  crop: [300, 118, 600, 1210] }
+    };
+    const hubShots = {};            // screen key -> cropped Blob
+    function hubKey(){ const k = String(premVals.screen || 'home').trim().toLowerCase(); return HUB_SCREENS[k] ? k : 'home'; }
+    async function ensureHubShot(){
+        if (state.contentType !== 'providers' || state.premiumDir !== 'd' || premPhotos.providers) return null;
+        const k = hubKey(); if (hubShots[k]) return hubShots[k];
+        try {
+            const def = HUB_SCREENS[k];
+            const res = await fetch(voltAssetUrl(HUB_BASE + def.file)); if (!res.ok) return null;
+            const bmp = await createImageBitmap(await res.blob());
+            const [x, y, w, h] = def.crop, c = new OffscreenCanvas(w, h);
+            c.getContext('2d').drawImage(bmp, x, y, w, h, 0, 0, w, h);
+            hubShots[k] = await c.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+            return hubShots[k];
+        } catch (e) { return null; }
+    }
+    const PREM_PHOTO = { providers: 'Hub screenshot (optional: used by The Hub; Serv’s own Hub screens load by default)', podcast: 'Guest photo (optional)', merch: 'Product photo (optional)', feature: 'Article photo (used by Editorial Split)', webinar: 'Speaker photo (used by Speaker Spotlight)', founder: 'Founder photo (used by every direction)', contributor: 'Contributor photo (used by every direction)' };
     // Which content types can auto-fill from a live page, what page they read, and the copy for
     // each — one small config instead of a second copy-pasted button+handler per family.
     const AUTOFILL = {
@@ -2572,7 +2636,9 @@
         if (btn) btn.disabled = false; if (lbl) lbl.textContent = was;
       }
     }
-    function premDirKeys(){ const t = PREMIUM[state.contentType]; return t ? Object.keys(t.dirs) : []; }
+    // hidden:true keeps a direction in the registry (its code, its library, saved drafts) but out of the
+    // menu, the carousel and the default pick. Used to retire weak marketplace designs without deleting them.
+    function premDirKeys(){ const t = PREMIUM[state.contentType]; return t ? Object.keys(t.dirs).filter(k => !t.dirs[k].hidden) : []; }
     function renderPremDirs(){
       const wrap = document.getElementById('premium-dirs'); if(!wrap) return;
       const keys = premDirKeys();

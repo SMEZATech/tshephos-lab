@@ -52,6 +52,9 @@ function applyBrandToWorker(b) {
     // locked to SME's colours no matter which Brand Kit is active.
     if (b.primary)   PC.red  = b.primary;
     if (b.secondary) { PC.navy = b.secondary; PC.navy2 = shadeHex(b.secondary, -0.38); }
+    // Reset on EVERY render, not only when set: the worker outlives renders, and a highlight left
+    // over from a Serv render must never leak into the next brand's design.
+    PC.gold = /^#[0-9a-fA-F]{6}$/.test(String(b.highlight || '')) ? b.highlight : null;
     if (b.cta)       BRAND.cta  = b.cta;
     if (b.url)       BRAND.url  = b.url;
 }
@@ -1312,7 +1315,9 @@ function renderSlide(state, slideIdx, assets, scale, trace) {
 // ============ G. MESSAGE HANDLER ============
 // ============ PREMIUM CONTENT-TYPE RENDERER (canvas engine; 1080x1080) ============
 // Renders the same designs shown in the preview, natively on canvas → clean PNG export (no taint).
-const PC = { navy:'#0a2c3d', navy2:'#061f2b', red:'#9c1c1f', off:'#fcf7f8', ink:'#0f172a', slate:'#475569', line:'#e2e8f0', paper:'#ffffff', cbd:'#cbd5e1', f8:'#f8fafc', white:'#ffffff' };
+// gold: the Brand Kit's optional HIGHLIGHT (Serv's #f6ad55). null for every brand without one, and
+// only the marketplace designs read it, so SME and every other brand render exactly as before.
+const PC = { navy:'#0a2c3d', navy2:'#061f2b', red:'#9c1c1f', off:'#fcf7f8', ink:'#0f172a', slate:'#475569', line:'#e2e8f0', paper:'#ffffff', cbd:'#cbd5e1', f8:'#f8fafc', white:'#ffffff', gold:null };
 // ---- Brand-safe contrast ----------------------------------------------------------------
 // PC's colours come from the ACTIVE Brand Kit, so "navy" may not be dark and "paper" may not be
 // light. Never assume: derive readable text from the real background luminance (WCAG relative
@@ -1892,8 +1897,446 @@ function pAccentText(bgRef, accent) {
     return pInk(bgRef);
 }
 
-// Supply side — recruit service providers onto the marketplace.
+// ===================== MARKETPLACE (Serv) — the 2026 design system =====================
+// Four designs, two per audience, drawn for Serv's own 2026 look (the Serv Hub design system on
+// serv.co.za): a deep-purple hero (Brand Kit secondary) running into plum (primary) with a soft
+// highlight glow in one corner, a light lilac card layout with a plum edge, and the call to action
+// on the Brand Kit's HIGHLIGHT colour (Serv's gold) with deep-purple text, which is what Serv's site
+// and dashboard use for the main action. Oswald for headings and buttons (uppercase, slight
+// tracking), Roboto for body.
+//   providers.a  The Pitch          dark  — headline, one line, three quiet proof points
+//   providers.d  The Hub            dark  — a real Serv Provider Hub screen in a device frame
+//   findpros.c   Category           light — the category set big, three plain buyer benefits
+//   findpros.d   How it works       dark  — the three-step path: tell us, a person checks, up to 3 quote
+// providers.b/.c and findpros.a/.b are kept below unchanged but hidden from the menu (studio.html).
+//
+// Everything is derived from the Brand Kit, never hard-coded to Serv, so another marketplace brand
+// still renders legibly: text colours are pushed until they clear 4.5:1 (body) against the actual
+// surface — for a gradient, against its LIGHTEST stop — and a missing highlight falls back to the
+// brand-safe solid. Text colours are always solid hex, never rgba(), so every line stays checkable.
+function mpHex(c) { const h = String(c || '').replace('#', '').trim(); return h.length === 6 ? parseInt(h, 16) : null; }
+function mpMix(a, b, t) {
+    const x = mpHex(a), y = mpHex(b); if (x == null || y == null) return a;
+    const ch = (n, s) => (n >> s) & 255;
+    return '#' + [16, 8, 0].map(s => Math.round(ch(x, s) + (ch(y, s) - ch(x, s)) * t).toString(16).padStart(2, '0')).join('');
+}
+// Move `c` towards black (on a light bg) or white (on a dark bg) until it clears `min` against every bg.
+function mpReadable(c, bgs, min) {
+    bgs = [].concat(bgs);
+    const ok = (col) => bgs.every(b => pContrast(col, b) >= min);
+    if (ok(c)) return c;
+    const target = pIsLight(bgs[0]) ? '#000000' : '#ffffff';
+    for (let i = 1; i <= 20; i++) { const t = mpMix(c, target, i * 0.05); if (ok(t)) return t; }
+    return target;
+}
+function mpPal() {
+    // The dark surface: the Brand Kit secondary when it is dark (Serv: deep purple), else the primary,
+    // else a fixed near-black — a light-secondary brand must still get a dark hero, not white-on-lilac.
+    const deep = !pIsLight(PC.navy) ? PC.navy : (!pIsLight(PC.red) ? PC.red : '#1f1830');
+    const plumRaw = PC.red;
+    const plum = (!pIsLight(plumRaw) && plumRaw !== deep) ? plumRaw : mpMix(deep, '#000000', 0.25);
+    const deep2 = mpMix(deep, '#000000', 0.18);
+    const heroStops = [deep2, deep, plum];                       // what text on the hero is checked against
+    const paper = mpMix('#ffffff', deep, 0.03);                   // Serv: soft lilac
+    const line = mpMix('#ffffff', deep, 0.11);
+    const ink = mpReadable(mpMix(deep, '#000000', 0.35), paper, 7);
+    const muted = mpReadable(mpMix(deep, '#9a94a6', 0.7), paper, 4.5);
+    const onDark = '#ffffff';
+    const onDarkSub = mpReadable(mpMix('#ffffff', plum, 0.22), heroStops, 4.5);
+    const gold = PC.gold || null;
+    // The one call to action: highlight with deep text when the kit has one, else the brand-safe solid.
+    const ctaDark = gold ? { fill: gold, on: mpReadable(deep, gold, 4.5) } : pSolid(plum, PC.red, PC.paper);
+    const ctaLight = gold ? { fill: gold, on: mpReadable(deep, gold, 4.5) } : pSolid(paper, plum, deep);
+    // Accent TEXT on the dark hero (eyebrows, step numbers): the highlight if it reads, else lilac.
+    const accDark = gold && heroStops.every(b => pContrast(gold, b) >= 4.5) ? gold : onDarkSub;
+    const accLight = mpReadable(plumRaw && !pIsLight(plumRaw) ? plumRaw : deep, paper, 4.5);
+    return { deep, deep2, plum, heroStops, paper, line, ink, muted, onDark, onDarkSub, gold, ctaDark, ctaLight, accDark, accLight };
+}
+// Tracking. The renderer has no letter-spacing of its own; the canvas does, and save()/restore()
+// inside drawLines carries it, so set it around the call and always put it back.
+function mpTrack(r, px, fn) { const c = r.ctx, prev = c.letterSpacing; try { c.letterSpacing = px + 'px'; return fn(); } finally { c.letterSpacing = prev || '0px'; } }
+function mpHero(r, P, glowAt) {
+    const W = r.w, H = r.h;
+    r.linearGradient(0, 0, W, H, [[0, P.deep2], [0.45, P.deep], [1, P.plum]], 'br');
+    if (P.gold) {
+        const rgb = mpHex(P.gold), rr = (rgb >> 16) & 255, gg = (rgb >> 8) & 255, bb = rgb & 255;
+        const g = glowAt || { x: W, y: 0 };
+        r.radialGlow(g.x, g.y, Math.max(W, H) * 0.55, 'rgba(' + rr + ',' + gg + ',' + bb + ',0.20)', 'rgba(' + rr + ',' + gg + ',' + bb + ',0)');
+    }
+}
+function mpLogo(r, a, onLight, x, y, h) {
+    const lg = onLight ? (a.logoC || a.logoW) : (a.logoW || a.logoC);
+    if (!lg) return 0;
+    const w = Math.min(h * (lg.width / lg.height), 240);
+    r.drawContain(lg, x, y, w, h, {});
+    return h;
+}
+// Oswald, uppercase, slight tracking — the Serv heading.
+function mpHead(r, text, x, y, w, maxH, color, max, min, lh) {
+    const t = String(text || '').toUpperCase();
+    return mpTrack(r, 1, () => {
+        const cap = mpWordCap(r, t, w, max);
+        const f = r.fitFontSize(t, { family: 'Oswald', weight: '700' }, w, maxH, lh || 1.04, { max: cap, min: Math.min(min, cap) });
+        r.as('headline', () => r.drawLines(f.lines, { family: 'Oswald', weight: '700', size: f.size }, x, y, w, { color: color, lineHeight: lh || 1.04 }));
+        return f;
+    });
+}
+// Story canvases have far more height than copy: grow the supporting type there instead of leaving
+// a dead band above the button.
+function mpGrow() { return (typeof PG !== 'undefined' && PG && PG.story) ? 1.18 : 1; }
+// The largest heading size at which the LONGEST single word still fits the width. fitFontSize breaks
+// a word that cannot fit; a category name like BOOKKEEPING must shrink instead.
+function mpWordCap(r, text, w, max) {
+    const words = String(text || '').toUpperCase().split(/\s+/).filter(Boolean); if (!words.length) return max;
+    const f = { family: 'Oswald', weight: '700', size: 100 };
+    const widest = Math.max.apply(null, words.map(t => mpTrack(r, 1, () => r.textWidth(t, f))));
+    return Math.max(24, Math.min(max, Math.floor(100 * w * 0.95 / widest)));   // fitFontSize wraps at 97% of w
+}
+function mpHeadMeasure(r, text, w, maxH, max, min, lh) {
+    const cap = mpWordCap(r, text, w, max);
+    return mpTrack(r, 1, () => r.fitFontSize(String(text || '').toUpperCase(), { family: 'Oswald', weight: '700' }, w, maxH, lh || 1.04, { max: cap, min: Math.min(min, cap) }));
+}
+function mpEyebrow(r, text, x, y, w, color, size, align) {
+    const t = String(text || '').toUpperCase(); if (!t.trim()) return 0;
+    mpTrack(r, Math.round(size * 0.14), () => r.drawLines([t], { family: 'Oswald', weight: '500', size: size }, x, y, w, { color: color, align: align || 'left' }));
+    return size;
+}
+// A rounded label: plum fill, white Oswald — Serv's pill.
+function mpPill(r, text, x, y, size, fill, on) {
+    const t = String(text || '').toUpperCase(); if (!t.trim()) return { w: 0, h: 0 };
+    const f = { family: 'Oswald', weight: '500', size: size }, padX = Math.round(size * 0.85), h = Math.round(size * 2.1);
+    const w = mpTrack(r, Math.round(size * 0.1), () => r.textWidth(t, f)) + padX * 2;
+    r.fillRoundRect(x, y, w, h, h / 2, fill);
+    mpTrack(r, Math.round(size * 0.1), () => r.drawLines([t], f, x + padX, y + (h - size) / 2 + 1, w, { color: on }));
+    return { w, h };
+}
+// The call to action: a solid button sized to its label, with a drawn arrow. Returns its box.
+function mpButton(r, text, x, y, size, cta, opts) {
+    opts = opts || {};
+    const t = String(text || '').replace(/\s*[→>]+\s*$/, '').toUpperCase();
+    const f = { family: 'Oswald', weight: '700', size: size };
+    const padX = Math.round(size * 1.15), h = Math.round(size * 2.35), arrow = Math.round(size * 0.9);
+    let w = mpTrack(r, 1.5, () => r.textWidth(t, f)) + padX * 2 + arrow + Math.round(size * 0.45);
+    if (opts.maxW && w > opts.maxW) return mpButton(r, text, x, y, Math.max(16, Math.floor(size * opts.maxW / w)), cta, { maxW: 0, align: opts.align });
+    const bx = opts.align === 'right' ? x - w : x;
+    r.fillRoundRect(bx, y, w, h, Math.round(h * 0.22), cta.fill);
+    r.as('cta', () => mpTrack(r, 1.5, () => r.drawLines([t], f, bx + padX, y + (h - size) / 2 + 1, w, { color: cta.on })));
+    r.drawIconPath('M5 12h14M13 6l6 6-6 6', bx + w - padX - arrow + Math.round(size * 0.1), y + (h - arrow) / 2, arrow, cta.on, 2.6);
+    return { x: bx, y, w, h };
+}
+// Footer: the button left, the site right, on one line.
+function mpFooter(r, v, x, y, w, size, cta, urlColor, fallbackCta) {
+    const b = mpButton(r, v.cta || fallbackCta, x, y, size, cta, { maxW: w * 0.68 });
+    const url = String(v.url || '').trim();
+    if (url) {
+        const uf = { family: 'Roboto', weight: '500', size: Math.round(size * 0.82) };
+        if (r.textWidth(url, uf) <= w - b.w - 30) r.drawLines([url], uf, x, y + (b.h - uf.size) / 2 + 1, w, { color: urlColor, align: 'right' });
+    }
+    return b;
+}
+// A body line, wrapped and clamped to `maxLines`.
+function mpBody(r, text, x, y, w, size, color, maxLines, weight, draw) {
+    const f = { family: 'Roboto', weight: weight || '400', size: size };
+    const lines = String(text || '').trim() ? r.wrap(String(text), f, w).slice(0, maxLines || 3) : [];
+    if (draw !== false && lines.length) r.drawLines(lines, f, x, y, w, { color: color, lineHeight: 1.42 });
+    return lines.length * size * 1.42;
+}
+// A proof list: small marker, text, hairline between rows. Returns the height it used.
+function mpList(r, items, x, y, w, size, color, marker, rule, draw) {
+    items = items.filter(t => String(t || '').trim());
+    const f = { family: 'Roboto', weight: '500', size: size }, gap = Math.round(size * 0.75), mk = Math.round(size * 0.62);
+    let yy = y;
+    items.forEach((t, i) => {
+        const lines = r.wrap(String(t), f, w - mk - Math.round(size * 0.7)).slice(0, 2);
+        const h = lines.length * size * 1.3;
+        if (draw !== false) {
+            r.fillRoundRect(x, yy + (size * 1.3 - mk) / 2, mk, mk, mk / 2, marker);
+            r.drawLines(lines, f, x + mk + Math.round(size * 0.7), yy, w - mk - Math.round(size * 0.7), { color: color, lineHeight: 1.3 });
+            if (i < items.length - 1 && rule) r.strokeLine(x, yy + h + gap, x + w, yy + h + gap, rule, 1.5);
+        }
+        yy += h + (i < items.length - 1 ? gap * 2 : 0);
+    });
+    return yy - y;
+}
+// A check-mark list on the light card (Category): highlight disc with a deep tick.
+function mpChecks(r, items, x, y, w, size, P, draw) {
+    items = items.filter(t => String(t || '').trim());
+    const f = { family: 'Roboto', weight: '500', size: size }, d = Math.round(size * 1.35), gap = Math.round(size * 0.7);
+    const disc = P.gold || P.plum, tick = P.gold ? P.deep : '#ffffff';
+    let yy = y;
+    items.forEach((t, i) => {
+        const lines = r.wrap(String(t), f, w - d - Math.round(size * 0.65)).slice(0, 2);
+        const h = Math.max(d, lines.length * size * 1.3);
+        if (draw !== false) {
+            r.fillRoundRect(x, yy + (h - d) / 2, d, d, d / 2, disc);
+            r.drawIconPath('M5 12l5 5L20 7', x + d * 0.2, yy + (h - d) / 2 + d * 0.2, d * 0.6, tick, 3);
+            r.drawLines(lines, f, x + d + Math.round(size * 0.65), yy + (h - lines.length * size * 1.3) / 2, w - d - Math.round(size * 0.65), { color: P.ink, lineHeight: 1.3 });
+            if (i < items.length - 1) r.strokeLine(x, yy + h + gap, x + w, yy + h + gap, P.line, 2);
+        }
+        yy += h + (i < items.length - 1 ? gap * 2 : 0);
+    });
+    return yy - y;
+}
+// A device frame holding a Serv Provider Hub screen. Landscape pictures get a browser window, tall
+// ones a phone. With no picture it draws a quiet built-in stand-in (score ring, inbox rows) so an
+// offline render or the render suite still shows a composed design, never an empty frame.
+function mpDevice(r, img, x, y, w, h, P) {
+    const c = r.ctx, tall = img ? img.height > img.width * 1.05 : false;
+    if (tall) {                                                      // phone
+        const ph = h, pw = Math.min(w, ph * 0.56), px = x + (w - pw) / 2, rad = pw * 0.14, bez = pw * 0.035;
+        c.save(); c.shadowColor = 'rgba(0,0,0,0.35)'; c.shadowBlur = 40; c.shadowOffsetY = 18;
+        r.fillRoundRect(px, y, pw, ph, rad, '#120a1f'); c.restore();
+        r.drawCover(img, px + bez, y + bez, pw - bez * 2, ph - bez * 2, 0.5, 0, rad - bez, 1);
+        r.fillRoundRect(px + pw * 0.38, y + bez + pw * 0.025, pw * 0.24, pw * 0.05, pw * 0.025, '#120a1f');
+        return { x: px, y, w: pw, h: ph };
+    }
+    // browser window
+    const bar = Math.max(18, Math.round(h * 0.065)), rad = Math.round(Math.min(w, h) * 0.035);
+    c.save(); c.shadowColor = 'rgba(0,0,0,0.35)'; c.shadowBlur = 44; c.shadowOffsetY = 20;
+    r.fillRoundRect(x, y, w, h, rad, '#ffffff'); c.restore();
+    r.fillRoundRect(x, y, w, bar + rad, { tl: rad, tr: rad, br: 0, bl: 0 }, P.line);
+    const dot = bar * 0.32;
+    ['#ff5f57', '#febc2e', '#28c840'].forEach((col, i) => r.fillRoundRect(x + bar * 0.55 + i * dot * 1.6, y + (bar - dot) / 2 + rad * 0.3, dot, dot, dot / 2, col));
+    const sy = y + bar + rad * 0.3, sh = h - bar - rad * 0.3;
+    if (img) r.drawCover(img, x, sy, w, sh, 0.5, 0, { tl: 0, tr: 0, br: rad, bl: rad }, 1);
+    else {
+        // stand-in: a sidebar, a score ring, three inbox rows
+        r.fillRoundRect(x, sy, w * 0.2, sh, { tl: 0, tr: 0, br: 0, bl: rad }, P.deep);
+        const cx = x + w * 0.2 + w * 0.08, card = { x: x + w * 0.24, y: sy + sh * 0.08, w: w * 0.72, h: sh * 0.36 };
+        r.fillRoundRect(card.x, card.y, card.w, card.h, rad * 0.6, P.deep);
+        const ringR = card.h * 0.32, rcx = card.x + card.h * 0.5, rcy = card.y + card.h / 2;
+        c.save(); c.lineWidth = ringR * 0.22; c.strokeStyle = mpMix(P.deep, '#ffffff', 0.18); c.beginPath(); c.arc(rcx, rcy, ringR, 0, Math.PI * 2); c.stroke();
+        c.strokeStyle = P.gold || P.plum; c.beginPath(); c.arc(rcx, rcy, ringR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * 0.77); c.stroke(); c.restore();
+        for (let i = 0; i < 3; i++) {
+            const ry = card.y + card.h + sh * 0.07 + i * sh * 0.16;
+            r.fillRoundRect(card.x, ry, card.w, sh * 0.12, rad * 0.4, P.paper);
+            r.fillRoundRect(card.x + card.w * 0.04, ry + sh * 0.04, card.w * 0.46, sh * 0.04, sh * 0.02, P.line);
+        }
+        void cx;
+    }
+    return { x, y, w, h };
+}
+
+// ---- providers.a — THE PITCH -------------------------------------------------------------------
+function mpPitch(r, v, a) {
+    const P = mpPal(), W = r.w, H = r.h;
+    if (W > H * 1.2) return mpPitchWide(r, v, a, P);
+    mpHero(r, P);
+    const pad = pPad(), iW = W - pad * 2, top = pTop();
+    const btnSize = pT(30), btnH = Math.round(btnSize * 2.35), fy = H - pad - pSafeB() - btnH;
+    mpLogo(r, a, false, pad, top - 6, 56);
+    let y = top + 56 + pV(64);
+    const room = fy - pV(56) - y;
+    // measure, then fit the headline into what the pill, line and proof list leave
+    const pillH = Math.round(pT(24) * 2.1);
+    const G = mpGrow(), sz = Math.round(pT(36) * G), lz = Math.round(pT(31) * G);
+    const sub = mpBody(r, v.sub, 0, 0, iW, sz, P.onDarkSub, 3, '400', false);
+    const list = mpList(r, [v.i1, v.i2, v.i3], 0, 0, iW, lz, P.onDark, P.gold || P.onDarkSub, null, false);
+    let showList = true, headMax = Math.round(pT(100) * G);
+    let hf = mpHeadMeasure(r, v.head, iW, Math.max(pV(120), room - pillH - pV(36) - sub - pV(30) - pV(56) - list), headMax, 46);
+    if (hf.size < pT(60)) { showList = false; hf = mpHeadMeasure(r, v.head, iW, Math.max(pV(120), room - pillH - pV(36) - sub - pV(30)), headMax, 46); }
+    const stack = pillH + pV(36) + hf.totalH + pV(30) + sub + (showList ? pV(56) + list : 0);
+    y += Math.max(0, (room - stack) * 0.5);
+    mpPill(r, v.pill, pad, y, pT(24), P.plum, '#ffffff'); y += pillH + pV(36);
+    mpHead(r, v.head, pad, y, iW, hf.totalH + 2, P.onDark, hf.size, hf.size); y += hf.totalH + pV(30);
+    mpBody(r, v.sub, pad, y, iW, sz, P.onDarkSub, 3); y += sub;
+    if (showList) {
+        y += pV(56) - pV(28);
+        r.strokeLine(pad, y, pad + iW, y, mpMix(P.deep, '#ffffff', 0.18), 1.5); y += pV(28);
+        mpList(r, [v.i1, v.i2, v.i3], pad, y, iW, lz, P.onDark, P.gold || P.onDarkSub, mpMix(P.deep, '#ffffff', 0.14));
+    }
+    mpFooter(r, v, pad, fy, iW, btnSize, P.ctaDark, P.onDarkSub, 'List your business');
+}
+function mpPitchWide(r, v, a, P) {
+    const W = r.w, H = r.h, pad = 64, colW = Math.round(W * 0.54);
+    mpHero(r, P, { x: W, y: H });
+    mpLogo(r, a, false, pad, pad - 8, 46);
+    const btnSize = 24, btnH = Math.round(btnSize * 2.35), fy = H - pad - btnH;
+    let y = pad + 46 + 30;
+    const p = mpPill(r, v.pill, pad, y, 18, P.plum, '#ffffff'); y += p.h + 22;
+    const subH = mpBody(r, v.sub, 0, 0, colW, 24, P.onDarkSub, 2, '400', false);
+    const hf = mpHead(r, v.head, pad, y, colW, Math.max(80, fy - 28 - y - subH - 18), P.onDark, 62, 30); y += hf.totalH + 18;
+    mpBody(r, v.sub, pad, y, colW, 24, P.onDarkSub, 2);
+    mpFooter(r, Object.assign({}, v, { url: '' }), pad, fy, colW, btnSize, P.ctaDark, P.onDarkSub, 'List your business');
+    // the proof card on the right
+    const cx = pad + colW + 48, cw = W - pad - cx, items = [v.i1, v.i2, v.i3];
+    const lh = mpList(r, items, 0, 0, cw - 64, 24, P.onDark, P.gold || P.onDarkSub, null, false);
+    const ch = lh + 72, cy = Math.max(pad + 46 + 30, (H - ch) / 2 - 10);
+    r.fillRoundRect(cx, cy, cw, ch, 20, mpMix(P.deep, '#ffffff', 0.07));
+    mpList(r, items, cx + 32, cy + 36, cw - 64, 24, P.onDark, P.gold || P.onDarkSub, mpMix(P.deep, '#ffffff', 0.18));
+    if (String(v.url || '').trim()) r.drawLines([String(v.url)], { family: 'Roboto', weight: '500', size: 20 }, cx, cy + ch + 18, cw, { color: P.onDarkSub, align: 'right' });
+}
+
+// ---- providers.d — THE HUB ---------------------------------------------------------------------
+function mpHub(r, v, a) {
+    const P = mpPal(), W = r.w, H = r.h, img = a.featured || null;
+    if (W > H * 1.2) return mpHubWide(r, v, a, P, img);
+    mpHero(r, P, { x: 0, y: H });
+    const pad = pPad(), iW = W - pad * 2, top = pTop();
+    const btnSize = pT(30), btnH = Math.round(btnSize * 2.35), fy = H - pad - pSafeB() - btnH;
+    mpLogo(r, a, false, pad, top - 6, 56);
+    let y = top + 56 + pV(52);
+    const pillH = Math.round(pT(24) * 2.1);
+    const G = mpGrow(), sz = Math.round(pT(32) * G);
+    const sub = mpBody(r, v.sub, 0, 0, iW, sz, P.onDarkSub, 2, '400', false);
+    const room = fy - pV(52) - y;
+    const tall = img ? img.height > img.width * 1.05 : false;
+    // the screen is the hero: it takes at least 45% of the stage (the full width when it fits), and
+    // the headline is fitted to what that leaves
+    const fullH = tall ? room * 0.62 : iW / 1.6;
+    const devMin = Math.min(fullH, room * 0.45);
+    const hf = mpHeadMeasure(r, v.head, iW, Math.max(pV(100), room - devMin - pillH - pV(30) - pV(24) - sub - pV(48)), Math.round(pT(88) * G), 40);
+    const textH = pillH + pV(30) + hf.totalH + pV(24) + sub;
+    const devH = Math.min(fullH, Math.max(devMin, room - textH - pV(48)));
+    const devW = tall ? Math.min(iW, devH * 0.56) : Math.min(iW, devH * 1.6);
+    const dh = tall ? devH : Math.min(devH, devW / 1.6);
+    mpPill(r, v.pill, pad, y, pT(24), P.plum, '#ffffff'); y += pillH + pV(30);
+    mpHead(r, v.head, pad, y, iW, hf.totalH + 2, P.onDark, hf.size, hf.size); y += hf.totalH + pV(24);
+    mpBody(r, v.sub, pad, y, iW, sz, P.onDarkSub, 2); y += sub + pV(48);
+    mpDevice(r, img, pad + (iW - devW) / 2, y + Math.max(0, (fy - pV(52) - y - dh) / 2), devW, dh, P);
+    mpFooter(r, v, pad, fy, iW, btnSize, P.ctaDark, P.onDarkSub, 'List your business');
+}
+function mpHubWide(r, v, a, P, img) {
+    const W = r.w, H = r.h, pad = 64, colW = Math.round(W * 0.42);
+    mpHero(r, P, { x: 0, y: H });
+    mpLogo(r, a, false, pad, pad - 8, 46);
+    const btnSize = 24, btnH = Math.round(btnSize * 2.35), fy = H - pad - btnH;
+    let y = pad + 46 + 30;
+    const p = mpPill(r, v.pill, pad, y, 18, P.plum, '#ffffff'); y += p.h + 22;
+    const subH = mpBody(r, v.sub, 0, 0, colW, 23, P.onDarkSub, 3, '400', false);
+    const hf = mpHead(r, v.head, pad, y, colW, Math.max(80, fy - 28 - y - subH - 18), P.onDark, 56, 28); y += hf.totalH + 18;
+    mpBody(r, v.sub, pad, y, colW, 23, P.onDarkSub, 3);
+    mpFooter(r, v, pad, fy, colW, btnSize, P.ctaDark, P.onDarkSub, 'List your business');
+    const tall = img ? img.height > img.width * 1.05 : false;
+    const dx = pad + colW + 56, dw = W - pad - dx;
+    const dh = tall ? H - pad * 2 : Math.min(H - pad * 2, dw / 1.6);
+    mpDevice(r, img, dx, (H - dh) / 2, dw, dh, P);
+}
+
+// ---- findpros.c — CATEGORY ---------------------------------------------------------------------
+function mpCategory(r, v, a) {
+    const P = mpPal(), W = r.w, H = r.h;
+    if (W > H * 1.2) return mpCategoryWide(r, v, a, P);
+    r.fillBg(P.paper);
+    r.rect(0, 0, Math.round(W * 0.022), H, P.plum);                  // the plum edge
+    const pad = pPad(), iW = W - pad * 2, top = pTop();
+    const btnSize = pT(30), btnH = Math.round(btnSize * 2.35), fy = H - pad - pSafeB() - btnH;
+    mpLogo(r, a, true, pad, top - 6, 56);
+    let y = top + 56 + pV(64);
+    const room = fy - pV(56) - y;
+    const eb = pT(30);
+    const G = mpGrow(), sz = Math.round(pT(34) * G), kz = Math.round(pT(32) * G);
+    const sub = mpBody(r, v.sub, 0, 0, iW, sz, P.ink, 3, '400', false);
+    const checks = mpChecks(r, [v.i1, v.i2, v.i3], 0, 0, iW, kz, P, false);
+    const cf = mpHeadMeasure(r, v.category, iW, Math.max(pV(120), room - eb - pV(22) - pV(34) - pV(12) - sub - pV(52) - checks), pT(150), 56, 1.0);
+    // copy too long for the stage: the check list goes first (one message, one line, one CTA)
+    const showChecks = eb + pV(22) + cf.totalH + pV(34) + pV(12) + sub + pV(52) + checks <= room;
+    const stack = eb + pV(22) + cf.totalH + pV(34) + pV(12) + sub + (showChecks ? pV(52) + checks : 0);
+    y += Math.max(0, (room - stack) * 0.5);
+    mpEyebrow(r, v.eyebrow, pad, y, iW, P.muted, eb); y += eb + pV(22);
+    mpHead(r, v.category, pad, y, iW, cf.totalH + 2, P.ink, cf.size, cf.size, 1.0); y += cf.totalH + pV(30);
+    r.rect(pad, y, pV(110), pV(10), P.gold || P.plum); y += pV(10) + pV(30);
+    mpBody(r, v.sub, pad, y, iW, sz, P.ink, 3); y += sub + pV(52);
+    if (showChecks) mpChecks(r, [v.i1, v.i2, v.i3], pad, y, iW, kz, P);
+    mpFooter(r, v, pad, fy, iW, btnSize, P.ctaLight, P.muted, 'Request a Quote');
+}
+function mpCategoryWide(r, v, a, P) {
+    const W = r.w, H = r.h, pad = 64, colW = Math.round(W * 0.48);
+    r.fillBg(P.paper);
+    r.rect(0, 0, 16, H, P.plum);
+    mpLogo(r, a, true, pad, pad - 8, 46);
+    const btnSize = 24, btnH = Math.round(btnSize * 2.35), fy = H - pad - btnH;
+    let y = pad + 46 + 34;
+    mpEyebrow(r, v.eyebrow, pad, y, colW, P.muted, 22); y += 22 + 14;
+    const subH = mpBody(r, v.sub, 0, 0, colW, 23, P.ink, 2, '400', false);
+    const cf = mpHead(r, v.category, pad, y, colW, Math.max(70, fy - 30 - y - 22 - subH), P.ink, 92, 36, 1.0); y += cf.totalH + 18;
+    r.rect(pad, y, 84, 8, P.gold || P.plum); y += 8 + 18;
+    mpBody(r, v.sub, pad, y, colW, 23, P.ink, 2);
+    mpFooter(r, Object.assign({}, v, { url: '' }), pad, fy, colW, btnSize, P.ctaLight, P.muted, 'Request a Quote');
+    const cx = pad + colW + 48, cw = W - pad - cx, items = [v.i1, v.i2, v.i3];
+    const lh = mpChecks(r, items, 0, 0, cw - 64, 24, P, false), ch = lh + 72, cy = (H - ch) / 2 - 10;
+    r.fillRoundRect(cx, cy, cw, ch, 20, '#ffffff');
+    r.ctx.save(); r.roundRectPath(cx, cy, cw, ch, 20); r.ctx.strokeStyle = P.line; r.ctx.lineWidth = 2; r.ctx.stroke(); r.ctx.restore();
+    mpChecks(r, items, cx + 32, cy + 36, cw - 64, 24, Object.assign({}, P, { paper: '#ffffff' }));
+    if (String(v.url || '').trim()) r.drawLines([String(v.url)], { family: 'Roboto', weight: '500', size: 20 }, cx, cy + ch + 18, cw, { color: P.muted, align: 'right' });
+}
+
+// ---- findpros.d — HOW IT WORKS -----------------------------------------------------------------
+function mpSteps(r, steps, x, y, w, size, P, draw) {
+    // vertical: number disc, a connector to the next, the step to its right
+    steps = steps.filter(t => String(t || '').trim());
+    const d = Math.round(size * 2), gap = Math.round(size * 1.15), f = { family: 'Roboto', weight: '500', size: size };
+    let yy = y; const rows = [];
+    steps.forEach((t) => {
+        const lines = r.wrap(String(t), f, w - d - Math.round(size * 0.9)).slice(0, 2);
+        const h = Math.max(d, lines.length * size * 1.3); rows.push({ lines, h, y: yy }); yy += h + gap;
+    });
+    const total = rows.length ? yy - gap - y : 0;
+    if (draw === false) return total;
+    rows.forEach((row, i) => {
+        const cy = row.y + (row.h - d) / 2;
+        if (i < rows.length - 1) r.strokeLine(x + d / 2, cy + d, x + d / 2, rows[i + 1].y + (rows[i + 1].h - d) / 2, mpMix(P.deep, P.gold || '#ffffff', 0.45), 3);
+        r.fillRoundRect(x, cy, d, d, d / 2, P.gold || P.plum);
+        r.drawLines([String(i + 1)], { family: 'Oswald', weight: '700', size: Math.round(d * 0.5) }, x, cy + d * 0.22, d, { color: P.gold ? mpReadable(P.deep, P.gold, 4.5) : '#ffffff', align: 'center' });
+        r.drawLines(row.lines, f, x + d + Math.round(size * 0.9), row.y + (row.h - row.lines.length * size * 1.3) / 2, w - d - Math.round(size * 0.9), { color: P.onDark, lineHeight: 1.3 });
+    });
+    return total;
+}
+function mpHow(r, v, a) {
+    const P = mpPal(), W = r.w, H = r.h;
+    if (W > H * 1.2) return mpHowWide(r, v, a, P);
+    mpHero(r, P);
+    const pad = pPad(), iW = W - pad * 2, top = pTop();
+    const btnSize = pT(30), btnH = Math.round(btnSize * 2.35), fy = H - pad - pSafeB() - btnH;
+    mpLogo(r, a, false, pad, top - 6, 56);
+    let y = top + 56 + pV(64);
+    const room = fy - pV(56) - y, eb = pT(28);
+    const G = mpGrow(), tz = Math.round(pT(34) * G), sz = Math.round(pT(32) * G);
+    const steps = mpSteps(r, [v.s1, v.s2, v.s3], 0, 0, iW, tz, P, false);
+    const sub = mpBody(r, v.sub, 0, 0, iW, sz, P.onDarkSub, 2, '400', false);
+    const hf = mpHeadMeasure(r, v.head, iW, Math.max(pV(110), room - eb - pV(24) - pV(52) - steps - pV(52) - sub), Math.round(pT(96) * G), 44);
+    const stack = eb + pV(24) + hf.totalH + pV(52) + steps + pV(52) + sub;
+    y += Math.max(0, (room - stack) * 0.5);
+    mpEyebrow(r, v.eyebrow, pad, y, iW, P.accDark, eb); y += eb + pV(24);
+    mpHead(r, v.head, pad, y, iW, hf.totalH + 2, P.onDark, hf.size, hf.size); y += hf.totalH + pV(52);
+    mpSteps(r, [v.s1, v.s2, v.s3], pad, y, iW, tz, P); y += steps + pV(52);
+    mpBody(r, v.sub, pad, y, iW, sz, P.onDarkSub, 2);
+    mpFooter(r, v, pad, fy, iW, btnSize, P.ctaDark, P.onDarkSub, 'Request a Quote');
+}
+function mpHowWide(r, v, a, P) {
+    const W = r.w, H = r.h, pad = 64, iW = W - pad * 2;
+    mpHero(r, P);
+    mpLogo(r, a, false, pad, pad - 12, 42);
+    if (String(v.url || '').trim()) r.drawLines([String(v.url)], { family: 'Roboto', weight: '500', size: 20 }, pad, pad + 2, iW, { color: P.onDarkSub, align: 'right' });
+    const btnSize = 22, btnH = Math.round(btnSize * 2.35), fy = H - pad + 8 - btnH;
+    let y = pad + 42 + 22;
+    mpEyebrow(r, v.eyebrow, pad, y, iW * 0.6, P.accDark, 20); y += 20 + 12;
+    // the steps row needs ~150px above the footer; the headline gets what is left, on one or two lines
+    const hf = mpHead(r, v.head, pad, y, iW * 0.8, Math.max(52, fy - 26 - 150 - y), P.onDark, 52, 28);
+    y += hf.totalH + 30;
+    // the three steps across, joined by a line
+    const steps = [v.s1, v.s2, v.s3].filter(t => String(t || '').trim()), n = steps.length || 1, colW = iW / n, d = 46;
+    const ly = y + d / 2;
+    if (n > 1) r.strokeLine(pad + d / 2, ly, pad + colW * (n - 1) + d / 2, ly, mpMix(P.deep, P.gold || '#ffffff', 0.45), 3);
+    steps.forEach((t, i) => {
+        const x = pad + i * colW;
+        r.fillRoundRect(x, y, d, d, d / 2, P.gold || P.plum);
+        r.drawLines([String(i + 1)], { family: 'Oswald', weight: '700', size: 24 }, x, y + 10, d, { color: P.gold ? mpReadable(P.deep, P.gold, 4.5) : '#ffffff', align: 'center' });
+        r.drawLines(r.wrap(String(t), { family: 'Roboto', weight: '500', size: 22 }, colW - 30).slice(0, 2), { family: 'Roboto', weight: '500', size: 22 }, x, y + d + 16, colW - 30, { color: P.onDark, lineHeight: 1.3 });
+    });
+    // the supporting line sits beside the button when it fits, otherwise it is dropped (one message)
+    mpFooter(r, Object.assign({}, v, { url: '' }), pad, fy, iW * 0.4, btnSize, P.ctaDark, P.onDarkSub, 'Request a Quote');
+    const subF = { family: 'Roboto', weight: '400', size: 20 }, subX = pad + iW * 0.42, subW = iW - iW * 0.42;
+    const subL = String(v.sub || '').trim() ? r.wrap(String(v.sub), subF, subW) : [];
+    if (subL.length && subL.length <= 2) r.drawLines(subL, subF, subX, fy + (btnH - subL.length * 20 * 1.35) / 2, subW, { color: P.onDarkSub, lineHeight: 1.35, align: 'right' });
+}
+
+// Supply side — recruit service providers onto the marketplace. a (The Pitch) and d (The Hub) are
+// the 2026 designs above; b (Demand Counter) and c (Zero Commission) are kept here unchanged but
+// hidden from the menu: b leads on a platform count and c on claims the owner has not confirmed.
 function drawProviders(r, dir, v, a) {
+    if (dir === 'a') return mpPitch(r, v, a);
+    if (dir === 'd') return mpHub(r, v, a);
     const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
 
     if (dir === 'b') { // Leads counter — the "what you get" proof
@@ -1931,30 +2374,15 @@ function drawProviders(r, dir, v, a) {
         return;
     }
 
-    // A: The pitch — headline + three reasons to join, dark and direct
-    r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'b');
-    r.radialGlow(0, H, 520, 'rgba(156,28,31,0.30)', 'rgba(156,28,31,0)');
-    const accA = pSolid(PC.navy, PC.red, PC.paper);
-    let y = pLogo(r, a, PC.navy);
-    // The URL rides on the logo line, top-right. At the bottom it collided with the third bullet,
-    // which grows down towards the pinned CTA and leaves no reliable footer band.
-    // It must sit on the LOGO's line, which means pTop() (= pad + safe-top), not pad. Using the raw
-    // pad put it 80px inside Instagram's profile row on every 9:16 story — invisible, on a line
-    // whose whole job is to tell people where to go.
-    r.drawLines([String(v.url || '')], { family: 'Oswald', weight: '700', size: 28 }, pad, pTop() + 12, iW, { color: pSubInk(PC.navy), align: 'right' });
-    y += pPill(r, pad, y, v.pill || 'Grow your business', accA.fill, accA.on) + pV(34);
-    const fitA = r.fitFontSize(String(v.head || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(300), 1.04, { max: pT(96), min: 46 });
-    r.drawLines(fitA.lines, { family: 'Oswald', weight: '700', size: fitA.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.04 });
-    y += fitA.totalH + pV(26);
-    const subA = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 40 }, iW);
-    r.drawLines(subA, { family: 'Roboto', weight: '400', size: 40 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.42 });
-    y += subA.length * 40 * 1.42 + pV(38);
-    pBullets(r, pad, y, [v.i1, v.i2, v.i3], accA.fill, pInk(PC.navy), btnY - pV(40), pV(82) - (PG ? PG.bul : 58));
-    pButton(r, pad, btnY, iW, v.cta || 'List your company →', accA.fill, accA.on);
+    return mpPitch(r, v, a);   // any other key falls back to the current Pitch
 }
 
-// Demand side — get businesses requesting quotes from vetted providers.
+// Demand side — businesses asking for quotes. c (Category) and d (How it works) are the 2026 designs
+// above; a (One Request, Many Quotes) and b (Verified Badge) are kept unchanged but hidden from the
+// menu: both lean on speed and hand-verification claims the owner has not approved.
 function drawFindPros(r, dir, v, a) {
+    if (dir === 'c') return mpCategory(r, v, a);
+    if (dir === 'd') return mpHow(r, v, a);
     const W = r.w, H = r.h, pad = pPad(), iW = W - pad * 2, btnY = H - pad - pSafeB() - pBtnH();
 
     if (dir === 'b') { // Verified badge — trust is the differentiator
@@ -1979,35 +2407,6 @@ function drawFindPros(r, dir, v, a) {
         y += fit.totalH + pV(26);
         r.drawLines(sub, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: pSubInk(PC.paper), align: 'center', lineHeight: 1.4 });
         pButton(r, pad, btnY, iW, v.cta || 'Get instant quotes →', acc.fill, acc.on);
-        return;
-    }
-
-    if (dir === 'c') { // Category spotlight — concrete: this service, this many experts
-        r.linearGradient(0, 0, W, H, [[0, PC.navy], [1, PC.navy2]], 'br');
-        const strip = pSolid(PC.navy, PC.red, PC.paper);
-        // The CTA sat on a hardcoded white fill with a PC.navy label — on a light brand secondary
-        // that was white-on-white. Both fill and label are now derived.
-        const cta = pSolid(PC.navy, PC.paper, PC.red);
-        const top = pLogo(r, a, PC.navy);
-        const footY = btnY - pV(52);
-        // Measure first, then centre the stack in the space between the logo and the footer/CTA.
-        const fitC = r.fitFontSize(String(v.category || '').toUpperCase(), { family: 'Oswald', weight: '700' }, iW, pV(260), 1.02, { max: pT(118), min: 52 });
-        const subC = r.wrap(String(v.sub || ''), { family: 'Roboto', weight: '400', size: 38 }, iW);
-        const stripH = pV(132);
-        const stackH = pV(60) + fitC.totalH + pV(30) + stripH + pV(34) + subC.length * 38 * 1.4;
-        let y = top + Math.max(0, (footY - pV(26) - top - stackH) / 2);
-        r.drawLines([String(v.eyebrow || 'Looking for').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: 32 }, pad, y, iW, { color: pSubInk(PC.navy) }); y += pV(60);
-        r.drawLines(fitC.lines, { family: 'Oswald', weight: '700', size: fitC.size }, pad, y, iW, { color: pInk(PC.navy), lineHeight: 1.02 });
-        y += fitC.totalH + pV(30);
-        // expert-count strip
-        r.fillRoundRect(pad, y, iW, stripH, 26, strip.fill);
-        r.drawLines([String(v.count || '40+ vetted experts').toUpperCase()],
-            { family: 'Oswald', weight: '700', size: pT(46) }, pad, y + (stripH - pT(46)) / 2, iW, { color: strip.on, align: 'center' });
-        y += stripH + pV(34);
-        r.drawLines(subC, { family: 'Roboto', weight: '400', size: 38 }, pad, y, iW, { color: pSubInk(PC.navy), lineHeight: 1.4 });
-        pButton(r, pad, btnY, iW, v.cta || 'Compare quotes →', cta.fill, cta.on);
-        pFootAt(r, footY, v.url || '', '', false);   // above the CTA, not printed across it
         return;
     }
 
@@ -3021,6 +3420,8 @@ function drawLandscape(r, type, dir, v, a) {
     pGeom(W, H);
     if (self.R26_DRAW && self.R26_DRAW(r, type, dir, v || {}, a || {})) return;   // gated 2026 families (installR26)
     if (type === 'contributor') return drawContributor(r, dir, v || {}, a || {});   // lays out its own landscape (writer panel)
+    if ((type === 'providers' && (dir === 'a' || dir === 'd')) || (type === 'findpros' && (dir === 'c' || dir === 'd')))
+        return drawPremium(r, type, dir, v || {}, a || {});                          // the Serv 2026 designs draw their own wide layout
     const pad = 70;
     r.ctx.textBaseline = 'top';
     const light = ['solutions.c', 'newsletter.b', 'resources.b', 'providers.c', 'findpros.a', 'findpros.b', 'podcast.b', 'merch.a', 'merch.c', 'feature.a', 'feature.b', 'feature.d', 'founder.b', 'founder.c', 'roundup.a', 'roundup.b'].indexOf(key) !== -1;
