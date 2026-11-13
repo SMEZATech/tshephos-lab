@@ -279,9 +279,9 @@ function r26Video(R) {
     const U = u(), pad = 96 * U, iw = W - pad * 2, cx = W / 2;
     hero(p * 0.6);
     const sm = SUM(), mark = sm && summitOk() ? summitImg : logo, markOk = sm ? summitOk() : logoOk();
-    const head = field("outroHead") || (sm ? "Want the *full story?*" : "Build. Grow. *Thrive.*");
-    const sub = field("outroSub") || (sm ? "This was just a taste. Watch the whole session, with every example and answer, on our YouTube channel." : "Funding, events and the tools to scale, in SA’s largest SME community.");
-    const cta = field("r26Cta") || (sm ? "Watch the full talk" : "Join for Free");
+    const head = field("outroHead") || (sm ? "Watch the full *talk*" : "Build. Grow. *Thrive.*");
+    const sub = field("outroSub") || (sm ? "Every SME Funding Summit session, in full, on our YouTube channel." : "Funding, events and the tools to scale, in SA’s largest SME community.");
+    const cta = field("r26Cta") || (sm ? "Now on YouTube" : "Join for Free");
     const url = (state.brand && state.brand.url) || "smesouthafrica.co.za";
     const lw = Math.min((sm ? 520 : 560) * U, W * 0.62), lh = markOk ? lw * mark.naturalHeight / mark.naturalWidth : 0;
     const t = fitRich(head, "800", J, iw, H * 0.2, 100 * U, 48 * U, 1.02);
