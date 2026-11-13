@@ -807,6 +807,7 @@ function loadVideoSrc(src){
     $('#timeline').style.display='flex';
     $('#stageControls').style.display='flex';
     if(canMp4()) $('#fmtPick').style.display='flex';
+    showShellUpdateNote();
     $('#qualPick').style.display='flex';
     $('#exportLbl').textContent = exportLabel();
     $('#ctrlHint').style.display='block';
@@ -2456,7 +2457,21 @@ async function fastExport(fileName){
 }
 
 // True when the desktop app is running with its native MP4 bridge available.
-function canMp4(){ return !!(window.voltNative && typeof window.voltNative.toMp4 === 'function'); }
+// MP4 needs the fixed desktop shell. Shell 1.0.0 (June 2026) has toMp4 but NOT the CFR fix: it
+// hands MediaRecorder's 1000-fps timebase straight to x264, which writes ~33 copies of every frame.
+// A 104s short ran 10+ minutes without finishing and left an unplayable half-file in Downloads.
+// Every fix (CFR, fast export, the update banner) shipped together in 1.0.1, so "has fast export"
+// is exactly "has a converter that works". Old shells save WebM and are told to update.
+function canMp4(){ return !!(window.voltNative && typeof window.voltNative.toMp4 === 'function') && canFastExport(); }
+function oldDesktopShell(){ return !!(window.voltNative && typeof window.voltNative.toMp4 === 'function') && !canFastExport(); }
+function showShellUpdateNote(){
+  if(!oldDesktopShell() || document.getElementById('shellUpdateNote')) return;
+  const st = document.getElementById('status'); if(!st) return;
+  const n = document.createElement('div'); n.id = 'shellUpdateNote'; n.className = 'note';
+  n.style.cssText = 'margin:10px auto 0; max-width:560px; padding:10px 14px; border:1px solid var(--accent); border-radius:12px; text-align:center;';
+  n.innerHTML = '<b>Your Volt desktop app is out of date.</b> This version can only save WebM, and long or 4K clips can freeze part-way. The update adds MP4, fast export (no freezing) and 4K. <a href="https://github.com/SMEZATech/tshephos-lab/releases/latest" target="_blank" rel="noopener">Download the latest Volt →</a>';
+  st.parentNode.insertBefore(n, st);
+}
 function exportLabel(){ return ((canMp4() || canFastExport()) && state.exportFmt !== 'webm') ? 'Export short (.mp4)' : 'Export short (.webm)'; }
 function resetAfterExport(){ t = 0; mainPlaying = false; state.playing = true; try{ videoEl.currentTime = state.trimStart; }catch(e){} }
 function downloadWebm(blob){

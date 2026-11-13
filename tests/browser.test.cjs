@@ -396,6 +396,20 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         expect('Video, ' + who + ': "Hold to compare" shows the original, and the canvas stays exportable', sum(fx.cmp.screen) === sum(fx.off.screen) && !fx.tainted, fx);
         expect('Video, ' + who + ': a saved look keeps the Fix footage settings', fx.savedFix, fx);
       }
+      // Old desktop shell (1.0.0): toMp4 without the CFR fix. MP4 must be off and the update note shown.
+      {
+        const sh = await s.page.evaluate(() => {
+          const had = window.voltNative; window.voltNative = { toMp4: () => ({ ok: true }) };
+          const old = { mp4: canMp4(), label: exportLabel(), oldShell: oldDesktopShell() }; showShellUpdateNote();
+          const note = document.getElementById('shellUpdateNote'); const text = note ? note.textContent : '';
+          if (note) note.remove();
+          window.voltNative = { toMp4: () => ({ ok: true }), fx: { begin: () => ({}) } };
+          const fresh = { mp4: canMp4(), label: exportLabel(), oldShell: oldDesktopShell() };
+          window.voltNative = had; return { old, fresh, text };
+        });
+        expect('Video, ' + who + ': an out-of-date desktop app saves WebM instead of the endless MP4 conversion, and says to update', !sh.old.mp4 && /\.webm/.test(sh.old.label) && sh.old.oldShell && /out of date/.test(sh.text), sh);
+        expect('Video, ' + who + ': a current desktop app still exports MP4', sh.fresh.mp4 && /\.mp4/.test(sh.fresh.label) && !sh.fresh.oldShell, sh);
+      }
       // Reopen: a session left on a 2026 design must come back on it, not on Creative. The 2026
       // families load AFTER the autosave restore runs, so the snapshot has to survive that gap.
       {
