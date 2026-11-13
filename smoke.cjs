@@ -89,7 +89,7 @@ for (const f of fs.readdirSync('.').filter(n => /\.html$/.test(n))) {
 // (a page, an app/*.js asset, the hosted desktop copies), the gate is a UI hide and nothing more.
 console.log('Rebrand gate:');
 {
-  const FINGERPRINTS = ['r26Engine', 'r26contributor', 'r26funding', 'R5 million for *women-led*', 't26tuesday', 'smesa26Cards'];
+  const FINGERPRINTS = ['r26Engine', 'r26contributor', 'talkHeadliner', 'r26funding', 'R5 million for *women-led*', 't26tuesday', 'smesa26Cards'];
   const pub = [];
   const walk = (d) => { for (const f of fs.readdirSync(d)) { const p2 = path.join(d, f); const rel = path.relative(__dirname, p2).split(path.sep).join('/');
     if (/^(api|tests|node_modules|\.git|sql|supabase)(\/|$)/.test(rel)) continue;

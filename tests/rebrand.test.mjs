@@ -10,6 +10,7 @@ delete process.env.REBRAND_2026_OPEN;
 const USERS = {
   joel: { id: "u-joel", email: "Joel@SMESouthAfrica.co.za", email_confirmed_at: "2026-01-01" },
   thabo: { id: "u-thabo", email: "thabo@smesouthafrica.co.za", email_confirmed_at: "2026-01-01" },
+  karabo: { id: "u-karabo", email: "karabo@smesouthafrica.co.za", email_confirmed_at: "2026-01-01" },
 };
 const json = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body, text: async () => JSON.stringify(body) });
 globalThis.fetch = async (url, init = {}) => {
@@ -37,11 +38,13 @@ let pass = 0, fail = 0;
 function expect(name, cond, detail) { if (cond) { pass++; console.log("  ok   " + name); } else { fail++; console.log("  FAIL " + name + "  → " + JSON.stringify(detail).slice(0, 300)); } }
 
 let r = await call("joel");
-expect("Joel (any letter case) gets the definitions", r.status === 200 && r.body.kit && r.body.kit.id === "sme26" && Object.keys(r.body.studio.families).length === 14 && !!r.body.studio.families.r26contributor && !!r.body.studio.families.r26webinar && !!r.body.studio.families.r26podcast && !!r.body.studio.families.r26rescover && !!r.body.studio.families.r26resfeature, r.status);
+expect("Joel (any letter case) gets the definitions", r.status === 200 && r.body.kit && r.body.kit.id === "sme26" && Object.keys(r.body.studio.families).length === 15 && !!r.body.studio.families.r26talk && !!r.body.studio.families.r26contributor && !!r.body.studio.families.r26webinar && !!r.body.studio.families.r26podcast && !!r.body.studio.families.r26rescover && !!r.body.studio.families.r26resfeature, r.status);
 expect("…with every template surface present", r.body && r.body.studio.engine.length > 1000 && typeof r.body.email.source === "string" && typeof r.body.video.source === "string", null);
 expect("…and says it is NOT released yet (previews keep their labels)", r.body && r.body.released === false, r.body && r.body.released);
 expect("…and it is never cacheable", r.headers["cache-control"] === "private, no-store", r.headers);
 
+r = await call("karabo");
+expect("Karabo is on the preview team and gets the definitions", r.status === 200 && !!(r.body && r.body.kit), r.status);
 r = await call("thabo");
 expect("a teammate on the same domain gets 403", r.status === 403 && r.body.code === "REBRAND_PREVIEW_ONLY" && !r.body.kit, r);
 r = await call(null);
@@ -55,7 +58,7 @@ process.env.REBRAND_2026_EMAILS = "thabo@smesouthafrica.co.za, someone@smesoutha
 r = await call("thabo");
 expect("widening REBRAND_2026_EMAILS releases to the named people", r.status === 200, r.status);
 r = await call("joel");
-expect("…and the list is the list (Joel not in it → 403)", r.status === 403, r.status);
+expect("…and only ADDS to the preview team (Joel keeps access)", r.status === 200, r.status);
 delete process.env.REBRAND_2026_EMAILS;
 
 process.env.REBRAND_2026_OPEN = "1";

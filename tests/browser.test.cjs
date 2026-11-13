@@ -234,7 +234,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         kit: (typeof loadBrands === 'function') ? loadBrands().some(b => b.id === 'sme26') : null,
         stored: (() => { try { return (localStorage.getItem('volt_brands_v1') || '').indexOf('sme26') >= 0; } catch (e) { return false; } })() }));
       if (allowed) {
-        expect('Studio, ' + who + ': fourteen 2026 families appear, each with the 2026 · Preview pill', st.n === 14 && st.pill, st);
+        expect('Studio, ' + who + ': fifteen 2026 families appear, each with the 2026 · Preview pill', st.n === 15 && st.pill, st);
         expect('Studio, ' + who + ': the "SME South Africa 2026" kit is offered', st.kit === true, st);
         expect('Studio, ' + who + ': …and is never written into the shared Brand Kit', st.stored === false, st);
         const ok = await s.page.evaluate(async () => { setActiveBrandId('sme26'); applyBrand(); setContentType('r26funding');
@@ -247,8 +247,8 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         const lb = await s.page.evaluate(() => { setContentType('r26funding'); const vis = (el) => !!el && getComputedStyle(el).display !== 'none';
           const sel = (typeof loadBrands === 'function') ? '' : '';
           return { released: !!window.voltRebrandReleased, pill: vis(document.querySelector('#ct-r26funding .r26-pill')), hint: (document.getElementById('ct-hint') || {}).innerText || '' }; });
-        if (released) expect('Studio, ' + who + ': once released, no Preview pill and no "only you can see this" note', lb.released && !lb.pill && !/only you/i.test(lb.hint), lb);
-        else expect('Studio, ' + who + ': before release, the Preview pill and the "only you" note show', !lb.released && lb.pill && /only you/i.test(lb.hint), lb);
+        if (released) expect('Studio, ' + who + ': once released, no Preview pill and no "only the preview team" note', lb.released && !lb.pill && !/only (you|the preview team)/i.test(lb.hint), lb);
+        else expect('Studio, ' + who + ': before release, the Preview pill and the "preview team" note show', !lb.released && lb.pill && /only the preview team/i.test(lb.hint), lb);
         const wb = await s.page.evaluate(async () => {
           setContentType('r26webinar'); setFormat('landscape');
           const out = { dims: premDims(), label: (document.querySelector('#btn-landscape .sub') || {}).textContent, canvas: document.getElementById('export-canvas').style.width,
@@ -345,7 +345,7 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
       await s.page.waitForSelector('#va-rail', { state: 'attached', timeout: 20000 });
       await s.page.waitForTimeout(5000);
       const vd = await s.page.evaluate(() => ({ btn: !!document.querySelector('#tmplSeg [data-tp="smesa26"] .r26-pill'), tpl: !!VIDEO_TEMPLATES.smesa26, hooks: !!window.R26V, note: (VIDEO_TEMPLATES.smesa26 || {}).note || '' }));
-        if (released) expect('Video, ' + who + ': once released, the template note drops "only you"', !/only you/i.test(vd.note), vd);
+        if (released) expect('Video, ' + who + ': once released, the template note drops the preview-only line', !/only (you|the preview team)/i.test(vd.note), vd);
       if (allowed) {
         expect('Video, ' + who + ': the SME SA 2026 template appears with its pill', vd.btn && vd.tpl && vd.hooks, vd);
         const fr = await s.page.evaluate(() => { applyTemplate('smesa26', { quiet: true }); drawIntroCard(0.5); drawOutroCard(0.5);

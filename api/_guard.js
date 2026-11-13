@@ -448,6 +448,9 @@ function isOwner(s) {
 // RELEASE is one line: set REBRAND_2026_OPEN to true here (or REBRAND_2026_OPEN=1 in Vercel) and every
 // signed-in user gets them; or widen REBRAND_2026_EMAILS to release to named people first. =====
 const REBRAND_2026_OPEN = false;
+// The preview team, in code so it holds whatever Vercel's env says. REBRAND_2026_EMAILS ADDS people to it.
+// Karabo (social media) joined the preview on 2026-11-13 at Joel's request.
+const REBRAND_2026_TEAM = ["joel@smesouthafrica.co.za", "karabo@smesouthafrica.co.za"];
 // True once the rebrand is open to every signed-in user. The route tells the pages, which then drop their
 // "2026 · Preview" labels and "only you can see this" notes, so releasing is still ONE change.
 function isRebrandReleased() { return REBRAND_2026_OPEN || process.env.REBRAND_2026_OPEN === "1"; }
@@ -456,8 +459,8 @@ function isRebrandPreviewer(s) {
   if (isRebrandReleased()) return true;
   const email = String(s.user.email || "").toLowerCase();
   if (!email) return false;
-  const raw = process.env.REBRAND_2026_EMAILS || "joel@smesouthafrica.co.za";
-  return String(raw).toLowerCase().split(",").map((x) => x.trim()).filter(Boolean).includes(email);
+  const team = REBRAND_2026_TEAM.concat(String(process.env.REBRAND_2026_EMAILS || "").split(","));
+  return team.map((x) => String(x).toLowerCase().trim()).filter(Boolean).includes(email);
 }
 
 // Org-LEVEL actions — connecting a social account, minting the API key — belong to whoever owns the

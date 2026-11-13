@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-11-12</strong> (Serv marketplace designs rebuilt in Serv's 2026 colours; see the Change log).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-11-13</strong> (Summit talk thumbnail; Karabo added to the 2026 preview; see the Change log).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -203,6 +203,11 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-11-13</span>
+    <strong>Summit talk thumbnail (<code>r26talk</code>, the 15th gated 2026 family), and Karabo joins the 2026 preview.</strong> One recorded SME Funding Summit session per YouTube video, at 1280×720 plus square, portrait and story. It carries the white <strong>SME Funding Summit</strong> lockup (<code>kit.summit</code>), never the SME South Africa one: Summit talks show the event's mark, normal webinars keep <code>r26webinar</code>. Three directions: <em>Headliner</em> (speaker in a slant-cut panel with an accent seam), <em>Halo</em> (speaker in an accent ring with orbit lines) and <em>Cinematic</em> (speaker full-bleed, title over a navy fade). The button is optional (empty = none), and YouTube's duration corner only ever holds photo.
+    <strong>Preview gate:</strong> <code>_guard.js</code> now holds the preview team in code (<code>REBRAND_2026_TEAM</code>: Joel, Karabo); <code>REBRAND_2026_EMAILS</code> only <em>adds</em> people, so the team holds whatever Vercel's env says. The "only you can see this" notes now say "only the preview team". Tests: <code>rebrand.test.mjs</code> covers Karabo and the add-only env; family counts moved 14→15.
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-11-12</span>
     <strong>Serv marketplace designs rebuilt in Serv's 2026 colours, with honest copy.</strong> The two Serv families (<code>providers</code> Get providers, <code>findpros</code> Find providers) now have two designs per audience, drawn by a new <code>mp*</code> block in <code>studio-engine.js</code>: <em>The Pitch</em> (providers/a, dark hero, proof list, gold button), <em>The Hub</em> (providers/d, a real Serv Provider Hub screen in a browser frame), <em>Category</em> (findpros/c, lilac card with a plum edge, the service set big) and <em>How it works</em> (findpros/d, three numbered steps). Each draws its own landscape.

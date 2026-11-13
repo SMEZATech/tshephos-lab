@@ -20,6 +20,8 @@
 const D = (name, fields) => ({ name, fields });
 const POD = { stage: "out", show: "SME South Africa Podcast", ep: "Episode 10", head: "How to become *investment-ready*", date: "Thu 6 Nov · 18:00",
   name: "Guest Name", role: "Role, Company", cta: "Watch now", remindCta: "Set a reminder" };
+const TALK = { kicker: "Funding Summit 2026 · Keynote", head: "The financial story behind your *business*",
+  name: "Speaker Name", role: "Role, Company", cta: "Watch now" };
 const RES = { look: "Dark", tint: "Brand tint", series: "Resources Library", url: "smesouthafrica.co.za/sme-resources" };
 const RES_TEMPLATE = Object.assign({}, RES, { kind: "Template", title: "Employee Onboarding *Checklist* Template", sub: "A ready-to-use checklist for South African small businesses.",
   check1: "Employment contract signed", check2: "Tax and UIF registered", check3: "Equipment and access issued", check4: "First-week plan shared", meta: "Editable · Excel & Word" });
@@ -112,6 +114,11 @@ export const STUDIO_FAMILIES = {
     dirs: {
       a: D("Guest panel", POD), b: D("Cinematic", POD), c: D("Guest panel · Light", POD), d: D("Episode numeral", POD),
     } },
+  // Funding Summit talk thumbnail: one recorded Summit session. Carries the SME Funding SUMMIT lockup,
+  // not the SME South Africa one. Landscape is YouTube's 1280×720. The button is optional (empty = none).
+  r26talk: { label: "Summit talk thumbnail", emoji: "🎤", photo: "Speaker photo (high-res, face near the top)",
+    sizes: { landscape: [1280, 720, "YouTube · 1280×720"] },
+    dirs: { a: D("Headliner", TALK), b: D("Halo", TALK), c: D("Cinematic", TALK) } },
   // Resource library. The cover is the document; the feature image is the card thumbnail showing that cover
   // inside devices. `kind` (Template / Guide / E-book / Report / Survey) picks the accent.
   r26rescover: { label: "Resource cover", emoji: "📘", photo: "Cover picture (optional: a topic, object or place, never people)",
@@ -1163,6 +1170,212 @@ function r26Engine() {
     return webSpot(r, v, a, false);
   }
 
+  // ---- S12 Funding Summit talk thumbnail -------------------------------------------------------------
+  // One recorded Summit session per video: the SME Funding Summit lockup (never the SME South Africa
+  // one — Summit talks carry the event's mark), the speaker big, a short title, the speaker's name.
+  // 16:9 is 1280×720 (YouTube). The bottom-right corner, where YouTube prints the video length, only
+  // ever holds photo. Three directions:
+  //   a Headliner — the speaker in a tall panel cut on a slant, an accent seam along the cut
+  //   b Halo      — the speaker in a big accent ring with orbit lines, type on the left
+  //   c Cinematic — the speaker full-bleed, the title set large over a navy fade
+  const TALK_TS = { w: 190, h: 70 };   // YouTube's duration badge, at 1280×720
+  function tReplay(v) { return Object.assign({}, v, { stage: "replay", replayCta: plain(v.cta).trim() }); }
+  function tK(r) { return Math.min(r.w / 1280, r.h / 720); }
+  function tSurface(r, k, glowX, glowY) {
+    hero(r);
+    glow(r, glowX == null ? r.w - 120 * k : glowX, glowY == null ? 80 * k : glowY, 760 * k, RED, 0.38);
+    glow(r, 40 * k, r.h - 40 * k, 560 * k, ORANGE, 0.16);
+  }
+  function tPoly(c, pts) { c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath(); }
+  // The photo, clipped to any polygon (photo() still clips to its own box inside it).
+  function tPhoto(r, pts, img, fy) {
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const x = Math.min(...xs), y = Math.min(...ys), w = Math.max(...xs) - x, h = Math.max(...ys) - y, c = r.ctx;
+    c.save(); tPoly(c, pts); c.clip(); photo(r, x, y, w, h, img, null, fy == null ? 0.22 : fy); c.restore();
+  }
+  function tSeam(r, pts) {
+    const c = r.ctx, xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const x = Math.min(...xs), y = Math.min(...ys), w = Math.max(...xs) - x, h = Math.max(...ys) - y;
+    c.save(); tPoly(c, pts); c.fillStyle = accentGrad(c, x, y, Math.max(w, 1), Math.max(h, 1)); c.fill(); c.restore();
+  }
+  function tFade(r, x0, y0, x1, y1, from, to, box) {
+    const c = r.ctx, g = c.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, from); g.addColorStop(1, to);
+    c.save(); c.fillStyle = g; c.fillRect(box[0], box[1], box[2], box[3]); c.restore();
+  }
+  // Summit lockup. White mark: dark surfaces only (every direction here is dark).
+  function tLockup(r, x, y, w, align) { const L = logo(r, "summit", x, y, w, align); return L.h ? L : logo(r, "rev", x, y, w * 0.86, align); }
+  function tKick(r, v, size, x, y, maxW, align) {
+    const t = plain(v.kicker).trim(); if (!t) return 0;
+    line(r, t, F(J, 800, size), x, y, T.orange, { ls: 0.18, upper: true, maxW, align });
+    return size;
+  }
+  // Name + role. A short accent bar leads it when `bar` is set. Returns the block height.
+  function tWho(r, v, x, y, maxW, ns, rs, o) {
+    o = o || {};
+    const nm = plain(v.name).trim(), rl = plain(v.role).trim(); if (!nm && !rl) return 0;
+    let tx = x, w = maxW;
+    const h = (nm ? ns * 1.12 : 0) + (rl ? rs * 1.45 : 0);
+    if (o.bar) { const c = r.ctx; c.save(); c.fillStyle = accentGrad(c, x, y, 7 * (ns / 40), h); c.fillRect(x, y + ns * 0.08, Math.max(4, 7 * (ns / 40)), h - ns * 0.12); c.restore(); tx = x + ns * 0.55; w = maxW - ns * 0.55; }
+    const ax = o.align === "center" ? x + maxW / 2 : tx;
+    if (nm) line(r, nm, F(J, 800, ns), ax, y, WHITE, { maxW: w, align: o.align });
+    if (rl) line(r, rl, F(I, 500, rs), ax, y + (nm ? ns * 1.12 : 0) + rs * 0.12, "rgba(255,255,255,0.78)", { maxW: w, align: o.align });
+    return h;
+  }
+  function tHeadFit(r, v, w, h, max, min, lines) { return fit(r, v.head, J, 800, w, Math.max(min * 1.1, h), 1.02, -0.03, max, min, lines || 3); }
+
+  // A — Headliner -------------------------------------------------------------------------------------
+  function talkHeadliner(r, v, a) {
+    const W = r.w, H = r.h, c = r.ctx;
+    if (W > H * 1.2) {
+      const k = tK(r), pad = 72 * k, top = 62 * k, px = W * 0.53, off = 130 * k, seam = 12 * k;
+      tSurface(r, k, W * 0.78, H * 0.3);
+      tPhoto(r, [[px + off, 0], [W, 0], [W, H], [px, H]], a.featured, 0.2);
+      tFade(r, px, 0, px + off + 220 * k, 0, "rgba(12,31,49,0.55)", "rgba(12,31,49,0)", [px, 0, off + 220 * k, H]);
+      tFade(r, 0, H * 0.5, 0, H, "rgba(12,31,49,0)", "rgba(12,31,49,0.92)", [px, H * 0.5, W - px, H * 0.5]);
+      r._tr("fill", { x: px, y: 0, w: W - px, h: H, color: null, gradient: true });
+      tSeam(r, [[px + off - seam, 0], [px + off, 0], [px, H], [px - seam, H]]);
+      // the speaker, bottom-left of the photo, clear of YouTube's duration badge
+      const nx = px + 46 * k, nw = W - nx - TALK_TS.w * k - 24 * k;
+      const wh = (plain(v.name).trim() ? 42 * k * 1.12 : 0) + (plain(v.role).trim() ? 21 * k * 1.45 : 0);
+      tWho(r, v, nx, H - 58 * k - wh, nw, 42 * k, 21 * k, { bar: true });
+      // the left column
+      const colW = px - pad - 44 * k;
+      const lg = tLockup(r, pad, top, 250 * k);
+      const hasCta = !!plain(v.cta).trim(), bh = 26 * k * 2.56, by = H - 58 * k - bh;
+      if (hasCta) wBtn(r, tReplay(v), pad, by, 26 * k, { maxW: colW });
+      let y = top + lg.h + 52 * k;
+      const kh = tKick(r, v, 19 * k, pad, y, colW); if (kh) y += kh + 20 * k;
+      const t = tHeadFit(r, v, colW, (hasCta ? by - 40 * k : H - 64 * k) - y, 84 * k, 40 * k, 4);
+      r.as("headline", () => drawRich(r, t, pad, y, colW, WHITE));
+      return;
+    }
+    const g = geo(r), { k, pad } = g, iw = W - pad * 2;
+    tSurface(r, k);
+    const ph = Math.round(H * (g.story ? 0.5 : 0.5)), off = 120 * k, seam = 14 * k;
+    tPhoto(r, [[0, 0], [W, 0], [W, ph - off], [0, ph]], a.featured, 0.04);
+    tFade(r, 0, 0, 0, ph * 0.32, "rgba(12,31,49,0.7)", "rgba(12,31,49,0)", [0, 0, W, ph * 0.32]);
+    tFade(r, 0, ph * 0.5, 0, ph, "rgba(12,31,49,0)", "rgba(12,31,49,0.9)", [0, ph * 0.5, W, ph * 0.5]);
+    r._tr("fill", { x: 0, y: 0, w: W, h: ph, color: null, gradient: true });
+    tSeam(r, [[0, ph], [W, ph - off], [W, ph - off + seam], [0, ph + seam]]);
+    tLockup(r, pad, g.story ? 220 : pad, 300 * k);
+    const ns = 44 * k, rs = 23 * k, wh = (plain(v.name).trim() ? ns * 1.12 : 0) + (plain(v.role).trim() ? rs * 1.45 : 0);
+    tWho(r, v, pad, ph - off * 0.55 - 40 * k - wh, iw * 0.8, ns, rs, { bar: true });
+    const hasCta = !!plain(v.cta).trim(), bh = 30 * k * 2.56, by = g.bot - bh;
+    if (hasCta) wBtn(r, tReplay(v), pad, by, 30 * k, { maxW: iw });
+    let y = ph + seam + (g.story ? 70 : 50) * k;
+    const kh = tKick(r, v, 24 * k, pad, y, iw); if (kh) y += kh + 22 * k;
+    const avail = (hasCta ? by - 44 * k : g.bot) - y;
+    const t = tHeadFit(r, v, iw, avail, (g.story ? 112 : 96) * k, 44 * k, 4);
+    r.as("headline", () => drawRich(r, t, pad, y + Math.max(0, (avail - t.h) * 0.3), iw, WHITE));
+  }
+
+  // B — Halo ------------------------------------------------------------------------------------------
+  function tHalo(r, img, cx, cy, d, k, orbit) {
+    const c = r.ctx;
+    if (orbit) {
+      c.save(); c.lineWidth = 2 * k;
+      c.strokeStyle = "rgba(255,153,0,0.32)"; c.beginPath(); c.arc(cx, cy, d / 2 + 34 * k, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = "rgba(220,24,60,0.22)"; c.beginPath(); c.arc(cx, cy, d / 2 + 84 * k, 0, Math.PI * 2); c.stroke();
+      c.strokeStyle = "rgba(255,255,255,0.07)"; c.beginPath(); c.arc(cx, cy, d / 2 + 150 * k, 0, Math.PI * 2); c.stroke();
+      // a small orbiting dot on the inner ring, the cube's orange
+      const an = -Math.PI * 0.2, ox = cx + Math.cos(an) * (d / 2 + 34 * k), oy = cy + Math.sin(an) * (d / 2 + 34 * k);
+      c.fillStyle = T.orange; c.beginPath(); c.arc(ox, oy, 9 * k, 0, Math.PI * 2); c.fill();
+      c.restore();
+    }
+    c.save(); c.shadowColor = "rgba(0,0,0,0.4)"; c.shadowBlur = 60 * k; c.shadowOffsetY = 24 * k;
+    c.beginPath(); c.arc(cx, cy, d / 2, 0, Math.PI * 2); c.fillStyle = accentGrad(c, cx - d / 2, cy - d / 2, d, d); c.fill(); c.restore();
+    r._tr("fill", { x: cx - d / 2, y: cy - d / 2, w: d, h: d, color: null, gradient: true });
+    const inner = d - 22 * k; photo(r, cx - inner / 2, cy - inner / 2, inner, inner, img, "circle", 0.22);
+  }
+  function talkHalo(r, v, a) {
+    const W = r.w, H = r.h;
+    if (W > H * 1.2) {
+      const k = tK(r), pad = 72 * k, top = 62 * k, d = 560 * k, cx = W - 64 * k - d / 2, cy = H / 2 + 22 * k;
+      tSurface(r, k, cx, cy);
+      tHalo(r, a.featured, cx, cy, d, k, true);
+      wPlayBadge(r, cx - d * 0.37, cy + d * 0.33, 92 * k);
+      const colW = cx - d / 2 - 50 * k - pad;
+      const lg = tLockup(r, pad, top, 250 * k);
+      const hasCta = !!plain(v.cta).trim(), bh = 26 * k * 2.56, by = H - 58 * k - bh;
+      if (hasCta) wBtn(r, tReplay(v), pad, by, 26 * k, { maxW: colW });
+      const ns = 32 * k, rs = 18 * k, wh = (plain(v.name).trim() ? ns * 1.12 : 0) + (plain(v.role).trim() ? rs * 1.45 : 0);
+      const whoY = (hasCta ? by - 34 * k : H - 64 * k) - wh;
+      tWho(r, v, pad, whoY, colW, ns, rs, { bar: true });
+      let y = top + lg.h + 50 * k;
+      const kh = tKick(r, v, 19 * k, pad, y, colW); if (kh) y += kh + 20 * k;
+      const t = tHeadFit(r, v, colW, whoY - 34 * k - y, 80 * k, 38 * k, 4);
+      r.as("headline", () => drawRich(r, t, pad, y, colW, WHITE));
+      return;
+    }
+    const g = geo(r), { k, pad } = g, iw = W - pad * 2, cxm = W / 2;
+    const sq = H < 1200, lg0 = (sq ? 230 : 300) * k;
+    const lgY = g.story ? 220 : pad;
+    const d = (g.story ? 600 : sq ? 330 : 500) * k, cy = lgY + lg0 * 0.4375 + (g.story ? 120 : sq ? 56 : 70) * k + d / 2;
+    tSurface(r, k, cxm, cy);
+    tHalo(r, a.featured, cxm, cy, d, k, true);
+    wPlayBadge(r, cxm + d * 0.36, cy + d * 0.34, 100 * k);
+    tLockup(r, cxm, lgY, lg0, "center");
+    const hasCta = !!plain(v.cta).trim(), bh = 30 * k * 2.56, by = g.bot - bh;
+    if (hasCta) wBtn(r, tReplay(v), cxm, by, 30 * k, { maxW: iw, align: "center" });
+    let y = cy + d / 2 + (g.story ? 80 : sq ? 40 : 54) * k;
+    const ns = (sq ? 34 : 38) * k, rs = (sq ? 20 : 22) * k, wh = (plain(v.name).trim() ? ns * 1.12 : 0) + (plain(v.role).trim() ? rs * 1.45 : 0);
+    tWho(r, v, pad, y, iw, ns, rs, { align: "center" }); y += wh + (g.story ? 50 : sq ? 26 : 34) * k;
+    const avail = (hasCta ? by - 40 * k : g.bot) - y;
+    const t = tHeadFit(r, v, iw, avail, (g.story ? 96 : 80) * k, 40 * k, 3);
+    r.as("headline", () => drawRich(r, t, pad, y + Math.max(0, (avail - t.h) * 0.35), iw, WHITE, "center"));
+  }
+
+  // C — Cinematic -------------------------------------------------------------------------------------
+  function talkCine(r, v, a) {
+    const W = r.w, H = r.h;
+    if (W > H * 1.2) {
+      const k = tK(r), pad = 72 * k, top = 62 * k, px = W * 0.34;
+      tSurface(r, k);
+      photo(r, px, 0, W - px, H, a.featured, null, 0.2);
+      tFade(r, px, 0, px + (W - px) * 0.55, 0, "#0C1F31", "rgba(12,31,49,0)", [px - 1, 0, (W - px) * 0.55 + 1, H]);
+      tFade(r, 0, H * 0.38, 0, H, "rgba(12,31,49,0)", "rgba(12,31,49,0.94)", [0, H * 0.38, W, H * 0.62]);
+      glow(r, W - 60 * k, 40 * k, 520 * k, RED, 0.22);
+      r._tr("fill", { x: 0, y: 0, w: W, h: H, color: null, gradient: true });
+      const c = r.ctx; c.save(); c.fillStyle = accentGrad(c, 0, 0, 10 * k, H); c.fillRect(0, 0, 10 * k, H); c.restore();
+      tLockup(r, pad, top, 250 * k);
+      const colW = W * 0.66 - pad;
+      const ns = 30 * k, rs = 18 * k, wh = (plain(v.name).trim() ? ns * 1.12 : 0) + (plain(v.role).trim() ? rs * 1.45 : 0);
+      const whoY = H - 58 * k - wh;
+      tWho(r, v, pad, whoY, Math.min(colW, W - pad - TALK_TS.w * k - 30 * k), ns, rs, { bar: true });
+      const t = tHeadFit(r, v, colW, H * 0.46, 92 * k, 44 * k, 3);
+      const ty = whoY - 32 * k - t.h;
+      const kh = 19 * k;
+      tKick(r, v, kh, pad, ty - kh - 20 * k, colW);
+      r.as("headline", () => drawRich(r, t, pad, ty, colW, WHITE));
+      return;
+    }
+    const g = geo(r), { k, pad } = g, iw = W - pad * 2;
+    tSurface(r, k);
+    const ph = Math.round(H * (g.story ? 0.66 : 0.7));
+    photo(r, 0, 0, W, ph, a.featured, null, 0.06);
+    tFade(r, 0, 0, 0, H * 0.22, "rgba(12,31,49,0.7)", "rgba(12,31,49,0)", [0, 0, W, H * 0.22]);
+    tFade(r, 0, ph * 0.3, 0, ph * 0.78, "rgba(12,31,49,0)", "#0C1F31", [0, ph * 0.3, W, ph * 0.48 + 1]);
+    { const c = r.ctx; c.save(); c.fillStyle = "#0C1F31"; c.fillRect(0, ph * 0.78, W, ph * 0.22 + 1); c.restore(); }
+    r._tr("fill", { x: 0, y: 0, w: W, h: ph, color: null, gradient: true });
+    tLockup(r, pad, g.story ? 220 : pad, 300 * k);
+    const hasCta = !!plain(v.cta).trim(), bh = 30 * k * 2.56, by = g.bot - bh;
+    if (hasCta) wBtn(r, tReplay(v), pad, by, 30 * k, { maxW: iw });
+    const ns = 36 * k, rs = 21 * k, wh = (plain(v.name).trim() ? ns * 1.12 : 0) + (plain(v.role).trim() ? rs * 1.45 : 0);
+    const whoY = (hasCta ? by - 46 * k : g.bot) - wh;
+    tWho(r, v, pad, whoY, iw, ns, rs, { bar: true });
+    const t = tHeadFit(r, v, iw, Math.max(120 * k, whoY - 40 * k - ph * 0.5), (g.story ? 112 : 96) * k, 44 * k, 4);
+    const ty = whoY - 40 * k - t.h;
+    tKick(r, v, 24 * k, pad, ty - 24 * k - 22 * k, iw);
+    r.as("headline", () => drawRich(r, t, pad, ty, iw, WHITE));
+  }
+
+  function talk(r, dir, v, a) {
+    if (dir === "b") return talkHalo(r, v, a);
+    if (dir === "c") return talkCine(r, v, a);
+    return talkHeadliner(r, v, a);
+  }
+
   // ---- S11 Podcast thumbnail ----------------------------------------------------------------------
   // Four directions on the webinar family's building blocks (same lockup, chips, button, speaker
   // caption), plus what is specific to a podcast: the EPISODE NUMBER as a first-class element, a small
@@ -1595,10 +1808,11 @@ function r26Engine() {
     r26aws: (r, d, v) => aws(r, v),
     r26webinar: (r, d, v, a) => webinar(r, d, v, a),
     r26podcast: (r, d, v, a) => podcast(r, d, v, a),
+    r26talk: (r, d, v, a) => talk(r, d, v, a),
     r26rescover: (r, d, v, a) => resCover(r, d, v, a),
     r26resfeature: (r, d, v, a) => resFeature(r, d, v, a),
   };
-  const OWN_LANDSCAPE = { r26contributor: true, r26webinar: true, r26podcast: true, r26rescover: true, r26resfeature: true };   // families that draw their own wide layout
+  const OWN_LANDSCAPE = { r26contributor: true, r26webinar: true, r26podcast: true, r26talk: true, r26rescover: true, r26resfeature: true };   // families that draw their own wide layout
   self.R26_DRAW = function (r, type, dir, v, a) {
     if (!FAM[type]) return false;
     r.ctx.textBaseline = "top";

@@ -319,7 +319,7 @@ function r26Video(R) {
   // ---------------------------------------------------------------- registration
   VIDEO_TEMPLATES[KEY] = {
     label: "SME South Africa 2026",
-    note: (window.voltRebrandReleased ? "" : "2026 · Preview — only you can see this until release. ") + "Hero title card, glass speaker lower-third, Jakarta captions with a red active-word pill, accent progress bar, light-wipe outro with one gradient CTA. Wrap one word in *stars* for the gradient.",
+    note: (window.voltRebrandReleased ? "" : "2026 · Preview — only the preview team can see this until release. ") + "Hero title card, glass speaker lower-third, Jakarta captions with a red active-word pill, accent progress bar, light-wipe outro with one gradient CTA. Wrap one word in *stars* for the gradient.",
     apply: { introOn: true, outroOn: true, outroDur: 4.0, nameOn: true, captionsOn: true, hookOn: false,
       progressOn: true, brandFlashOn: false, markOn: false, waveOn: false, qaOn: false,
       capPos: "bottom", capSize: "M", capBg: "box", capColor: RED, capsOn: false, capFont: "sans", look: "natural" },
