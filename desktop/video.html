@@ -6,6 +6,7 @@
   <!-- Shared with the Transcribe page (long-form STT) and testable in Node (scoring). -->
   <script src="volt-stt.js"></script>
   <script src="autoframe.js"></script>
+  <script src="footage-fix.js"></script>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Volt — Video</title>
@@ -317,6 +318,18 @@
           <button data-l="clean">Clean</button>
           <button data-l="bold">Bold</button>
           <button data-l="natural">Natural</button>
+        </div>
+        <div class="togrow" id="tog-fix" data-t="fix" style="margin-top:14px;"><span class="nm">Fix footage <span class="opt" style="font-weight:400;">bright screen behind the speaker, washed-out or blue stage light</span></span><span class="sw"></span></div>
+        <div class="togfields" id="f-fix">
+          <div class="rangepair"><label>Tame bright screen <span id="fixLbl-screen">60%</span></label><input type="range" class="fix-amt" data-k="screen" min="0" max="100" value="60" /></div>
+          <div class="rangepair"><label>Lift faces &amp; shadows <span id="fixLbl-face">50%</span></label><input type="range" class="fix-amt" data-k="face" min="0" max="100" value="50" /></div>
+          <div class="rangepair"><label>Remove colour cast <span id="fixLbl-cast">70%</span></label><input type="range" class="fix-amt" data-k="cast" min="0" max="100" value="70" /></div>
+          <div class="rangepair"><label>Clear haze <span id="fixLbl-haze">70%</span></label><input type="range" class="fix-amt" data-k="haze" min="0" max="100" value="70" /></div>
+          <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="mini" id="fixCompare" style="flex:1;" title="Press and hold to see the original footage">👁 Hold to compare</button>
+            <button class="mini" id="fixReset" style="flex:1;">↺ Recommended</button>
+          </div>
+          <p class="note" id="fixNote" style="margin-top:6px;">Measured from every frame, so a clip that cuts from the dark stage to a bright slide is fixed on both sides. It can't add detail a face never had: if the speaker is nearly black, light them on the day.</p>
         </div>
       </div>
 
@@ -636,6 +649,8 @@ function hexA(hex, a){
 const voltAssetUrl = (u) => (typeof window.voltAsset === 'function' ? window.voltAsset(u) : u);
 const state = {
   loaded:false, format:'9x16', look:'sme',
+  // Fix footage (footage-fix.js): stage clips shot against a bright projector screen.
+  fixOn:false, fix:{ screen:0.6, face:0.5, cast:0.7, haze:0.7 }, fixCompare:false,
   trimStart:0, trimEnd:0, duration:0,
   introOn:true, outroOn:true, musicVol:0.25,
   playing:false, recording:false,
@@ -1096,6 +1111,25 @@ function vignette(strength){
   const v = ctx.createRadialGradient(W/2,H/2, Math.min(W,H)*0.32, W/2,H/2, Math.max(W,H)*0.78);
   v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(0,0,0,'+strength+')');
   ctx.fillStyle=v; ctx.fillRect(0,0,W,H);
+}
+// Fix footage runs on the clip pixels only: after the crop, BEFORE the look, captions and cards,
+// so it never greys out the brand colours drawn on top. Same call in preview and export.
+let footageFixer = null;
+function fixFootage(into){
+  if(!state.fixOn || state.fixCompare || !window.FootageFix) return;
+  if(!footageFixer) footageFixer = new window.FootageFix.Fixer();
+  if(!footageFixer.apply(ctx, state.fix, into)){
+    const n=$('#fixNote'); if(n && !n.dataset.warned){ n.dataset.warned='1'; n.textContent='Fix footage needs WebGL, which this device has switched off. The clip plays unfixed.'; }
+  }
+}
+function syncFixUI(){
+  document.querySelectorAll('.fix-amt').forEach(el=>{ const k=el.dataset.k, v=Math.round((state.fix[k]||0)*100); el.value=v; const l=$('#fixLbl-'+k); if(l) l.textContent=v+'%'; });
+}
+document.querySelectorAll('.fix-amt').forEach(el=>el.addEventListener('input', ()=>{ state.fix[el.dataset.k]=parseInt(el.value,10)/100; const l=$('#fixLbl-'+el.dataset.k); if(l) l.textContent=el.value+'%'; }));
+{ const cb=$('#fixCompare');
+  if(cb){ const on=e=>{ e.preventDefault(); state.fixCompare=true; cb.classList.add('on'); }, off=()=>{ state.fixCompare=false; cb.classList.remove('on'); if(footageFixer) footageFixer.reset(); };
+    cb.addEventListener('pointerdown', on); ['pointerup','pointerleave','pointercancel'].forEach(ev=>cb.addEventListener(ev, off)); }
+  const rb=$('#fixReset'); if(rb) rb.addEventListener('click', ()=>{ state.fix=Object.assign({}, window.FootageFix ? window.FootageFix.DEFAULTS : { screen:0.6, face:0.5, cast:0.7, haze:0.7 }); syncFixUI(); });
 }
 function applyLook(){
   if(state.look === 'natural') return;   // untouched footage — the Summit package grades nothing
@@ -1968,6 +2002,7 @@ function paintTimeline(into, seg, media, mw, mh){
       ctx.drawImage(media, r.sx, r.sy, r.sw, r.sh, 0, 0, W, H);
     } else drawCover(media, mw, mh, focusAt(into));
   }
+  fixFootage(into);
   applyLook();
   // ---- transition at the boundary INTO this clip ----
   if(extraClips.length && seg.segStart > 0 && state.transition !== 'cut'){
@@ -3854,11 +3889,11 @@ function serializeLook(){
   const v = id => { const el=$('#'+id); return el?el.value:''; };
   return {
     template:state.template, outroDur:state.outroDur, qaDur:state.qaDur, qaFrame:state.qaFrame, brandOff:!!state.brandOffOn,
-    format:state.format, look:state.look, fill:state.fill, focus:state.focus, musicVol:state.musicVol,
+    format:state.format, look:state.look, fix:Object.assign({}, state.fix), fill:state.fill, focus:state.focus, musicVol:state.musicVol,
     capColor:state.capColor, capPos:state.capPos, capOffset:state.capOffset, capSize:state.capSize, capBg:state.capBg, hookDur:state.hookDur,
     layers: (state.layers||[]).map(function(L){ var c=Object.assign({},L); delete c._img; return c; }),
     toggles:{ intro:state.introOn, outro:state.outroOn, hook:state.hookOn, progress:state.progressOn, name:state.nameOn,
-              brandFlash:state.brandFlashOn, mark:state.markOn, wave:state.waveOn, qa:state.qaOn },
+              brandFlash:state.brandFlashOn, mark:state.markOn, wave:state.waveOn, qa:state.qaOn, fix:state.fixOn },
     text:{ introTitle:v('introTitle'), outroHead:v('outroHead'), outroSub:v('outroSub'), hookText:v('hookText'), nameName:v('nameName'), nameTitle:v('nameTitle'), qaText:v('qaText') }
   };
 }
@@ -3875,6 +3910,7 @@ function restoreLook(d){
   if(d.qaFrame){ state.qaFrame = d.qaFrame; syncSeg('#qaFrameSeg', d.qaFrame); }
   if(d.format) setFormat(d.format);
   if(d.look) setLook(d.look);
+  if(d.fix && typeof d.fix==='object'){ state.fix=Object.assign({}, state.fix, d.fix); syncFixUI(); }
   if(d.fill){ state.fill=d.fill; syncSeg('#fillSeg', d.fill); const fr=$('#focusRow'); if(fr) fr.style.display=(d.fill==='crop')?'block':'none'; }
   if(d.focus){ state.focus=d.focus; syncSeg('#focusSeg', d.focus); }
   if(d.capColor!=null){ state.capColor=d.capColor; const cc=$('#capCustom'); if(cc) cc.value=d.capColor; }

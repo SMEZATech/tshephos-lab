@@ -369,6 +369,33 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
       } else {
         expect('Video, ' + who + ': no 2026 template', !vd.btn && !vd.tpl && !vd.hooks, vd);
       }
+      // Fix footage: a near-white screen behind a dark, blue-lit speaker — the Summit stage problem.
+      {
+        const fx = await s.page.evaluate(async () => {
+          const c = document.createElement('canvas'); c.width = 1080; c.height = 1920; const x = c.getContext('2d');
+          x.fillStyle = 'rgb(170,230,250)'; x.fillRect(0, 0, 1080, 1920);                  // projector screen
+          x.fillStyle = 'rgb(60,95,160)'; x.fillRect(340, 700, 400, 1220);                   // speaker
+          x.fillStyle = 'rgb(18,26,52)'; x.fillRect(300, 1700, 480, 220);                   // dark jacket / floor: stages are never black-free
+          const bmp = await createImageBitmap(c), seg = { segStart: 0, segDur: 10, idx: 0 };
+          const paint = () => { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); paintTimeline(1, seg, bmp, 1080, 1920);
+            const at = (px, py) => Array.from(ctx.getImageData(Math.round(W * px), Math.round(H * py), 1, 1).data.slice(0, 3)); return { screen: at(0.1, 0.15), person: at(0.5, 0.75) }; };
+          const look = state.look, fill = state.fill; state.look = 'natural'; state.fill = 'crop';
+          const off = paint();
+          document.getElementById('tog-fix').click();
+          for (let i = 0; i < 5; i++) paint();
+          const on = paint(); state.fixCompare = true; const cmp = paint(); state.fixCompare = false;
+          let tainted = false; try { cv.toDataURL(); } catch (e) { tainted = true; }
+          const saved = serializeLook();
+          document.getElementById('tog-fix').click(); state.look = look; state.fill = fill;
+          return { ui: document.querySelectorAll('#f-fix .fix-amt').length, off, on, cmp, tainted, savedFix: !!(saved.toggles.fix && saved.fix && saved.fix.screen) };
+        });
+        const sum = a => a[0] + a[1] + a[2];
+        expect('Video, ' + who + ': Fix footage has its four controls', fx.ui === 4, fx);
+        expect('Video, ' + who + ': Fix footage tames the bright screen and keeps the speaker from going darker', sum(fx.on.screen) < sum(fx.off.screen) - 60 && sum(fx.on.person) >= sum(fx.off.person) - 10, fx);
+        expect('Video, ' + who + ': Fix footage warms a blue-lit speaker', (fx.on.person[2] - fx.on.person[0]) < (fx.off.person[2] - fx.off.person[0]) - 15, fx);
+        expect('Video, ' + who + ': "Hold to compare" shows the original, and the canvas stays exportable', sum(fx.cmp.screen) === sum(fx.off.screen) && !fx.tainted, fx);
+        expect('Video, ' + who + ': a saved look keeps the Fix footage settings', fx.savedFix, fx);
+      }
       // Reopen: a session left on a 2026 design must come back on it, not on Creative. The 2026
       // families load AFTER the autosave restore runs, so the snapshot has to survive that gap.
       {
