@@ -44,6 +44,16 @@ function r26Video(R) {
     logo.src = src;
   }
   const logoOk = () => logo.complete && logo.naturalWidth > 0;
+  // The SME Funding SUMMIT lockup (white), for the Funding Summit 2026 edition.
+  const summitImg = new Image(); summitImg.decoding = "async";
+  if (assets.summit) {
+    let src = assets.summit;
+    try { const u2 = new URL(assets.summit); if (/(^|\.)tshephos-lab[^.]*\.vercel\.app$|^localhost$|^127\.0\.0\.1$/.test(location.hostname)) src = u2.pathname; else if (typeof window.voltAsset === "function") src = window.voltAsset(assets.summit); } catch (e) {}
+    summitImg.src = src;
+  }
+  const summitOk = () => summitImg.complete && summitImg.naturalWidth > 0;
+  const SUMMIT_KEY = "summit26";
+  const SUM = () => state.template === SUMMIT_KEY;
   // The speaker's photo is chosen by the person in the editor (a blob: URL), so it is same-origin and
   // never taints the canvas. null = the ring shows initials, exactly as before.
   let photo = null;
@@ -131,6 +141,7 @@ function r26Video(R) {
 
   // ---------------------------------------------------------------- V1 intro title card
   function intro(p) {
+    if (SUM()) return summitIntro(p);
     const U = u(), pad = 96 * U, iw = W - pad * 2;
     hero(p * 0.5);
     const kicker = field("r26Kicker") || "SME South Africa";
@@ -187,7 +198,7 @@ function r26Video(R) {
   function nameTag(ct) {
     if (ct < 0 || ct > 5.0) return true;
     const nm = field("nameName"); if (!nm) return true;
-    const title = field("nameTitle"), pillTxt = field("r26Kicker");
+    const title = field("nameTitle"), pillTxt = field("r26Kicker") || (SUM() ? "SME Funding Summit 2026" : "");
     const U = u(), a = ct < 0.35 ? eoc(ct / 0.35) : ct > 4.5 ? Math.max(0, (5.0 - ct) / 0.5) : 1;
     const fsN = Math.round(58 * U), fsT = Math.round(30 * U), padL = 36 * U, padR = 44 * U, spine = 16 * U;
     ctx.save(); ctx.globalAlpha = a;
@@ -256,6 +267,7 @@ function r26Video(R) {
   }
   // accent-gradient progress bar (lime is retired)
   function progress(p) {
+    if (SUM()) summitBug(p);
     const h = Math.max(6, Math.round(H * 0.00625));
     ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.fillRect(0, H - h, W, h);
     ctx.fillStyle = accent(0, H - h, W, h); ctx.fillRect(0, H - h, W * p, h);
@@ -266,11 +278,12 @@ function r26Video(R) {
   function outro(p) {
     const U = u(), pad = 96 * U, iw = W - pad * 2, cx = W / 2;
     hero(p * 0.6);
-    const head = field("outroHead") || "Build. Grow. *Thrive.*";
-    const sub = field("outroSub") || "Funding, events and the tools to scale, in SA’s largest SME community.";
-    const cta = field("r26Cta") || "Join for Free";
+    const sm = SUM(), mark = sm && summitOk() ? summitImg : logo, markOk = sm ? summitOk() : logoOk();
+    const head = field("outroHead") || (sm ? "Watch the full *talk*" : "Build. Grow. *Thrive.*");
+    const sub = field("outroSub") || (sm ? "Every SME Funding Summit session, in full, on our YouTube channel." : "Funding, events and the tools to scale, in SA’s largest SME community.");
+    const cta = field("r26Cta") || (sm ? "Subscribe" : "Join for Free");
     const url = (state.brand && state.brand.url) || "smesouthafrica.co.za";
-    const lw = Math.min(560 * U, W * 0.62), lh = logoOk() ? lw * logo.naturalHeight / logo.naturalWidth : 0;
+    const lw = Math.min((sm ? 520 : 560) * U, W * 0.62), lh = markOk ? lw * mark.naturalHeight / mark.naturalWidth : 0;
     const t = fitRich(head, "800", J, iw, H * 0.2, 100 * U, 48 * U, 1.02);
     ctx.font = "400 " + Math.round(38 * U) + "px " + I;
     const subB = fitRich(sub, "400", I, iw, H * 0.14, 38 * U, 24 * U, 1.5);
@@ -281,7 +294,7 @@ function r26Video(R) {
     ctx.save();
     // A: lockup pops in
     const pa = eob(segT(p, 0.1, 0.26)), aa = eoc(segT(p, 0.1, 0.2));
-    if (lh && aa > 0) { ctx.globalAlpha = aa; const s = 0.86 + 0.14 * pa; ctx.drawImage(logo, cx - lw * s / 2, y + lh * (1 - s) / 2, lw * s, lh * s); }
+    if (lh && aa > 0) { ctx.globalAlpha = aa; const s = 0.86 + 0.14 * pa; ctx.drawImage(mark, cx - lw * s / 2, y + lh * (1 - s) / 2, lw * s, lh * s); }
     y += lh + g1;
     let r = rise(p, 0.15, 0.32); ctx.globalAlpha = r.a;
     drawRich(t, pad, y + r.dy, iw, "center", "#ffffff");
@@ -316,6 +329,108 @@ function r26Video(R) {
     }
   }
 
+
+  // ---------------------------------------------------------------- FUNDING SUMMIT 2026 edition
+  // Same engine, cards and captions; what changes is the event identity. Every Summit card carries the
+  // SME Funding SUMMIT lockup (never the SME South Africa one), the intro is speaker-led (their portrait
+  // in a slant-cut panel with an accent seam, their name, the talk title), a small Summit lockup holds
+  // in the top-left while the footage plays, and the outro sends people to the full talk.
+  // Built for Shorts first (1080×1920): nothing that matters sits in the bottom 22% (YouTube's title,
+  // channel row and subscribe button) or the right-hand action column.
+  function poly(pts) { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); }
+  function coverPhoto(x, y, w, h, fy, zoom) {
+    const z = zoom || 1, sc = Math.max(w / photo.naturalWidth, h / photo.naturalHeight) * z, sw = w / sc, sh = h / sc;
+    ctx.drawImage(photo, (photo.naturalWidth - sw) / 2, (photo.naturalHeight - sh) * fy, sw, sh, x, y, w, h);
+  }
+  function stand(x, y, w, h, name) {          // no photo yet: the panel still reads, with the speaker's initials
+    const g = ctx.createLinearGradient(x, y, x + w * 0.6, y + h);
+    g.addColorStop(0, "#3a4f66"); g.addColorStop(0.5, "#22344a"); g.addColorStop(1, "#2b1d2a");
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = "#ffffff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "800 " + Math.round(Math.min(w, h) * 0.42) + "px " + J; ctx.fillText(initials(name), x + w / 2, y + h * 0.46); ctx.restore();
+  }
+  function track(px, fn) { try { ctx.letterSpacing = px + "px"; } catch (e) {} fn(); try { ctx.letterSpacing = "0px"; } catch (e) {} }
+  function summitIntro(p) {
+    const U = u(), tall = H > W * 1.3, sp = field("nameName"), role = field("nameTitle");
+    const kicker = field("r26Kicker") || "SME Funding Summit 2026";
+    const title = field("introTitle") || "The financial story behind your *business*";
+    hero(p * 0.5);
+    const e1 = eoc(segT(p, 0, 0.24)), e2 = eoc(segT(p, 0.12, 0.34)), zoom = 1.08 - 0.08 * eoc(segT(p, 0, 1));
+    if (tall) {
+      const pad = 84 * U, iw = W - pad * 2, ph = H * 0.5, off = 160 * U, seam = 16 * U, cut = ph * e1;
+      // the panel drops in from the top, its slanted base sweeping down
+      ctx.save(); poly([[0, 0], [W, 0], [W, Math.max(0, cut - off)], [0, cut]]); ctx.clip();
+      if (photoOk()) coverPhoto(0, 0, W, ph, 0.06, zoom); else stand(0, 0, W, ph, sp);
+      let g = ctx.createLinearGradient(0, 0, 0, ph * 0.3); g.addColorStop(0, "rgba(12,31,49,0.75)"); g.addColorStop(1, "rgba(12,31,49,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, ph * 0.3);
+      g = ctx.createLinearGradient(0, ph * 0.5, 0, ph); g.addColorStop(0, "rgba(12,31,49,0)"); g.addColorStop(1, "rgba(12,31,49,0.92)"); ctx.fillStyle = g; ctx.fillRect(0, ph * 0.5, W, ph * 0.5);
+      ctx.restore();
+      // the accent seam draws itself along the cut
+      if (e2 > 0) { ctx.save(); poly([[0, cut], [W * e2, cut - off * e2], [W * e2, cut - off * e2 + seam], [0, cut + seam]]); ctx.fillStyle = accent(0, cut - off, W, off + seam); ctx.fill(); ctx.restore(); }
+      ctx.save();
+      // lockup, top-left over the photo (below the Shorts back arrow)
+      let r = rise(p, 0.06, 0.22, 30); ctx.globalAlpha = r.a;
+      if (summitOk()) { const lw = 330 * U; ctx.drawImage(summitImg, pad, H * 0.075 + r.dy, lw, lw * summitImg.naturalHeight / summitImg.naturalWidth); }
+      // the speaker, on the photo, just above the cut
+      if (sp) {
+        r = rise(p, 0.16, 0.34); ctx.globalAlpha = r.a;
+        const ns = 66 * U, rs = 32 * U, h = ns * 1.12 + (role ? rs * 1.45 : 0), y = ph - off * 0.6 - 44 * U - h + r.dy;
+        ctx.fillStyle = accent(pad, y, 10 * U, h); ctx.fillRect(pad, y + 6 * U, 10 * U, h - 10 * U);
+        ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = "#ffffff"; ctx.font = "800 " + ns + "px " + J;
+        ctx.fillText(sp, pad + 36 * U, y, iw - 36 * U);
+        if (role) { ctx.font = "500 " + rs + "px " + I; ctx.fillStyle = "rgba(255,255,255,0.82)"; ctx.fillText(role, pad + 36 * U, y + ns * 1.12 + 4 * U, iw - 36 * U); }
+      }
+      // kicker + title below the cut, clear of Shorts' bottom 22%
+      let y = ph + seam + 64 * U;
+      r = rise(p, 0.22, 0.4); ctx.globalAlpha = r.a;
+      ctx.font = "800 " + Math.round(30 * U) + "px " + J; ctx.fillStyle = ORANGE; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      track(Math.round(30 * U * 0.18), () => ctx.fillText(kicker.toUpperCase(), pad, y + r.dy, iw));
+      y += 30 * U + 34 * U;
+      const t = fitRich(title, "800", J, iw, H * 0.8 - y, 132 * U, 56 * U, 1.0);
+      r = rise(p, 0.26, 0.46); ctx.globalAlpha = r.a;
+      drawRich(t, pad, y + r.dy, iw, "left", "#ffffff", eoc(segT(p, 0.4, 0.75)));
+      ctx.restore();
+      return;
+    }
+    // square / landscape: the panel takes the right half, cut on a slant; type on the left
+    const pad = 72 * U, px = W * 0.5, off = 120 * U, seam = 12 * U, cw = (W - px) * e1;
+    ctx.save(); poly([[W - cw + off, 0], [W, 0], [W, H], [W - cw, H]]); ctx.clip();
+    if (photoOk()) coverPhoto(px, 0, W - px, H, 0.08, zoom); else stand(px, 0, W - px, H, sp);
+    const g = ctx.createLinearGradient(0, H * 0.55, 0, H); g.addColorStop(0, "rgba(12,31,49,0)"); g.addColorStop(1, "rgba(12,31,49,0.9)"); ctx.fillStyle = g; ctx.fillRect(px, H * 0.55, W - px, H * 0.45);
+    ctx.restore();
+    if (e2 > 0) { ctx.save(); poly([[W - cw + off - seam, 0], [W - cw + off, 0], [W - cw, H], [W - cw - seam, H]]); ctx.globalAlpha = e2; ctx.fillStyle = accent(W - cw - seam, 0, off + seam, H); ctx.fill(); ctx.restore(); }
+    ctx.save();
+    const colW = px - pad - 40 * U;
+    let r = rise(p, 0.06, 0.22, 30); ctx.globalAlpha = r.a;
+    let y = Math.max(pad, H * 0.09);
+    if (summitOk()) { const lw = Math.min(300 * U, colW * 0.8), lh = lw * summitImg.naturalHeight / summitImg.naturalWidth; ctx.drawImage(summitImg, pad, y + r.dy, lw, lh); y += lh + 50 * U; }
+    r = rise(p, 0.2, 0.38); ctx.globalAlpha = r.a;
+    ctx.font = "800 " + Math.round(24 * U) + "px " + J; ctx.fillStyle = ORANGE; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    track(Math.round(24 * U * 0.18), () => ctx.fillText(kicker.toUpperCase(), pad, y + r.dy, colW));
+    y += 24 * U + 26 * U;
+    const spH = sp ? 50 * U * 1.12 + (role ? 26 * U * 1.45 : 0) + 40 * U : 0;
+    const t = fitRich(title, "800", J, colW, H - pad - spH - y, 100 * U, 40 * U, 1.0);
+    r = rise(p, 0.24, 0.44); ctx.globalAlpha = r.a;
+    drawRich(t, pad, y + r.dy, colW, "left", "#ffffff", eoc(segT(p, 0.4, 0.75)));
+    if (sp) {
+      r = rise(p, 0.3, 0.5); ctx.globalAlpha = r.a;
+      const yy = H - pad - spH + 40 * U + r.dy, h = spH - 40 * U;
+      ctx.fillStyle = accent(pad, yy, 8 * U, h); ctx.fillRect(pad, yy + 4 * U, 8 * U, h - 8 * U);
+      ctx.fillStyle = "#ffffff"; ctx.font = "800 " + Math.round(50 * U) + "px " + J; ctx.fillText(sp, pad + 28 * U, yy, colW - 28 * U);
+      if (role) { ctx.font = "500 " + Math.round(26 * U) + "px " + I; ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.fillText(role, pad + 28 * U, yy + 50 * U * 1.12 + 4 * U, colW - 28 * U); }
+    }
+    ctx.restore();
+  }
+  // The small Summit lockup held over the footage, fading in after the intro and out before the outro.
+  function summitBug(p) {
+    if (!summitOk() || typeof totalDur !== "function") return;
+    const T = totalDur(), tt = p * T, a0 = (typeof introDur === "function" ? introDur() : 0), a1 = T - (state.outroOn ? (state.outroDur || 0) : 0);
+    if (tt < a0 || tt > a1) return;
+    const a = Math.min(1, (tt - a0) / 0.4, (a1 - tt) / 0.4); if (a <= 0) return;
+    const U = u(), lw = (H > W * 1.3 ? 220 : 180) * U, lh = lw * summitImg.naturalHeight / summitImg.naturalWidth;
+    ctx.save(); ctx.globalAlpha = 0.92 * a; ctx.shadowColor = "rgba(0,0,0,0.45)"; ctx.shadowBlur = 24 * U;
+    ctx.drawImage(summitImg, 56 * U, (H > W * 1.3 ? H * 0.078 : 48 * U), lw, lh); ctx.restore();
+  }
+
   // ---------------------------------------------------------------- registration
   VIDEO_TEMPLATES[KEY] = {
     label: "SME South Africa 2026",
@@ -324,5 +439,10 @@ function r26Video(R) {
       progressOn: true, brandFlashOn: false, markOn: false, waveOn: false, qaOn: false,
       capPos: "bottom", capSize: "M", capBg: "box", capColor: RED, capsOn: false, capFont: "sans", look: "natural" },
   };
-  return { key: KEY, introDur: 2.8, loadFonts, intro, outro, nameTag, captions, progress, setPhoto, hasPhoto: photoOk };
+  VIDEO_TEMPLATES[SUMMIT_KEY] = {
+    label: "Funding Summit 2026",
+    note: (window.voltRebrandReleased ? "" : "2026 · Preview — only the preview team can see this until release. ") + "SME Funding Summit edition for Shorts: a speaker-led intro (add their photo below), the Summit lockup held over the footage, the glass lower-third, Jakarta captions with the red active-word pill, and a Watch-the-full-talk outro. Title = the talk; wrap one word in *stars* for the accent gradient.",
+    apply: Object.assign({}, VIDEO_TEMPLATES[KEY].apply),
+  };
+  return { key: KEY, get introDur() { return SUM() ? 3.4 : 2.8; }, loadFonts, intro, outro, nameTag, captions, progress, setPhoto, hasPhoto: photoOk };
 }

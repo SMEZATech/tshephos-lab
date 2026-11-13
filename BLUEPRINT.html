@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-11-13</strong> (Summit talk thumbnail; Karabo added to the 2026 preview; see the Change log).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-11-13</strong> (Summit talk thumbnail and Summit Shorts template; Karabo added to the 2026 preview; see the Change log).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -205,7 +205,8 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   <h2>Change log</h2>
   <div class="log-entry">
     <span class="log-date">2026-11-13</span>
-    <strong>Summit talk thumbnail (<code>r26talk</code>, the 15th gated 2026 family), and Karabo joins the 2026 preview.</strong> One recorded SME Funding Summit session per YouTube video, at 1280×720 plus square, portrait and story. It carries the white <strong>SME Funding Summit</strong> lockup (<code>kit.summit</code>), never the SME South Africa one: Summit talks show the event's mark, normal webinars keep <code>r26webinar</code>. Three directions: <em>Headliner</em> (speaker in a slant-cut panel with an accent seam), <em>Halo</em> (speaker in an accent ring with orbit lines) and <em>Cinematic</em> (speaker full-bleed, title over a navy fade). The button is optional (empty = none), and YouTube's duration corner only ever holds photo.
+    <strong>Summit talk thumbnail (<code>r26talk</code>, the 15th gated 2026 family), a Funding Summit Shorts template, and Karabo joins the 2026 preview.</strong> One recorded SME Funding Summit session per YouTube video, at 1280×720 plus square, portrait and story. It carries the white <strong>SME Funding Summit</strong> lockup (<code>kit.summit</code>), never the SME South Africa one: Summit talks show the event's mark, normal webinars keep <code>r26webinar</code>. Three directions: <em>Headliner</em> (speaker in a slant-cut panel with an accent seam), <em>Halo</em> (speaker in an accent ring with orbit lines) and <em>Cinematic</em> (speaker full-bleed, title over a navy fade). The button is optional (empty = none), and YouTube's duration corner only ever holds photo.
+    <strong>Video: Funding Summit 2026 template (<code>summit26</code>)</strong>, a second gated video template beside <code>smesa26</code>, drawn by the same <code>window.R26V</code> hooks (they read <code>state.template</code>; <code>video.html</code> checks <code>isR26T()</code> / <code>R26_KEYS</code> instead of one key). It swaps in the Summit lockup everywhere, a speaker-led intro (portrait in a slant-cut panel that drops in, accent seam drawing along the cut, name on the photo, the talk title below; 3.4s), a small Summit lockup held over the footage between intro and outro (drawn from the progress hook), the Summit pill on the lower-third, and a "Watch the full talk / Subscribe" outro. Built for Shorts: nothing that matters in the bottom 22% or the right-hand action column.
     <strong>Preview gate:</strong> <code>_guard.js</code> now holds the preview team in code (<code>REBRAND_2026_TEAM</code>: Joel, Karabo); <code>REBRAND_2026_EMAILS</code> only <em>adds</em> people, so the team holds whatever Vercel's env says. The "only you can see this" notes now say "only the preview team". Tests: <code>rebrand.test.mjs</code> covers Karabo and the add-only env; family counts moved 14→15.
   </div>
   <div class="log-entry">
