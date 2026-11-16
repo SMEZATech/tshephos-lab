@@ -698,6 +698,7 @@ let brandLogoImg=null, brandLogoSrc='';   // logo from the active brand (fallbac
 let t=0, lastTime=performance.now(), recStart=0, mainPlaying=false, activeSegIdx=-1;
 let _vfCount=0;   // real-time export: source frames actually presented — a frozen-footage detector
 let _recStopAt=null;   // real-time export: a short hold before stop(), see the note at stopExport's call site
+let mainClipFile = null;   // the File the user picked for the primary clip (desktop fast export reads it from disk)
 let mainClipName = '';
 let mediaRecorder=null, chunks=[];
 let audioCtx=null, dest=null, transcribeDest=null, vidSrcNode=null, vidGain=null, musSrcNode=null, musGain=null;
@@ -778,9 +779,11 @@ $('#videoFile').addEventListener('change', e => {
   const file = e.target.files[0]; if(!file) return;
   mainClipName = file.name || '';
   loadVideoSrc(URL.createObjectURL(file));
+  mainClipFile = file;   // after loadVideoSrc, which clears it for imported clips
 });
 // Load a clip from any object/blob URL (used by file upload AND link import).
 function loadVideoSrc(src){
+  mainClipFile = null;
   videoEl.src = src;
   videoEl.muted = true; // muted until export, so preview doesn't autoblast
   hideHandoffButton(); // a fresh clip invalidates any earlier export sitting in memory
@@ -2245,7 +2248,8 @@ let _fxSession = null, _fxAbort = false;
 // OfflineAudioContext renders this faster than real time and — the part that matters —
 // DETERMINISTICALLY. The real-time path re-mixes live every export, which is why "the music was
 // quieter that time" was a real complaint and never reproducible.
-async function fxRenderAudio(fps, totalFrames, bytesByUrl){
+async function fxRenderAudio(fps, totalFrames, bytesByUrl, audioBase){
+  audioBase = audioBase || {};   // url -> source time that sample 0 of its buffer is (disk sources only)
   const total = totalFrames / fps;
   const SR = 48000;
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -2278,11 +2282,12 @@ async function fxRenderAudio(fps, totalFrames, bytesByUrl){
     if(state.trimEnd > cur) runs.push([cur, state.trimEnd]);
   }
   let at = iD;
-  for(const [s, e] of runs){ place(main, at, s, e - s, 1); at += (e - s); }
+  const mainBase = audioBase[videoEl.src] || 0;
+  for(const [s, e] of runs){ place(main, at, s - mainBase, e - s, 1); at += (e - s); }
   for(const c of extraClips){
     const ab = await dec(c.src);
     const d = Math.max(0, c.trimEnd - c.trimStart);
-    place(ab, at, c.trimStart, d, 1); at += d;
+    place(ab, at, c.trimStart - (audioBase[c.src] || 0), d, 1); at += d;
   }
   if(musicEl && musicEl.src){
     const mb = await dec(musicEl.src);
@@ -2341,22 +2346,33 @@ async function fastExport(fileName){
   try{
     applyRenderScale(state.upscale);
     fxStatus('reading the clip…');
-    const sources = [], bytesByUrl = {};
+    const sources = [], bytesByUrl = {}, audioBase = {};
     // Skips are handled by INDEX when compositing (clipSrcTime already maps around them), so the
     // primary clip is extracted across its whole trim, gaps included, and the gaps simply never
     // get requested.
-    const grab = async (url, a, b) => {
+    // Read the source from DISK when the desktop shell can tell us where it is (shell 1.0.3+).
+    // The alternative loads the whole file into the page, which cannot work for a multi-gigabyte
+    // event recording: it threw, the export fell back to the live recorder, and that recorder's
+    // audio lags its picture. Disk reads have no size limit, and only the trimmed seconds are decoded.
+    const grab = async (url, file, a, b) => {
+      let p = '';
+      try{ if(file && window.voltNative && typeof window.voltNative.pathFor === 'function') p = window.voltNative.pathFor(file) || ''; }catch(e){}
+      if(p){
+        const wavBytes = await window.voltNative.fx.audio(p, a, b - a);   // null = no audio track
+        if(wavBytes){ bytesByUrl[url] = wavBytes; audioBase[url] = a; }
+        return { path: p, trimStart: a, trimEnd: b };
+      }
       const bytes = await (await fetch(url)).arrayBuffer();
       bytesByUrl[url] = bytes;
       return { bytes, trimStart: a, trimEnd: b };
     };
-    sources.push(await grab(videoEl.src, state.trimStart, state.trimEnd));
-    for(const c of extraClips) sources.push(await grab(c.src, c.trimStart, c.trimEnd));
+    sources.push(await grab(videoEl.src, mainClipFile, state.trimStart, state.trimEnd));
+    for(const c of extraClips) sources.push(await grab(c.src, c.file, c.trimStart, c.trimEnd));
     if(musicEl && musicEl.src) bytesByUrl[musicEl.src] = await (await fetch(musicEl.src)).arrayBuffer();
 
     fxStatus('mixing audio…');
     let wav = null;
-    try{ wav = await fxRenderAudio(FPS, totalFrames, bytesByUrl); }
+    try{ wav = await fxRenderAudio(FPS, totalFrames, bytesByUrl, audioBase); }
     catch(e){ console.warn('offline audio mix failed, exporting silent:', e); }
 
     fxStatus('decoding frames…');
@@ -3316,7 +3332,7 @@ function renderClipList(){
 }
 function addClipFile(file){
   if(!file) return;
-  const c = { id: ++_clipUid, name: file.name || ('Clip ' + (extraClips.length+2)),
+  const c = { file: file, id: ++_clipUid, name: file.name || ('Clip ' + (extraClips.length+2)),
     src: URL.createObjectURL(file), trimStart: 0, trimEnd: 0, duration: 0, ready: false, el: null };
   const el = document.createElement('video');
   el.playsInline = true; el.preload = 'auto'; el.muted = false; el.style.display = 'none';
