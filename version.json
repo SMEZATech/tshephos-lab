@@ -1,5 +1,5 @@
 {
-  "desktopVersion": "1.0.2",
+  "desktopVersion": "1.0.3",
   "download": "https://github.com/SMEZATech/tshephos-lab/releases/latest",
-  "notes": "MP4 export fixed (no more endless converting or unplayable files), no freezing on long or 4K clips, real 4K export"
+  "notes": "exports stay in sync with huge source recordings (no more speech lagging the picture), plus working MP4 and 4K export"
 }
