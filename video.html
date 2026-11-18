@@ -226,10 +226,12 @@
         <input type="file" id="videoFile" accept="video/*" />
         <div id="urlImport" style="display:none; margin-top:10px;">
           <div style="display:flex; gap:8px;">
-            <input type="text" id="clipUrl" placeholder="…or paste a video link" style="flex:1;" />
+            <input type="text" id="clipUrl" placeholder="…or paste a YouTube link" style="flex:1;" />
             <button class="mini" id="clipFetch">Import</button>
+            <button class="mini" id="clipCancel" style="display:none;">Cancel</button>
           </div>
-          <p class="note" id="clipStatus" style="margin-top:5px;">Pulls the clip in so you can edit it. Use content you own or have the rights to.</p>
+          <div id="clipBar" style="display:none; height:4px; border-radius:2px; background:var(--border); margin-top:6px; overflow:hidden;"><div style="height:100%; width:0; background:var(--accent); transition:width .3s;"></div></div>
+          <p class="note" id="clipStatus" style="margin-top:5px;">Pulls the whole video in so you can edit it (kept in Videos › Volt imports). Use content you own or have the rights to.</p>
         </div>
         <p class="note" id="vidInfo" style="margin-top:8px; display:none;"></p>
       </div>
@@ -830,7 +832,7 @@ function loadVideoSrc(src){
     $('#stageControls').style.display='flex';
     if(canMp4()) $('#fmtPick').style.display='flex';
     showShellUpdateNote();
-    if(state.fillAuto) autoSlides(videoEl.src);
+    if(state.fillAuto) state._slideDetect = autoSlides(videoEl.src).finally(() => { state._slideDetect = null; });
     $('#qualPick').style.display='flex';
     $('#exportLbl').textContent = exportLabel();
     $('#ctrlHint').style.display='block';
@@ -843,23 +845,45 @@ function loadVideoSrc(src){
   }, { once:true });
 }
 
-// Import a clip from a URL via the desktop's bundled yt-dlp (dormant until yt-dlp is added).
+
+// ---- Paste a link (desktop): yt-dlp downloads the whole video, with live progress ----
+async function voltImportLink(url, onMsg){
+  const vn = window.voltNative;
+  if(!(vn && typeof vn.fetchClip === 'function')) throw new Error('Link import is available in the desktop app.');
+  let off = null;
+  if(typeof vn.onFetchProgress === 'function') off = vn.onFetchProgress(m => {
+    if(m.title) onMsg('Downloading “' + m.title + '”…', null);
+    else if(m.stage === 'opening') onMsg('Downloaded. Opening it…', 100);
+    else if(m.pct != null) onMsg('Downloading… ' + Math.round(m.pct) + '%' + (m.speed ? ' · ' + m.speed : '') + (m.eta && m.eta !== 'NA' ? ' · ' + m.eta + ' left' : ''), m.pct);
+  });
+  try{
+    const res = await vn.fetchClip(url);
+    if(res && res.unavailable) throw new Error('This build of Volt has no link importer. Update Volt to 1.0.4 or newer.');
+    if(!res || !res.ok) throw new Error((res && res.error) || 'Could not download that link.');
+    const f = new File([res.bytes], res.name || 'import.mp4', { type:'video/mp4' });
+    if(res.path) f.__voltPath = res.path;    // the shell registered it for disk reads
+    f.__voltTitle = res.title || '';
+    return f;
+  } finally { if(off) off(); }
+}
 function setClipStatus(msg){ const s=$('#clipStatus'); if(s) s.textContent = msg; }
 if(window.voltNative && typeof window.voltNative.fetchClip === 'function'){ const ui=$('#urlImport'); if(ui) ui.style.display='block'; }
 $('#clipFetch') && $('#clipFetch').addEventListener('click', async () => {
   const url = ($('#clipUrl').value||'').trim();
   if(!url){ setClipStatus('Paste a video link first.'); return; }
   if(!(window.voltNative && typeof window.voltNative.fetchClip === 'function')){ setClipStatus('Link import is available in the desktop app.'); return; }
-  const btn = $('#clipFetch'); btn.disabled = true; setClipStatus('Downloading… this can take a moment for long videos.');
+  const btn = $('#clipFetch'); btn.disabled = true; setClipStatus('Starting the download…');
+  const bar = $('#clipBar'), cb = $('#clipCancel');
+  if(bar){ bar.style.display = 'block'; bar.firstElementChild.style.width = '0'; }
+  if(cb && typeof window.voltNative.fetchCancel === 'function'){ cb.style.display = ''; cb.onclick = () => window.voltNative.fetchCancel(); }
   try{
-    const res = await window.voltNative.fetchClip(url);
-    if(res && res.unavailable){ setClipStatus('Add yt-dlp to enable link import (see the yt-dlp/README in the app folder).'); return; }
-    if(!res || !res.ok){ setClipStatus((res && res.error) || 'Could not download that link.'); return; }
-    const blob = new Blob([res.bytes], { type:'video/mp4' });
-    loadVideoSrc(URL.createObjectURL(blob));
-    setClipStatus('Loaded ✓ — trim to the moment below.');
-  }catch(e){ setClipStatus('Import failed — try a different link.'); }
-  finally{ btn.disabled = false; }
+    const f = await voltImportLink(url, (msg, pct) => { setClipStatus(msg); if(bar && pct != null) bar.firstElementChild.style.width = pct + '%'; });
+    mainClipName = f.__voltTitle || f.name;
+    loadVideoSrc(URL.createObjectURL(f));
+    mainClipFile = f;   // after loadVideoSrc, which clears it; carries the disk path for fast export
+    setClipStatus('Loaded ✓ “' + (f.__voltTitle || f.name) + '” — trim to the moment below, or send it through SmartClip for the best moments.');
+  }catch(e){ setClipStatus((e && e.message) || 'Import failed — try a different link.'); }
+  finally{ btn.disabled = false; if(cb) cb.style.display = 'none'; if(bar) bar.style.display = 'none'; }
 });
 
 $('#musicFile').addEventListener('change', e => {
@@ -1178,7 +1202,7 @@ function slidesHookY(){
 // three together on a 16:9 source are reliable enough to pick a default the user can override.
 function slideScore(frames){
   if(!frames.length) return 0;
-  let flat = 0, edge = 0, motion = 0;
+  let flat = 0, edge = 0, motion = 0, pairs = 0;
   for(let k = 0; k < frames.length; k++){
     const f = frames[k], d = f.data, w = f.width, h = f.height;
     const hist = new Map(); let e = 0, n = 0;
@@ -1190,11 +1214,13 @@ function slideScore(frames){
     }
     let top = 0; for(const v of hist.values()) if(v > top) top = v;
     flat += top / n; edge += e / n;
-    if(k){ const p = frames[k-1].data; let m = 0, c = 0;
+    // Stillness is measured WITHIN a pair (frames 2k and 2k+1, sampled 0.4s apart). Comparing samples
+    // minutes apart measured the deck changing slides, which made every real webinar look like motion.
+    if(k % 2 === 1){ const p = frames[k-1].data; let m = 0, c = 0;
       for(let i = 0; i < d.length; i += 16){ m += Math.abs(d[i]-p[i]) + Math.abs(d[i+1]-p[i+1]); c++; }
-      motion += m / (c*2); }
+      motion += m / (c*2); pairs++; }
   }
-  flat /= frames.length; edge /= frames.length; motion = frames.length > 1 ? motion / (frames.length-1) : 0;
+  flat /= frames.length; edge /= frames.length; motion = pairs ? motion / pairs : 0;
   // flat >0.3 = a third of the frame is one colour (slide background); edge >0.02 = text;
   // motion <6 = static between samples several seconds apart
   return (flat > 0.30 ? 1 : flat/0.30) * 0.45 + (edge > 0.02 ? 1 : edge/0.02) * 0.25 + (motion < 6 ? 1 : Math.max(0, 1 - (motion-6)/20)) * 0.30;
@@ -1208,8 +1234,10 @@ async function detectSlides(src){
     const x = c.getContext('2d', { willReadFrequently: true }), frames = [];
     const D = v.duration || 0, picks = D > 20 ? [0.15, 0.35, 0.55, 0.75] : [0.3, 0.7];
     for(const p of picks){
-      await new Promise(res => { v.onseeked = res; v.currentTime = D * p; setTimeout(res, 4000); });
-      x.drawImage(v, 0, 0, c.width, c.height); frames.push(x.getImageData(0, 0, c.width, c.height));
+      for(const dt of [0, 0.4]){   // a pair 0.4s apart: is the picture still?
+        await new Promise(res => { v.onseeked = res; v.currentTime = Math.min(D - 0.05, D * p + dt); setTimeout(res, 4000); });
+        x.drawImage(v, 0, 0, c.width, c.height); frames.push(x.getImageData(0, 0, c.width, c.height));
+      }
     }
     v.removeAttribute('src'); v.load();
     return slideScore(frames);
@@ -2327,7 +2355,10 @@ let _exportResolve = null, _exportName = null;
 // so there is no reason to make anyone opt in — the recorder stays as the web path and as the
 // automatic fallback if anything in the fast path throws.
 $('#exportBtn').onclick = () => exportShort();
-function exportShort(fileName){
+async function exportShort(fileName){
+  // Slide detection samples the clip in the background. On an hour-long file that takes a few
+  // seconds; an export (or Chop all) started before it lands would frame a slide deck as a crop.
+  if(state._slideDetect){ setStatus('Checking whether this is a slide recording…'); try{ await state._slideDetect; }catch(e){} }
   if(canFastExport() && state.exportFmt !== 'webm') return fastExport(fileName);
   return startExport(fileName);
 }
@@ -2529,6 +2560,7 @@ async function fastExport(fileName){
     const grab = async (url, file, a, b) => {
       let p = '';
       try{ if(file && window.voltNative && typeof window.voltNative.pathFor === 'function') p = window.voltNative.pathFor(file) || ''; }catch(e){}
+      if(!p && file && file.__voltPath) p = file.__voltPath;   // imported from a link: already on disk
       if(p){
         const wavBytes = await window.voltNative.fx.audio(p, a, b - a);   // null = no audio track
         if(wavBytes){ bytesByUrl[url] = wavBytes; audioBase[url] = a; }
@@ -3894,7 +3926,7 @@ function applyQueued(i){
   // The auto-frame path replaces the fixed focus. drawCover reads state.focusTrack per frame, so
   // the crop follows the speaker instead of sitting wherever "centre" happens to be.
   state.focusTrack = Array.isArray(c.track) && c.track.length ? c.track : null;
-  if(state.focusTrack){
+  if(state.focusTrack && !(state._slideScore >= 0.72)){   // a slide recording keeps the Slides layout
     state.fill = 'crop';
     syncSeg('#fillSeg','crop');
     const fr=$('#focusRow'); if(fr) fr.style.display='block';

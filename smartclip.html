@@ -130,6 +130,13 @@
       <div style="flex:2 1 320px;">
         <label class="lbl">1 · The recording</label>
         <input type="file" id="file" accept="video/*,audio/*" />
+        <div id="linkRow" style="display:none; margin-top:8px;">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="link" placeholder="…or paste a YouTube link to the whole talk" style="flex:1;" />
+            <button class="btn" id="linkGo" style="width:auto; padding:8px 14px;">Import</button>
+            <button class="btn" id="linkCancel" style="width:auto; padding:8px 14px; display:none;">Cancel</button>
+          </div>
+        </div>
         <p class="note" id="fileInfo">Nothing loaded yet. A 25-minute episode transcribes in about a minute.</p>
       </div>
       <div>
@@ -262,8 +269,42 @@ const vid = $('#v');
 function say(msg, kind){ const s=$('#status'); s.innerHTML=msg||''; s.className='status'+(kind?' '+kind:''); }
 function prog(pct){ const b=$('#bar'); if(pct==null){ b.style.display='none'; return; } b.style.display='block'; b.firstElementChild.style.width=Math.max(0,Math.min(100,pct))+'%'; }
 
-$('#file').addEventListener('change', e => {
-  file = e.target.files && e.target.files[0]; if(!file) return;
+
+// ---- Paste a link (desktop): yt-dlp downloads the whole video, with live progress ----
+async function voltImportLink(url, onMsg){
+  const vn = window.voltNative;
+  if(!(vn && typeof vn.fetchClip === 'function')) throw new Error('Link import is available in the desktop app.');
+  let off = null;
+  if(typeof vn.onFetchProgress === 'function') off = vn.onFetchProgress(m => {
+    if(m.title) onMsg('Downloading “' + m.title + '”…', null);
+    else if(m.stage === 'opening') onMsg('Downloaded. Opening it…', 100);
+    else if(m.pct != null) onMsg('Downloading… ' + Math.round(m.pct) + '%' + (m.speed ? ' · ' + m.speed : '') + (m.eta && m.eta !== 'NA' ? ' · ' + m.eta + ' left' : ''), m.pct);
+  });
+  try{
+    const res = await vn.fetchClip(url);
+    if(res && res.unavailable) throw new Error('This build of Volt has no link importer. Update Volt to 1.0.4 or newer.');
+    if(!res || !res.ok) throw new Error((res && res.error) || 'Could not download that link.');
+    const f = new File([res.bytes], res.name || 'import.mp4', { type:'video/mp4' });
+    if(res.path) f.__voltPath = res.path;    // the shell registered it for disk reads
+    f.__voltTitle = res.title || '';
+    return f;
+  } finally { if(off) off(); }
+}
+// A link import and a picked file arrive at the same place.
+if(window.voltNative && typeof window.voltNative.fetchClip === 'function'){ const lr = $('#linkRow'); if(lr) lr.style.display = 'block'; }
+$('#linkGo') && $('#linkGo').addEventListener('click', async () => {
+  const url = ($('#link').value || '').trim(); if(!url || busy) return;
+  const go = $('#linkGo'), cc = $('#linkCancel'); go.disabled = true;
+  if(cc && typeof window.voltNative.fetchCancel === 'function'){ cc.style.display = ''; cc.onclick = () => window.voltNative.fetchCancel(); }
+  try{
+    const f = await voltImportLink(url, (msg, pct) => { say('<span class="spinner"></span>' + esc(msg), 'busy'); prog(pct); });
+    prog(null); openFile(f);
+  }catch(err){ prog(null); say(esc((err && err.message) || 'Import failed.'), 'err'); }
+  finally{ go.disabled = false; if(cc) cc.style.display = 'none'; }
+});
+$('#file').addEventListener('change', e => { const f = e.target.files && e.target.files[0]; if(f) openFile(f); });
+function openFile(f){
+  file = f; if(!file) return;
   clips = []; words = []; selected.clear(); render();
   vid.src = URL.createObjectURL(file);
   vid.addEventListener('loadedmetadata', () => {
@@ -275,7 +316,7 @@ $('#file').addEventListener('change', e => {
       say('You worked on this recording before — ' + prev.clips.length + (prev.clips.length===1?' moment is':' moments are') + ' saved. Restore ' + (prev.clips.length===1?'it':'them') + ' from Previous scans below, or scan again.', 'ok');
     } else say('Ready. Hit Find the moments.');
   }, { once:true });
-});
+}
 
 // ---------------------------------------------------------------- scan
 $('#scan').addEventListener('click', async () => {
@@ -671,6 +712,7 @@ async function downloadClip(c, btn){
     // into the page, and the whole-file decode was what made big downloads fail.
     let diskPath = '';
     try{ if(canFast() && typeof window.voltNative.pathFor === 'function') diskPath = window.voltNative.pathFor(file) || ''; }catch(e){}
+    if(!diskPath && canFast() && file && file.__voltPath) diskPath = file.__voltPath;   // imported from a link: already on disk
     const span = { start: Math.min(...piecesOf(c).map(p=>p.start)), end: Math.max(...piecesOf(c).map(p=>p.end)) };
     let wav = null;
     try{
