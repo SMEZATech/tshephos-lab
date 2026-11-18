@@ -143,8 +143,9 @@
       <div>
         <label class="lbl">How many</label>
         <select id="count" style="width:100%;" title="It may return fewer. A moment that clears the bar is worth more than a full list.">
+          <option value="0" selected>Auto (~1 per 1½ min)</option>
           <option value="4">4 moments</option>
-          <option value="6" selected>6 moments</option>
+          <option value="6">6 moments</option>
           <option value="8">8 moments</option>
           <option value="10">10 moments</option>
         </select>
@@ -152,8 +153,9 @@
       <div>
         <label class="lbl">Clip length</label>
         <select id="len" style="width:100%;">
+          <option value="15,120" selected>15–120s · mixed (best)</option>
           <option value="15,40">15–40s · tight</option>
-          <option value="18,60" selected>18–60s · standard</option>
+          <option value="18,60">18–60s · standard</option>
           <option value="25,90">25–90s · long-form</option>
         </select>
       </div>
@@ -289,7 +291,8 @@ $('#scan').addEventListener('click', async () => {
     }
     say('<span class="spinner"></span>Scoring every possible cut…', 'busy'); prog(96);
     const [lo, hi] = $('#len').value.split(',').map(Number);
-    const found = window.SmartClip.find(words, { count:+$('#count').value, minLen:lo, maxLen:hi });
+    // edit:true = SmartClip v2: cold-open hooks and tangent cuts, so a clip can be several pieces.
+    const found = window.SmartClip.find(words, { count:+$('#count').value, minLen:lo, maxLen:hi, edit:true });
     prog(null);
     if(!found.length){
       clips = []; render();
@@ -299,18 +302,24 @@ $('#scan').addEventListener('click', async () => {
     // Name them. Optional: the timings are the product, the titles are a convenience.
     say('<span class="spinner"></span>Found '+found.length+' moments — naming them…', 'busy');
     let named = [];
-    try{
-      const r = await fetch(API+'/generate', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ task:'cliptitles', clips: found.map((c,i)=>({ i, text:c.text.slice(0,1200) })) }) });
-      const d = await r.json().catch(()=>({}));
-      if(r.ok && Array.isArray(d.titles)) named = d.titles;
-    }catch(_){ }
+    for(let k = 0; k < found.length; k += 12){
+      try{
+        const r = await fetch(API+'/generate', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ task:'cliptitles', clips: found.slice(k, k+12).map((c,j)=>({ i:k+j, text:c.text.slice(0,1200) })) }) });
+        const d = await r.json().catch(()=>({}));
+        if(r.ok && Array.isArray(d.titles)) named = named.concat(d.titles);
+      }catch(_){ }
+      if(found.length > 12) say('<span class="spinner"></span>Naming '+Math.min(found.length, k+12)+' of '+found.length+'…', 'busy');
+    }
     clips = found.map((c,i) => {
       const n = named.find(x=>x && x.i===i) || {};
       const top = c.why.filter(w=>w.points>0).sort((a,b)=>b.points-a.points);
       return { ...c, i,
         title: n.title || (top[0] ? top[0].label.replace(/^./,s=>s.toUpperCase()) : 'Moment '+(i+1)),
-        hook: n.hook || '',
+        // The cold-open line is the speaker's own words, so it beats a written teaser for the hook.
+        hook: n.hook || c.hook || '',
+        coldOpen: c.pieces && c.pieces.length > 1 && c.pieces[0].start > c.pieces[1].start ? c.hook : '',
+        description: n.description || '',
         reason: n.reason || top.slice(0,3).map(w=>w.label).join(' · '),
         track: null };
     });
@@ -456,6 +465,7 @@ function render(){
       + '<div class="body">'
         + '<p class="ct">'+esc(c.title)+'</p>'
         + (c.hook?'<p class="ch">“'+esc(c.hook)+'”</p>':'')
+        + (c.pieces && c.pieces.length > 1 ? '<p class="cw" style="margin-top:4px;">✂ '+(c.coldOpen?'Opens on its best line, then the setup · ':'')+c.pieces.length+' pieces, tangents cut</p>' : '')
         + '<p class="cw">'+esc(c.reason)+'</p>'
         + '<div class="len">'
           + '<button data-act="s-" data-i="'+c.i+'" title="Start 5s earlier">◀ 5s</button>'
@@ -557,13 +567,19 @@ async function sourceAudio(){
   return _audioBuf;
 }
 // One clip's audio, rendered offline — deterministic, and faster than real time.
-async function clipWav(c){
-  const src = await sourceAudio();
+async function clipWav(c, srcBuf, base){
+  // srcBuf/base: a pre-cut soundtrack (desktop reads it from disk) whose sample 0 is source time `base`
+  const src = srcBuf || await sourceAudio();
   if(!src) return null;
-  const SR = 48000, dur = Math.max(0.05, c.end - c.start);
+  base = base || 0;
+  const SR = 48000, dur = Math.max(0.05, c.dur || (c.end - c.start));
   const oc = new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(2, Math.ceil(dur*SR), SR);
-  const n = oc.createBufferSource(); n.buffer = src; n.connect(oc.destination);
-  n.start(0, Math.max(0, c.start), dur);
+  let at = 0;
+  for(const p of piecesOf(c)){
+    const d = p.end - p.start;
+    const n = oc.createBufferSource(); n.buffer = src; n.connect(oc.destination);
+    n.start(at, Math.max(0, p.start - base), d); at += d;
+  }
   return wav16(await oc.startRendering());
 }
 
@@ -580,7 +596,8 @@ function openPreview(c){
   pvMeta(); pvHint();
   const cv = $('#pvCanvas'); cv.width = 540; cv.height = 960;
   vid.muted = false; vid.volume = 1;
-  seek(c.start).then(()=>{ pvDraw(); pvPlay(); });
+  pvPiece = 0;
+  seek(piecesOf(c)[0].start).then(()=>{ pvDraw(); pvPlay(); });
 }
 function closePreview(){
   aiming = false;
@@ -591,14 +608,28 @@ function closePreview(){
   $('#pv').style.display = 'none';
   pvClip = null;
 }
+// Pieces in play order: a v2 clip may open on a later line, then cut back. A plain clip is one piece.
+function piecesOf(c){ return (c.pieces && c.pieces.length) ? c.pieces : [{ start:c.start, end:c.end }]; }
+let pvPiece = 0;
+function pvEdited(c){   // where we are on the EDITED clip's clock
+  const ps = piecesOf(c); let acc = 0;
+  for(let k = 0; k < pvPiece && k < ps.length; k++) acc += ps[k].end - ps[k].start;
+  const p = ps[Math.min(pvPiece, ps.length-1)];
+  return acc + Math.max(0, Math.min(p.end - p.start, vid.currentTime - p.start));
+}
 function pvDraw(){
   const c = pvClip; if(!c) return;
-  const cv = $('#pvCanvas');
-  const off = Math.max(0, Math.min(c.dur, vid.currentTime - c.start));
+  const cv = $('#pvCanvas'), ps = piecesOf(c);
+  const off = Math.max(0, vid.currentTime - c.start);       // SOURCE offset: the crop track is keyed by it
   drawCrop(cv, cv.getContext('2d'), vid, vid.videoWidth, vid.videoHeight, c, off);
-  $('#pvBar').firstElementChild.style.width = (off/c.dur*100)+'%';
-  $('#pvTime').textContent = off.toFixed(1)+'s / '+c.dur.toFixed(1)+'s';
-  if(vid.currentTime >= c.end - 0.03){ pvPause(); seek(c.start); return; }   // loop back, do not run on
+  const ed = pvEdited(c);
+  $('#pvBar').firstElementChild.style.width = (ed/c.dur*100)+'%';
+  $('#pvTime').textContent = ed.toFixed(1)+'s / '+c.dur.toFixed(1)+'s';
+  const p = ps[Math.min(pvPiece, ps.length-1)];
+  if(vid.currentTime >= p.end - 0.03){
+    if(pvPiece < ps.length - 1){ pvPiece++; vid.currentTime = ps[pvPiece].start; }   // cut to the next piece
+    else { pvPause(); pvPiece = 0; seek(ps[0].start); return; }                      // loop back, do not run on
+  }
   if(pvPlaying) pvRaf = requestAnimationFrame(pvDraw);
 }
 function pvPlay(){
@@ -636,13 +667,24 @@ async function downloadClip(c, btn){
     if(!c.track){ setB('framing…'); await frameClip(c, p => setB('framing '+Math.round(p*100)+'%')); paintFramedBadge(c); await paint(c, Math.min(2,c.dur/2)); }
 
     setB('audio…');
+    // Desktop 1.0.3+ reads the recording from disk: a multi-gigabyte event file cannot be loaded
+    // into the page, and the whole-file decode was what made big downloads fail.
+    let diskPath = '';
+    try{ if(canFast() && typeof window.voltNative.pathFor === 'function') diskPath = window.voltNative.pathFor(file) || ''; }catch(e){}
+    const span = { start: Math.min(...piecesOf(c).map(p=>p.start)), end: Math.max(...piecesOf(c).map(p=>p.end)) };
     let wav = null;
-    try{ wav = await clipWav(c); }catch(e){ console.warn('no audio for this clip:', e); }
+    try{
+      if(diskPath){
+        const wb = await window.voltNative.fx.audio(diskPath, span.start, span.end - span.start);
+        if(wb){ const ac = new (window.AudioContext||window.webkitAudioContext)(); try{ wav = await clipWav(c, await ac.decodeAudioData(wb), span.start); } finally { try{ ac.close(); }catch(e){} } }
+      } else wav = await clipWav(c);
+    }catch(e){ console.warn('no audio for this clip:', e); }
 
     if(canFast()){
       setB('decoding…');
-      const bytes = await file.arrayBuffer();
-      const begun = await window.voltNative.fx.begin({ sources:[{ bytes, trimStart:c.start, trimEnd:c.end }], fps:FPS, w:OW, h:OH, wav });
+      const source = diskPath ? { path: diskPath, trimStart: span.start, trimEnd: span.end }
+                              : { bytes: await file.arrayBuffer(), trimStart: span.start, trimEnd: span.end };
+      const begun = await window.voltNative.fx.begin({ sources:[source], fps:FPS, w:OW, h:OH, wav });
       if(!begun || !begun.ok) throw new Error((begun && begun.error) || 'Could not start the export.');
       id = begun.id;
       const total = Math.max(1, Math.round(c.dur*FPS));
@@ -650,14 +692,16 @@ async function downloadClip(c, btn){
       const octx = out.getContext('2d', { willReadFrequently:true });
       octx.imageSmoothingQuality = 'high';
       let last = null;
+      const ps = piecesOf(c);
       for(let i=0;i<total;i++){
-        const buf = await window.voltNative.fx.get(id, 'c0', i);
+        const src = window.SmartClip.srcAt(ps, i/FPS).src;        // edited clock -> recording
+        const buf = await window.voltNative.fx.get(id, 'c0', Math.round((src - span.start)*FPS));
         if(buf){
           const bmp = await createImageBitmap(new Blob([buf], { type:'image/jpeg' }));
           if(last) try{ last.close(); }catch(e){}
           last = bmp;
         }
-        if(last) drawCrop(out, octx, last, last.width, last.height, c, i/FPS);
+        if(last) drawCrop(out, octx, last, last.width, last.height, c, src - c.start);
         const px = octx.getImageData(0,0,OW,OH);
         const r = await window.voltNative.fx.push(id, px.data.buffer);
         if(!r || !r.ok) throw new Error((r && r.error) || 'The encoder stopped accepting frames.');
@@ -732,7 +776,8 @@ async function recordClip(c, OW, OH, FPS, onProg){
   rec.ondataavailable = e => { if(e.data && e.data.size) parts.push(e.data); };
   const done = new Promise(r => { rec.onstop = r; });
   vid.muted = false;
-  await seek(c.start);
+  const ps = piecesOf(c); let pi = 0, before = 0;
+  await seek(ps[0].start);
   rec.start();
   await vid.play();
   // The draw loop runs on a TIMER, not requestAnimationFrame.
@@ -748,8 +793,12 @@ async function recordClip(c, OW, OH, FPS, onProg){
     const draw = () => {
       const off = vid.currentTime - c.start;
       drawCrop(out, octx, vid, vid.videoWidth, vid.videoHeight, c, Math.max(0,off));
-      if(onProg) onProg(Math.max(0, Math.min(1, off/c.dur)));
-      if(vid.currentTime >= c.end - 0.02 || vid.ended) finish();
+      const p = ps[pi];
+      if(onProg) onProg(Math.max(0, Math.min(1, (before + vid.currentTime - p.start)/c.dur)));
+      if(vid.currentTime >= p.end - 0.02 || vid.ended){
+        if(pi < ps.length - 1){ before += p.end - p.start; pi++; try{ vid.currentTime = ps[pi].start; }catch(e){} }
+        else finish();
+      }
     };
     const iv = setInterval(draw, Math.round(1000/FPS));
     // A real-time capture cannot legitimately take longer than the clip plus a margin. Without
@@ -804,6 +853,7 @@ function nudge(c, edge, delta){
   if(edge === 'start') c.start = Math.max(0, Math.min(c.end - MIN_CLIP, c.start + delta));
   else                 c.end   = Math.min(src, Math.max(c.start + MIN_CLIP, c.end + delta));
   c.dur = c.end - c.start;
+  c.pieces = null; c.coldOpen = '';                    // a hand-nudged clip is one plain stretch
   c.track = null; c.trackConf = 0; c.edited = true;   // the path no longer describes this span
   renderOne(c);
   scheduleSave();
@@ -1108,12 +1158,12 @@ async function sendToEditor(list){
     const key = 'clip-' + Date.now();
     await stash(key, file);
     const payload = list.map(c => ({
-      start: c.start, end: c.end, title: c.title, hook: c.hook, score: c.score,
+      start: c.start, end: c.end, title: c.title, hook: c.hook, score: c.score, description: c.description || '',
       track: c.track || null,
-      // Only the words inside the clip, rebased to its own zero — the editor gets captions without
-      // paying for a second transcription.
-      words: words.filter(w => w.end > c.start && w.start < c.end)
-                  .map(w => ({ word:w.word, start:Math.max(0,w.start-c.start), end:Math.min(c.end-c.start, w.end-c.start) }))
+      pieces: (c.pieces && c.pieces.length > 1) ? c.pieces : null,
+      // Only the words the viewer will hear, on the EDITED clip's clock — the editor gets captions
+      // without paying for a second transcription, and they line up with the cold open and the cuts.
+      words: window.SmartClip.wordsFor(words, piecesOf(c))
     }));
     sessionStorage.setItem('volt_smartclip_handoff', JSON.stringify({ key, name:file.name, clips:payload, at:Date.now() }));
     bs.textContent = 'Opening the editor…'; bs.className='status ok';

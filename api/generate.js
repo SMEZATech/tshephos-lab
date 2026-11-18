@@ -987,20 +987,21 @@ export default async function handler(req, res) {
 
       const prompt =
         "You are naming clips that have ALREADY been cut. Do not suggest different boundaries — they are fixed.\n\n" +
-        "For each passage below, return a title, a hook and a reason.\n\n" +
+        "For each passage below, return a title, a hook, a reason and a description.\n\n" +
         safe.map((c) => "### CLIP " + c.i + "\n" + c.text).join("\n\n") + "\n\n" +
         "RULES:\n" +
         "- title: what this clip is ABOUT, 4-8 words, no clickbait, no colon-subtitle format. A person scanning six of these must be able to tell them apart at a glance.\n" +
         "- hook: the on-screen line for the first 2.5 seconds. Under 60 characters. It must come from what the speaker ACTUALLY says — if the clip has a number or a name in it, use that. Never a generic teaser like 'You won't believe this'.\n" +
         "- reason: one plain sentence on why someone would stop scrolling for it. If the honest answer is that it is merely competent, say so — a flat reason is more useful than a flattering one.\n" +
+        "- description: two sentences ready to paste under the post: what the viewer learns, in plain words, with the passage's own specifics. No hashtags, no emoji, no \"In this clip\".\n" +
         "- South African context and spelling. Keep rand amounts as written.\n" +
         "- Return one entry per clip, using the SAME i value it was given.\n\n" +
-        'Return ONLY: {"titles":[{"i":0,"title":"","hook":"","reason":""}]}';
+        'Return ONLY: {"titles":[{"i":0,"title":"","hook":"","reason":"","description":""}]}';
 
       const text = await callProvider(prompt, {
         system: "You write clip titles for a South African small-business media brand. Plain, specific, never breathless. Return ONLY valid JSON.",
         temperature: 0.6,
-        maxTokens: 1200,
+        maxTokens: 2400,
       });
       const parsed = safeParse(text);
       const arr = Array.isArray(parsed && parsed.titles) ? parsed.titles : [];
@@ -1011,6 +1012,7 @@ export default async function handler(req, res) {
           title: String((t && t.title) || "").slice(0, 60),
           hook: String((t && t.hook) || "").slice(0, 90),
           reason: String((t && t.reason) || "").slice(0, 160),
+          description: String((t && t.description) || "").slice(0, 400),
         }))
         // An i the client never sent would attach a name to the wrong clip — drop it rather than
         // guess. The client already falls back to the scorer's own reasons for anything unnamed.

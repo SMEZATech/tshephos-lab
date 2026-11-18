@@ -652,6 +652,7 @@ const voltAssetUrl = (u) => (typeof window.voltAsset === 'function' ? window.vol
 const state = {
   loaded:false, format:'9x16', look:'sme',
   // Fix footage (footage-fix.js): stage clips shot against a bright projector screen.
+  pieces:null,     // SmartClip v2: the primary clip as ordered source ranges [{start,end}] (cold open + tangent cuts)
   fillAuto:true,   // true until the user picks a Fill; lets slide detection choose Slides for them
   fixOn:false, fix:{ screen:0.6, face:0.5, cast:0.7, haze:0.7 }, fixCompare:false,
   trimStart:0, trimEnd:0, duration:0,
@@ -716,7 +717,20 @@ function isR26T(){ return !!window.R26V && R26_KEYS.includes(state.template); }
 function introDur(){ return state.introOn ? (state.template==='summit' ? SUMMIT_INTRO_DUR : isR26T() ? window.R26V.introDur : INTRO_DUR) : 0; }
 function outroDur(){ return state.outroOn ? (state.outroDur || OUTRO_DUR) : 0; }
 // Clip 1 (the primary upload, videoEl) — trim + tightened pauses apply here.
-function clipDur(){ return Math.max(0, state.trimEnd - state.trimStart - (state.skipTotal || 0)); }
+function clipDur(){
+  if(state.pieces && state.pieces.length) return state.pieces.reduce((d,p)=>d + (p.end - p.start), 0);
+  return Math.max(0, state.trimEnd - state.trimStart - (state.skipTotal || 0));
+}
+// Pieces are in PLAY order and may jump backwards (the cold open plays a later line first).
+function pieceAt(local){
+  const ps = state.pieces; let acc = 0;
+  for(let i = 0; i < ps.length; i++){
+    const d = ps[i].end - ps[i].start;
+    if(local < acc + d || i === ps.length - 1) return { i, src: ps[i].start + Math.max(0, Math.min(d, local - acc)), acc };
+    acc += d;
+  }
+  return { i:0, src: ps[0].start, acc:0 };
+}
 
 // ================= MULTI-CLIP TIMELINE =================
 // extraClips are appended AFTER the primary clip. Each has its own <video> + audio node, and
@@ -741,6 +755,7 @@ function clipAt(into){
   return { idx:-1, el:videoEl, local:into, segStart:0, segDur:d0 };
 }
 function clipSrcTime(seg, local){
+  if(seg.idx === -1 && state.pieces && state.pieces.length) return pieceAt(local).src;   // edited clip
   if(seg.idx === -1) return state.trimStart + srcOfEff(local);   // primary honours tightened pauses
   return seg.clip.trimStart + local;
 }
@@ -786,6 +801,7 @@ $('#videoFile').addEventListener('change', e => {
 });
 // Load a clip from any object/blob URL (used by file upload AND link import).
 function loadVideoSrc(src){
+  state.pieces = null;
   mainClipFile = null;
   videoEl.src = src;
   videoEl.muted = true; // muted until export, so preview doesn't autoblast
@@ -869,13 +885,13 @@ function updateTrimRead(){
 $('#trimStart').addEventListener('input', e => {
   let v = parseFloat(e.target.value);
   if(v > state.trimEnd - 1) v = Math.max(0, state.trimEnd - 1);
-  state.trimStart = v; e.target.value = v;
+  state.trimStart = v; e.target.value = v; state.pieces = null;
   updateTrimRead(); clearCaptions(); restart();
 });
 $('#trimEnd').addEventListener('input', e => {
   let v = parseFloat(e.target.value);
   if(v < state.trimStart + 1) v = Math.min(state.duration, state.trimStart + 1);
-  state.trimEnd = v; e.target.value = v;
+  state.trimEnd = v; e.target.value = v; state.pieces = null;
   updateTrimRead(); clearCaptions(); restart();
 });
 
@@ -2238,6 +2254,7 @@ function frame(now){
         // an element that has ENDED refuses some seeks — nudge it back before seeking
         if(el.ended){ try{ el.currentTime = 0; }catch(e){} }
         try{ el.currentTime = clipSrcTime(seg, seg.local); }catch(e){}
+        if(seg.idx === -1 && state.pieces) state._piece = pieceAt(seg.local).i;
         // Real playback (not export, which always forces sound on separately) honours the Sound
         // on/off toggle — this is the one place actual continuous preview audio starts, so it's
         // where the toggle has to take effect, not just on the Play button click.
@@ -2260,6 +2277,16 @@ function frame(now){
             t = iD + (k.s - k.cumBefore);
             break;
           }
+        }
+      }
+      // edited clip: at the end of a piece, cut to the next one and pin the clock to it
+      if(seg.idx === -1 && state.pieces && state.pieces.length){
+        const ps = state.pieces, k = Math.min(state._piece || 0, ps.length - 1);
+        if(el.currentTime >= ps[k].end - 0.02 && k < ps.length - 1){
+          state._piece = k + 1;
+          try{ el.currentTime = ps[k + 1].start; }catch(e){}
+          let acc = 0; for(let j = 0; j <= k; j++) acc += ps[j].end - ps[j].start;
+          t = iD + acc;
         }
       }
       // safety: keep within this clip's trim
@@ -2427,7 +2454,8 @@ async function fxRenderAudio(fps, totalFrames, bytesByUrl, audioBase){
   }
   let at = iD;
   const mainBase = audioBase[videoEl.src] || 0;
-  for(const [s, e] of runs){ place(main, at, s - mainBase, e - s, 1); at += (e - s); }
+  const order = (state.pieces && state.pieces.length) ? state.pieces.map(p => [p.start, p.end]) : runs;
+  for(const [s, e] of order){ place(main, at, s - mainBase, e - s, 1); at += (e - s); }
   for(const c of extraClips){
     const ab = await dec(c.src);
     const d = Math.max(0, c.trimEnd - c.trimStart);
@@ -3484,6 +3512,7 @@ function removeFillers(){
 // ---- ⏩ Tighten pauses: find dead air from the word timings (no audio analysis needed),
 // rewrite captions onto the tightened timeline, and let frame() skip the source regions. ----
 function tightenPauses(){
+  if(state.pieces && state.pieces.length){ setCapStatus('This clip came from SmartClip already edited — dead air and tangents are cut.', 'ok'); return; }
   if(state.skips && state.skips.length){ // acting as UNDO
     if(state.preTighten){ state.lines = state.preTighten.lines; state.words = state.preTighten.words; }
     clearSkips(); updateTrimRead(); renderCapEditor();
@@ -3827,7 +3856,8 @@ async function applySmartClipHandoff(){
     applyQueued(0);
     // The whole set is listed so a single styling pass can chop all of them.
     hlData = scQueue.map((c,i)=>({ start:c.start, end:c.end, title:c.title||('Moment '+(i+1)), hook:c.hook||'',
-                                   reason:'', score:c.score||0 }));
+                                   reason:c.description||'', score:c.score||0, queued:i,
+                                   dur: Array.isArray(c.pieces) && c.pieces.length > 1 ? c.pieces.reduce((d,p)=>d+p.end-p.start,0) : null }));
     if(scQueue.length > 1){
       $('#highlights').style.display = 'block';
       renderHighlights(hlData);
@@ -3846,6 +3876,9 @@ let scQueue = [];
 function applyQueued(i){
   const c = scQueue[i]; if(!c) return;
   state.trimStart = c.start; state.trimEnd = c.end;
+  clearSkips();
+  state.pieces = (Array.isArray(c.pieces) && c.pieces.length > 1) ? c.pieces : null;
+  if(state.pieces){ state.trimStart = Math.min(...c.pieces.map(p=>p.start)); state.trimEnd = Math.max(...c.pieces.map(p=>p.end)); }
   const ts=$('#trimStart'), te=$('#trimEnd');
   if(ts) ts.value = c.start.toFixed(1);
   if(te) te.value = c.end.toFixed(1);
@@ -3906,7 +3939,7 @@ function renderHighlights(hs){
   const list=$('#hlList');
   list.innerHTML = hs.map((h,i)=>{
     const col = h.score>=70?'var(--good)':h.score>=45?'var(--mid)':'var(--low)';
-    const range = fmtTime(h.start)+'–'+fmtTime(h.end)+' · '+Math.round(h.end-h.start)+'s';
+    const range = fmtTime(h.start)+'–'+fmtTime(h.end)+' · '+Math.round(h.dur || (h.end-h.start))+'s'+(h.dur ? ' · edited' : '');
     return '<div class="hl-card" data-i="'+i+'">'
       + '<div class="hl-score" style="background:'+col+'">'+h.score+'</div>'
       + '<div class="hl-main">'
@@ -3942,7 +3975,26 @@ function rebaseCaptions(h){
   }
   return out;
 }
+async function chopAllQueued(){
+  // Clips handed over from SmartClip carry their own pieces, words and framing: apply each one
+  // exactly as clicking it would, then export through the normal path (fast export on desktop).
+  const btn = $('#hlChopAll'); if(btn) btn.disabled = true;
+  let done = 0;
+  try{
+    for(let i = 0; i < scQueue.length; i++){
+      const c = scQueue[i];
+      applyQueued(i);
+      setHlStatus('⚡ Exporting '+(i+1)+'/'+scQueue.length+' — “'+(c.title||('Moment '+(i+1)))+'”…', 'busy');
+      const res = await exportShort('sme-'+String(i+1).padStart(2,'0')+'-'+slugify(c.title));
+      if(res && res.ok === false) throw new Error('Export stopped on clip '+(i+1)+' — '+done+' clip(s) were saved.');
+      done++;
+    }
+    setHlStatus('✅ Exported '+done+'/'+scQueue.length+' shorts.', 'ok');
+  }catch(err){ setHlStatus(err.message, 'err'); }
+  finally{ if(btn) btn.disabled = false; applyQueued(0); }
+}
 async function chopAllHighlights(){
+  if(scQueue.length && hlData.length && hlData[0].queued != null) return chopAllQueued();
   if(state.recording || !state.loaded || !hlData.length) return;
   const snap = {
     trimStart: state.trimStart, trimEnd: state.trimEnd,
@@ -3994,6 +4046,8 @@ async function chopAllHighlights(){
 }
 function applyHighlight(i){
   const h = hlData[i]; if(!h) return;
+  if(h.queued != null){ applyQueued(h.queued); return; }   // a SmartClip hand-off brings its own pieces, words and framing
+  state.pieces = null;
   const oldStart = state.trimStart;
   let ns = oldStart + h.start, ne = oldStart + h.end;
   ns = Math.max(0, Math.min(ns, state.duration));

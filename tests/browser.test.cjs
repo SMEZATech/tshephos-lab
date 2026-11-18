@@ -428,6 +428,27 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         expect('Video, ' + who + ': the slide itself is drawn untouched (white stays white)', sl.slidePx.every(v => v > 240), sl);
         expect('Video, ' + who + ': Punch picks the meaning-carrying word per beat, not filler', sl.keys[0] === 'attackers' && sl.keys.indexOf('only') < 0, sl);
       }
+      // SmartClip v2 hand-off: a clip made of pieces in PLAY order (cold open first, then the setup).
+      {
+        const pc = await s.page.evaluate(() => {
+          const keep = { q: scQueue, ts: state.trimStart, te: state.trimEnd, dur: state.duration, pieces: state.pieces, lines: state.lines, words: state.words };
+          state.duration = 300;
+          scQueue = [{ start: 100, end: 160, title: 'MFA', hook: 'If there is one control, let it be MFA', score: 50,
+                       pieces: [{ start: 150, end: 154 }, { start: 100, end: 130 }, { start: 140, end: 160 }],
+                       words: [{ word: 'If', start: 0, end: 0.3 }, { word: 'there', start: 0.3, end: 0.6 }] }];
+          applyQueued(0);
+          const seg = { idx: -1, local: 0, segStart: 0, segDur: clipDur() };
+          const out = { dur: clipDur(), trim: [state.trimStart, state.trimEnd], at1: clipSrcTime(seg, 1), at5: clipSrcTime(seg, 5), at36: clipSrcTime(seg, 36),
+                        tighten: (tightenPauses(), document.getElementById('capStatus') ? document.getElementById('capStatus').textContent : '') };
+          document.getElementById('trimEnd').value = '150'; document.getElementById('trimEnd').dispatchEvent(new Event('input'));
+          out.afterTrim = state.pieces;
+          Object.assign(state, { trimStart: keep.ts, trimEnd: keep.te, duration: keep.dur, pieces: keep.pieces, lines: keep.lines, words: keep.words }); scQueue = keep.q;
+          return out;
+        });
+        expect('Video, ' + who + ': a SmartClip v2 clip plays its pieces in order — cold open first, then the setup', pc.dur === 54 && pc.at1 === 151 && pc.at5 === 101 && pc.at36 === 142, pc);
+        expect('Video, ' + who + ': the edited clip spans its pieces, and a manual trim turns it back into one stretch', pc.trim[0] === 100 && pc.trim[1] === 160 && pc.afterTrim === null, pc);
+        expect('Video, ' + who + ': Tighten pauses leaves an already-edited clip alone', /already edited/.test(pc.tighten), pc);
+      }
       // Old desktop shell (1.0.0): toMp4 without the CFR fix. MP4 must be off and the update note shown.
       {
         const sh = await s.page.evaluate(() => {

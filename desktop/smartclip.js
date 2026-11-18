@@ -224,6 +224,133 @@
     return taken.sort(function (x, y) { return x.start - y.start; });
   }
 
+  // ================================================================ v2: EDITED CLIPS
+  // Studied from OpusClip's cut of Gary Manzini's webinar (Nov 2026, 39 clips). Two editing moves
+  // separate a clip that feels produced from one that feels trimmed, and both are measurable:
+  //
+  // 1. THE COLD OPEN. Six of Opus's top seven clips do not start where the speaker started. The
+  //    strongest single line in the passage, usually the conclusion ("If there's one control you'd
+  //    need to enable today, let it be MFA"), plays FIRST for 3-8 seconds, then the clip cuts back
+  //    to the setup. The line is also left in its natural place, so the argument still reads.
+  // 2. THE TANGENT CUT. Asides ("Um, so, call it…"), self-corrections and dead air between
+  //    sentences come out. A clip becomes 2-6 PIECES of the recording, not one stretch.
+  //
+  // A v2 clip therefore carries `pieces: [{start, end}]` in PLAY order. `start`/`end` stay as the
+  // span of the recording it draws on, and `dur` is the edited length the viewer sees. Every piece
+  // boundary is a word edge, so nothing is ever cut mid-syllable.
+
+  // Words that can be shaved off the FRONT of a hook line without changing what it says.
+  var HOOK_LEAD = /^(um+|uh+|erm+|so|and|but|now|okay|ok|well|like|yeah|right|also|then|because|basically|actually|obviously|look|listen|again|anyway)[,.]?$/i;
+  // What makes a line work with no setup at all. Not a virality model: a line has to be a complete,
+  // self-contained claim, and these are the shapes that carry one.
+  // Checked against the cold opens OpusClip actually chose for Gary Manzini's webinar: "Attackers only
+  // need to compromise one account to reach many organizations quickly", "If there's one control you'd
+  // need to enable today, let it be MFA", "only 3 percent feel they have enough money", "If you
+  // remember nothing else from today, just remember lock, store, train and check".
+  var PUNCH = [
+    { re: /\b(if there'?s one|the (one|single|biggest|number one|first|only) (thing|control|step|rule|mistake|reason)|if you remember (nothing|one thing)|nothing else)\b/i, pts: 12 },
+    { re: /\b(remember|never|always|stop|don'?t|make sure|enable|turn on|check)\b/i, pts: 6 },
+    { re: /\b(rule of thumb|the (point|lesson|takeaway|truth|reality) is|bottom line)\b/i, pts: 8 },
+    { re: /\d\s?(%|per ?cent\b|percent\b)|\bR\s?\d/i, pts: 8 },                 // NB: no \b after "%" (not a word char)
+    { re: /\b(need to|needs to|must|have to|has to)\b/i, pts: 4 },
+    { re: /\b(compromis\w*|hack\w*|steal\w*|stolen|fake|fraud\w*|scam\w*|breach\w*|ransom\w*|cripple\w*|kill\w*|destroy\w*|cost\w*|los(e|es|ing|t)|leak\w*|block\w*|protect\w*|sav(e|es|ing)|impersonat\w*|copy|copies)\b/i, pts: 6 },
+    { re: /\b(attackers?|criminals?|scammers?|hackers?|customers?|money|cash|business(es)?|budget\w*)\b/i, pts: 3 },
+    { re: /\b(only|every|all|most|biggest|worst|nobody|no one|everyone|many)\b/i, pts: 3 },
+    { re: /\byou(r)?\b/i, pts: 2 }
+  ];
+  var NO_HOOK_START = /^(it|its|it'?s|this|that|these|those|they|them|he|she|which|there|here|the other|another|let'?s|let me|i don'?t|i'?m (going|gonna)|we'?ll|today|in this|as i (said|mentioned)|once you|as we|as you)\b/i;
+  // A hook must CLAIM something. Talk about the talk ("I don't like going into detail", "let's look at
+  // five ways") is not a hook however short it is; these are the meta-commentary shapes to refuse.
+  var META = /\b(going into detail|next slide|this (slide|session|webinar|section)|we('| wi)ll (cover|look|talk|speak)|let'?s (look|move|talk|speak)|as you can see|spoke about (earlier|before))\b/i;
+
+  function stripLead(words) {
+    var i = 0;
+    while (i < words.length - 4 && HOOK_LEAD.test(words[i].word.replace(/[,.]+$/, ''))) i++;
+    return words.slice(i);
+  }
+  // Score one sentence as a cold open. Returns null if it cannot stand alone.
+  function hookOf(sent, next) {
+    // A pause can split one thought in two ("If there's one control you'd need to enable today," /
+    // "let it be MFA."). Join it back when the first half did not end the sentence.
+    if (next && !sent.terminal && next.words.length <= 12 && (next.start - sent.end) < 1.2)
+      sent = { words: sent.words.concat(next.words), terminal: next.terminal };
+    // A sentence that STARTS lower-case was split mid-thought by a pause: it has no beginning to lead with.
+    if (/^[a-z]/.test(String((sent.words[0] && sent.words[0].word) || ''))) return null;
+    var ws = stripLead(sent.words);
+    if (ws.length < 5 || ws.length > 28) return null;
+    var dur = ws[ws.length - 1].end - ws[0].start;
+    if (dur < 1.6 || dur > 9.5) return null;
+    var text = ws.map(function (w) { return w.word; }).join(' ');
+    if (NO_HOOK_START.test(text) || DANGLING.test(text)) return null;
+    if (!sent.terminal) return null;
+    var fill = (text.match(FILLER) || []).length;
+    if (fill > 1 || META.test(text)) return null;
+    // a line that points back at something unseen in its first words cannot open a clip
+    if (/\b(these|those|this one|that one)\b/i.test(ws.slice(0, 6).map(function (w) { return w.word; }).join(' '))) return null;
+    var pts = 0;
+    for (var k = 0; k < PUNCH.length; k++) if (PUNCH[k].re.test(text)) pts += PUNCH[k].pts;
+    if (pts < 9) return null;                 // the substance has to be there before shortness counts
+    if (ws.length <= 14) pts += 3;            // short is punchy
+    return pts >= 12 ? { start: ws[0].start, end: ws[ws.length - 1].end, text: text, pts: pts } : null;
+  }
+  // Is this sentence an aside the clip is better without? Only ever true for INTERIOR sentences.
+  function isAside(sent) {
+    var wc = sent.words.length;
+    var fill = (sent.text.match(FILLER) || []).length;
+    var content = sent.words.filter(function (w) { return !/^(um+|uh+|erm+|so|and|but|okay|ok|well|like|yeah|right|you|know|i|mean)[,.]?$/i.test(w.word); }).length;
+    return (wc <= 6 && content <= 2) || (wc && fill / wc >= 0.34);
+  }
+  // Turn a run of sentences into play-ordered pieces: asides dropped, silences > 0.9s cut out.
+  function bodyPieces(sents, a, b) {
+    var keep = [];
+    for (var i = a; i <= b; i++) {
+      if (i > a && i < b && isAside(sents[i])) continue;
+      keep.push(sents[i]);
+    }
+    var pieces = [], cur = null;
+    keep.forEach(function (s, k) {
+      var prev = keep[k - 1];
+      var contiguous = prev && sents.indexOf(s) === sents.indexOf(prev) + 1 && (s.start - prev.end) <= 0.9;
+      if (cur && contiguous) { cur.end = s.end; }
+      else { if (cur) pieces.push(cur); cur = { start: s.start, end: s.end }; }
+    });
+    if (cur) pieces.push(cur);
+    return pieces;
+  }
+  function piecesDur(p) { var d = 0; for (var i = 0; i < p.length; i++) d += p[i].end - p[i].start; return d; }
+
+  // Build the edited version of a scored run: tangent cut, then a cold open if the passage has a
+  // line strong enough to lead with. Rescored so an edit only wins if it is genuinely better.
+  function edit(sents, c, o) {
+    var pieces = bodyPieces(sents, c.a, c.b);
+    var out = { pieces: pieces, hook: null, score: c.score, why: c.why.slice() };
+    // Whisper capitalises the start of a sentence. A body that opens lower-case was split on a pause
+    // mid-sentence ("to your mail account..."), the same failure as a dangling pronoun.
+    if (/^[a-z]/.test(sents[c.a].text.replace(/^[^A-Za-z]+/, ''))) { out.score -= 12; out.why.push({ label: 'starts mid-sentence', points: -12 }); }
+    var removed = (c.end - c.start) - piecesDur(pieces);
+    if (removed > 0.8) { out.score += Math.min(8, Math.round(removed)); out.why.push({ label: 'tangents and dead air cut (' + removed.toFixed(1) + 's)', points: Math.min(8, Math.round(removed)) }); }
+    // dead air was penalised on the uncut run; the pieces no longer contain it
+    c.why.forEach(function (w) { if (/silence inside/.test(w.label)) { out.score -= w.points; } });
+    if (o.hooks !== false && piecesDur(pieces) >= 14) {
+      var best = null;
+      for (var i = c.a + 1; i <= c.b; i++) {
+        var h = hookOf(sents[i], i < c.b ? sents[i + 1] : null);
+        if (h && (!best || h.pts > best.pts)) best = h;
+      }
+      // A cold open must ADD something: not a line the clip already opens on.
+      if (best && best.start - c.start > 4) {
+        out.hook = best;
+        out.pieces = [{ start: best.start, end: best.end }].concat(pieces);
+        var bonus = Math.min(14, Math.round(best.pts * 0.7));
+        out.score += bonus; out.why.push({ label: 'cold open: "' + best.text.slice(0, 60) + '"', points: bonus });
+        // With the hook giving context first, a soft body opener costs less.
+        c.why.forEach(function (w) { if (/refers to something the viewer missed/.test(w.label)) { out.score += 12; } });
+      }
+    }
+    out.dur = piecesDur(out.pieces);
+    return out;
+  }
+
   /**
    * find(words, opts) -> [{ start, end, dur, text, score, why:[{label,points}] }]
    * Sorted by position in the recording, not by score, because that is the order you review in.
@@ -237,7 +364,29 @@
     if (o.maxLen < o.minLen) o.maxLen = o.minLen;
     var sents = toSentences(words || []);
     if (!sents.length) return [];
-    var picked = pick(candidates(sents, o), o);
+    var cands;
+    if (o.edit) {
+      // v2: long-form is allowed to be long. Opus's best-scoring clips ran 60-130s; the stories
+      // need room. The sweet band follows the window the caller asked for.
+      // Opus's median clip was ~39s and its long ones were its best stories, so the band rewards
+      // 25-60s and a long clip has to win on substance, not on length.
+      if (!opts || opts.sweetHi == null) { o.sweetLo = Math.max(o.minLen + 4, 22); o.sweetHi = Math.min(o.maxLen, 60); }
+      if (!opts || opts.minGapBetween == null) o.minGapBetween = 4;
+      if (!o.count) {   // auto: about one clip per 90s of recording, 4-40
+        var total = sents[sents.length - 1].end - sents[0].start;
+        o.count = Math.max(4, Math.min(40, Math.round(total / 90)));
+      }
+      var raw = candidates(sents, o).filter(function (c) { return c.score >= o.minScore - 12; })
+                                   .sort(function (x, y) { return y.score - x.score; })
+                                   .slice(0, Math.max(60, o.count * 25));
+      cands = raw.map(function (c) {
+        var e = edit(sents, c, o);
+        c.score = e.score; c.why = e.why; c.pieces = e.pieces; c.dur = e.dur;
+        if (e.hook) c.hook = e.hook.text;
+        return c;
+      });
+    } else cands = candidates(sents, o);
+    var picked = pick(cands, o);
     var byScore = picked.slice().sort(function (x, y) { return y.score - x.score; });
     picked.forEach(function (p) {
       p.rank = byScore.indexOf(p) + 1;
@@ -246,5 +395,29 @@
     return picked;
   }
 
-  return { find: find, toSentences: toSentences, DEFAULTS: DEFAULTS, _score: scoreRun, _candidates: candidates };
+  // Map a time on the EDITED clip to a time in the recording. pieces are in play order.
+  function srcAt(pieces, t) {
+    var acc = 0;
+    for (var i = 0; i < pieces.length; i++) {
+      var d = pieces[i].end - pieces[i].start;
+      if (t < acc + d || i === pieces.length - 1) return { src: pieces[i].start + Math.max(0, Math.min(d, t - acc)), i: i };
+      acc += d;
+    }
+    return { src: pieces.length ? pieces[0].start : 0, i: 0 };
+  }
+  // The words a viewer hears, re-timed onto the edited clip's own clock (hook words appear twice
+  // when the hook is also left in its natural place — that is the point).
+  function wordsFor(words, pieces) {
+    var out = [], acc = 0;
+    pieces.forEach(function (p) {
+      words.forEach(function (w) {
+        if (w.end > p.start + 0.01 && w.start < p.end - 0.01)
+          out.push({ word: w.word, start: acc + Math.max(0, w.start - p.start), end: acc + Math.min(p.end - p.start, w.end - p.start) });
+      });
+      acc += p.end - p.start;
+    });
+    return out;
+  }
+  return { find: find, toSentences: toSentences, DEFAULTS: DEFAULTS, srcAt: srcAt, wordsFor: wordsFor, piecesDur: piecesDur,
+           _score: scoreRun, _candidates: candidates, _hookOf: hookOf, _bodyPieces: bodyPieces };
 }));
