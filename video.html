@@ -299,6 +299,7 @@
         <div class="seg" id="fillSeg">
           <button data-fill="crop" class="on">✂️ Crop</button>
           <button data-fill="blur">🌫 Blur fill</button>
+          <button data-fill="slides">🖥 Slides</button>
         </div>
         <div id="focusRow">
           <label class="lbl" style="margin:14px 0 8px;">Reframe focus <span class="opt">where to keep the speaker</span></label>
@@ -308,7 +309,7 @@
             <button data-focus="right">Right ▶</button>
           </div>
         </div>
-        <p class="note" style="margin-top:8px;"><b style="color:var(--dim)">Crop</b> fills the frame (trims the sides) — use focus so an off-centre speaker isn't cut. <b style="color:var(--dim)">Blur fill</b> shows the whole frame with blurred bars — nothing gets cropped.</p>
+        <p class="note" style="margin-top:8px;"><b style="color:var(--dim)">Crop</b> fills the frame (trims the sides) — use focus so an off-centre speaker isn't cut. <b style="color:var(--dim)">Blur fill</b> shows the whole frame with blurred bars — nothing gets cropped. <b style="color:var(--dim)">Slides</b> is for screen shares and webinars: the slide runs full-width in the middle, captions sit in the clear space below it, and the hook card sits above, so nothing ever covers the slide. Volt picks it automatically when the clip looks like slides.</p>
       </div>
 
       <div class="blk">
@@ -478,6 +479,7 @@
             <button data-bg="none" class="on">None</button>
             <button data-bg="bar">Bar</button>
             <button data-bg="box">Box</button>
+            <button data-bg="punch" title="1–3 words at a time, one keyword big and boxed, filler words faded">Punch</button>
           </div>
           <div class="togrow" id="tog-caps" data-t="caps" style="margin:0;"><span class="nm">ALL CAPS</span><span class="sw"></span></div>
         </div>
@@ -650,6 +652,7 @@ const voltAssetUrl = (u) => (typeof window.voltAsset === 'function' ? window.vol
 const state = {
   loaded:false, format:'9x16', look:'sme',
   // Fix footage (footage-fix.js): stage clips shot against a bright projector screen.
+  fillAuto:true,   // true until the user picks a Fill; lets slide detection choose Slides for them
   fixOn:false, fix:{ screen:0.6, face:0.5, cast:0.7, haze:0.7 }, fixCompare:false,
   trimStart:0, trimEnd:0, duration:0,
   introOn:true, outroOn:true, musicVol:0.25,
@@ -811,6 +814,7 @@ function loadVideoSrc(src){
     $('#stageControls').style.display='flex';
     if(canMp4()) $('#fmtPick').style.display='flex';
     showShellUpdateNote();
+    if(state.fillAuto) autoSlides(videoEl.src);
     $('#qualPick').style.display='flex';
     $('#exportLbl').textContent = exportLabel();
     $('#ctrlHint').style.display='block';
@@ -880,7 +884,7 @@ $('#fmtSeg').addEventListener('click', e => { const b=e.target.closest('button')
 $('#lookSeg').addEventListener('click', e => { const b=e.target.closest('button'); if(b) setLook(b.dataset.l); });
 $('#fillSeg').addEventListener('click', e => {
   const b=e.target.closest('button'); if(!b) return;
-  state.fill = b.dataset.fill;
+  state.fill = b.dataset.fill; state.fillAuto = false;
   document.querySelectorAll('#fillSeg button').forEach(x=>x.classList.toggle('on', x===b));
   $('#focusRow').style.display = (state.fill==='crop') ? 'block' : 'none';
 });
@@ -1097,6 +1101,113 @@ function drawCover(media, mw, mh, focusX){
   else { dw = W; dh = W/r; x = 0; y = -(dh - H)*0.5; }
   ctx.drawImage(media, x, y, dw, dh);
 }
+// ============================================================================================
+// SLIDES LAYOUT — for screen shares, webinars and anything where the CONTENT is a 16:9 frame you
+// must be able to read. Studied from OpusClip's treatment of Gary Manzini's webinar (Nov 2026):
+//   top band     a blurred, zoomed copy of the same frame (never black bars), fading to black
+//   middle       the slide at full width, NEVER drawn over
+//   lower band   the captions, in the clear space below the slide
+//   top band     the hook card, for the opening seconds
+// The bands are computed from the real content box, so a 4:3 deck or a 1:1 format still lands right.
+// ============================================================================================
+const SLIDES_ZOOM = 1.0;           // full width, never wider: a zoom crops the deck's edges (logos, page numbers, footers)
+let _slideBlur = null;
+function slidesBox(mw, mh){
+  // Where the content sits on the canvas. Returns null for portrait sources (nothing to letterbox).
+  if(!mw || !mh || mw/mh < W/H * 1.05) return null;
+  const dw = W * SLIDES_ZOOM, dh = dw * mh / mw;
+  const cy = H * 0.47;             // a hair above centre: the lower band carries the captions
+  return { x: (W - dw) / 2, y: cy - dh / 2, w: dw, h: dh, top: cy - dh / 2, bottom: cy + dh / 2 };
+}
+function drawSlidesFill(media, mw, mh){
+  const box = slidesBox(mw, mh);
+  if(!box){ drawCover(media, mw, mh, 0.5); return; }
+  // Cheap blur: shrink to a few dozen pixels and scale back up (no ctx.filter blur per frame).
+  if(!_slideBlur){ _slideBlur = document.createElement('canvas'); _slideBlur.width = 14; _slideBlur.height = 25; }   // tiny on purpose: a band must read as colour, never as legible text
+  const b = _slideBlur.getContext('2d');
+  const sw = Math.min(mw, mh * (14/25)), sx = (mw - sw) / 2;
+  try{ b.drawImage(media, sx + sw*0.1, mh*0.1, sw*0.8, mh*0.8, 0, 0, 14, 25); }catch(e){}
+  ctx.save();
+  ctx.imageSmoothingEnabled = true; try{ ctx.imageSmoothingQuality = 'high'; }catch(e){}
+  ctx.drawImage(_slideBlur, -W*0.06, -H*0.06, W*1.12, H*1.12);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.fillRect(0, 0, W, H);
+  // fade the outer edges to black so the bands read as space, not as a second picture
+  const gT = ctx.createLinearGradient(0, 0, 0, box.top);
+  gT.addColorStop(0, 'rgba(0,0,0,0.85)'); gT.addColorStop(0.45, 'rgba(0,0,0,0.0)');
+  ctx.fillStyle = gT; ctx.fillRect(0, 0, W, box.top);
+  const gB = ctx.createLinearGradient(0, box.bottom, 0, H);
+  gB.addColorStop(0.55, 'rgba(0,0,0,0.0)'); gB.addColorStop(1, 'rgba(0,0,0,0.85)');
+  ctx.fillStyle = gB; ctx.fillRect(0, box.bottom, W, H - box.bottom);
+  ctx.restore();
+  // hairline shadow under the slide edges, then the slide itself
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = H*0.02;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, box.top, W, box.h); ctx.restore();
+  ctx.drawImage(media, box.x, box.y, box.w, box.h);
+  state._slidesBox = box;
+}
+// The clear band below the content, as a y centre. Captions anchor here in Slides mode.
+function slidesCaptionY(){
+  const b = state._slidesBox; if(!b) return H*0.78;
+  return b.bottom + (H - b.bottom) * 0.30;
+}
+function slidesHookY(){
+  const b = state._slidesBox; if(!b) return H*0.14;
+  return Math.max(H*0.08, b.top * 0.48);
+}
+
+// ---- Slide detection: is this a screen share / deck rather than a camera? ----
+// Measured on a few frames from a hidden copy of the clip, so the preview never jumps. Slides are
+// mostly FLAT (large areas of one colour), carry sharp text edges, and barely move between frames.
+// A camera shot of a speaker is the opposite on all three. Each signal alone is easy to fool; the
+// three together on a 16:9 source are reliable enough to pick a default the user can override.
+function slideScore(frames){
+  if(!frames.length) return 0;
+  let flat = 0, edge = 0, motion = 0;
+  for(let k = 0; k < frames.length; k++){
+    const f = frames[k], d = f.data, w = f.width, h = f.height;
+    const hist = new Map(); let e = 0, n = 0;
+    for(let y = 0; y < h; y += 2) for(let x = 0; x < w - 2; x += 2){
+      const i = (y*w + x)*4, q = ((d[i]>>4)<<8)|((d[i+1]>>4)<<4)|(d[i+2]>>4);
+      hist.set(q, (hist.get(q)||0) + 1); n++;
+      const j = i + 8, l1 = d[i]+d[i+1]+d[i+2], l2 = d[j]+d[j+1]+d[j+2];
+      if(Math.abs(l1 - l2) > 150) e++;
+    }
+    let top = 0; for(const v of hist.values()) if(v > top) top = v;
+    flat += top / n; edge += e / n;
+    if(k){ const p = frames[k-1].data; let m = 0, c = 0;
+      for(let i = 0; i < d.length; i += 16){ m += Math.abs(d[i]-p[i]) + Math.abs(d[i+1]-p[i+1]); c++; }
+      motion += m / (c*2); }
+  }
+  flat /= frames.length; edge /= frames.length; motion = frames.length > 1 ? motion / (frames.length-1) : 0;
+  // flat >0.3 = a third of the frame is one colour (slide background); edge >0.02 = text;
+  // motion <6 = static between samples several seconds apart
+  return (flat > 0.30 ? 1 : flat/0.30) * 0.45 + (edge > 0.02 ? 1 : edge/0.02) * 0.25 + (motion < 6 ? 1 : Math.max(0, 1 - (motion-6)/20)) * 0.30;
+}
+async function detectSlides(src){
+  try{
+    const v = document.createElement('video'); v.muted = true; v.preload = 'auto'; v.crossOrigin = 'anonymous'; v.src = src;
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = rej; setTimeout(rej, 15000); });
+    if(!v.videoWidth || v.videoWidth / v.videoHeight < 1.2) return 0;   // portrait/square: never slides
+    const c = document.createElement('canvas'); c.width = 96; c.height = Math.round(96 * v.videoHeight / v.videoWidth);
+    const x = c.getContext('2d', { willReadFrequently: true }), frames = [];
+    const D = v.duration || 0, picks = D > 20 ? [0.15, 0.35, 0.55, 0.75] : [0.3, 0.7];
+    for(const p of picks){
+      await new Promise(res => { v.onseeked = res; v.currentTime = D * p; setTimeout(res, 4000); });
+      x.drawImage(v, 0, 0, c.width, c.height); frames.push(x.getImageData(0, 0, c.width, c.height));
+    }
+    v.removeAttribute('src'); v.load();
+    return slideScore(frames);
+  }catch(e){ return 0; }
+}
+async function autoSlides(src){
+  const sc = await detectSlides(src);
+  state._slideScore = sc;
+  if(sc < 0.72 || !state.fillAuto || videoEl.src !== src) return;
+  state.fill = 'slides';
+  syncSeg('#fillSeg', 'slides'); const fr = $('#focusRow'); if(fr) fr.style.display = 'none';
+  const vi = $('#vidInfo'); if(vi) vi.textContent += '  Looks like slides: switched to the Slides layout (change it under Fill).';
+}
+
 function drawBlurFill(media, mw, mh){
   if(!mw || !mh) return;
   // blurred, darkened cover behind
@@ -1884,6 +1995,7 @@ function drawHook(ct){
   let rows=[], line='';
   for(const w of words){ const test = line ? line+' '+w : w; if(ctx.measureText(test).width > maxW && line){ rows.push(line); line=w; } else line=test; }
   if(line) rows.push(line);
+  if(state.fill==='slides'){ drawHookCard(rows.length ? txt : '', a, rise); ctx.restore(); return; }
   const lh = fs*1.12, blockH = rows.length*lh, cy = H*0.20 + rise;
   // scrim
   ctx.fillStyle='rgba(0,0,0,0.45)';
@@ -1892,6 +2004,35 @@ function drawHook(ct){
   let y = cy - blockH/2 + lh/2;
   ctx.lineWidth = Math.max(4, fs*0.14); ctx.lineJoin='round'; ctx.strokeStyle='rgba(0,0,0,0.85)';
   for(const ln of rows){ ctx.strokeText(ln, W/2, y); ctx.fillStyle='#ffffff'; ctx.fillText(ln, W/2, y); y += lh; }
+  ctx.restore();
+}
+
+// The Slides-mode hook: a white card with heavy dark capitals in the band ABOVE the slide, so the
+// opening line reads first and the slide is never covered. Sized to fit the band it's given.
+function drawHookCard(txt, a, rise){
+  if(!txt) return;
+  const bandTop = H*0.04, bandBot = state._slidesBox ? state._slidesBox.top - H*0.02 : H*0.28;
+  const maxW = W*0.74, maxH = Math.max(H*0.08, bandBot - bandTop);
+  const up = txt.toUpperCase(), words = up.split(/\s+/);
+  let fs = Math.round(W*0.062), rows = [];
+  for(; fs > W*0.034; fs -= 2){
+    ctx.font = '800 '+fs+'px "Plus Jakarta Sans", Inter, sans-serif';
+    rows = []; let line = '';
+    for(const w of words){ const t2 = line ? line+' '+w : w; if(ctx.measureText(t2).width > maxW && line){ rows.push(line); line = w; } else line = t2; }
+    if(line) rows.push(line);
+    if(rows.length*fs*1.12 + fs*1.0 <= maxH && rows.length <= 4) break;
+  }
+  const lh = fs*1.12, padX = fs*0.75, padY = fs*0.55;
+  let wMax = 0; for(const r of rows) wMax = Math.max(wMax, ctx.measureText(r).width);
+  const bw = wMax + padX*2, bh = rows.length*lh + padY*2;
+  const cy = Math.min(slidesHookY(), bandBot - bh/2) + rise, bx = W/2 - bw/2, by = cy - bh/2;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = fs*0.6; ctx.shadowOffsetY = fs*0.12;
+  ctx.fillStyle = '#ffffff'; roundRect(bx, by, bw, bh, fs*0.32); ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = '#121A21'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  let y = by + padY + lh/2;
+  for(const r of rows){ ctx.fillText(r, W/2, y); y += lh; }
   ctx.restore();
 }
 
@@ -1997,7 +2138,9 @@ function onLayerField(e){ const f=e.target.closest('.lyr-f'); if(!f) return; con
 // not the file you approved.
 function paintTimeline(into, seg, media, mw, mh){
   const cD = timelineDur();
+  state._slidesBox = null;
   if(state.fill==='blur') drawBlurFill(media, mw, mh);
+  else if(state.fill==='slides') drawSlidesFill(media, mw, mh);
   else {
     const box = boxAt(into);
     if(box && window.AutoFrame){
@@ -2053,6 +2196,7 @@ function frame(now){
     if(state.capturing){
       ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
       if(state.fill==='blur') drawBlurFill(videoEl, videoEl.videoWidth, videoEl.videoHeight);
+      else if(state.fill==='slides') drawSlidesFill(videoEl, videoEl.videoWidth, videoEl.videoHeight);
       else drawCover(videoEl, videoEl.videoWidth, videoEl.videoHeight, FOCUS[state.focus]);
       applyLook();
       ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0, H/2 - H*0.05, W, H*0.10);
@@ -2698,10 +2842,98 @@ function capBoxInk(c){
   const n = parseInt(m[1],16), r=(n>>16&255)/255, g=(n>>8&255)/255, b=(n&255)/255;
   return (0.2126*r + 0.7152*g + 0.0722*b) > 0.45 ? '#0A0B0F' : '#ffffff';
 }
+// ============================================================================================
+// PUNCH CAPTIONS — 1-3 words on screen, one KEYWORD per beat drawn big on a highlight box, the
+// filler around it smaller and faded. Your eye lands on one word at a time, which is what makes a
+// muted scroll stop. Studied from OpusClip's webinar treatment; drawn in the brand's own colour.
+// ============================================================================================
+const PUNCH_STOP = new Set(('a an the and or but so if then than that this these those to of in on at by for with from as is are was were be been being it its it\'s i you we they he she them our your my me us '+
+  'um uh like just really very actually basically literally kind sort of yeah okay ok well right also too can could would should will do does did have has had not no yes there here what which who when where how').split(' '));
+function punchChunks(line){
+  // split a caption line into beats of <=3 words, breaking early on long words so a beat never crowds
+  const out = []; let cur = [];
+  for(const w of line.words){
+    cur.push(w);
+    const chars = cur.reduce((n, x) => n + String(x.word).length, 0);
+    if(cur.length >= 3 || chars >= 16 || /[.?!,;:]$/.test(w.word)){ out.push(cur); cur = []; }
+  }
+  if(cur.length) out.push(cur);
+  return out.map(ws => ({ words: ws, start: ws[0].start, end: ws[ws.length-1].end, key: punchKey(ws) }));
+}
+function punchKey(ws){
+  // the word that carries the meaning: numbers first, then the longest non-filler word
+  let best = -1, bestScore = -1;
+  ws.forEach((w, i) => {
+    const t = String(w.word).replace(/[^\w%'’-]/g, ''), lower = t.toLowerCase();
+    if(!t || PUNCH_STOP.has(lower)) return;
+    let sc = t.length + (/\d/.test(t) ? 8 : 0) + (/^[A-Z]/.test(String(w.word)) && i > 0 ? 2 : 0);
+    if(sc > bestScore){ bestScore = sc; best = i; }
+  });
+  return best;
+}
+function drawPunchCaptions(ct, line){
+  const beats = line._beats || (line._beats = punchChunks(line));
+  const beat = beats.find(b => ct >= b.start - 0.05 && ct <= b.end + 0.12) || null;
+  if(!beat) return;
+  const base = Math.round(W * (CAP_SIZE[state.capSize] || 0.058) * 1.18);
+  const keyFs = Math.round(base * 1.22), fillFs = Math.round(base * 0.78);
+  const font = n => '700 '+n+'px Oswald, "Plus Jakarta Sans", sans-serif';
+  const ease = Math.max(0, Math.min(1, (ct - beat.start + 0.05) / 0.12));
+  // lay the beat out on one row if it fits, else stack (keyword on its own row)
+  const cells = beat.words.map((w, i) => {
+    const isKey = i === beat.key, fs = isKey ? keyFs : fillFs;
+    ctx.font = font(fs); const txt = String(w.word).toUpperCase().replace(/[,;:]+$/, '');
+    return { w, txt, fs, isKey, ww: ctx.measureText(txt).width };
+  });
+  const sp = fillFs * 0.32, maxW = W * 0.86;
+  const rows = [[]]; let rw = 0;
+  for(const c of cells){
+    if(rw + c.ww > maxW && rows[rows.length-1].length){ rows.push([]); rw = 0; }
+    rows[rows.length-1].push(c); rw += c.ww + sp;
+  }
+  const rowH = r => Math.max(...r.map(c => c.fs)) * 1.18;
+  const blockH = rows.reduce((h, r) => h + rowH(r), 0);
+  const presetY = state.fill==='slides' ? slidesCaptionY()
+                : state.capPos==='top' ? H*0.16 : state.capPos==='middle' ? H*0.50 : H*0.78;
+  const cy = Math.max(H*0.10, Math.min(H*0.92, presetY + (state.capOffset||0)/100*H));
+  let y = cy - blockH/2;
+  const hl = state.capColor || '#DC183C';
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for(const r of rows){
+    const h = rowH(r), total = r.reduce((a, c) => a + c.ww, 0) + sp*(r.length-1);
+    let x = W/2 - total/2;
+    for(const c of r){
+      const cx = x + c.ww/2, cyy = y + h/2;
+      const spoken = ct >= c.w.start - 0.03, active = spoken && ct <= c.w.end + 0.03;
+      ctx.font = font(c.fs);
+      if(c.isKey){
+        // the keyword: pops in with a slight overshoot, sits on the brand highlight
+        const p = Math.max(0, Math.min(1, (ct - c.w.start + 0.08) / 0.16));
+        const pop = spoken ? 1 + 0.10*Math.sin(Math.PI*p) * (1 - p*0.3) : 0.94;
+        ctx.save(); ctx.translate(cx, cyy); ctx.scale(pop, pop); ctx.globalAlpha = ease * (spoken ? 1 : 0.55);
+        const bw = c.ww + c.fs*0.36, bh = c.fs*1.10;
+        ctx.fillStyle = hl; roundRect(-bw/2, -bh/2, bw, bh, c.fs*0.14); ctx.fill();
+        ctx.fillStyle = capBoxInk(hl); ctx.fillText(c.txt, 0, c.fs*0.03);
+        ctx.restore();
+      } else {
+        ctx.save(); ctx.globalAlpha = ease * (active ? 1 : spoken ? 0.82 : 0.45);
+        ctx.lineWidth = Math.max(3, c.fs*0.14); ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+        ctx.strokeText(c.txt, cx, cyy); ctx.fillStyle = '#ffffff'; ctx.fillText(c.txt, cx, cyy);
+        ctx.restore();
+      }
+      x += c.ww + sp;
+    }
+    y += h;
+  }
+  ctx.restore();
+}
+
 function drawCaptions(ct){
   if(isR26T() && window.R26V.captions(ct)) return;
   const line = state.lines.find(L => ct >= L.start - 0.06 && ct <= L.end + 0.30);
   if(!line) return;
+  if(state.capBg === 'punch'){ drawPunchCaptions(ct, line); return; }
   const fs = Math.round(W * (CAP_SIZE[state.capSize] || 0.058));
   // subtle line entrance: 0.16s slide-up + fade (CapCut/veed feel; too small to distract)
   let ease = Math.max(0, Math.min(1, (ct - line.start + 0.06) / 0.16));
@@ -2724,7 +2956,8 @@ function drawCaptions(ct){
     rows[rows.length-1].push({ w, txt, ww }); rowW += ww + sp;
   }
   const lh = fs*1.18, blockH = rows.length*lh;
-  const presetY = state.capPos==='top' ? H*0.16 : state.capPos==='middle' ? H*0.50 : H*0.80;
+  const presetY = state.fill==='slides' ? slidesCaptionY()
+                : state.capPos==='top' ? H*0.16 : state.capPos==='middle' ? H*0.50 : H*0.80;
   // Fine-tune nudge on top of the preset, clamped so an extreme slider value at either preset edge
   // can never push the block fully off-canvas.
   const baseY = Math.max(H*0.10, Math.min(H*0.94, presetY + (state.capOffset||0)/100*H));

@@ -396,6 +396,38 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
         expect('Video, ' + who + ': "Hold to compare" shows the original, and the canvas stays exportable', sum(fx.cmp.screen) === sum(fx.off.screen) && !fx.tainted, fx);
         expect('Video, ' + who + ': a saved look keeps the Fix footage settings', fx.savedFix, fx);
       }
+      // Slides layout + Punch captions (studied from OpusClip, Nov 2026).
+      {
+        const sl = await s.page.evaluate(async () => {
+          const mk = (fn) => { const c = document.createElement('canvas'); c.width = 96; c.height = 54; const x = c.getContext('2d'); fn(x); return x.getImageData(0, 0, 96, 54); };
+          const slide = mk(x => { x.fillStyle = '#fff'; x.fillRect(0, 0, 96, 54); x.fillStyle = '#123'; for (let y = 8; y < 50; y += 5) x.fillRect(8, y, 60 + (y % 3) * 6, 2); });
+          const cam = (k) => mk(x => { for (let y = 0; y < 54; y++) for (let i = 0; i < 96; i++) { x.fillStyle = 'rgb(' + ((i * 7 + k * 40 + y * 3) % 200 + 30) + ',' + ((y * 5 + k * 25) % 180 + 40) + ',' + ((i + y + k * 60) % 150 + 60) + ')'; x.fillRect(i, y, 1, 1); } });
+          const slideScoreS = slideScore([slide, slide, slide]), camScore = slideScore([cam(0), cam(1), cam(2)]);
+          // paint a 16:9 slide through the real painter in Slides mode with Punch captions
+          const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const x = c.getContext('2d');
+          x.fillStyle = '#fff'; x.fillRect(0, 0, 1280, 720); x.fillStyle = '#0C1F31'; x.fillRect(80, 80, 1120, 90);
+          const bmp = await createImageBitmap(c), seg = { segStart: 0, segDur: 10, idx: 0 };
+          const keep = { fill: state.fill, look: state.look, lines: state.lines, cOn: state.captionsOn, bg: state.capBg, col: state.capColor, hook: state.hookOn };
+          const ws = 'attackers only need one account'.split(' ').map((w, i) => ({ word: w, start: i * 0.4, end: i * 0.4 + 0.3 }));
+          state.fill = 'slides'; state.look = 'natural'; state.lines = groupLines(ws); state.captionsOn = true; state.capBg = 'punch'; state.capColor = '#DC183C'; state.hookOn = false;
+          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); paintTimeline(0.1, seg, bmp, 1280, 720);
+          const box = state._slidesBox, capY = slidesCaptionY();
+          // the keyword ATTACKERS sits on a red box in the lower band; the slide itself stays white
+          let red = 0, redTop = H, redBot = 0;
+          const img = ctx.getImageData(0, 0, W, H).data;
+          for (let y = 0; y < H; y += 2) for (let i = 0; i < W; i += 2) { const k = (y * W + i) * 4; if (img[k] > 190 && img[k + 1] < 60 && img[k + 2] < 90) { red++; redTop = Math.min(redTop, y); redBot = Math.max(redBot, y); } }
+          const slidePx = ctx.getImageData(Math.round(W * 0.5), Math.round(box.top + box.h * 0.75), 1, 1).data;
+          const keys = punchChunks(state.lines[0]).map(b => b.words[b.key] && b.words[b.key].word);
+          Object.assign(state, { fill: keep.fill, look: keep.look, lines: keep.lines, captionsOn: keep.cOn, capBg: keep.bg, capColor: keep.col, hookOn: keep.hook });
+          return { slideScoreS, camScore, box: { top: Math.round(box.top), bottom: Math.round(box.bottom), w: Math.round(box.w) }, W, H, capY: Math.round(capY), red, redTop, redBot, slidePx: Array.from(slidePx.slice(0, 3)), keys,
+                   btn: !!document.querySelector('#fillSeg [data-fill="slides"]') && !!document.querySelector('#capBgSeg [data-bg="punch"]') };
+        });
+        expect('Video, ' + who + ': slide detection scores a deck high and a camera shot low', sl.slideScoreS >= 0.72 && sl.camScore < 0.72, sl);
+        expect('Video, ' + who + ': the Slides layout runs the slide full width and leaves bands above and below', sl.btn && sl.box.w === sl.W && sl.box.top > sl.H * 0.2 && sl.box.bottom < sl.H * 0.75, sl);
+        expect('Video, ' + who + ': Punch captions sit in the band BELOW the slide, never on it', sl.capY > sl.box.bottom && sl.red > 200 && sl.redTop > sl.box.bottom, sl);
+        expect('Video, ' + who + ': the slide itself is drawn untouched (white stays white)', sl.slidePx.every(v => v > 240), sl);
+        expect('Video, ' + who + ': Punch picks the meaning-carrying word per beat, not filler', sl.keys[0] === 'attackers' && sl.keys.indexOf('only') < 0, sl);
+      }
       // Old desktop shell (1.0.0): toMp4 without the CFR fix. MP4 must be off and the update note shown.
       {
         const sh = await s.page.evaluate(() => {
