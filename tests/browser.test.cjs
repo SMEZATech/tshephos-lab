@@ -173,6 +173,93 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     await ctx.close();
   }
 
+  console.log('Video editor: cut clips ("pieces") (browser):');
+  {
+    const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}));
+    const boot = async () => {
+      await page.goto(base + '/video.html', { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#capBtn', { state: 'attached', timeout: 20000 });
+      const w = await page.$('#va-welcome-go'); if (w) await w.click();
+      await page.waitForTimeout(2500);
+    };
+    await boot();
+    const re = await page.evaluate(() => {
+      // base 100 (the trimmed span starts at 100s); pieces play 105-107 first (a cold open), then 100-103
+      const words = [{ word: 'a', start: 0.5, end: 1 }, { word: 'b', start: 5.2, end: 5.8 }, { word: 'c', start: 10, end: 11 }];
+      return retimeToPieces(words, [{ start: 105, end: 107 }, { start: 100, end: 103 }], 100);
+    });
+    expect('captions generated for a cut clip are re-timed onto the cut: the cold-open line first, cut parts dropped',
+      re.length === 2 && re[0].word === 'b' && Math.abs(re[0].start - 0.2) < 1e-6 && re[1].word === 'a' && Math.abs(re[1].start - 2.5) < 1e-6, re);
+    await page.evaluate(() => {
+      state.loaded = true; state.duration = 120; mainClipName = 'talk.mp4';
+      state.pieces = [{ start: 50, end: 55 }, { start: 10, end: 20 }]; state.trimStart = 10; state.trimEnd = 55;
+      state.words = [{ word: 'hi', start: 0, end: 1 }]; state.lines = [{ start: 0, end: 1, words: state.words }];
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    const saved = await page.evaluate(() => { const r = JSON.parse(localStorage.getItem('volt_autosave_video.html') || 'null'); return r && r.mods && r.mods.video && r.mods.video.clip; });
+    expect('autosave stores the cut and which clip it belongs to', !!saved && saved.name === 'talk.mp4' && saved.pieces.length === 2, saved);
+    await boot();
+    const right = await page.evaluate(() => {
+      state.loaded = true; state.duration = 120; mainClipName = 'talk.mp4';
+      const ok = applyResume();
+      return { ok, pieces: state.pieces, ts: state.trimStart, te: state.trimEnd, lines: state.lines.length };
+    });
+    expect('re-opening the SAME clip brings the cut, trim and captions back', right.ok === true && right.pieces && right.pieces.length === 2 && right.ts === 10 && right.te === 55 && right.lines === 1, right);
+    await page.evaluate(() => {
+      state.loaded = true; state.duration = 120; mainClipName = 'talk.mp4';
+      state.pieces = [{ start: 50, end: 55 }, { start: 10, end: 20 }]; state.trimStart = 10; state.trimEnd = 55;
+      state.words = [{ word: 'hi', start: 0, end: 1 }]; state.lines = [{ start: 0, end: 1, words: state.words }];
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    await boot();
+    const wrong = await page.evaluate(() => { state.loaded = true; state.duration = 120; mainClipName = 'other.mp4'; const ok = applyResume(); return { ok, pieces: state.pieces }; });
+    expect('a DIFFERENT clip does not pick up the saved cut', wrong.ok === false && wrong.pieces === null, wrong);
+    expect('no page errors', errors.length === 0, errors);
+    await ctx.close();
+  }
+
+  console.log('SmartClip page (browser):');
+  {
+    const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}));
+    await page.route('**/video.html*', r => r.abort());   // capture the hand-off instead of navigating away
+    await page.goto(base + '/smartclip.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#scan', { state: 'attached', timeout: 20000 });
+    const w = await page.$('#va-welcome-go'); if (w) await w.click();
+    await page.waitForTimeout(1500);
+    const init = await page.evaluate(() => ({
+      scanDisabled: document.getElementById('scan').disabled,
+      linkHidden: getComputedStyle(document.getElementById('linkRow')).display === 'none',
+      count: [...document.querySelectorAll('#count option')].filter(o => o.selected).map(o => o.value).join(),
+      len: [...document.querySelectorAll('#len option')].filter(o => o.selected).map(o => o.value).join(),
+      engine: typeof window.SmartClip,
+    }));
+    expect('the page loads with the engine ready and "Find the moments" disabled until a file is chosen', init.engine === 'object' && init.scanDisabled === true, init);
+    expect('link import is a desktop-only feature: hidden on the web', init.linkHidden === true, init);
+    expect('defaults are Auto count and mixed length', init.count === '0' && init.len === '15,120', init);
+
+    const card = await page.evaluate(() => {
+      clips = [{ i: 0, start: 100, end: 160, dur: 54, score: 50, title: 'MFA basics', hook: 'If there is one control', reason: 'strong claim', coldOpen: 'If there is one control',
+                 pieces: [{ start: 150, end: 154 }, { start: 100, end: 130 }, { start: 140, end: 160 }], why: [] }];
+      selected = new Set(); render();
+      return { text: (document.querySelector('.clip') || {}).innerText || '', sendDisabled: document.getElementById('sendSel').disabled };
+    });
+    expect('a v2 clip card says it opens on its best line and has 3 pieces', /Opens on its best line/.test(card.text) && /3 pieces/.test(card.text), card.text);
+    expect('"Send selected" stays disabled until a moment is ticked', card.sendDisabled === true, card);
+
+    const sent = await page.evaluate(async () => {
+      window.stash = async () => {};
+      file = new File([new Uint8Array(8)], 'talk.mp4');
+      words = [{ word: 'x', start: 151, end: 151.4 }, { word: 'y', start: 120, end: 120.4 }, { word: 'cut', start: 135, end: 135.4 }];
+      await sendToEditor(clips);
+      const h = JSON.parse(sessionStorage.getItem('volt_smartclip_handoff') || 'null');
+      return h && { name: h.name, n: h.clips.length, pieces: h.clips[0].pieces, words: h.clips[0].words.map(x => x.word + '@' + x.start.toFixed(1)) };
+    });
+    expect('sending to the editor carries the pieces', !!sent && sent.name === 'talk.mp4' && sent.pieces && sent.pieces.length === 3, sent);
+    expect('…and ONLY the words the viewer hears, on the edited clip\'s clock (the cold-open line first and again in place; the cut tangent dropped)', !!sent && sent.words.join() === 'x@1.0,y@24.0,x@45.0', sent);
+    expect('no page errors', errors.length === 0, errors);
+    await ctx.close();
+  }
+
   console.log('Email preview sandbox (browser):');
   {
     const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}));

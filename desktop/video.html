@@ -842,6 +842,7 @@ function loadVideoSrc(src){
     buildFilmstrip(videoEl.src);
     clearCaptions();
     t=0; mainPlaying=false; state.playing=true; videoEl.currentTime=0;
+    if(_resume) applyResume();
   }, { once:true });
 }
 
@@ -2817,6 +2818,21 @@ function captureSegmentAudio(){
     else go();
   });
 }
+// Words from a transcription of the whole trimmed span (times relative to trimStart) -> the same words
+// on the EDITED clip's clock: only what falls inside a kept piece, in play order. Mirrors
+// SmartClip's wordsFor(); a word in the cut tangent is dropped, a cold-open line appears twice.
+function retimeToPieces(words, pieces, base){
+  const out = []; let acc = 0;
+  pieces.forEach(p => {
+    words.forEach(w => {
+      const ws = base + w.start, we = base + w.end;
+      if(we > p.start + 0.01 && ws < p.end - 0.01)
+        out.push(Object.assign({}, w, { start: acc + Math.max(0, ws - p.start), end: acc + Math.min(p.end - p.start, we - p.start) }));
+    });
+    acc += p.end - p.start;
+  });
+  return out;
+}
 async function generateCaptions(){
   if(state.busy || !state.loaded) return;
   state.busy = true;
@@ -2825,8 +2841,10 @@ async function generateCaptions(){
   try{
     const blob = await captureSegmentAudio();
     if(!blob || blob.size < 800) throw new Error('No audio captured — does this clip have sound?');
-    const words = await transcribeAudio(blob);
+    let words = await transcribeAudio(blob);
     if(!words.length) throw new Error('No speech detected in this clip.');
+    if(state.pieces && state.pieces.length) words = retimeToPieces(words, state.pieces, state.trimStart);
+    if(!words.length) throw new Error('No speech detected in the parts of this clip you kept.');
     state.words = words;
     state.lines = groupLines(words);
     state.captionsOn = true;
@@ -4406,6 +4424,32 @@ function applyCampaignHandoff(){
 // autosave reuses them and adds the transcript, which is the expensive part to lose. The CLIP
 // itself is not stored — a video blob does not belong in localStorage — so a restored session
 // waits for you to re-pick the file with every setting already in place.
+// A saved session waiting for its clip. When the same file (name + length) is opened again, the cut
+// (trim, pieces) and the captions go back exactly as they were — loadVideoSrc() would otherwise reset them.
+let _resume = null;
+function applyResume(){
+  const r = _resume; _resume = null;
+  if(!r || !r.clip || !state.loaded) return false;
+  if(r.clip.name !== mainClipName || Math.abs((r.clip.dur || 0) - state.duration) > 0.6) return false;
+  const ts = Math.max(0, Math.min(state.duration, Number(r.trimStart) || 0)), te = Math.max(ts + 0.5, Math.min(state.duration, Number(r.trimEnd) || state.duration));
+  state.trimStart = ts; state.trimEnd = te;
+  state.pieces = (Array.isArray(r.clip.pieces) && r.clip.pieces.length > 1) ? r.clip.pieces : null;
+  if($('#trimStart')) $('#trimStart').value = ts.toFixed(1);
+  if($('#trimEnd')) $('#trimEnd').value = te.toFixed(1);
+  updateTrimRead();
+  // Captions of a clip whose pauses had been tightened sit on the tightened clock, which isn't restored.
+  if(!r.clip.tightened && Array.isArray(r.lines) && r.lines.length){
+    state.lines = r.lines; state.words = Array.isArray(r.words) ? r.words : []; state.captionsOn = true;
+    const tg = $('#tog-captions'); if(tg) tg.classList.add('on');
+    $('#capToggleRow').style.display='block'; $('#capColorRow').style.display='flex';
+    $('#capPosRow').style.display='block'; $('#capStyleRow').style.display='block';
+    renderCapEditor();
+    $('#capBtn').textContent = '↻ Regenerate captions';
+  }
+  setStatus('↩ Picked up where you left off — your cut' + (state.lines.length ? ' and captions' : '') + ' are back.');
+  restart();
+  return true;
+}
 (function registerVideoAutosave(){
   if (!window.voltRegisterAutosave) return;
   let restoring = false;
@@ -4417,7 +4461,11 @@ function applyCampaignHandoff(){
         // Cap the transcript so one long clip can't blow the localStorage quota for every other tool.
         const lines = (state.lines || []).slice(0, 400);
         return { look: look, lines: lines, words: lines.length ? (state.words || []).slice(0, 4000) : [],
-                 trimStart: state.trimStart, trimEnd: state.trimEnd, platform: state.postPlatform };
+                 trimStart: state.trimStart, trimEnd: state.trimEnd, platform: state.postPlatform,
+                 // The cut. The clip file itself is never stored, so this is matched by name + length when
+                 // the same file is opened again (see applyResume).
+                 clip: state.loaded ? { name: mainClipName, dur: state.duration, pieces: (state.pieces && state.pieces.length) ? state.pieces : null,
+                                        tightened: !!(state.skips && state.skips.length) } : null };
       } catch (e) { return null; }
     },
     restore: function(d){
@@ -4427,6 +4475,7 @@ function applyCampaignHandoff(){
       restoring = true;
       try {
         restoreLook(d.look);
+        _resume = d.clip && d.clip.name ? d : null;
         if (d.platform) {
           state.postPlatform = d.platform;
           document.querySelectorAll('#pcPlatSeg button').forEach(b => b.classList.toggle('on', b.dataset.pp === d.platform));
