@@ -204,6 +204,10 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
 
   <h2>Change log</h2>
   <div class="log-entry">
+    <span class="log-date">2026-11-19</span>
+    <strong>Desktop 1.0.4 published; SmartClip judge; pieces in the editor; per-brand designs</strong> — Desktop 1.0.4 (YouTube link import) is released and <code>version.json</code> points at it. SmartClip: the engine now offers up to 6 measured cold-open candidates per clip and a new <code>coldopen</code> task in <code>api/generate.js</code> lets the free Gemini pass choose among them (it returns an index only, so timings stay measured). The Video editor’s Generate captions re-times words onto a cut clip, and autosave restores the cut when the same file is reopened. Studio shows each brand only its own designs, with a “Show designs outside this brand” toggle and a Brand Kit checklist. Also: the lightning-rain loader was removed at Joel’s request; Paystack only upgrades on a matching ZAR payment; Email pre-flight blocks a send with no unsubscribe link; a never-created queue table is reported as “not set up” instead of failing the scheduler run. Open list: see the handover.
+  </div>
+  <div class="log-entry">
     <span class="log-date">2026-11-18</span>
     <strong>Handover.</strong> Joel is moving the remaining work to another agent. The ordered to-do list (publish desktop 1.0.4, outstanding checks, open engineering items) and the traps from this stretch are in <code>volt-desktop/HANDOVER-2026-11-18.md</code>, in the outer folder (not in either repo). Ad-hoc test harnesses and the Gary Manzini benchmark data are in <code>volt-desktop/review/opus-study/tools/</code>.
   </div>
