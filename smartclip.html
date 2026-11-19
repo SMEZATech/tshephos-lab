@@ -352,6 +352,20 @@ $('#scan').addEventListener('click', async () => {
       }catch(_){ }
       if(found.length > 12) say('<span class="spinner"></span>Naming '+Math.min(found.length, k+12)+' of '+found.length+'…', 'busy');
     }
+    // Cold opens: the engine measured the candidate lines; Gemini only says WHICH one leads each clip
+    // (it returns an index, never a time), so a bad answer costs a duller opener, never a bad cut.
+    try{
+      const ask = found.map((c,i)=>({ i, lines:(c.options||[]).map(x=>x.text) })).filter(x=>x.lines.length >= 1);
+      if(ask.length){
+        say('<span class="spinner"></span>Choosing the strongest opening line for each moment…', 'busy');
+        const r = await fetch(API+'/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ task:'coldopen', clips: ask.slice(0, 40) }) });
+        const d = await r.json().catch(()=>({}));
+        if(r.ok && Array.isArray(d.picks)) d.picks.forEach(p => {
+          const c = found[p.i]; if(!c || !(p.n >= 1) || !c.options || !c.options[p.n-1]) return;
+          window.SmartClip.applyHook(c, c.options[p.n-1]);
+        });
+      }
+    }catch(_){ /* the engine's own pick stands */ }
     clips = found.map((c,i) => {
       const n = named.find(x=>x && x.i===i) || {};
       const top = c.why.filter(w=>w.points>0).sort((a,b)=>b.points-a.points);

@@ -49,4 +49,10 @@ expect("an unparseable first reply is retried ONCE and the retry's answer is use
 geminiCalls = []; replies = ["nope", "still nope"];
 r = await call({ task: "insightcards", article });
 expect("two bad replies in a row fail cleanly (502), after exactly one retry", r.status === 502 && geminiCalls.length === 2, { status: r.status, calls: geminiCalls.length });
+// SmartClip cold opens: the model picks an INDEX among measured lines; it can never return a time.
+geminiCalls = []; replies = [JSON.stringify({ picks: [{ i: 0, n: 2, start: 99 }, { i: 1, n: 0 }, { i: 2, n: 9 }, { i: 7, n: 1 }] })];
+r = await call({ task: "coldopen", clips: [{ i: 0, lines: ["A claim.", "The rule is simple: file on time."] }, { i: 1, lines: ["Maybe."] }, { i: 2, lines: ["One line only."] }] });
+expect("coldopen returns only valid index picks (n in range, i known) and nothing else", r.status === 200 && JSON.stringify(r.body.picks) === JSON.stringify([{ i: 0, n: 2 }]), r.body);
+r = await call({ task: "coldopen", clips: [] });
+expect("coldopen with no clips is a 400", r.status === 400, r);
 console.log(pass + " passed, " + fail + " failed"); process.exit(fail ? 1 : 0);

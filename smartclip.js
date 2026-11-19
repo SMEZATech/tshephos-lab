@@ -269,7 +269,8 @@
     return words.slice(i);
   }
   // Score one sentence as a cold open. Returns null if it cannot stand alone.
-  function hookOf(sent, next) {
+  function hookOf(sent, next, minPts) {
+    if (minPts == null) minPts = 12;
     // A pause can split one thought in two ("If there's one control you'd need to enable today," /
     // "let it be MFA."). Join it back when the first half did not end the sentence.
     if (next && !sent.terminal && next.words.length <= 12 && (next.start - sent.end) < 1.2)
@@ -289,9 +290,9 @@
     if (/\b(these|those|this one|that one)\b/i.test(ws.slice(0, 6).map(function (w) { return w.word; }).join(' '))) return null;
     var pts = 0;
     for (var k = 0; k < PUNCH.length; k++) if (PUNCH[k].re.test(text)) pts += PUNCH[k].pts;
-    if (pts < 9) return null;                 // the substance has to be there before shortness counts
+    if (pts < Math.min(9, minPts)) return null;   // the substance has to be there before shortness counts
     if (ws.length <= 14) pts += 3;            // short is punchy
-    return pts >= 12 ? { start: ws[0].start, end: ws[ws.length - 1].end, text: text, pts: pts } : null;
+    return pts >= minPts ? { start: ws[0].start, end: ws[ws.length - 1].end, text: text, pts: pts } : null;
   }
   // Is this sentence an aside the clip is better without? Only ever true for INTERIOR sentences.
   function isAside(sent) {
@@ -347,8 +348,28 @@
         c.why.forEach(function (w) { if (/refers to something the viewer missed/.test(w.label)) { out.score += 12; } });
       }
     }
+    out.body = pieces;
+    // The lines a smarter judge may choose between: everything that can stand alone as an opener (a
+    // looser bar than the regex's own pick), best-scoring first. Timings are the engine's; the judge only
+    // chooses WHICH measured line leads, so it can never produce a bad cut.
+    out.options = [];
+    if (o.hooks !== false && piecesDur(pieces) >= 14) {
+      for (var j = c.a + 1; j <= c.b; j++) {
+        var oh = hookOf(sents[j], j < c.b ? sents[j + 1] : null, 0);
+        if (oh && oh.start - c.start > 4) out.options.push(oh);
+      }
+      out.options.sort(function (x, y) { return y.pts - x.pts; });
+      out.options = out.options.slice(0, 6);
+    }
     out.dur = piecesDur(out.pieces);
     return out;
+  }
+  // Put a chosen line first. Returns the clip, or null if the line cannot open it (not one of its options).
+  function applyHook(clip, opt) {
+    if (!clip || !clip.body || !opt || !(opt.start - clip.start > 4)) return null;
+    clip.pieces = [{ start: opt.start, end: opt.end }].concat(clip.body);
+    clip.hook = opt.text; clip.coldLine = opt.text; clip.dur = piecesDur(clip.pieces); clip.pickedBy = 'judge';
+    return clip;
   }
 
   /**
@@ -381,7 +402,7 @@
                                    .slice(0, Math.max(60, o.count * 25));
       cands = raw.map(function (c) {
         var e = edit(sents, c, o);
-        c.score = e.score; c.why = e.why; c.pieces = e.pieces; c.dur = e.dur;
+        c.score = e.score; c.why = e.why; c.pieces = e.pieces; c.dur = e.dur; c.body = e.body; c.options = e.options;
         if (e.hook) c.hook = e.hook.text;
         return c;
       });
@@ -418,6 +439,6 @@
     });
     return out;
   }
-  return { find: find, toSentences: toSentences, DEFAULTS: DEFAULTS, srcAt: srcAt, wordsFor: wordsFor, piecesDur: piecesDur,
+  return { find: find, toSentences: toSentences, DEFAULTS: DEFAULTS, srcAt: srcAt, wordsFor: wordsFor, piecesDur: piecesDur, applyHook: applyHook,
            _score: scoreRun, _candidates: candidates, _hookOf: hookOf, _bodyPieces: bodyPieces };
 }));

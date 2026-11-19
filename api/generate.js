@@ -1021,6 +1021,29 @@ export default async function handler(req, res) {
       return res.status(200).json({ titles });
     }
 
+    // ---- SmartClip cold opens: pick which MEASURED line should open each clip. The engine found the
+    // candidates and owns every timestamp; this returns only an index per clip (0 = none is good enough),
+    // so the worst a bad answer can do is choose a duller opener — it cannot move a cut.
+    if (task === "coldopen") {
+      const clips = (Array.isArray(body.clips) ? body.clips : []).slice(0, 40)
+        .map((c) => ({ i: Number(c && c.i), lines: (Array.isArray(c && c.lines) ? c.lines : []).slice(0, 6).map((l) => String(l || "").slice(0, 220)).filter(Boolean) }))
+        .filter((c) => Number.isFinite(c.i) && c.lines.length >= 1);
+      if (!clips.length) return res.status(400).json({ error: "No clips with candidate lines." });
+      const prompt =
+        "You are choosing the COLD OPEN for short social clips: one line from the passage that plays FIRST, before the clip goes back to the start. For each clip, pick the numbered line that works best with NO setup.\n\n" +
+        "A good cold open is a complete, specific claim or lesson that makes sense on its own and makes someone stop scrolling (a rule, a number, a surprising statement). A bad one points at something unseen (this, that, these), is a question's tail, is housekeeping about the talk, or is vague. If NONE of a clip's lines is good enough, answer 0 for it.\n\n" +
+        clips.map((c) => "### CLIP " + c.i + "\n" + c.lines.map((l, k) => (k + 1) + ". " + l).join("\n")).join("\n\n") + "\n\n" +
+        'Return ONLY: {"picks":[{"i":0,"n":2}]} — one entry per clip, i as given, n the line number or 0.';
+      const text = await callProvider(prompt, { system: "You are a sharp short-form video editor. Return ONLY valid JSON.", temperature: 0.2, maxTokens: 1200 });
+      const parsed = safeParse(text);
+      const byI = new Map(clips.map((c) => [c.i, c.lines.length]));
+      const picks = (Array.isArray(parsed && parsed.picks) ? parsed.picks : [])
+        .map((p) => ({ i: Number(p && p.i), n: Number(p && p.n) }))
+        .filter((p) => byI.has(p.i) && Number.isInteger(p.n) && p.n >= 1 && p.n <= byI.get(p.i));
+      await logContent(req.volt && req.volt.orgId, { tool: "coldopen", input: { clips: clips.length }, output: { picked: picks.length }, provider, model: process.env.GEMINI_MODEL || "gemini-2.5-flash" });
+      return res.status(200).json({ picks });
+    }
+
     // ---- Auto-highlight: rank the most clip-worthy moments from a timestamped transcript ----
     if (task === "highlights") {
       const { transcript, count, minLen, maxLen, totalDur } = body;
