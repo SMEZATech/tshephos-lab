@@ -2361,7 +2361,8 @@ async function exportShort(fileName){
   // seconds; an export (or Chop all) started before it lands would frame a slide deck as a crop.
   if(state._slideDetect){ setStatus('Checking whether this is a slide recording…'); try{ await state._slideDetect; }catch(e){} }
   if(canFastExport() && state.exportFmt !== 'webm') return fastExport(fileName);
-  return startExport(fileName);
+  if(await webExportReady()) return webExport(fileName);   // frame-exact: picture and sound can't drift
+  return startExport(fileName);   // the live recorder: Firefox/old Safari, very large sources, or no connection to load the muxer
 }
 async function startExport(fileName){
   if(state.recording || !state.loaded) return;
@@ -2428,6 +2429,330 @@ function stopExport(){
   if(musicEl.src) musicEl.pause();
 }
 
+// ===================== 🎞 FRAME-EXACT WEB EXPORT (WebCodecs) =====================
+// The web path used to record the live canvas with MediaRecorder: it stamps each frame with the wall
+// clock at the moment the recorder happened to sample the canvas, and mixes the audio live, so picture
+// and speech drift apart (0.06 s on a small clip, ~1 s on a heavy source, worst in the first seconds).
+// This path stamps every frame itself: output frame i is exactly i/30 s, the soundtrack is the same
+// deterministic OfflineAudioContext mix the desktop export uses, and the SOURCE frame for each output
+// frame is chosen by the frame's own media time (requestVideoFrameCallback's mediaTime), never by when
+// it happened to arrive. A slow machine can therefore make the export slower or repeat a frame; it can
+// no longer make the picture drift against the sound.
+// It composes frames with the SAME paintTimeline() the preview and the desktop export use.
+// Falls back to the MediaRecorder path (startExport) when WebCodecs, rVFC or the muxer are missing,
+// when the source is too big to mix in memory, or when anything in here throws.
+const WEBM_MUXER = { src: 'https://cdn.jsdelivr.net/npm/webm-muxer@5.1.4/build/webm-muxer.js',
+                     sri: 'sha384-7htgd8/QoXFkiw1wQVAGeC7VgGWAaWO92DSetKAptXdb3dhClQ8AGGUtzCsZ3olv' };
+const WEB_VP9 = 'vp09.00.41.08';
+let _muxerP = null;
+function loadWebmMuxer(){
+  if(window.WebMMuxer && window.WebMMuxer.Muxer) return Promise.resolve(window.WebMMuxer);
+  if(_muxerP) return _muxerP;
+  _muxerP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = WEBM_MUXER.src; s.integrity = WEBM_MUXER.sri; s.crossOrigin = 'anonymous';
+    s.onload = () => (window.WebMMuxer && window.WebMMuxer.Muxer) ? res(window.WebMMuxer) : (_muxerP = null, rej(new Error('muxer missing')));
+    s.onerror = () => { _muxerP = null; rej(new Error('could not load the muxer')); };
+    document.head.appendChild(s);
+  });
+  return _muxerP;
+}
+// The mix is decoded whole in memory (decodeAudioData), so very large sources stay on the recorder.
+function webAudioFits(){
+  let bytes = (mainClipFile && mainClipFile.size) || 0, secs = videoEl.duration || 0;
+  for(const c of extraClips){ bytes += (c.file && c.file.size) || 0; secs += c.duration || 0; }
+  return bytes < 1.2e9 && secs * 48000 * 8 < 7e8;   // <1.2 GB of files, <~30 min of stereo float audio
+}
+async function webExportReady(){
+  try{ if(localStorage.getItem('volt_export_recorder') === '1') return false; }catch(e){}   // kill-switch
+  if(!(window.VideoEncoder && window.AudioEncoder && window.VideoFrame && window.AudioData && window.OfflineAudioContext)) return false;
+  if(typeof HTMLVideoElement.prototype.requestVideoFrameCallback !== 'function') return false;
+  if(!webAudioFits()) return false;
+  try{
+    const f = FMT[state.format];
+    const v = await VideoEncoder.isConfigSupported({ codec: WEB_VP9, width: f.w, height: f.h, bitrate: 8e6, framerate: 30 });
+    const a = await AudioEncoder.isConfigSupported({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 });
+    if(!(v && v.supported && a && a.supported)) return false;
+    await loadWebmMuxer();
+    return true;
+  }catch(e){ return false; }
+}
+
+// Reads ONE source (a clip's blob URL) forward, frame by frame, and remembers the last few frames with
+// their media times. frameAt(s) answers "which frame is on screen at source time s?" from that ring.
+// It plays the element muted (so decode runs at its natural, sequential speed: seeking per frame
+// re-decodes from the previous keyframe, which on a long-GOP source costs a second a frame), pauses it
+// when it gets ahead of the compositor, slows it down if the decoder drops frames, and only seeks for a
+// real jump (a skipped pause, a piece boundary, a new clip).
+class SeqSource {
+  constructor(url){
+    this.url = url; this.el = document.createElement('video');
+    const el = this.el; el.muted = true; el.defaultMuted = true; el.playsInline = true; el.preload = 'auto';
+    el.setAttribute('playsinline', ''); el.style.cssText = 'position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+    this.ring = []; this.ringN = 6; this.latest = -Infinity; this.dts = []; this.interval = 1/30;
+    this.rate = 1; this.dropRate = 1; this.cap = 0.56; this.load = 35; this.warm = 20; this.playing = false; this.alive = false; this.clean = 0; this.dropped = 0;
+    this.stalls = 0; this.seeks = 0; this.frames = 0; this._wake = []; this.w = 0; this.h = 0; this._lastS = 0;
+  }
+  async open(){
+    const el = this.el; document.body.appendChild(el);
+    await new Promise((res, rej) => {
+      const to = setTimeout(() => rej(new Error('the source did not load')), 20000);
+      el.addEventListener('loadeddata', () => { clearTimeout(to); res(); }, { once: true });
+      el.addEventListener('error', () => { clearTimeout(to); rej(new Error('the source failed to load')); }, { once: true });
+      el.src = this.url;
+    });
+    this.w = el.videoWidth; this.h = el.videoHeight;
+    if(!this.w || !this.h) throw new Error('the source has no picture');
+    const px = this.w * this.h;
+    this.ringN = px > 2.2e6 ? 4 : (px > 1.1e6 ? 6 : 8);
+    this.alive = true;
+    const cb = (now, meta) => { this._onFrame(meta); if(this.alive) el.requestVideoFrameCallback(cb); };
+    el.requestVideoFrameCallback(cb);
+  }
+  _slot(){
+    if(this.ring.length >= this.ringN) return this.ring.shift();
+    const cv2 = document.createElement('canvas'); cv2.width = this.w; cv2.height = this.h;
+    return { mt: 0, cv: cv2, cx: cv2.getContext('2d') };
+  }
+  _grab(mt){
+    const sl = this._slot(); sl.mt = mt;
+    try{ sl.cx.drawImage(this.el, 0, 0, this.w, this.h); }catch(e){}
+    this.ring.push(sl); this.latest = mt;
+  }
+  _onFrame(meta){
+    const mt = meta.mediaTime;
+    if(this.ring.length){
+      const d = mt - this.latest;
+      if(d <= 1e-6) return;                                    // same frame reported twice
+      this.dts.push(d); if(this.dts.length > 15) this.dts.shift();
+      const s2 = this.dts.slice().sort((x, y) => x - y); this.interval = Math.min(0.25, Math.max(1/240, s2[Math.floor(s2.length * 0.25)]));   // lower quartile: dropped frames double some gaps, they must not stretch the estimate
+    }
+    this._grab(mt); this.frames++;
+    // The decoder dropping frames means this machine can't decode at this speed: slow the playback.
+    // (Variable-frame-rate sources have genuine long gaps, so count drops, not gaps.)
+    // Speed: real time, never faster (a decoder that is pushed gets choppy). The decoder dropping frames
+    // means this machine can't keep up, so play slower until it can; sync is unaffected either way
+    // because frames are placed by media time. (Variable-frame-rate sources have genuine long gaps, so
+    // count drops, not gaps. Drops during a seek's catch-up are ignored: see _seek.)
+    try{
+      const q = this.el.getVideoPlaybackQuality && this.el.getVideoPlaybackQuality();
+      if(this.warm > 0){ this.warm--; if(q) this.dropped = q.droppedVideoFrames; }   // a decoder dropping frames as it starts up is normal at any speed
+      else if(q && q.droppedVideoFrames > this.dropped){ this.dropped = q.droppedVideoFrames; this.clean = 0; this.dropRate = Math.max(0.25, this.dropRate * 0.85); this._setRate(); }
+      else if(++this.clean >= 30 && this.dropRate < 1){ this.clean = 0; this.dropRate = Math.min(1, this.dropRate * 1.25); this._setRate(); }
+    }catch(e){}
+    const w = this._wake; this._wake = []; w.forEach(f => f());
+  }
+  _tick(ms){ return new Promise(r => { this._wake.push(r); setTimeout(r, ms); }); }
+  // How long the export's own work takes per output frame (compose + hand to the encoder), in ms. A slow
+  // machine (software canvas, busy GPU) can't also present the source at full speed: the decoder would
+  // drop frames, and a dropped flash or lip movement is a visible skip. So play the source no faster than
+  // the export can consume it. A fast machine measures a few ms and plays at real time within a few frames.
+  setLoad(ms){
+    this.load = this.load * 0.75 + ms * 0.25;
+    this.cap = Math.max(0.2, Math.min(1, (this.interval * 1000) / (1.7 * Math.max(1, this.load))));
+    this._setRate();
+  }
+  _setRate(){
+    const r = Math.min(this.cap, this.dropRate);
+    if(Math.abs(r - this.rate) > 0.04){ this.rate = r; try{ this.el.playbackRate = r; }catch(e){} }
+  }
+  _play(){ if(this.playing) return; this.playing = true; this.warm = Math.max(this.warm, 6); this.el.playbackRate = this.rate; this.el.play().catch(() => { this.playing = false; }); }
+  pause(){ if(!this.playing) return; this.playing = false; try{ this.el.pause(); }catch(e){} }
+  async _seek(s){
+    const el = this.el; this.pause(); this.seeks++; this.warm = 12;
+    this.ring.length = 0; this.latest = -Infinity; this.dts = [];
+    await new Promise(res => {
+      let done = false; const fin = () => { if(done) return; done = true; el.removeEventListener('seeked', fin); clearTimeout(to); res(); };
+      const to = setTimeout(fin, 6000); el.addEventListener('seeked', fin);
+      try{ el.currentTime = Math.max(0, Math.min(s, (isFinite(el.duration) ? el.duration : 1e9) - 0.001)); }catch(e){ fin(); }
+    });
+    try{ const q = el.getVideoPlaybackQuality && el.getVideoPlaybackQuality(); if(q) this.dropped = q.droppedVideoFrames; }catch(e){}   // catch-up drops after a seek are expected
+    // the frame the seek landed on is presented once; take it with its real media time if we get the
+    // callback, otherwise read what is on screen and label it as "the frame at s"
+    if(!this.ring.length) await this._tick(250);
+    if(!this.ring.length) this._grab(s - 1e-4);
+  }
+  eps(){ return Math.min(0.02, this.interval * 0.5); }
+  _final(s, eps){
+    if(this.latest > s + eps) return true;                      // a newer frame exists: the pick below is settled
+    return this.latest > -Infinity && this.el.currentTime > s + Math.max(0.12, this.interval * 3);   // clock passed s, no newer frame (variable frame rate)
+  }
+  _pick(s, eps){
+    for(let i = this.ring.length - 1; i >= 0; i--) if(this.ring[i].mt <= s + eps) return this.ring[i];
+    return this.ring[0];
+  }
+  async frameAt(s){
+    // "The frame at s" is the newest one at or before s, give or take half a frame, never more than 20 ms (so a
+    // mis-measured interval can't pull in a frame from the future).
+    const eps = this.eps(), JUMP = 0.6; this._lastS = s;
+    if(!this.ring.length || s < this.ring[0].mt - eps || s > this.latest + JUMP) await this._seek(s);
+    const t0 = performance.now();
+    for(;;){
+      if(this._final(s, eps)) break;
+      if(this.el.ended) break;
+      if(!this.playing) this._play();
+      if(performance.now() - t0 > 4000){ this.stalls++; break; }
+      await this._tick(40);
+    }
+    const pick = this._pick(s, this.eps());
+    // got well ahead of the compositor: hold the decoder until the output catches up
+    if(this.playing && (this.latest - s) / this.interval > this.ringN - 3) this.pause();
+    return { media: pick.cv, w: this.w, h: this.h, mt: pick.mt };
+  }
+  close(){
+    this.alive = false; this.pause();
+    try{ this.el.removeAttribute('src'); this.el.load(); this.el.remove(); }catch(e){}
+    this.ring.length = 0;
+  }
+}
+
+function webAudioFeeder(aenc, ab){
+  const sr = ab.sampleRate, ch = Math.min(2, ab.numberOfChannels), L = ab.length, chans = [];
+  for(let c = 0; c < ch; c++) chans.push(ab.getChannelData(c));
+  let pos = 0; const STEP = 4800;
+  return {
+    upTo(sec){
+      const target = Math.min(L, Math.ceil(sec * sr));
+      while(pos < target){
+        const n = Math.min(STEP, L - pos), data = new Float32Array(n * ch);
+        for(let c = 0; c < ch; c++) data.set(chans[c].subarray(pos, pos + n), c * n);
+        const ad = new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: n, numberOfChannels: ch, timestamp: Math.round(pos / sr * 1e6), data });
+        aenc.encode(ad); ad.close(); pos += n;
+      }
+    },
+    flush(){ this.upTo(L / sr + 1); }
+  };
+}
+
+function waitVisible(){
+  return new Promise(res => { const f = () => { if(!document.hidden){ document.removeEventListener('visibilitychange', f); res(); } }; document.addEventListener('visibilitychange', f); });
+}
+
+async function webExport(fileName){
+  if(state.recording || state.fastExporting || !state.loaded) return { ok:false };
+  _exportName = fileName || null;
+  const FPS = 30, totalFrames = Math.max(1, Math.round(totalDur() * FPS));
+  const f = FMT[state.format], OW = f.w, OH = f.h;
+  const rtDowngraded = state.upscale > 1;
+  state.fastExporting = true; _fxAbort = false; state._lastExport = null;
+  const btn = $('#exportBtn'); if(btn) btn.disabled = true;
+  const cancelBtn = $('#fxCancel'); if(cancelBtn){ cancelBtn.style.display = 'inline-flex'; cancelBtn.disabled = false; }
+  const stat = (msg, pct) => {
+    $('#exportLbl').innerHTML = '<span class="spinner"></span> ' + msg;
+    setStatus('🎞 Exporting frame by frame — ' + msg + (pct != null ? ' (' + Math.round(pct) + '%)' : '') + ' Keep this tab in front.' + (rtDowngraded ? ' Saving at 1080p: Ultra 2× / 4K need the desktop app.' : ''), true);
+  };
+  const sources = new Map();
+  let venc = null, aenc = null, encErr = null, ok = false;
+  try{
+    applyRenderScale(1);
+    stat('mixing audio…');
+    // the whole soundtrack, laid down exactly like the desktop export does it
+    const bytesByUrl = {};
+    bytesByUrl[videoEl.src] = await (await fetch(videoEl.src)).arrayBuffer();
+    for(const c of extraClips) bytesByUrl[c.src] = await (await fetch(c.src)).arrayBuffer();
+    if(musicEl && musicEl.src) bytesByUrl[musicEl.src] = await (await fetch(musicEl.src)).arrayBuffer();
+    const mix = await fxRenderAudio(FPS, totalFrames, bytesByUrl, {}, true);
+    if(!mix) throw new Error('could not mix the audio');
+
+    const M = await loadWebmMuxer();
+    const mux = new M.Muxer({ target: new M.ArrayBufferTarget(), video: { codec: 'V_VP9', width: OW, height: OH, frameRate: FPS },
+      audio: { codec: 'A_OPUS', numberOfChannels: 2, sampleRate: 48000 }, firstTimestampBehavior: 'offset' });
+    venc = new VideoEncoder({ output: (c, m) => { try{ mux.addVideoChunk(c, m); }catch(e){ encErr = e; } }, error: e => { encErr = e; } });
+    venc.configure({ codec: WEB_VP9, width: OW, height: OH, bitrate: 10e6, framerate: FPS, latencyMode: 'quality' });
+    aenc = new AudioEncoder({ output: (c, m) => { try{ mux.addAudioChunk(c, m); }catch(e){ encErr = e; } }, error: e => { encErr = e; } });
+    aenc.configure({ codec: 'opus', sampleRate: 48000, numberOfChannels: 2, bitrate: 128000 });
+    const feeder = webAudioFeeder(aenc, mix);
+
+    const srcFor = async (seg) => {
+      const key = seg.idx === -1 ? 0 : seg.idx + 1;
+      if(!sources.has(key)){ const s = new SeqSource(seg.idx === -1 ? videoEl.src : seg.clip.src); await s.open(); sources.set(key, s); }
+      sources.forEach((s, k) => { if(k !== key) s.pause(); });
+      return sources.get(key);
+    };
+
+    const iD = introDur(), cD = timelineDur();
+    let lastSeg = null, tick = performance.now();
+    const prof = { src: 0, paint: 0, wait: 0, vf: 0, encode: 0, enc: 0 }; let pt = performance.now(), lastWork = 0;
+    const lap = k => { const n = performance.now(); prof[k] += n - pt; pt = n; };
+    for(let i = 0; i < totalFrames; i++){
+      if(_fxAbort) throw new Error('__CANCELLED__');
+      if(encErr) throw encErr;
+      pt = performance.now();
+      if(document.hidden){ sources.forEach(s => s.pause()); stat('paused — bring this tab back to the front.'); await waitVisible(); }
+      const tt = i / FPS;
+      summitGrab(tt >= iD + cD, tt >= iD && tt < iD + cD);
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+      if(state.introOn && tt < iD){
+        drawIntro(tt / Math.max(0.001, iD));
+      } else if(tt < iD + cD){
+        const into = tt - iD, seg = clipAt(into);
+        if(lastSeg !== null && lastSeg !== seg.idx && state.transition === 'cross'){
+          try{
+            if(!transSnap) transSnap = document.createElement('canvas');
+            transSnap.width = W; transSnap.height = H;
+            transSnap.getContext('2d').drawImage(cv, 0, 0, W, H);
+            transSnapFor = seg.idx;
+          }catch(e){ transSnap = null; }
+        }
+        lastSeg = seg.idx;
+        const fr = await (await srcFor(seg)).frameAt(clipSrcTime(seg, seg.local)); lap('src');
+        paintTimeline(into, seg, fr.media, fr.w, fr.h);
+      } else if(state.outroOn){
+        drawOutro((tt - iD - cD) / Math.max(0.001, outroDur()));
+      } else {
+        ctx.fillStyle = C_NAVY; ctx.fillRect(0, 0, W, H);
+      }
+      drawProgressAt(tt); lap('paint');
+
+      while(venc.encodeQueueSize > 6 || aenc.encodeQueueSize > 40) await new Promise(r => setTimeout(r, 4));
+      lap('wait');
+      const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) }); lap('vf');
+      venc.encode(vf, { keyFrame: i % 60 === 0 }); vf.close(); lap('encode');
+      feeder.upTo((i + 3) / FPS); lap('enc');
+      { const work = prof.paint + prof.vf + prof.encode + prof.enc + prof.wait; sources.forEach(s => s.setLoad(work - lastWork)); lastWork = work; }
+      if(performance.now() - tick > 120){
+        tick = performance.now();
+        stat('frame ' + (i + 1) + ' of ' + totalFrames, (i + 1) / totalFrames * 100);
+        await new Promise(r2 => setTimeout(r2, 0));
+      }
+    }
+    stat('finishing…');
+    feeder.flush();
+    await venc.flush(); await aenc.flush();
+    if(encErr) throw encErr;
+    mux.finalize();
+    const blob = new Blob([mux.target.buffer], { type: 'video/webm' });
+    let stalls = 0, seeks = 0, dropped = 0;
+    sources.forEach(s => { stalls += s.stalls; seeks += s.seeks; dropped += s.dropped; });
+    state._lastExport = { path: 'webcodecs', frames: totalFrames, stalls, seeks, dropped, prof };
+    ok = true;
+    finishWebm(blob, { recorder: false });
+    if(stalls || dropped) setStatus('✅ Exported — check your downloads. (' + (stalls ? stalls + ' late source frame(s)' : '') + (stalls && dropped ? ', ' : '') + (dropped ? dropped + ' dropped by the decoder' : '') + '; picture and sound are still in sync.)');
+    return { ok: true };
+  }catch(err){
+    if(String(err && err.message) === '__CANCELLED__'){ setStatus('Export canceled.'); return { ok: false }; }
+    console.error('web export failed:', err);
+    setStatus('Frame-exact export failed: ' + ((err && err.message) || err) + ' — using the recorder instead.', true);
+    state.fastExporting = false;
+    applyRenderScale(1);
+    if(btn) btn.disabled = false;
+    if(cancelBtn) cancelBtn.style.display = 'none';
+    sources.forEach(s => s.close()); sources.clear();
+    try{ venc && venc.state !== 'closed' && venc.close(); aenc && aenc.state !== 'closed' && aenc.close(); }catch(e){}
+    return await startExport(fileName);
+  }finally{
+    sources.forEach(s => s.close()); sources.clear();
+    try{ if(venc && venc.state !== 'closed') venc.close(); if(aenc && aenc.state !== 'closed') aenc.close(); }catch(e){}
+    if(state.fastExporting){
+      state.fastExporting = false;
+      applyRenderScale(1);
+      if(btn) btn.disabled = false;
+      if(cancelBtn) cancelBtn.style.display = 'none';
+      if(!ok){ $('#exportLbl').textContent = exportLabel(); resetAfterExport(); }
+    }
+  }
+}
+
 // ===================== ⚡ FAST EXPORT =====================
 // Desktop only. Composites the timeline as fast as the CPU draws it instead of recording
 // cv.captureStream(30) in wall-clock time. See the FX block in main.js for the pipeline.
@@ -2451,7 +2776,7 @@ let _fxSession = null, _fxAbort = false;
 // OfflineAudioContext renders this faster than real time and — the part that matters —
 // DETERMINISTICALLY. The real-time path re-mixes live every export, which is why "the music was
 // quieter that time" was a real complaint and never reproducible.
-async function fxRenderAudio(fps, totalFrames, bytesByUrl, audioBase){
+async function fxRenderAudio(fps, totalFrames, bytesByUrl, audioBase, asBuffer){
   audioBase = audioBase || {};   // url -> source time that sample 0 of its buffer is (disk sources only)
   const total = totalFrames / fps;
   const SR = 48000;
@@ -2499,7 +2824,7 @@ async function fxRenderAudio(fps, totalFrames, bytesByUrl, audioBase){
     if(mb){ for(let o = 0; o < total; o += mb.duration) place(mb, o, 0, Math.min(mb.duration, total - o), state.musicVol); }
   }
   const rendered = await oc.startRendering();
-  return wavFromBuffer(rendered);
+  return asBuffer ? rendered : wavFromBuffer(rendered);
 }
 
 // Minimal 16-bit PCM WAV writer. ffmpeg reads this and re-encodes to AAC, so there is no reason
@@ -2716,8 +3041,8 @@ function warnIfFootageStalled(){
     setStatus('⚠ Exported, but this machine couldn\'t keep up — the footage froze in places (' + Math.round(_vfCount/secs) +
               ' new frames/s). Close other tabs and apps and keep this tab in front, or export from the desktop app, which never drops frames.', true);
 }
-function finalizeExport(){
-  const blob = new Blob(chunks, { type:'video/webm' });
+function finalizeExport(){ finishWebm(new Blob(chunks, { type:'video/webm' }), { recorder: true }); }
+function finishWebm(blob, o){
   // Captured here regardless of which download format the user ends up with — MP4 conversion
   // below only ever returns a saved file PATH, never bytes, so this webm Blob is the one chance
   // to keep something in JS memory that can actually be uploaded for the Copy Lab hand-off.
@@ -2729,7 +3054,7 @@ function finalizeExport(){
   $('#exportBtn').disabled = false;
   $('#exportLbl').textContent = exportLabel();
   setStatus('✅ Exported — check your downloads.');
-  warnIfFootageStalled();
+  if(o && o.recorder) warnIfFootageStalled();
   exportDone(true);
   resetAfterExport();
 }

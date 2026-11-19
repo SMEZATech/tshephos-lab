@@ -13,7 +13,7 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -40,3 +40,9 @@ jobs:
       # Real-browser checks of the sign-in behaviour and the sandboxed email preview.
       - name: Browser tests
         run: node tests/browser.test.cjs
+
+      # Exports a clip that flashes and beeps together through video.html's real web exporter, decodes
+      # the file, and fails if picture and sound are more than 50 ms apart (the old live recorder was a
+      # quarter of a second out). Loads the WebM muxer from jsdelivr, so it needs the network.
+      - name: Video export A/V sync
+        run: node tests/av-sync.test.cjs
