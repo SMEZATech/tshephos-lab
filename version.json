@@ -1,5 +1,5 @@
 {
-  "desktopVersion": "1.0.3",
+  "desktopVersion": "1.0.4",
   "download": "https://github.com/SMEZATech/tshephos-lab/releases/latest",
-  "notes": "exports stay in sync with huge source recordings (no more speech lagging the picture), plus working MP4 and 4K export"
+  "notes": "paste a YouTube link in SmartClip or Video to bring in a whole talk, plus the 1.0.3 sync fix for huge recordings"
 }
