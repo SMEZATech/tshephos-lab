@@ -10,7 +10,7 @@
 // Reading usage works with just Supabase; subscribe/verify need Paystack.
 
 import { paymentMatchesPlan } from "../_paystack.js";
-import { setCors, requireSession, PLANS, monthUsage, getOrgPlan, setOrgPlan, sbRest } from "../_guard.js";
+import { setCors, requireSession, PLANS, monthUsage, getOrgPlan, setOrgPlan, sbRest, authStatus } from "../_guard.js";
 
 const PAYSTACK = "https://api.paystack.co";
 
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") { res.status(204).end(); return; }
 
   const s = await requireSession(req);
-  if (s.error) { res.status(401).json({ error: "Please sign in to manage billing.", code: s.error }); return; }
+  if (s.error) { res.status(authStatus(s)).json({ error: s.error === "STUDIO_ONLY" ? "This tool isn’t available on your account." : "Please sign in to manage billing.", code: s.error }); return; }
   const orgId = s.orgId;
   const action = (req.query && req.query.action) || (req.body && req.body.action) || "usage";
   const sk = process.env.PAYSTACK_SECRET_KEY;

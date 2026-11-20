@@ -32,8 +32,9 @@ import mcp from "./_routes/mcp.js";
 import copyuse from "./_routes/copyuse.js";
 import queuehealth from "./_routes/queuehealth.js";
 import rebrand from "./_routes/rebrand.js";
+import access from "./_routes/access.js";
 
-const ROUTES = { kit, image, upload, scrape, assets, billing, paystack, brain, instagram, facebook, tiktok, mcp, copyuse, queuehealth, rebrand };
+const ROUTES = { kit, image, upload, scrape, assets, billing, paystack, brain, instagram, facebook, tiktok, mcp, copyuse, queuehealth, rebrand, access };
 
 // Resolve the endpoint name (e.g. "kit" for /api/kit). Vercel is SUPPOSED to expose the catch-all
 // segments under the filename's param (req.query.volt), but for plain (non-Next) Node functions it

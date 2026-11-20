@@ -218,6 +218,50 @@ const expect = (name, cond, detail) => { if (cond) { pass++; console.log('  ok  
     await ctx.close();
   }
 
+  console.log('Studio-only member (browser):');
+  {
+    // /api/access says studioOnly for her; the page must show Studio and nothing else, and walk her
+    // out of any other tool. The same page for a normal teammate must not change at all.
+    const tiles = () => [...document.querySelectorAll('#va-rail a.r-tile')].filter(a => getComputedStyle(a).display !== 'none').map(a => a.getAttribute('href'));
+    const handlerFor = (only) => (r) => r.request().url().indexOf('/api/access') >= 0 ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ studioOnly: only }) }) : r.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    {
+      const { ctx, page, errors } = await open('omega@smesouthafrica.co.za', handlerFor(true));
+      await page.goto(base + '/home.html', { waitUntil: 'domcontentloaded' });
+      await page.waitForURL(/studio/, { timeout: 25000 }).catch(() => {});
+      expect('a Studio-only member who opens another tool is sent to Studio', /studio/.test(page.url()), page.url());
+      await page.waitForSelector('#va-rail', { timeout: 20000 });
+      const w = await page.$('#va-welcome-go'); if (w) await w.click();
+      await page.waitForTimeout(800);
+      const t = await page.evaluate(tiles);
+      expect('her menu is Studio only', t.length === 1 && /studio/.test(t[0]), t);
+      const groups = await page.evaluate(() => [...document.querySelectorAll('#va-rail .r-grp')].filter(g => getComputedStyle(g).display !== 'none').map(g => g.textContent));
+      expect('…with no empty section headings left over', groups.length === 1 && /Design/.test(groups[0]), groups);
+      const cmds = await page.evaluate(() => { window.voltOpenCommand && window.voltOpenCommand(); return [...document.querySelectorAll('#vk-list .vk-t')].map(e => e.textContent); });
+      expect('…and the command menu offers no other tool', !cmds.some(c => /Copy Lab|Campaign|Email|Video|Stats/.test(c)), cmds);
+      expect('no page errors', errors.length === 0, errors);
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open('thabo@smesouthafrica.co.za', handlerFor(false));
+      await page.goto(base + '/home.html', { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#va-rail', { timeout: 25000 });
+      const w = await page.$('#va-welcome-go'); if (w) await w.click();
+      await page.waitForTimeout(1200);
+      const t = await page.evaluate(tiles);
+      expect('a normal teammate keeps the full menu and stays where they are', t.length >= 8 && /home/.test(page.url()), { t, url: page.url() });
+      await ctx.close();
+    }
+    {
+      // limit lifted: the cached "studio only" answer must not outlive the owner's change
+      const { ctx, page } = await open('omega@smesouthafrica.co.za', handlerFor(false), async (pg) => { await pg.addInitScript(() => { try { localStorage.setItem('volt_access', JSON.stringify({ t: Date.now(), studioOnly: true })); } catch (e) {} }); });
+      await page.goto(base + '/studio.html', { waitUntil: 'domcontentloaded' });
+      // the page reloads itself once to bring the full menu back, so wait on the stored answer, not on the rail
+      let flag; for (let k = 0; k < 25 && flag !== false; k++) { try { flag = await page.evaluate(() => JSON.parse(localStorage.getItem('volt_access') || '{}').studioOnly); } catch (e) { /* mid-reload */ } if (flag !== false) await page.waitForTimeout(1000); }
+      expect('when the limit is lifted the page stops treating her as Studio-only', flag === false, flag);
+      await ctx.close();
+    }
+  }
+
   console.log('SmartClip page (browser):');
   {
     const { ctx, page, errors } = await open('a@smesouthafrica.co.za', json(200, {}));

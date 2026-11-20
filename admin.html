@@ -143,6 +143,16 @@
     <div id="duBody"><p class="h-note">Loading…</p></div>
   </div>
 
+  <!-- ================= TEAM ACTIVITY =================
+       Who has been exporting from Studio, how often, when. Owner-only (server-enforced). It is the
+       only per-person record Volt keeps, and it counts EXPORTS: not time spent, pages opened or typing. -->
+  <div class="card" id="taCard">
+    <h2>Team activity <span style="font-weight:400;color:var(--faint);font-size:13px;">· last 30 days</span></h2>
+    <p class="h-note">Who exported from Studio, how often and when (a download, a story or carousel, an animated post, or Send to Scheduler). This is the only per-person record Volt keeps. It does <b>not</b> show time spent, pages opened or anything typed. Click a name to see their latest exports.</p>
+    <div id="taBody"><p class="h-note">Loading…</p></div>
+    <div id="taPerson" class="cr-log" style="margin-top:10px;display:none;"></div>
+  </div>
+
   <div class="bar">
     <button class="btn" id="saveBtn">Save changes</button>
     <button class="btn ghost" id="resetBtn">Reset to all-on</button>
@@ -367,6 +377,35 @@ async function loadDesignUsage(){
   box.innerHTML = html;
 }
 
+// ---- Team activity ------------------------------------------------------------------------
+function taName(design){ const [f, d] = String(design).split('.'); return f === 'creative' ? 'Creative · ' + d : (CR_FAM[f] || f) + ' · ' + String(d).toUpperCase(); }
+async function loadTeamActivity(){
+  const box = $('#taBody'), one = $('#taPerson');
+  let d;
+  try {
+    const r = await fetch(API + '/copyuse?action=people');
+    if (r.status === 503) { box.innerHTML = '<p class="h-note">The shared log isn’t set up yet (see Copy rotation above).</p>'; return; }
+    if (r.status === 403) { box.innerHTML = '<p class="h-note">Only the account owner can see this.</p>'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    d = await r.json();
+  } catch (e) { box.innerHTML = '<p class="h-note">Couldn’t load team activity right now.</p>'; return; }
+  const ppl = d.people || [];
+  if (!ppl.length) { box.innerHTML = '<p class="h-note">No exports in the last 30 days.</p>'; return; }
+  box.innerHTML = '<table class="cr-grid"><thead><tr><th>Person</th><th style="text-align:right">Exports</th><th style="text-align:right">Active days</th><th>Last export</th><th>Mostly</th></tr></thead><tbody>'
+    + ppl.map(p => '<tr class="ta-row" data-e="' + esc(p.email) + '" style="cursor:pointer;"><td><b>' + esc(p.email.split('@')[0]) + '</b></td><td class="n">' + p.uses + '</td><td class="n">' + p.activeDays + '</td><td>' + crWhen(p.last) + '</td><td>'
+      + p.top.map(t => esc(taName(t.design)) + ' (' + t.uses + ')').join(', ') + '</td></tr>').join('') + '</tbody></table>';
+  box.querySelectorAll('.ta-row').forEach(tr => tr.addEventListener('click', async () => {
+    const email = tr.dataset.e; one.style.display = 'block'; one.textContent = 'Loading…';
+    try {
+      const r = await fetch(API + '/copyuse?action=person&email=' + encodeURIComponent(email));
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json(), ev = j.events || [];
+      one.innerHTML = '<div style="color:var(--faint);margin-bottom:4px;">LATEST EXPORTS · ' + esc(email) + '</div>' + (ev.length ? ev.map(e =>
+        crWhen(e.created_at) + ' · ' + esc(taName(e.family + '.' + e.dir)) + ' · ' + esc(e.size) + (e.variant_id ? ' · copy ' + esc(String(e.variant_id).split('.').pop()) : (e.family === 'creative' ? '' : ' · own copy'))).join('<br>') : 'Nothing logged.');
+    } catch (e) { one.textContent = 'Couldn’t load that person right now.'; }
+  }));
+}
+
 async function loadConnections(){
   const box = $('#connBody');
   let ig;
@@ -532,7 +571,7 @@ async function loadTikTok(){
       if(!confirm('Disconnect TikTok from Volt? Scheduled TikTok posts will stop publishing.')) return;
       try{ await connFetch('tiktok','disconnect',{}); }catch(e){}
       loadTikTok();
-  loadCopyRotation(); loadDesignUsage();
+  loadCopyRotation(); loadDesignUsage(); loadTeamActivity();
     });
   } else {
     box.innerHTML = (tt.error ? '<p class="h-note" style="color:var(--low)">'+esc(tt.error)+'</p>' : '')

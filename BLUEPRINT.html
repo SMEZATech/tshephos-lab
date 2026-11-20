@@ -63,7 +63,7 @@
 <div class="wrap">
 
   <h1>🧭 Volt Blueprint</h1>
-  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-11-19</strong> (the website's video export is now frame-exact; see the Change log).</p>
+  <p class="sub">The single living, git-tracked source of truth for Volt's current architecture and state — <strong>last touched 2026-11-20</strong> (Studio-only members and team activity; see the Change log).</p>
 
   <div class="rule">
     <h2>📌 The rule</h2>
@@ -203,6 +203,11 @@ diff volt-desktop/app/&lt;asset&gt;.js tshephos-lab/&lt;asset&gt;.js     # expec
   </div>
 
   <h2>Change log</h2>
+  <div class="log-entry">
+    <span class="log-date">2026-11-20</span>
+    <strong>Studio-only members, and a per-person view of Studio exports.</strong> The owner can limit named people to Studio: the <code>STUDIO_ONLY_EMAILS</code> env var in Vercel (comma-separated, private, never in this public repo). <b>Server-enforced</b> in <code>requireSession()</code> (<code>api/_guard.js</code>), so every endpoint, including future ones, is closed to them by default: only <code>projects</code>, <code>copyuse</code>, <code>scrape</code>, <code>image</code>, <code>upload</code>, <code>access</code> and four <code>generate</code> tasks (<code>insightcards</code>, <code>glossaryfill</code>, <code>founderinsight</code>, <code>roundupinsight</code>) are allowed, everything else answers 403 <code>STUDIO_ONLY</code>. <code>/api/projects</code> is read-only for them and only for the Brand Kit and module settings (Studio's save of the shared Brand Kit fails quietly; the local copy still works). New route <code>/api/access</code> (<code>{studioOnly}</code>) lets <code>volt-auth.js</code> show Studio only in the rail and command menu and send any other page to Studio; the answer is cached in <code>localStorage.volt_access</code> and the page reloads once if the limit is lifted. Removing the person from the env var (and redeploying) undoes everything.
+    <strong>What Volt can and cannot tell you about a person.</strong> Admin gets a <b>Team activity</b> card (<code>copyuse?action=people|person</code>, owner only): per person, exports in the last 30 days, active days, last export, top designs, and their latest 100 exports. It reads <code>studio_copy_use</code>, which already carried <code>user_email</code>; Creative-design exports are included. That is the only per-person record: <code>usage_event</code> deliberately has no <code>user_id</code> (an earlier column broke metering), and there is no page-view, time-on-site or typing log. Sign-in times are in the Supabase dashboard (Authentication, Users). Tests: <code>tests/studioonly.test.mjs</code> (50 cases, in smoke.cjs), seven browser cases, five more in <code>copyuse.test.mjs</code>.
+  </div>
   <div class="log-entry">
     <span class="log-date">2026-11-19</span>
     <strong>Video: the website's export is now frame-exact, so picture and sound can't drift (handover item 2.1).</strong> The web path used to record the live canvas with <code>MediaRecorder</code>, which stamps frames with the wall clock and mixes sound live. Measured with the repro harness (a clip with a flash and a beep starting together every 2 s): the recorder came out <b>96 to 253 ms</b> out on Joel's PC (picture late), on both a small clip and a heavy 720p long-GOP one. The new path (<code>webExport()</code> in <code>video.html</code>) was <b>9 to 12 ms</b> out, which is the fixture's own floor (the source file reads 9 ms).

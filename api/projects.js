@@ -8,7 +8,7 @@
 //   POST {op:"save", id?, type, title, data}  → insert (no id) or update (with id)
 //   POST {op:"delete", id}      → delete
 
-import { setCors, rateLimit, requireSession, db, workspaceInfo, isOwner } from "./_guard.js";
+import { setCors, rateLimit, requireSession, db, workspaceInfo, isOwner, authStatus } from "./_guard.js";
 
 const enc = (v) => encodeURIComponent(String(v));
 
@@ -39,8 +39,17 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "Storage isn’t configured." });
   }
   const s = await requireSession(req);
-  if (s.error) return res.status(401).json({ error: "Please sign in to continue.", code: s.error });
+  if (s.error) return res.status(authStatus(s)).json({ error: s.error === "STUDIO_ONLY" ? "This tool isn’t available on your account." : "Please sign in to continue.", code: s.error });
   const store = db(s.orgId);
+  // A Studio-only person reads the Brand Kit and the module settings and nothing else, and writes nothing
+  // (the shared Brand Kit is everyone's; Studio's save of it fails quietly and the local copy still works).
+  const SO_TYPES = new Set(["brandkit", "orgsettings"]);
+  const soDeny = () => res.status(403).json({ error: "This tool isn’t available on your account.", code: "STUDIO_ONLY" });
+  if (s.studioOnly) {
+    if (req.method === "POST") return soDeny();
+    if (req.query && req.query.who) return soDeny();
+    if (!(req.query && req.query.id) && !SO_TYPES.has(String(req.query && req.query.type || ""))) return soDeny();
+  }
 
   try {
     if (req.method === "GET") {
@@ -55,7 +64,7 @@ export default async function handler(req, res) {
       const id = req.query && req.query.id;
       if (id) {
         const rows = (await store.select("project", "select=*&id=eq." + enc(id))) || [];
-        if (!rows[0]) return res.status(404).json({ error: "Not found." });
+        if (!rows[0] || (s.studioOnly && !SO_TYPES.has(rows[0].type))) return res.status(404).json({ error: "Not found." });
         return res.status(200).json({ project: rows[0] });
       }
       const type = req.query && req.query.type;

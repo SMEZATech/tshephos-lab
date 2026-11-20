@@ -85,6 +85,35 @@ export default async function handler(req, res) {
         }
         return res.status(200).json({ days: 30, total: rows.length, designs: [...m.values()].sort((x, y) => y.uses - x.uses) });
       }
+      if (q.action === "people" || q.action === "person") {
+        // WHO has been using Studio (owner only; the log already carries each export's user_email).
+        // Exports only: a row is one size downloaded or sent to the scheduler. There is no record of
+        // time spent, pages opened or anything typed, and Admin says so.
+        if (!isOwner(s)) return res.status(403).json({ error: "Only the account owner can see this." });
+        if (q.action === "person") {
+          const email = String(q.email || "").toLowerCase().trim().slice(0, 200);
+          if (!email) return res.status(400).json({ error: "email is required." });
+          const ev = await store.select(TABLE, "select=brand_key,family,dir,size,source,variant_id,created_at&user_email=eq." + enc(email) + "&order=created_at.desc&limit=100");
+          if (ev == null) return notConfigured(res);
+          return res.status(200).json({ email, events: ev });
+        }
+        const since = new Date(Date.now() - 30 * 86400000).toISOString();
+        const rows = await store.select(TABLE, "select=user_email,family,dir,created_at&created_at=gte." + enc(since) + "&order=created_at.desc&limit=5000");
+        if (rows == null) return notConfigured(res);
+        const m = new Map();
+        for (const r of rows) {
+          const k = String(r.user_email || "").toLowerCase() || "(unknown)";
+          const e = m.get(k) || { email: k, uses: 0, last: r.created_at, days: new Set(), designs: new Map() };
+          e.uses++; e.days.add(String(r.created_at).slice(0, 10));
+          const d = r.family + "." + r.dir; e.designs.set(d, (e.designs.get(d) || 0) + 1);
+          m.set(k, e);
+        }
+        const people = [...m.values()].map((e) => ({
+          email: e.email, uses: e.uses, activeDays: e.days.size, last: e.last,
+          top: [...e.designs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([design, uses]) => ({ design, uses })),
+        })).sort((a, b) => String(b.last).localeCompare(String(a.last)));
+        return res.status(200).json({ days: 30, total: rows.length, people });
+      }
       const brand = slug(q.brand), family = slug(q.family);
       if (!brand || !family) return res.status(400).json({ error: "brand and family are required." });
       const rows = await store.select(TABLE,

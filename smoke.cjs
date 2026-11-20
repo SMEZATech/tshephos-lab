@@ -101,7 +101,7 @@ console.log('Rebrand gate:');
   else console.log('  ok no 2026 template content in ' + pub.length + ' public files');
 }
 console.log('Copy rotation:');
-for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs', 'tests/security.test.mjs', 'tests/queue.test.mjs', 'tests/ai.test.mjs', 'tests/meter.test.mjs', 'tests/paystack.test.mjs', 'tests/generate.test.mjs', 'tests/rebrand.test.mjs']) {
+for (const t of ['tests/copy-rotation.test.cjs', 'tests/copyuse.test.mjs', 'tests/security.test.mjs', 'tests/queue.test.mjs', 'tests/ai.test.mjs', 'tests/meter.test.mjs', 'tests/paystack.test.mjs', 'tests/generate.test.mjs', 'tests/rebrand.test.mjs', 'tests/studioonly.test.mjs']) {
   try {
     const out = cp.execSync('node "' + t + '"', { stdio: 'pipe' }).toString().trim().split('\n').pop();
     console.log('  ok ' + t + ' — ' + out);

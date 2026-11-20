@@ -163,6 +163,19 @@ expect("a malformed track item is rejected", r.status === 400, r);
 r = await track("thabo", [{ brand: "sme", dir: "navy", size: "banner" }]);
 expect("an unknown size is rejected", r.status === 400, r);
 await record("thabo", [item({ hash: "usage0001" })]);
+// 12. Team activity is the owner's alone (the log carries each export's user_email).
+r = await call("thabo", "GET", { query: { action: "people" } });
+expect("a teammate cannot read the per-person activity (403)", r.status === 403, r);
+r = await call("thabo", "GET", { query: { action: "person", email: "joel@smesouthafrica.co.za" } });
+expect("…nor one person's exports (403)", r.status === 403, r);
+r = await call("joel", "GET", { query: { action: "people" } });
+expect("the owner gets a per-person list with counts, active days and top designs", r.status === 200 && Array.isArray(r.body.people) && r.body.people.length >= 1 && r.body.people.every((p) => p.email && p.uses >= 1 && p.activeDays >= 1 && Array.isArray(p.top)), r.body);
+const firstPerson = r.body.people[0];
+r = await call("joel", "GET", { query: { action: "person", email: firstPerson.email } });
+expect("…and one person's latest exports", r.status === 200 && r.body.email === firstPerson.email && r.body.events.length >= 1, r.body);
+r = await call("joel", "GET", { query: { action: "person" } });
+expect("…an email is required for that", r.status === 400, r);
+
 r = await call("thabo", "GET", { query: { action: "designs" } });
 expect("the design-usage aggregate ranks Creative editorial first with 3 uses", r.status === 200 && r.body.designs[0].family === "creative" && r.body.designs[0].dir === "editorial" && r.body.designs[0].uses === 3 && r.body.total === 4, r.body);
 

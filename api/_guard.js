@@ -92,8 +92,8 @@ async function blocked(req, res, { methods = "POST, OPTIONS", method = "POST", i
     return true;
   }
   const s = await requireSession(req);
-  if (s.error) { res.status(401).json({ error: "Please sign in to continue.", code: s.error }); return true; }
-  req.volt = { user: s.user, orgId: s.orgId };
+  if (s.error) { res.status(authStatus(s)).json({ error: s.error === "STUDIO_ONLY" ? "This tool isn’t available on your account." : "Please sign in to continue.", code: s.error }); return true; }
+  req.volt = { user: s.user, orgId: s.orgId, studioOnly: !!s.studioOnly };
   return false;
 }
 
@@ -233,6 +233,45 @@ async function workspaceInfo(user, orgId) {
   return out;
 }
 
+// ===== STUDIO-ONLY MEMBERS ==========================================================================
+// The owner can limit named people to Studio. The list is the STUDIO_ONLY_EMAILS env var in Vercel
+// (comma-separated): private, and never written into this PUBLIC repo. It is enforced HERE, on every
+// API call, because hiding the other modules in the page is not a control: anyone can open
+// /email or call /api/brain by hand. Everything below runs inside requireSession(), which every
+// authenticated endpoint already goes through, so a new endpoint is closed to these people by default.
+// What Studio really needs is the allow-list; anything else answers 403 STUDIO_ONLY:
+//   projects  read-only, and only the Brand Kit + module settings (see api/projects.js)
+//   copyuse   the copy-rotation log and Studio's design tracking (the owner-only views stay owner-only)
+//   scrape    reading a link / proxying an image for the canvas
+//   image     AI picture generation (Studio's "AI background")
+//   upload    Studio's image hand-off
+//   access    tells the page which tool to show
+//   generate  only Studio's four article-autofill tasks
+const STUDIO_ONLY_ROUTES = new Set(["projects", "copyuse", "scrape", "image", "upload", "access"]);
+const STUDIO_ONLY_TASKS = new Set(["insightcards", "glossaryfill", "founderinsight", "roundupinsight"]);
+function isStudioOnlyEmail(email) {
+  const e = String(email || "").toLowerCase().trim();
+  if (!e) return false;
+  return String(process.env.STUDIO_ONLY_EMAILS || "").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean).includes(e);
+}
+function apiRouteOf(req) {
+  const parts = String((req && req.url) || "").split("?")[0].split("/").filter(Boolean);   // "/api/kit" -> ["api","kit"]
+  const i = parts.indexOf("api");
+  return String((i >= 0 ? parts[i + 1] : parts[0]) || "").toLowerCase();
+}
+function studioOnlyAllows(req) {
+  const route = apiRouteOf(req);
+  if (route === "generate") {
+    let b = req && req.body;
+    if (typeof b === "string") { try { b = JSON.parse(b); } catch (e) { b = null; } }
+    return !!(b && STUDIO_ONLY_TASKS.has(String(b.task || "")));
+  }
+  return STUDIO_ONLY_ROUTES.has(route);
+}
+// HTTP status for a requireSession() error: a Studio-only person asking for another tool is NOT "please
+// sign in" (that would loop them through the sign-in screen); it is a plain 403.
+function authStatus(s) { return s && s.error === "STUDIO_ONLY" ? 403 : 401; }
+
 // Verify the caller's Supabase session JWT → { user, orgId } or { error }.
 async function requireSession(req) {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) return { error: "AUTH_NOT_CONFIGURED" };
@@ -266,7 +305,9 @@ async function requireSession(req) {
   if (allow && !email.endsWith("@" + allow) && !extra.has(email)) return { error: "NOT_AUTHORIZED" };
   const orgId = await resolveOrg(user); // domain-keyed shared workspace (team sees each other's work)
   if (!orgId) return { error: "NO_ORG" };
-  return { user, orgId };
+  const studioOnly = isStudioOnlyEmail(email);
+  if (studioOnly && !studioOnlyAllows(req)) return { error: "STUDIO_ONLY" };
+  return { user, orgId, studioOnly };
 }
 
 // ---- per-org encrypted key storage (AES-256-GCM; used by /api/keys and at the flip) ----
@@ -553,4 +594,4 @@ async function recordMetric(orgId, m = {}) {
   } catch (e) {}
 }
 
-export { setCors, cronKeyOk, isOrgAdmin, orgKeyFor, meterOrg, _dayCount, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner, isRebrandPreviewer, isRebrandReleased };
+export { isStudioOnlyEmail, studioOnlyAllows, authStatus, setCors, cronKeyOk, isOrgAdmin, orgKeyFor, meterOrg, _dayCount, rateLimit, clientIp, isAllowedOrigin, blocked, requireSession, getOrgKey, encryptSecret, decryptSecret, sbRest, sbBase, sbWrite, sbPatch, PLANS, meter, recordUsage, getOrgPlan, setOrgPlan, monthUsage, logContent, logEvent, recordMetric, db, writeStats, workspaceInfo, isOwner, isRebrandPreviewer, isRebrandReleased };

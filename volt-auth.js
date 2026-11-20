@@ -1505,6 +1505,7 @@
       { t: "Guide", s: "How to use " + BRAND.name, e: "📖", href: "guide.html" }
     ];
     var here = (location.pathname.split("/").pop() || "index.html").toLowerCase();
+    if (isStudioOnly()) tools = tools.filter(function (x) { return x.href === "studio.html"; });
     var cmds = tools.filter(function (x) { return x.href.toLowerCase() !== here; })
       .map(function (x) { return { title: "Go to " + x.t, sub: x.s, emoji: x.e, run: function () { location.href = x.href; } }; });
     cmds.push({ title: "Settings & API keys", sub: "Manage your account", emoji: "⚙️", run: showSettings });
@@ -1637,7 +1638,43 @@
       if (prev && prev.classList && prev.classList.contains("r-gap")) prev.style.display = "none";
     });
   }
+  /* ---------- Studio-only members ----------
+     The owner can limit named people to Studio (STUDIO_ONLY_EMAILS in Vercel). The SERVER is what
+     enforces it: every other tool's API refuses them (api/_guard.js). This half only makes the page
+     match, so they see one tool instead of a wall of refusals. /api/access says whether this
+     signed-in person is limited; the answer is cached so the menu is right from first paint. */
+  var AC_LS = "volt_access";
+  function accessState() { try { return JSON.parse(localStorage.getItem(AC_LS) || "null") || {}; } catch (e) { return {}; } }
+  function isStudioOnly() { return !!accessState().studioOnly; }
+  window.voltStudioOnly = isStudioOnly;
+  function applyAccess() {
+    if (!isStudioOnly()) return;
+    [].forEach.call(document.querySelectorAll("#va-rail a.r-tile"), function (a) {
+      var h = String(a.getAttribute("href") || "").split("?")[0].split("#")[0].split("/").pop().replace(/\.html$/, "").toLowerCase();
+      if (h !== "studio") a.style.display = "none";
+    });
+    var logo = document.querySelector("#va-rail a.r-logo"); if (logo) logo.setAttribute("href", "studio.html");
+    pruneRailGroups();
+    // any other page is a dead end for them: go to Studio (the sign-in screens and Studio itself stay)
+    var page = (location.pathname.split("/").pop() || "").replace(/\.html$/, "").toLowerCase();
+    if (page !== "studio" && page !== "welcome" && page !== "signup" && page !== "reset") { try { location.replace("studio.html"); } catch (e) {} }
+  }
+  function refreshAccess() {
+    fetch("https://tshephos-lab.vercel.app/api/access")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d || typeof d.studioOnly !== "boolean") return;
+        var was = isStudioOnly();
+        try { localStorage.setItem(AC_LS, JSON.stringify({ t: Date.now(), studioOnly: d.studioOnly })); } catch (e) {}
+        if (d.studioOnly) applyAccess();
+        else if (was) { try { location.reload(); } catch (e) {} }   // the limit was lifted: bring the full menu back
+      })
+      .catch(function () {});
+  }
+  window.addEventListener("volt:ready", refreshAccess);
+
   function applyOrgSettings() {
+    applyAccess();
     var s = orgSettings();
     applyBrandModules(s);
     if (!s || (!s.modules && !s.themes && !s.premium)) { pruneRailGroups(); return; }
